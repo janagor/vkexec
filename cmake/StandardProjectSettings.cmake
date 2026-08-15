@@ -31,4 +31,4 @@ endif()
 
 # run vcvarsall when msvc is used
 include("${CMAKE_CURRENT_LIST_DIR}/VCEnvironment.cmake")
-myproject_run_vcvarsall()
+vkexec_run_vcvarsall()

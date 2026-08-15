@@ -24,7 +24,7 @@
 #include <lefticus/tools/non_promoting_ints.hpp>
 
 // This file will be generated automatically when cur_you run the CMake
-// configuration step. It creates a namespace called `myproject`. You can modify
+// configuration step. It creates a namespace called `vkexec`. You can modify
 // the source template at `configured_files/config.hpp.in`.
 #include <internal_use_only/config.hpp>
 #include <string>
@@ -332,7 +332,7 @@ void GameIterationCanvas()
 auto main(int argc, const char **argv) -> int
 {
   try {
-    CLI::App app{ fmt::format("{} version {}", myproject::cmake::kProjectName, myproject::cmake::kProjectVersion) };
+    CLI::App app{ fmt::format("{} version {}", vkexec::cmake::kProjectName, vkexec::cmake::kProjectVersion) };
 
     std::optional<std::string> message;
     app.add_option("-m,--message", message, "A message to print back out");
@@ -352,7 +352,7 @@ auto main(int argc, const char **argv) -> int
     CLI11_PARSE(app, argc, argv);
 
     if (show_version) {
-      fmt::print("{}\n", myproject::cmake::kProjectVersion);
+      fmt::print("{}\n", vkexec::cmake::kProjectVersion);
       return EXIT_SUCCESS;
     }
 

@@ -1,4 +1,4 @@
-#include <myproject/sample_library.hpp>
+#include <vkexec/sample_library.hpp>
 
 auto Factorial(int input) noexcept -> int
 {

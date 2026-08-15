@@ -1,7 +1,7 @@
 #ifndef SAMPLE_LIBRARY_HPP
 #define SAMPLE_LIBRARY_HPP
 
-#include <myproject/sample_library_export.hpp>
+#include <vkexec/sample_library_export.hpp>
 
 [[nodiscard]] SAMPLE_LIBRARY_EXPORT auto Factorial(int input) noexcept -> int;
 

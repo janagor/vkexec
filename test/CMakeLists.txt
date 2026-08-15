@@ -15,9 +15,9 @@ endif()
 if(PROJECT_IS_TOP_LEVEL OR TEST_INSTALLED_VERSION)
   enable_testing()
 
-  find_package(myproject CONFIG REQUIRED) # for intro, project_options, ...
+  find_package(vkexec CONFIG REQUIRED) # for intro, project_options, ...
 
-  if(NOT TARGET myproject_options)
+  if(NOT TARGET vkexec_options)
     message(FATAL_ERROR "Required config package not found!")
     return() # be strictly paranoid for Template Janitor github action! CK
   endif()
@@ -46,12 +46,12 @@ set_tests_properties(cli.version_matches PROPERTIES PASS_REGULAR_EXPRESSION "${P
 add_executable(tests tests.cpp)
 target_link_libraries(
   tests
-  PRIVATE myproject::myproject_warnings
-          myproject::myproject_options
-          myproject::sample_library
+  PRIVATE vkexec::vkexec_warnings
+          vkexec::vkexec_options
+          vkexec::sample_library
           Catch2::Catch2WithMain)
 
-myproject_configure_linker(tests)
+vkexec_configure_linker(tests)
 
 if(WIN32 AND BUILD_SHARED_LIBS)
   add_custom_command(
@@ -80,12 +80,12 @@ catch_discover_tests(
 add_executable(constexpr_tests constexpr_tests.cpp)
 target_link_libraries(
   constexpr_tests
-  PRIVATE myproject::myproject_warnings
-          myproject::myproject_options
-          myproject::sample_library
+  PRIVATE vkexec::vkexec_warnings
+          vkexec::vkexec_options
+          vkexec::sample_library
           Catch2::Catch2WithMain)
 
-myproject_configure_linker(constexpr_tests)
+vkexec_configure_linker(constexpr_tests)
 
 catch_discover_tests(
   constexpr_tests
@@ -105,13 +105,13 @@ catch_discover_tests(
 add_executable(relaxed_constexpr_tests constexpr_tests.cpp)
 target_link_libraries(
   relaxed_constexpr_tests
-  PRIVATE myproject::myproject_warnings
-          myproject::myproject_options
-          myproject::sample_library
+  PRIVATE vkexec::vkexec_warnings
+          vkexec::vkexec_options
+          vkexec::sample_library
           Catch2::Catch2WithMain)
 target_compile_definitions(relaxed_constexpr_tests PRIVATE -DCATCH_CONFIG_RUNTIME_STATIC_REQUIRE)
 
-myproject_configure_linker(relaxed_constexpr_tests)
+vkexec_configure_linker(relaxed_constexpr_tests)
 
 catch_discover_tests(
   relaxed_constexpr_tests
