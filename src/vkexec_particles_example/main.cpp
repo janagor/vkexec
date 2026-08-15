@@ -1,120 +1,167 @@
-#include <vkexec/vkexec.hpp>
+#include <vkexec/bulk.hpp>
+#include <vkexec/buffer.hpp>
+#include <vkexec/detail/control.hpp>
+#include <vkexec/detail/push_constant.hpp>
+#include <vkexec/detail/types.hpp>
+#include <vkexec/draw.hpp>
+#include <vkexec/graphics.hpp>
+#include <vkexec/window.hpp>
 
 #include <stdexec/execution.hpp>
 
+#include <vulkan/vulkan_core.h>
+
+#include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
+#include <cstdint>
+#include <exception>
+#include <print>
 #include <random>
 
 namespace ex = stdexec;
 
-struct ParticleParams {
-  float dt;
+namespace {
+constexpr std::uint32_t k_particle_count = 8192;
+constexpr std::uint32_t k_window_width = 800;
+constexpr std::uint32_t k_window_height = 600;
+constexpr float k_aspect = static_cast<float>(k_window_height) / static_cast<float>(k_window_width);
+constexpr float k_spawn_radius = 0.25F;
+constexpr float k_two_pi = 6.28318530718F;
+constexpr float k_epsilon = 1.0E-6F;
+constexpr float k_initial_speed = 0.25F;
+constexpr double k_point_size = 3.0;
+constexpr float k_max_delta_seconds = 0.05F;
+constexpr float k_clear_r = 0.02F;
+constexpr float k_clear_g = 0.02F;
+constexpr float k_clear_b = 0.05F;
+constexpr unsigned k_rng_seed = 42;
+} // namespace
+
+struct particle_params {
+  float delta_time;
 };
 
-VLK_PUSH_CONSTANT(ParticleParams, float, dt);
+// NOLINTBEGIN(cppcoreguidelines-avoid-do-while,modernize-use-trailing-return-type)
+VLK_PUSH_CONSTANT(particle_params, float, delta_time);
+// NOLINTEND(cppcoreguidelines-avoid-do-while,modernize-use-trailing-return-type)
 
-int main()
+// NOLINTNEXTLINE(bugprone-exception-escape)
+auto main() -> int
 {
   try {
-    constexpr std::uint32_t N = 8192;
-    constexpr float k_aspect = 600.0f / 800.0f; // height / width like the tutorial init
-
-    vkexec::window win({ .width = 800, .height = 600, .title = "vkexec particles" });
+    vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec particles" });
     auto &ctx = win.ctx();
 
     // SoA particle buffers (host-mapped SSBOs shared by compute + vertex stages).
-    vkexec::buffer<float> pos_x(ctx, N);
-    vkexec::buffer<float> pos_y(ctx, N);
-    vkexec::buffer<float> vel_x(ctx, N);
-    vkexec::buffer<float> vel_y(ctx, N);
-    vkexec::buffer<float> col_r(ctx, N);
-    vkexec::buffer<float> col_g(ctx, N);
-    vkexec::buffer<float> col_b(ctx, N);
-    vkexec::buffer<float> col_a(ctx, N);
+    vkexec::buffer<float> pos_x(ctx, k_particle_count);
+    vkexec::buffer<float> pos_y(ctx, k_particle_count);
+    vkexec::buffer<float> vel_x(ctx, k_particle_count);
+    vkexec::buffer<float> vel_y(ctx, k_particle_count);
+    vkexec::buffer<float> col_r(ctx, k_particle_count);
+    vkexec::buffer<float> col_g(ctx, k_particle_count);
+    vkexec::buffer<float> col_b(ctx, k_particle_count);
+    vkexec::buffer<float> col_a(ctx, k_particle_count);
 
     {
-      std::mt19937 rng{ 42 };
-      std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-      for (std::uint32_t i = 0; i < N; ++i) {
-        const float r = 0.25f * std::sqrt(dist(rng));
-        const float theta = dist(rng) * 6.28318530718f;
-        const float x = r * std::cos(theta) * k_aspect;
-        const float y = r * std::sin(theta);
-        const float len = std::sqrt(x * x + y * y) + 1e-6f;
-        pos_x.data()[i] = x;
-        pos_y.data()[i] = y;
-        vel_x.data()[i] = (x / len) * 0.25f;
-        vel_y.data()[i] = (y / len) * 0.25f;
-        col_r.data()[i] = dist(rng);
-        col_g.data()[i] = dist(rng);
-        col_b.data()[i] = dist(rng);
-        col_a.data()[i] = 1.0f;
+      // Deterministic demo seed (not cryptographic).
+      // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+      std::mt19937 rng{ k_rng_seed };
+      std::uniform_real_distribution<float> dist(0.0F, 1.0F);
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      float *const pos_x_host = pos_x.data();
+      float *const pos_y_host = pos_y.data();
+      float *const vel_x_host = vel_x.data();
+      float *const vel_y_host = vel_y.data();
+      float *const col_r_host = col_r.data();
+      float *const col_g_host = col_g.data();
+      float *const col_b_host = col_b.data();
+      float *const col_a_host = col_a.data();
+      for (std::uint32_t index = 0; index < k_particle_count; ++index) {
+        float const radius = k_spawn_radius * std::sqrt(dist(rng));
+        float const theta = dist(rng) * k_two_pi;
+        float const spawn_x = radius * std::cos(theta) * k_aspect;
+        float const spawn_y = radius * std::sin(theta);
+        float const length = std::sqrt((spawn_x * spawn_x) + (spawn_y * spawn_y)) + k_epsilon;
+        pos_x_host[index] = spawn_x;
+        pos_y_host[index] = spawn_y;
+        vel_x_host[index] = (spawn_x / length) * k_initial_speed;
+        vel_y_host[index] = (spawn_y / length) * k_initial_speed;
+        col_r_host[index] = dist(rng);
+        col_g_host[index] = dist(rng);
+        col_b_host[index] = dist(rng);
+        col_a_host[index] = 1.0F;
       }
+      // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
     // Graphics: point list reading particle SSBOs (tutorial draw path via storage buffers).
-    vkexec::graphics_pipeline_config gcfg{};
-    gcfg.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-    gcfg.alpha_blend = true;
-    gcfg.clear_r = 0.02f;
-    gcfg.clear_g = 0.02f;
-    gcfg.clear_b = 0.05f;
+    vkexec::graphics_pipeline_config graphics_cfg{};
+    graphics_cfg.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    graphics_cfg.alpha_blend = true;
+    graphics_cfg.clear_r = k_clear_r;
+    graphics_cfg.clear_g = k_clear_g;
+    graphics_cfg.clear_b = k_clear_b;
 
     vkexec::graphics_pipeline gfx(ctx,
       win.render_pass(),
-      gcfg,
-      [&](vlk::Int vid, vlk::VertexWriter out) {
-        out.position(vlk::vec2(pos_x[vid], pos_y[vid]));
-        out.point_size(vlk::Float::constant(3.0));
-        out.color(vlk::vec4(col_r[vid], col_g[vid], col_b[vid], col_a[vid]));
+      graphics_cfg,
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+      [&](vlk::Int vertex_id, vlk::VertexWriter out) -> void {
+        out.position(vlk::vec2(pos_x[vertex_id], pos_y[vertex_id]));
+        out.point_size(vlk::Float::constant(k_point_size));
+        out.color(vlk::vec4(col_r[vertex_id], col_g[vertex_id], col_b[vertex_id], col_a[vertex_id]));
       },
-      [](vlk::FragmentReader in, vlk::FragmentWriter out) { out.color(in.color4()); });
+      // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+      [](vlk::FragmentReader fragment_in, vlk::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
 
     auto last = std::chrono::steady_clock::now();
-    std::printf("vkexec particles (compute update + point sprites) — close the window to exit\n");
+    std::println("vkexec particles (compute update + point sprites) — close the window to exit");
 
     while (!win.should_close()) {
       win.poll_events();
 
-      const auto now = std::chrono::steady_clock::now();
-      float dt = std::chrono::duration<float>(now - last).count();
+      auto const now = std::chrono::steady_clock::now();
+      float delta_time = std::chrono::duration<float>(now - last).count();
       last = now;
       // Match tutorial feel; clamp spikes when the window stalls.
-      if (dt > 0.05f) { dt = 0.05f; }
-      ParticleParams params{ dt };
+      delta_time = std::min(delta_time, k_max_delta_seconds);
+      particle_params const params{ delta_time };
 
       // GPU particle update (in-place SSBO), synchronized before draw.
-      ex::sync_wait(ex::schedule(ctx.get_scheduler())
-                    | vkexec::bulk(N, params, [&](vlk::Int idx, vlk::PushConstant<ParticleParams> pc) {
-                        vlk::Float px = pos_x[idx];
-                        vlk::Float py = pos_y[idx];
-                        vlk::Float vx = vel_x[idx];
-                        vlk::Float vy = vel_y[idx];
+      (void)ex::sync_wait(ex::schedule(ctx.get_scheduler())
+                          | vkexec::bulk(k_particle_count, params,
+                            // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+                            [&](vlk::Int const index, vlk::PushConstant<particle_params> push) -> void {
+                              vlk::Float position_x = pos_x[index];
+                              vlk::Float position_y = pos_y[index];
+                              vlk::Float velocity_x = vel_x[index];
+                              vlk::Float velocity_y = vel_y[index];
 
-                        px = px + (vx * pc.dt);
-                        py = py + (vy * pc.dt);
+                              position_x = position_x + (velocity_x * push.delta_time);
+                              position_y = position_y + (velocity_y * push.delta_time);
 
-                        vlk::if_then((px <= vlk::Float::constant(-1.0)) || (px >= vlk::Float::constant(1.0)),
-                          [&] { vx = vlk::Float::constant(0.0) - vx; });
-                        vlk::if_then((py <= vlk::Float::constant(-1.0)) || (py >= vlk::Float::constant(1.0)),
-                          [&] { vy = vlk::Float::constant(0.0) - vy; });
+                              vlk::if_then((position_x <= vlk::Float::constant(-1.0))
+                                  || (position_x >= vlk::Float::constant(1.0)),
+                                [&]() -> void { velocity_x = vlk::Float::constant(0.0) - velocity_x; });
+                              vlk::if_then((position_y <= vlk::Float::constant(-1.0))
+                                  || (position_y >= vlk::Float::constant(1.0)),
+                                [&]() -> void { velocity_y = vlk::Float::constant(0.0) - velocity_y; });
 
-                        pos_x[idx] = px;
-                        pos_y[idx] = py;
-                        vel_x[idx] = vx;
-                        vel_y[idx] = vy;
-                      }));
+                              pos_x[index] = position_x;
+                              pos_y[index] = position_y;
+                              vel_x[index] = velocity_x;
+                              vel_y[index] = velocity_y;
+                            }));
+      // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
-      ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, N));
+      (void)ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
     }
 
     win.wait_idle();
     return 0;
-  } catch (const std::exception &ex) {
-    std::fprintf(stderr, "vkexec particles example failed: %s\n", ex.what());
+  } catch (std::exception const &ex) {
+    std::println(stderr, "vkexec particles example failed: {}", ex.what());
     return 1;
   }
 }

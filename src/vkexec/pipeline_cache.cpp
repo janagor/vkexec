@@ -4,121 +4,142 @@
 #include <vkexec/detail/pipeline_cache.hpp>
 #include <vkexec/detail/spirv.hpp>
 
+#include <vulkan/vulkan_core.h>
+
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
 namespace {
 
-void check(VkResult result, const char *what)
+constexpr std::uint32_t k_descriptor_sets_per_pool = 64;
+
+auto check(VkResult result, const char *what) -> void
 {
   if (result != VK_SUCCESS) { throw std::runtime_error(what); }
 }
 
-void destroy_resources(context &ctx, PipelineResources &r)
+auto destroy_resources(context &ctx, pipeline_resources &resources) -> void
 {
   VkDevice device = ctx.device();
-  if (r.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, r.pipeline, nullptr); }
-  if (r.pipeline_layout != VK_NULL_HANDLE) { vkDestroyPipelineLayout(device, r.pipeline_layout, nullptr); }
-  if (r.descriptor_pool != VK_NULL_HANDLE) { vkDestroyDescriptorPool(device, r.descriptor_pool, nullptr); }
-  if (r.set_layout != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, r.set_layout, nullptr); }
-  if (r.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, r.shader, nullptr); }
+  if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
+  if (resources.pipeline_layout != VK_NULL_HANDLE) {
+    vkDestroyPipelineLayout(device, resources.pipeline_layout, nullptr);
+  }
+  if (resources.descriptor_pool != VK_NULL_HANDLE) {
+    vkDestroyDescriptorPool(device, resources.descriptor_pool, nullptr);
+  }
+  if (resources.set_layout != VK_NULL_HANDLE) {
+    vkDestroyDescriptorSetLayout(device, resources.set_layout, nullptr);
+  }
+  if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
 }
 
 } // namespace
 
-PipelineCache::PipelineCache(context &ctx) : ctx_(&ctx) {}
+pipeline_cache::pipeline_cache(context &ctx) : ctx_(&ctx) {}
 
-PipelineCache::~PipelineCache()
+pipeline_cache::~pipeline_cache()
 {
-  for (auto &[_, res] : cache_) { destroy_resources(*ctx_, *res); }
+  for (auto &[key, resources] : cache_) {
+    (void)key;
+    destroy_resources(*ctx_, *resources);
+  }
   cache_.clear();
 }
 
-PipelineResources &PipelineCache::get_or_compile(const vlk::ASTContext &ast, std::uint32_t work_count)
+auto pipeline_cache::get_or_compile(const vlk::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &
 {
   const std::size_t key = detail::hash_ast(ast) ^ (static_cast<std::size_t>(work_count) << 1U);
   {
-    std::scoped_lock lock(mutex_);
-    if (auto it = cache_.find(key); it != cache_.end()) { return *it->second; }
+    const std::scoped_lock lock(mutex_);
+    if (auto cached = cache_.find(key); cached != cache_.end()) { return *cached->second; }
   }
 
   const std::string glsl = detail::emit_glsl(ast, work_count);
   const auto spirv = compile_glsl_to_spirv(glsl, "vkexec_bulk");
 
-  auto res = std::make_unique<PipelineResources>();
-  res->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
-  res->push_bytes = ast.push_bytes;
+  auto resources = std::make_unique<pipeline_resources>();
+  resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
+  resources->push_bytes = ast.push_bytes;
 
-  VkShaderModuleCreateInfo smci{};
-  smci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  smci.codeSize = spirv.size() * sizeof(std::uint32_t);
-  smci.pCode = spirv.data();
-  check(vkCreateShaderModule(ctx_->device(), &smci, nullptr, &res->shader), "vkCreateShaderModule failed");
+  VkShaderModuleCreateInfo module_info{};
+  module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  module_info.codeSize = spirv.size() * sizeof(std::uint32_t);
+  module_info.pCode = spirv.data();
+  check(vkCreateShaderModule(ctx_->device(), &module_info, nullptr, &resources->shader),
+    "vkCreateShaderModule failed");
 
   std::vector<VkDescriptorSetLayoutBinding> bindings(ast.buffers.size());
-  for (std::size_t i = 0; i < ast.buffers.size(); ++i) {
-    bindings[i].binding = static_cast<std::uint32_t>(ast.buffers[i].binding);
-    bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[i].descriptorCount = 1;
-    bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  for (std::size_t index = 0; index < ast.buffers.size(); ++index) {
+    bindings.at(index).binding = static_cast<std::uint32_t>(ast.buffers.at(index).binding);
+    bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings.at(index).descriptorCount = 1;
+    bindings.at(index).stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
   }
 
-  VkDescriptorSetLayoutCreateInfo dslci{};
-  dslci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  dslci.bindingCount = static_cast<std::uint32_t>(bindings.size());
-  dslci.pBindings = bindings.data();
-  check(vkCreateDescriptorSetLayout(ctx_->device(), &dslci, nullptr, &res->set_layout),
+  VkDescriptorSetLayoutCreateInfo layout_info{};
+  layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layout_info.bindingCount = static_cast<std::uint32_t>(bindings.size());
+  layout_info.pBindings = bindings.data();
+  check(vkCreateDescriptorSetLayout(ctx_->device(), &layout_info, nullptr, &resources->set_layout),
     "vkCreateDescriptorSetLayout failed");
 
-  VkPushConstantRange pcr{};
-  pcr.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-  pcr.offset = 0;
-  pcr.size = static_cast<std::uint32_t>(ast.push_bytes);
+  VkPushConstantRange push_range{};
+  push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  push_range.offset = 0;
+  push_range.size = static_cast<std::uint32_t>(ast.push_bytes);
 
-  VkPipelineLayoutCreateInfo plci{};
-  plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  plci.setLayoutCount = 1;
-  plci.pSetLayouts = &res->set_layout;
+  VkPipelineLayoutCreateInfo pipeline_layout_info{};
+  pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipeline_layout_info.setLayoutCount = 1;
+  pipeline_layout_info.pSetLayouts = &resources->set_layout;
   if (ast.push_bytes > 0) {
-    plci.pushConstantRangeCount = 1;
-    plci.pPushConstantRanges = &pcr;
+    pipeline_layout_info.pushConstantRangeCount = 1;
+    pipeline_layout_info.pPushConstantRanges = &push_range;
   }
-  check(vkCreatePipelineLayout(ctx_->device(), &plci, nullptr, &res->pipeline_layout),
+  check(vkCreatePipelineLayout(ctx_->device(), &pipeline_layout_info, nullptr, &resources->pipeline_layout),
     "vkCreatePipelineLayout failed");
 
-  VkComputePipelineCreateInfo cpci{};
-  cpci.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-  cpci.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  cpci.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-  cpci.stage.module = res->shader;
-  cpci.stage.pName = "main";
-  cpci.layout = res->pipeline_layout;
-  check(vkCreateComputePipelines(ctx_->device(), VK_NULL_HANDLE, 1, &cpci, nullptr, &res->pipeline),
+  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
+  VkComputePipelineCreateInfo compute_info{};
+  compute_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+  compute_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  compute_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+  compute_info.stage.module = resources->shader;
+  compute_info.stage.pName = "main";
+  compute_info.layout = resources->pipeline_layout;
+  check(vkCreateComputePipelines(ctx_->device(), VK_NULL_HANDLE, 1, &compute_info, nullptr, &resources->pipeline),
     "vkCreateComputePipelines failed");
 
   VkDescriptorPoolSize pool_size{};
   pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-  pool_size.descriptorCount = std::max(1u, res->binding_count) * 64u;
+  pool_size.descriptorCount = std::max(1U, resources->binding_count) * k_descriptor_sets_per_pool;
 
-  VkDescriptorPoolCreateInfo dpci{};
-  dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  dpci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-  dpci.maxSets = 64;
-  dpci.poolSizeCount = 1;
-  dpci.pPoolSizes = &pool_size;
-  check(vkCreateDescriptorPool(ctx_->device(), &dpci, nullptr, &res->descriptor_pool),
+  VkDescriptorPoolCreateInfo pool_info{};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  pool_info.maxSets = k_descriptor_sets_per_pool;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &pool_size;
+  check(vkCreateDescriptorPool(ctx_->device(), &pool_info, nullptr, &resources->descriptor_pool),
     "vkCreateDescriptorPool failed");
 
-  std::scoped_lock lock(mutex_);
-  if (auto it = cache_.find(key); it != cache_.end()) {
-    destroy_resources(*ctx_, *res);
-    return *it->second;
+  const std::scoped_lock lock(mutex_);
+  if (auto cached = cache_.find(key); cached != cache_.end()) {
+    destroy_resources(*ctx_, *resources);
+    return *cached->second;
   }
-  auto [it, inserted] = cache_.emplace(key, std::move(res));
-  (void)inserted;
-  return *it->second;
+  auto [inserted_at, was_inserted] = cache_.emplace(key, std::move(resources));
+  (void)was_inserted;
+  return *inserted_at->second;
 }
 
 } // namespace vkexec

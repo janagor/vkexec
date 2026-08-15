@@ -1,8 +1,11 @@
-#pragma once
+#ifndef VKEXEC_DETAIL_PUSH_CONSTANT_HPP
+#define VKEXEC_DETAIL_PUSH_CONSTANT_HPP
+
 
 #include <vkexec/detail/types.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <type_traits>
 
@@ -14,25 +17,49 @@ struct PushConstant;
 
 namespace detail {
 
-inline const char *glsl_type_name(float) { return "float"; }
-inline const char *glsl_type_name(double) { return "float"; }
-inline const char *glsl_type_name(int) { return "int"; }
-inline const char *glsl_type_name(unsigned) { return "uint"; }
-inline const char *glsl_type_name(bool) { return "bool"; }
+inline auto glsl_type_name(float tag) -> const char *
+{
+  (void)tag;
+  return "float";
+}
+inline auto glsl_type_name(double tag) -> const char *
+{
+  (void)tag;
+  return "float";
+}
+inline auto glsl_type_name(int tag) -> const char *
+{
+  (void)tag;
+  return "int";
+}
+inline auto glsl_type_name(unsigned tag) -> const char *
+{
+  (void)tag;
+  return "uint";
+}
+inline auto glsl_type_name(bool tag) -> const char *
+{
+  (void)tag;
+  return "bool";
+}
 
 template<typename T>
 auto make_push_proxy_field(ExprNode node)
+  -> std::conditional_t<std::is_integral_v<T> && !std::is_same_v<T, bool>, Int, Float>
 {
-  const int id = ast().append(std::move(node));
+  const int node_id = ast().append(std::move(node));
   if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
-    return Int{ id };
+    return Int{ node_id };
   } else {
-    return Float{ id };
+    return Float{ node_id };
   }
 }
 
 } // namespace detail
 } // namespace vlk
+
+// Reflection macros intentionally emit struct specializations and field lists.
+// NOLINTBEGIN(cppcoreguidelines-macro-usage,bugprone-macro-parentheses,hicpp-vararg)
 
 /// Reflect a POD push-constant struct into a tracing proxy.
 /// Usage: `VLK_PUSH_CONSTANT(SimParams, float, dt, float, damping)`
@@ -116,3 +143,7 @@ auto make_push_proxy_field(ExprNode node)
 // Number of (type, name) pairs from a flat type,name,... list (2/4/6/8 args → 1/2/3/4 pairs)
 #define VLK_PC_NARG(...) VLK_PC_NARG_(__VA_ARGS__, 4, 4, 3, 3, 2, 2, 1, 1, 0)
 #define VLK_PC_NARG_(_1, _2, _3, _4, _5, _6, _7, _8, N, ...) N
+
+// NOLINTEND(cppcoreguidelines-macro-usage,bugprone-macro-parentheses,hicpp-vararg)
+
+#endif  // VKEXEC_DETAIL_PUSH_CONSTANT_HPP

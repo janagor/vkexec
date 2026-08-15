@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VKEXEC_CONTEXT_HPP
+#define VKEXEC_CONTEXT_HPP
 
 #include <vkexec/detail/pipeline_cache.hpp>
 
@@ -22,47 +23,50 @@ public:
   ~context();
 
   context(const context &) = delete;
-  context &operator=(const context &) = delete;
+  auto operator=(const context &) -> context & = delete;
   context(context &&) noexcept = delete;
-  context &operator=(context &&) noexcept = delete;
+  auto operator=(context &&) noexcept -> context & = delete;
 
-  [[nodiscard]] scheduler get_scheduler() noexcept;
+  [[nodiscard]] auto get_scheduler() noexcept -> scheduler;
 
-  [[nodiscard]] VkInstance instance() const noexcept { return instance_.instance; }
-  [[nodiscard]] VkPhysicalDevice physical_device() const noexcept { return physical_device_.physical_device; }
-  [[nodiscard]] VkDevice device() const noexcept { return device_.device; }
-  [[nodiscard]] vkb::Device &vkb_device() noexcept { return device_; }
-  [[nodiscard]] vkb::Device const &vkb_device() const noexcept { return device_; }
-  [[nodiscard]] VkQueue compute_queue() const noexcept { return compute_queue_; }
-  [[nodiscard]] VkQueue graphics_queue() const noexcept { return graphics_queue_; }
-  [[nodiscard]] VkQueue present_queue() const noexcept { return present_queue_; }
-  [[nodiscard]] std::uint32_t queue_family() const noexcept { return queue_family_; }
-  [[nodiscard]] std::uint32_t graphics_queue_family() const noexcept { return graphics_family_; }
-  [[nodiscard]] std::uint32_t present_queue_family() const noexcept { return present_family_; }
-  [[nodiscard]] VkCommandPool command_pool() const noexcept { return command_pool_; }
-  [[nodiscard]] VmaAllocator allocator() const noexcept { return allocator_; }
-  [[nodiscard]] PipelineCache &pipeline_cache() noexcept { return *pipeline_cache_; }
-  [[nodiscard]] bool presentation_enabled() const noexcept { return presentation_enabled_; }
+  [[nodiscard]] auto instance() const noexcept -> VkInstance { return instance_.instance; }
+  [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice
+  {
+    return physical_device_.physical_device;
+  }
+  [[nodiscard]] auto device() const noexcept -> VkDevice { return device_.device; }
+  [[nodiscard]] auto vkb_device() noexcept -> vkb::Device & { return device_; }
+  [[nodiscard]] auto vkb_device() const noexcept -> vkb::Device const & { return device_; }
+  [[nodiscard]] auto compute_queue() const noexcept -> VkQueue { return compute_queue_; }
+  [[nodiscard]] auto graphics_queue() const noexcept -> VkQueue { return graphics_queue_; }
+  [[nodiscard]] auto present_queue() const noexcept -> VkQueue { return present_queue_; }
+  [[nodiscard]] auto queue_family() const noexcept -> std::uint32_t { return queue_family_; }
+  [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t { return graphics_family_; }
+  [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t { return present_family_; }
+  [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool { return command_pool_; }
+  [[nodiscard]] auto allocator() const noexcept -> VmaAllocator { return allocator_; }
+  [[nodiscard]] auto get_pipeline_cache() noexcept -> pipeline_cache & { return *pipeline_cache_; }
+  [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
 
-  VkCommandBuffer allocate_command_buffer();
-  void free_command_buffer(VkCommandBuffer cmd);
+  auto allocate_command_buffer() -> VkCommandBuffer;
+  auto free_command_buffer(VkCommandBuffer cmd) -> void;
 
-  void submit_and_wait(VkCommandBuffer cmd);
-  VkSemaphore submit_async(VkCommandBuffer cmd, VkFence *out_fence = nullptr);
+  auto submit_and_wait(VkCommandBuffer cmd) -> void;
+  auto submit_async(VkCommandBuffer cmd, VkFence *out_fence = nullptr) -> VkSemaphore;
 
 private:
-  friend class PipelineCache;
+  friend class pipeline_cache;
   friend class window;
   template<typename T>
   friend class buffer;
 
   struct instance_only_tag {};
-  explicit context(instance_only_tag, std::vector<const char *> instance_extensions);
-  void complete_for_surface(VkSurfaceKHR surface);
+  explicit context(instance_only_tag tag, std::vector<const char *> const &instance_extensions);
+  auto complete_for_surface(VkSurfaceKHR surface) -> void;
 
-  void create_command_pool();
-  void create_allocator();
-  void fetch_queues(bool want_present);
+  auto create_command_pool() -> void;
+  auto create_allocator() -> void;
+  auto fetch_queues(bool want_present) -> void;
 
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};
@@ -75,10 +79,12 @@ private:
   std::uint32_t graphics_family_{ 0 };
   std::uint32_t present_family_{ 0 };
   VkCommandPool command_pool_{ VK_NULL_HANDLE };
-  std::unique_ptr<PipelineCache> pipeline_cache_;
+  std::unique_ptr<pipeline_cache> pipeline_cache_;
   bool presentation_enabled_{ false };
   bool has_instance_{ false };
   bool has_device_{ false };
 };
 
 } // namespace vkexec
+
+#endif // VKEXEC_CONTEXT_HPP

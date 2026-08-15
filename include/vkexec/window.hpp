@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VKEXEC_WINDOW_HPP
+#define VKEXEC_WINDOW_HPP
 
 #include <vkexec/context.hpp>
 
@@ -11,6 +12,9 @@
 struct GLFWwindow;
 
 namespace vkexec {
+
+constexpr std::uint32_t k_default_window_width = 800;
+constexpr std::uint32_t k_default_window_height = 600;
 
 /// Per-frame recording handle returned by `window::begin_frame()`.
 struct frame {
@@ -25,8 +29,8 @@ struct frame {
 class window {
 public:
   struct config {
-    std::uint32_t width{ 800 };
-    std::uint32_t height{ 600 };
+    std::uint32_t width{ k_default_window_width };
+    std::uint32_t height{ k_default_window_height };
     std::string title{ "vkexec" };
   };
 
@@ -35,25 +39,27 @@ public:
   ~window();
 
   window(const window &) = delete;
-  window &operator=(const window &) = delete;
+  auto operator=(const window &) -> window & = delete;
+  window(window &&) = delete;
+  auto operator=(window &&) -> window & = delete;
 
-  [[nodiscard]] context &ctx() noexcept { return *ctx_; }
-  [[nodiscard]] const context &ctx() const noexcept { return *ctx_; }
+  [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
+  [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
 
-  [[nodiscard]] bool should_close() const noexcept;
-  void poll_events();
-  void wait_idle();
+  [[nodiscard]] auto should_close() const noexcept -> bool;
+  auto poll_events() -> void;
+  auto wait_idle() -> void;
 
-  [[nodiscard]] VkRenderPass render_pass() const noexcept { return render_pass_; }
-  [[nodiscard]] VkExtent2D extent() const noexcept { return swapchain_extent_; }
-  [[nodiscard]] VkFormat swapchain_format() const noexcept { return swapchain_format_; }
+  [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
+  [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return swapchain_extent_; }
+  [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat { return swapchain_format_; }
 
   /// Acquire the next swapchain image and begin a primary command buffer.
   /// Returns nullopt if the swapchain was recreated (caller should retry next loop).
-  [[nodiscard]] std::optional<frame> begin_frame();
+  [[nodiscard]] auto begin_frame() -> std::optional<frame>;
 
   /// Submit the recorded command buffer and present. The command buffer must already be ended.
-  void end_frame(const frame &frame);
+  auto end_frame(const frame &drawn) -> void;
 
 private:
   struct frame_sync {
@@ -62,14 +68,14 @@ private:
     VkFence in_flight{ VK_NULL_HANDLE };
   };
 
-  void create_surface();
-  void create_swapchain();
-  void create_image_views();
-  void create_render_pass();
-  void create_framebuffers();
-  void create_frame_resources();
-  void cleanup_swapchain();
-  void recreate_swapchain();
+  auto create_surface() -> void;
+  auto create_swapchain() -> void;
+  auto create_image_views() -> void;
+  auto create_render_pass() -> void;
+  auto create_framebuffers() -> void;
+  auto create_frame_resources() -> void;
+  auto cleanup_swapchain() -> void;
+  auto recreate_swapchain() -> void;
 
   config cfg_;
   GLFWwindow *glfw_{ nullptr };
@@ -93,7 +99,9 @@ private:
   bool framebuffer_resized_{ false };
   bool frame_open_{ false };
 
-  static void on_framebuffer_resize(GLFWwindow *win, int width, int height);
+  static auto on_framebuffer_resize(GLFWwindow *win, int width, int height) -> void;
 };
 
 } // namespace vkexec
+
+#endif // VKEXEC_WINDOW_HPP

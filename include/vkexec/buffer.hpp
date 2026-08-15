@@ -1,12 +1,17 @@
-#pragma once
+#ifndef VKEXEC_BUFFER_HPP
+#define VKEXEC_BUFFER_HPP
+
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/types.hpp>
 
+#include <cstddef>
 #include <cstring>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -20,7 +25,7 @@ public:
     static_assert(std::is_trivially_copyable_v<T>);
     if (count == 0) { throw std::invalid_argument("vkexec::buffer count must be > 0"); }
 
-    const VkDeviceSize bytes = static_cast<VkDeviceSize>(count * sizeof(T));
+    auto bytes = static_cast<VkDeviceSize>(count * sizeof(T));
 
     VkBufferCreateInfo bci{};
     bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -40,23 +45,23 @@ public:
     mapped_ = ainfo.pMappedData;
     if (mapped_ == nullptr) { throw std::runtime_error("vmaCreateBuffer did not map host-visible memory"); }
 
-    auto *ptr = static_cast<T *>(mapped_);
-    for (std::size_t i = 0; i < count_; ++i) { ptr[i] = fill; }
+    auto *const elems = static_cast<T *>(mapped_);
+    for (T &elem : std::span<T>{ elems, count_ }) { elem = fill; }
   }
 
   ~buffer()
   {
-    if (ctx_ && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
+    if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
       vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);
     }
   }
 
   buffer(const buffer &) = delete;
-  buffer &operator=(const buffer &) = delete;
+  auto operator=(const buffer &) -> buffer & = delete;
 
   buffer(buffer &&other) noexcept
     : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
-      count_(other.count_), name_(std::move(other.name_)), binding_(-1)
+      count_(other.count_), name_(std::move(other.name_))
   {
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;
@@ -64,34 +69,58 @@ public:
     other.mapped_ = nullptr;
   }
 
-  [[nodiscard]] T *data() noexcept { return static_cast<T *>(mapped_); }
-  [[nodiscard]] const T *data() const noexcept { return static_cast<const T *>(mapped_); }
-  [[nodiscard]] std::size_t size() const noexcept { return count_; }
-  [[nodiscard]] VkBuffer vk_buffer() const noexcept { return buffer_; }
-  [[nodiscard]] const std::string &name() const noexcept { return name_; }
+  auto operator=(buffer &&other) noexcept -> buffer &
+  {
+    if (this == &other) { return *this; }
+    if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
+      vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);
+    }
+    ctx_ = other.ctx_;
+    buffer_ = other.buffer_;
+    allocation_ = other.allocation_;
+    mapped_ = other.mapped_;
+    count_ = other.count_;
+    name_ = std::move(other.name_);
+    binding_ = -1;
+    other.ctx_ = nullptr;
+    other.buffer_ = VK_NULL_HANDLE;
+    other.allocation_ = VK_NULL_HANDLE;
+    other.mapped_ = nullptr;
+    other.count_ = 0;
+    other.binding_ = -1;
+    return *this;
+  }
 
-  struct Ref {
+  [[nodiscard]] auto data() noexcept -> T * { return static_cast<T *>(mapped_); }
+  [[nodiscard]] auto data() const noexcept -> const T * { return static_cast<const T *>(mapped_); }
+  [[nodiscard]] auto size() const noexcept -> std::size_t { return count_; }
+  [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return buffer_; }
+  [[nodiscard]] auto name() const noexcept -> const std::string & { return name_; }
+
+  struct ref {
     buffer *owner;
     vlk::Int index;
 
+    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
     operator vlk::Float() const
       requires(std::is_floating_point_v<T>)
     {
       return load_float();
     }
+    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
     operator vlk::Int() const
       requires(std::is_integral_v<T>)
     {
       return load_int();
     }
 
-    Ref &operator=(vlk::Float value)
+    auto operator=(vlk::Float value) -> ref &
       requires(std::is_floating_point_v<T>)
     {
       store(value.id);
       return *this;
     }
-    Ref &operator=(vlk::Int value)
+    auto operator=(vlk::Int value) -> ref &
       requires(std::is_integral_v<T>)
     {
       store(value.id);
@@ -99,7 +128,7 @@ public:
     }
 
   private:
-    int ensure_binding() const
+    [[nodiscard]] auto ensure_binding() const -> int
     {
       auto &ast = vlk::ast();
       if (owner->binding_ < 0) { owner->binding_ = ast.next_binding++; }
@@ -111,34 +140,34 @@ public:
           return owner->binding_;
         }
       }
-      vlk::BufferBinding bb;
-      bb.name = owner->name_;
-      bb.elem_glsl_type = std::is_floating_point_v<T> ? "float" : "int";
-      bb.binding = owner->binding_;
-      bb.vk_buffer = owner->buffer_;
-      bb.byte_size = owner->count_ * sizeof(T);
-      bb.elem_count = owner->count_;
-      ast.buffers.push_back(bb);
+      vlk::BufferBinding binding_info;
+      binding_info.name = owner->name_;
+      binding_info.elem_glsl_type = std::is_floating_point_v<T> ? "float" : "int";
+      binding_info.binding = owner->binding_;
+      binding_info.vk_buffer = owner->buffer_;
+      binding_info.byte_size = owner->count_ * sizeof(T);
+      binding_info.elem_count = owner->count_;
+      ast.buffers.push_back(binding_info);
       if (ast.next_binding <= owner->binding_) { ast.next_binding = owner->binding_ + 1; }
       return owner->binding_;
     }
 
-    vlk::Float load_float() const
+    [[nodiscard]] auto load_float() const -> vlk::Float
     {
       const int binding = ensure_binding();
-      vlk::ExprNode n = vlk::ExprNode::make(vlk::OpKind::Load, index.id);
-      n.binding = binding;
-      const int load = vlk::ast().append(std::move(n));
+      vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::Load, index.id);
+      node.binding = binding;
+      const int load = vlk::ast().append(std::move(node));
       const int tmp = vlk::ast().make_temp("f");
       vlk::emit_assign(tmp, load);
       return vlk::Float{ tmp };
     }
-    vlk::Int load_int() const
+    [[nodiscard]] auto load_int() const -> vlk::Int
     {
       const int binding = ensure_binding();
-      vlk::ExprNode n = vlk::ExprNode::make(vlk::OpKind::Load, index.id);
-      n.binding = binding;
-      const int load = vlk::ast().append(std::move(n));
+      vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::Load, index.id);
+      node.binding = binding;
+      const int load = vlk::ast().append(std::move(node));
       const int tmp = vlk::ast().make_temp("i");
       vlk::emit_assign(tmp, load);
       return vlk::Int{ tmp };
@@ -146,31 +175,31 @@ public:
     void store(int value_id) const
     {
       const int binding = ensure_binding();
-      vlk::ExprNode n = vlk::ExprNode::make(vlk::OpKind::Store, index.id, value_id);
-      n.binding = binding;
-      vlk::ast().append(std::move(n));
+      vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::Store, index.id, value_id);
+      node.binding = binding;
+      vlk::ast().append(std::move(node));
     }
   };
 
-  Ref operator[](vlk::Int idx) { return Ref{ this, idx }; }
+  auto operator[](vlk::Int idx) -> ref { return ref{ this, idx }; }
 
   void register_for_dispatch(vlk::ASTContext &ast) const
   {
     if (binding_ < 0) { return; }
-    for (auto &b : ast.buffers) {
-      if (b.binding == binding_) {
-        b.vk_buffer = buffer_;
-        b.byte_size = count_ * sizeof(T);
-        b.elem_count = count_;
+    for (auto &entry : ast.buffers) {
+      if (entry.binding == binding_) {
+        entry.vk_buffer = buffer_;
+        entry.byte_size = count_ * sizeof(T);
+        entry.elem_count = count_;
       }
     }
   }
 
 private:
-  static int next_name_id()
+  static auto next_name_id() -> int
   {
-    static int id = 0;
-    return id++;
+    static int name_id = 0;
+    return name_id++;
   }
 
   context *ctx_{ nullptr };
@@ -183,3 +212,5 @@ private:
 };
 
 } // namespace vkexec
+
+#endif  // VKEXEC_BUFFER_HPP

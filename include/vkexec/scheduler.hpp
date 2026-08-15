@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VKEXEC_SCHEDULER_HPP
+#define VKEXEC_SCHEDULER_HPP
 
 #include <vkexec/context.hpp>
 
@@ -20,7 +21,7 @@ struct schedule_sender {
   template<class Receiver>
   struct op_state {
     Receiver receiver;
-    void start() noexcept
+    auto start() noexcept -> void
     {
       try {
         ex::set_value(std::move(receiver));
@@ -41,15 +42,20 @@ class scheduler {
 public:
   explicit scheduler(context *ctx) noexcept : ctx_(ctx) {}
 
-  [[nodiscard]] schedule_sender schedule() const noexcept { return schedule_sender{ ctx_ }; }
-  [[nodiscard]] context *get_context() const noexcept { return ctx_; }
+  [[nodiscard]] auto schedule() const noexcept -> schedule_sender { return schedule_sender{ ctx_ }; }
+  [[nodiscard]] auto get_context() const noexcept -> context * { return ctx_; }
 
-  friend bool operator==(scheduler a, scheduler b) noexcept { return a.ctx_ == b.ctx_; }
+  friend auto operator==(scheduler const &lhs, scheduler const &rhs) noexcept -> bool
+  {
+    return lhs.ctx_ == rhs.ctx_;
+  }
 
 private:
   context *ctx_{ nullptr };
 };
 
-inline scheduler context::get_scheduler() noexcept { return scheduler{ this }; }
+inline auto context::get_scheduler() noexcept -> scheduler { return scheduler{ this }; }
 
 } // namespace vkexec
+
+#endif // VKEXEC_SCHEDULER_HPP

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef VKEXEC_GRAPHICS_HPP
+#define VKEXEC_GRAPHICS_HPP
+
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/glsl_emit.hpp>
@@ -15,13 +17,18 @@
 
 namespace vkexec {
 
+constexpr float k_default_clear_r = 0.08F;
+constexpr float k_default_clear_g = 0.09F;
+constexpr float k_default_clear_b = 0.12F;
+constexpr float k_default_clear_a = 1.0F;
+
 struct graphics_pipeline_config {
   VkPrimitiveTopology topology{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST };
   bool alpha_blend{ false };
-  float clear_r{ 0.08f };
-  float clear_g{ 0.09f };
-  float clear_b{ 0.12f };
-  float clear_a{ 1.0f };
+  float clear_r{ k_default_clear_r };
+  float clear_g{ k_default_clear_g };
+  float clear_b{ k_default_clear_b };
+  float clear_a{ k_default_clear_a };
 };
 
 /// Graphics pipeline built by tracing vertex/fragment eDSL lambdas to GLSL/SPIR-V.
@@ -46,37 +53,44 @@ public:
 
   ~graphics_pipeline()
   {
-    if (device_ == VK_NULL_HANDLE) { return; }
-    if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device_, pipeline_, nullptr); }
-    if (layout_ != VK_NULL_HANDLE) { vkDestroyPipelineLayout(device_, layout_, nullptr); }
-    if (set_layout_ != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device_, set_layout_, nullptr); }
-    if (descriptor_pool_ != VK_NULL_HANDLE) { vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr); }
+    destroy();
   }
 
   graphics_pipeline(const graphics_pipeline &) = delete;
-  graphics_pipeline &operator=(const graphics_pipeline &) = delete;
+  auto operator=(const graphics_pipeline &) -> graphics_pipeline & = delete;
 
   graphics_pipeline(graphics_pipeline &&other) noexcept
     : device_(other.device_), cfg_(other.cfg_), layout_(other.layout_), pipeline_(other.pipeline_),
       set_layout_(other.set_layout_), descriptor_pool_(other.descriptor_pool_), descriptor_set_(other.descriptor_set_),
       buffers_(std::move(other.buffers_))
   {
-    other.device_ = VK_NULL_HANDLE;
-    other.layout_ = VK_NULL_HANDLE;
-    other.pipeline_ = VK_NULL_HANDLE;
-    other.set_layout_ = VK_NULL_HANDLE;
-    other.descriptor_pool_ = VK_NULL_HANDLE;
-    other.descriptor_set_ = VK_NULL_HANDLE;
+    other.release();
   }
 
-  [[nodiscard]] VkPipeline pipeline() const noexcept { return pipeline_; }
+  auto operator=(graphics_pipeline &&other) noexcept -> graphics_pipeline &
+  {
+    if (this == &other) { return *this; }
+    destroy();
+    device_ = other.device_;
+    cfg_ = other.cfg_;
+    layout_ = other.layout_;
+    pipeline_ = other.pipeline_;
+    set_layout_ = other.set_layout_;
+    descriptor_pool_ = other.descriptor_pool_;
+    descriptor_set_ = other.descriptor_set_;
+    buffers_ = std::move(other.buffers_);
+    other.release();
+    return *this;
+  }
+
+  [[nodiscard]] auto pipeline() const noexcept -> VkPipeline { return pipeline_; }
 
   /// Begin the render pass, bind this pipeline, draw `vertex_count` verts, end the pass, and end the cmd buffer.
-  void draw(VkCommandBuffer cmd,
+  auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    std::uint32_t vertex_count) const
+    std::uint32_t vertex_count) const -> void
   {
     VkClearValue clear{};
     clear.color = { { cfg_.clear_r, cfg_.clear_g, cfg_.clear_b, cfg_.clear_a } };
@@ -85,7 +99,7 @@ public:
     rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     rp_begin.renderPass = render_pass;
     rp_begin.framebuffer = framebuffer;
-    rp_begin.renderArea.offset = { 0, 0 };
+    rp_begin.renderArea.offset = { .x = 0, .y = 0 };
     rp_begin.renderArea.extent = extent;
     rp_begin.clearValueCount = 1;
     rp_begin.pClearValues = &clear;
@@ -96,32 +110,32 @@ public:
     if (descriptor_set_ != VK_NULL_HANDLE) {
       std::vector<VkDescriptorBufferInfo> infos(buffers_.size());
       std::vector<VkWriteDescriptorSet> writes(buffers_.size());
-      for (std::size_t i = 0; i < buffers_.size(); ++i) {
-        infos[i].buffer = buffers_[i].buffer;
-        infos[i].offset = 0;
-        infos[i].range = buffers_[i].byte_size;
-        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[i].dstSet = descriptor_set_;
-        writes[i].dstBinding = buffers_[i].binding;
-        writes[i].descriptorCount = 1;
-        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writes[i].pBufferInfo = &infos[i];
+      for (std::size_t index = 0; index < buffers_.size(); ++index) {
+        infos.at(index).buffer = buffers_.at(index).buffer;
+        infos.at(index).offset = 0;
+        infos.at(index).range = buffers_.at(index).byte_size;
+        writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes.at(index).dstSet = descriptor_set_;
+        writes.at(index).dstBinding = buffers_.at(index).binding;
+        writes.at(index).descriptorCount = 1;
+        writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes.at(index).pBufferInfo = &infos.at(index);
       }
       vkUpdateDescriptorSets(device_, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, nullptr);
     }
 
     VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
+    viewport.x = 0.0F;
+    viewport.y = 0.0F;
     viewport.width = static_cast<float>(extent.width);
     viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
     VkRect2D scissor{};
-    scissor.offset = { 0, 0 };
+    scissor.offset = { .x = 0, .y = 0 };
     scissor.extent = extent;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
@@ -131,50 +145,69 @@ public:
   }
 
 private:
-  struct BoundBuffer {
+  struct bound_buffer {
     std::uint32_t binding{ 0 };
     VkBuffer buffer{ VK_NULL_HANDLE };
     VkDeviceSize byte_size{ 0 };
   };
 
+  auto destroy() noexcept -> void
+  {
+    if (device_ == VK_NULL_HANDLE) { return; }
+    if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device_, pipeline_, nullptr); }
+    if (layout_ != VK_NULL_HANDLE) { vkDestroyPipelineLayout(device_, layout_, nullptr); }
+    if (set_layout_ != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device_, set_layout_, nullptr); }
+    if (descriptor_pool_ != VK_NULL_HANDLE) { vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr); }
+  }
+
+  auto release() noexcept -> void
+  {
+    device_ = VK_NULL_HANDLE;
+    layout_ = VK_NULL_HANDLE;
+    pipeline_ = VK_NULL_HANDLE;
+    set_layout_ = VK_NULL_HANDLE;
+    descriptor_pool_ = VK_NULL_HANDLE;
+    descriptor_set_ = VK_NULL_HANDLE;
+  }
+
   template<typename VertexFn, typename FragmentFn>
-  void build(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn)
+  auto build(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn) -> void
   {
     vlk::ASTContext vs_ast;
     {
-      vlk::ASTScope scope(vs_ast);
-      vlk::Int vid = vlk::Int::vertex_index();
-      vlk::VertexWriter out;
-      std::forward<VertexFn>(vertex_fn)(vid, out);
+      const vlk::ASTScope scope(vs_ast);
+      const vlk::Int vertex_id = vlk::Int::vertex_index();
+      const vlk::VertexWriter vertex_out;
+      std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
     }
     const std::string vs_glsl = detail::emit_vertex_glsl(vs_ast);
     const auto vs_spv = compile_glsl_to_spirv(vs_glsl, "vkexec.vert", shader_kind::vertex);
 
     vlk::ASTContext fs_ast;
     {
-      vlk::ASTScope scope(fs_ast);
-      vlk::FragmentReader in;
-      vlk::FragmentWriter out;
-      std::forward<FragmentFn>(fragment_fn)(in, out);
+      const vlk::ASTScope scope(fs_ast);
+      const vlk::FragmentReader fragment_in;
+      const vlk::FragmentWriter fragment_out;
+      std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
     }
     const std::string fs_glsl = detail::emit_fragment_glsl(fs_ast);
     const auto fs_spv = compile_glsl_to_spirv(fs_glsl, "vkexec.frag", shader_kind::fragment);
 
-    for (const auto &b : vs_ast.buffers) {
-      buffers_.push_back(BoundBuffer{
-        .binding = static_cast<std::uint32_t>(b.binding),
-        .buffer = static_cast<VkBuffer>(b.vk_buffer),
-        .byte_size = static_cast<VkDeviceSize>(b.byte_size),
+    for (const auto &buffer_binding : vs_ast.buffers) {
+      buffers_.push_back(bound_buffer{
+        .binding = static_cast<std::uint32_t>(buffer_binding.binding),
+        .buffer = static_cast<VkBuffer>(buffer_binding.vk_buffer),
+        .byte_size = static_cast<VkDeviceSize>(buffer_binding.byte_size),
       });
     }
 
     if (!buffers_.empty()) {
       std::vector<VkDescriptorSetLayoutBinding> bindings(buffers_.size());
-      for (std::size_t i = 0; i < buffers_.size(); ++i) {
-        bindings[i].binding = buffers_[i].binding;
-        bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        bindings[i].descriptorCount = 1;
-        bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+      for (std::size_t index = 0; index < buffers_.size(); ++index) {
+        bindings.at(index).binding = buffers_.at(index).binding;
+        bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings.at(index).descriptorCount = 1;
+        bindings.at(index).stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
       }
       VkDescriptorSetLayoutCreateInfo dslci{};
       dslci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -209,15 +242,17 @@ private:
     VkShaderModule vert = create_module(vs_spv);
     VkShaderModule frag = create_module(fs_spv);
 
-    VkPipelineShaderStageCreateInfo stages[2]{};
-    stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    stages[0].module = vert;
-    stages[0].pName = "main";
-    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    stages[1].module = frag;
-    stages[1].pName = "main";
+    static constexpr std::size_t k_graphics_stage_count = 2;
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
+    std::array<VkPipelineShaderStageCreateInfo, k_graphics_stage_count> stages{};
+    stages.at(0).sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages.at(0).stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages.at(0).module = vert;
+    stages.at(0).pName = "main";
+    stages.at(1).sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stages.at(1).stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages.at(1).module = frag;
+    stages.at(1).pName = "main";
 
     VkPipelineVertexInputStateCreateInfo vertex_input{};
     vertex_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -236,15 +271,17 @@ private:
     raster.polygonMode = VK_POLYGON_MODE_FILL;
     raster.cullMode = VK_CULL_MODE_NONE;
     raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    raster.lineWidth = 1.0f;
+    raster.lineWidth = 1.0F;
 
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
     VkPipelineMultisampleStateCreateInfo multisample{};
     multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineColorBlendAttachmentState blend_attachment{};
-    blend_attachment.colorWriteMask =
-      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    blend_attachment.colorWriteMask = static_cast<VkColorComponentFlags>(
+      static_cast<std::uint32_t>(VK_COLOR_COMPONENT_R_BIT) | static_cast<std::uint32_t>(VK_COLOR_COMPONENT_G_BIT)
+      | static_cast<std::uint32_t>(VK_COLOR_COMPONENT_B_BIT) | static_cast<std::uint32_t>(VK_COLOR_COMPONENT_A_BIT));
     if (cfg_.alpha_blend) {
       blend_attachment.blendEnable = VK_TRUE;
       blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -280,8 +317,8 @@ private:
 
     VkGraphicsPipelineCreateInfo gpci{};
     gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    gpci.stageCount = 2;
-    gpci.pStages = stages;
+    gpci.stageCount = static_cast<std::uint32_t>(stages.size());
+    gpci.pStages = stages.data();
     gpci.pVertexInputState = &vertex_input;
     gpci.pInputAssemblyState = &input_assembly;
     gpci.pViewportState = &viewport_state;
@@ -299,14 +336,14 @@ private:
     (void)ctx;
   }
 
-  VkShaderModule create_module(const std::vector<std::uint32_t> &spirv) const
+  [[nodiscard]] auto create_module(const std::vector<std::uint32_t> &spirv) const -> VkShaderModule
   {
-    VkShaderModuleCreateInfo ci{};
-    ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    ci.codeSize = spirv.size() * sizeof(std::uint32_t);
-    ci.pCode = spirv.data();
+    VkShaderModuleCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize = spirv.size() * sizeof(std::uint32_t);
+    create_info.pCode = spirv.data();
     VkShaderModule module{ VK_NULL_HANDLE };
-    if (vkCreateShaderModule(device_, &ci, nullptr, &module) != VK_SUCCESS) {
+    if (vkCreateShaderModule(device_, &create_info, nullptr, &module) != VK_SUCCESS) {
       throw std::runtime_error("vkCreateShaderModule failed");
     }
     return module;
@@ -319,7 +356,9 @@ private:
   VkDescriptorSetLayout set_layout_{ VK_NULL_HANDLE };
   VkDescriptorPool descriptor_pool_{ VK_NULL_HANDLE };
   VkDescriptorSet descriptor_set_{ VK_NULL_HANDLE };
-  std::vector<BoundBuffer> buffers_;
+  std::vector<bound_buffer> buffers_;
 };
 
 } // namespace vkexec
+
+#endif  // VKEXEC_GRAPHICS_HPP

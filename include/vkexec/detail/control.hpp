@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VKEXEC_DETAIL_CONTROL_HPP
+#define VKEXEC_DETAIL_CONTROL_HPP
 
 #include <vkexec/detail/types.hpp>
 
@@ -7,7 +8,7 @@
 namespace vlk {
 
 template<typename Body>
-void if_then(Bool condition, Body &&body)
+auto if_then(Bool condition, Body &&body) -> void
 {
   ast().append(ExprNode::make(OpKind::IfBegin, condition.id));
   std::forward<Body>(body)();
@@ -15,7 +16,7 @@ void if_then(Bool condition, Body &&body)
 }
 
 template<typename ThenBody, typename ElseBody>
-void if_then_else(Bool condition, ThenBody &&then_body, ElseBody &&else_body)
+auto if_then_else(Bool condition, ThenBody &&then_body, ElseBody &&else_body) -> void
 {
   ast().append(ExprNode::make(OpKind::IfBegin, condition.id));
   std::forward<ThenBody>(then_body)();
@@ -25,11 +26,11 @@ void if_then_else(Bool condition, ThenBody &&then_body, ElseBody &&else_body)
 }
 
 template<typename Body>
-void for_loop(int start, int end, Body &&body)
+auto for_loop(int start, int end, Body &&body) -> void
 {
-  const Int begin = Int::constant(start);
-  const Int stop = Int::constant(end);
-  const int loop_var = ast().make_temp("i");
+  Int const begin = Int::constant(start);
+  Int const stop = Int::constant(end);
+  int const loop_var = ast().make_temp("i");
   emit_assign(loop_var, begin.id);
   ast().append(ExprNode::make(OpKind::ForBegin, loop_var, stop.id));
   std::forward<Body>(body)(Int{ loop_var });
@@ -37,3 +38,5 @@ void for_loop(int start, int end, Body &&body)
 }
 
 } // namespace vlk
+
+#endif // VKEXEC_DETAIL_CONTROL_HPP

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef VKEXEC_DETAIL_TYPES_HPP
+#define VKEXEC_DETAIL_TYPES_HPP
+
 
 #include <vkexec/detail/ast.hpp>
 
@@ -19,14 +21,17 @@ struct Bool {
   Bool() = default;
   explicit Bool(int node_id) : id(node_id) {}
   Bool(const Bool &) = default;
-  Bool &operator=(const Bool &) = default;
+  auto operator=(const Bool &) -> Bool & = default;
+  Bool(Bool &&) = default;
+  auto operator=(Bool &&) -> Bool & = default;
+  ~Bool() = default;
 
-  static Bool constant(bool value)
+  static auto constant(bool value) -> Bool
   {
-    ExprNode n = ExprNode::make(OpKind::ConstBool);
-    n.const_i = value ? 1 : 0;
-    n.type = ValueType::Bool;
-    return Bool{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::ConstBool);
+    node.const_i = value ? 1 : 0;
+    node.type = ValueType::Bool;
+    return Bool{ ast().append(std::move(node)) };
   }
 };
 
@@ -36,34 +41,37 @@ struct Int {
   Int() = default;
   explicit Int(int node_id) : id(node_id) {}
   Int(const Int &) = default;
-  Int &operator=(const Int &other);
-  Int &operator+=(Int other);
-  Int &operator-=(Int other);
-  Int &operator*=(Int other);
-  Int &operator/=(Int other);
+  auto operator=(const Int &other) -> Int &;
+  Int(Int &&) = default;
+  auto operator=(Int &&) -> Int & = default;
+  ~Int() = default;
+  auto operator+=(Int other) -> Int &;
+  auto operator-=(Int other) -> Int &;
+  auto operator*=(Int other) -> Int &;
+  auto operator/=(Int other) -> Int &;
 
-  static Int constant(std::int64_t value)
+  static auto constant(std::int64_t value) -> Int
   {
-    ExprNode n = ExprNode::make(OpKind::ConstInt);
-    n.const_i = value;
-    n.type = ValueType::Int;
-    return Int{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::ConstInt);
+    node.const_i = value;
+    node.type = ValueType::Int;
+    return Int{ ast().append(std::move(node)) };
   }
 
-  static Int param_index()
+  static auto param_index() -> Int
   {
-    ExprNode n = ExprNode::make(OpKind::ParamIndex);
-    n.name = "idx";
-    n.type = ValueType::Int;
-    return Int{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::ParamIndex);
+    node.name = "idx";
+    node.type = ValueType::Int;
+    return Int{ ast().append(std::move(node)) };
   }
 
-  static Int vertex_index()
+  static auto vertex_index() -> Int
   {
-    ExprNode n = ExprNode::make(OpKind::VertexIndex);
-    n.name = "vid";
-    n.type = ValueType::Int;
-    return Int{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::VertexIndex);
+    node.name = "vid";
+    node.type = ValueType::Int;
+    return Int{ ast().append(std::move(node)) };
   }
 };
 
@@ -73,18 +81,21 @@ struct Float {
   Float() = default;
   explicit Float(int node_id) : id(node_id) {}
   Float(const Float &) = default;
-  Float &operator=(const Float &other);
-  Float &operator+=(Float other);
-  Float &operator-=(Float other);
-  Float &operator*=(Float other);
-  Float &operator/=(Float other);
+  auto operator=(const Float &other) -> Float &;
+  Float(Float &&) = default;
+  auto operator=(Float &&) -> Float & = default;
+  ~Float() = default;
+  auto operator+=(Float other) -> Float &;
+  auto operator-=(Float other) -> Float &;
+  auto operator*=(Float other) -> Float &;
+  auto operator/=(Float other) -> Float &;
 
-  static Float constant(double value)
+  static auto constant(double value) -> Float
   {
-    ExprNode n = ExprNode::make(OpKind::ConstFloat);
-    n.const_f = value;
-    n.type = ValueType::Float;
-    return Float{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::ConstFloat);
+    node.const_f = value;
+    node.type = ValueType::Float;
+    return Float{ ast().append(std::move(node)) };
   }
 };
 
@@ -93,7 +104,10 @@ struct Float2 {
   Float2() = default;
   explicit Float2(int node_id) : id(node_id) {}
   Float2(const Float2 &) = default;
-  Float2 &operator=(const Float2 &other);
+  auto operator=(const Float2 &other) -> Float2 &;
+  Float2(Float2 &&) = default;
+  auto operator=(Float2 &&) -> Float2 & = default;
+  ~Float2() = default;
 };
 
 struct Float3 {
@@ -101,7 +115,10 @@ struct Float3 {
   Float3() = default;
   explicit Float3(int node_id) : id(node_id) {}
   Float3(const Float3 &) = default;
-  Float3 &operator=(const Float3 &other);
+  auto operator=(const Float3 &other) -> Float3 &;
+  Float3(Float3 &&) = default;
+  auto operator=(Float3 &&) -> Float3 & = default;
+  ~Float3() = default;
 };
 
 struct Float4 {
@@ -109,184 +126,270 @@ struct Float4 {
   Float4() = default;
   explicit Float4(int node_id) : id(node_id) {}
   Float4(const Float4 &) = default;
-  Float4 &operator=(const Float4 &other);
+  auto operator=(const Float4 &other) -> Float4 &;
+  Float4(Float4 &&) = default;
+  auto operator=(Float4 &&) -> Float4 & = default;
+  ~Float4() = default;
 };
 
-inline int bin(OpKind kind, int lhs, int rhs, ValueType type = ValueType::Float)
+inline auto binary_op(OpKind kind, int lhs, int rhs, ValueType type = ValueType::Float) -> int
 {
-  ExprNode n = ExprNode::make(kind, lhs, rhs);
-  n.type = type;
-  return ast().append(std::move(n));
+  ExprNode node = ExprNode::make(kind, lhs, rhs);
+  node.type = type;
+  return ast().append(std::move(node));
 }
 
-inline int un(OpKind kind, int lhs, ValueType type = ValueType::Float)
+inline auto unary_op(OpKind kind, int lhs, ValueType type = ValueType::Float) -> int
 {
-  ExprNode n = ExprNode::make(kind, lhs);
-  n.type = type;
-  return ast().append(std::move(n));
+  ExprNode node = ExprNode::make(kind, lhs);
+  node.type = type;
+  return ast().append(std::move(node));
 }
 
-inline Int operator+(Int a, Int b) { return Int{ bin(OpKind::Add, a.id, b.id, ValueType::Int) }; }
-inline Int operator-(Int a, Int b) { return Int{ bin(OpKind::Sub, a.id, b.id, ValueType::Int) }; }
-inline Int operator*(Int a, Int b) { return Int{ bin(OpKind::Mul, a.id, b.id, ValueType::Int) }; }
-inline Int operator/(Int a, Int b) { return Int{ bin(OpKind::Div, a.id, b.id, ValueType::Int) }; }
-inline Int operator-(Int a) { return Int{ un(OpKind::Neg, a.id, ValueType::Int) }; }
-
-inline Float operator+(Float a, Float b) { return Float{ bin(OpKind::Add, a.id, b.id) }; }
-inline Float operator-(Float a, Float b) { return Float{ bin(OpKind::Sub, a.id, b.id) }; }
-inline Float operator*(Float a, Float b) { return Float{ bin(OpKind::Mul, a.id, b.id) }; }
-inline Float operator/(Float a, Float b) { return Float{ bin(OpKind::Div, a.id, b.id) }; }
-inline Float operator-(Float a) { return Float{ un(OpKind::Neg, a.id) }; }
-
-inline Float operator+(Float a, double b) { return a + Float::constant(b); }
-inline Float operator-(Float a, double b) { return a - Float::constant(b); }
-inline Float operator*(Float a, double b) { return a * Float::constant(b); }
-inline Float operator/(Float a, double b) { return a / Float::constant(b); }
-inline Float operator+(double a, Float b) { return Float::constant(a) + b; }
-inline Float operator-(double a, Float b) { return Float::constant(a) - b; }
-inline Float operator*(double a, Float b) { return Float::constant(a) * b; }
-inline Float operator/(double a, Float b) { return Float::constant(a) / b; }
-
-inline Bool operator<(Int a, Int b) { return Bool{ bin(OpKind::Less, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator<=(Int a, Int b) { return Bool{ bin(OpKind::LessEqual, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator>(Int a, Int b) { return Bool{ bin(OpKind::Greater, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator>=(Int a, Int b) { return Bool{ bin(OpKind::GreaterEqual, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator==(Int a, Int b) { return Bool{ bin(OpKind::Equal, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator!=(Int a, Int b) { return Bool{ bin(OpKind::NotEqual, a.id, b.id, ValueType::Bool) }; }
-
-inline Bool operator<(Float a, Float b) { return Bool{ bin(OpKind::Less, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator<=(Float a, Float b) { return Bool{ bin(OpKind::LessEqual, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator>(Float a, Float b) { return Bool{ bin(OpKind::Greater, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator>=(Float a, Float b) { return Bool{ bin(OpKind::GreaterEqual, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator==(Float a, Float b) { return Bool{ bin(OpKind::Equal, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator!=(Float a, Float b) { return Bool{ bin(OpKind::NotEqual, a.id, b.id, ValueType::Bool) }; }
-
-inline Bool operator&&(Bool a, Bool b) { return Bool{ bin(OpKind::LogicalAnd, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator||(Bool a, Bool b) { return Bool{ bin(OpKind::LogicalOr, a.id, b.id, ValueType::Bool) }; }
-inline Bool operator!(Bool a) { return Bool{ un(OpKind::LogicalNot, a.id, ValueType::Bool) }; }
-
-inline Float sin(Float x) { return Float{ un(OpKind::Sin, x.id) }; }
-inline Float cos(Float x) { return Float{ un(OpKind::Cos, x.id) }; }
-inline Float sqrt(Float x) { return Float{ un(OpKind::Sqrt, x.id) }; }
-inline Float abs(Float x) { return Float{ un(OpKind::Abs, x.id) }; }
-inline Float floor(Float x) { return Float{ un(OpKind::Floor, x.id) }; }
-inline Float ceil(Float x) { return Float{ un(OpKind::Ceil, x.id) }; }
-inline Float min(Float a, Float b) { return Float{ bin(OpKind::Min, a.id, b.id) }; }
-inline Float max(Float a, Float b) { return Float{ bin(OpKind::Max, a.id, b.id) }; }
-
-inline Float select(Bool cond, Float t, Float f)
+inline auto operator+(Int lhs, Int rhs) -> Int
 {
-  ExprNode n = ExprNode::make(OpKind::Select, cond.id, t.id, f.id);
-  n.type = ValueType::Float;
-  return Float{ ast().append(std::move(n)) };
+  return Int{ binary_op(OpKind::Add, lhs.id, rhs.id, ValueType::Int) };
 }
-inline Int select(Bool cond, Int t, Int f)
+inline auto operator-(Int lhs, Int rhs) -> Int
 {
-  ExprNode n = ExprNode::make(OpKind::Select, cond.id, t.id, f.id);
-  n.type = ValueType::Int;
-  return Int{ ast().append(std::move(n)) };
+  return Int{ binary_op(OpKind::Sub, lhs.id, rhs.id, ValueType::Int) };
 }
-inline Float2 select(Bool cond, Float2 t, Float2 f)
+inline auto operator*(Int lhs, Int rhs) -> Int
 {
-  ExprNode n = ExprNode::make(OpKind::Select, cond.id, t.id, f.id);
-  n.type = ValueType::Vec2;
-  return Float2{ ast().append(std::move(n)) };
+  return Int{ binary_op(OpKind::Mul, lhs.id, rhs.id, ValueType::Int) };
 }
-inline Float3 select(Bool cond, Float3 t, Float3 f)
+inline auto operator/(Int lhs, Int rhs) -> Int
 {
-  ExprNode n = ExprNode::make(OpKind::Select, cond.id, t.id, f.id);
-  n.type = ValueType::Vec3;
-  return Float3{ ast().append(std::move(n)) };
+  return Int{ binary_op(OpKind::Div, lhs.id, rhs.id, ValueType::Int) };
 }
-inline Float4 select(Bool cond, Float4 t, Float4 f)
+inline auto operator-(Int lhs) -> Int { return Int{ unary_op(OpKind::Neg, lhs.id, ValueType::Int) }; }
+
+inline auto operator+(Float lhs, Float rhs) -> Float
 {
-  ExprNode n = ExprNode::make(OpKind::Select, cond.id, t.id, f.id);
-  n.type = ValueType::Vec4;
-  return Float4{ ast().append(std::move(n)) };
+  return Float{ binary_op(OpKind::Add, lhs.id, rhs.id) };
+}
+inline auto operator-(Float lhs, Float rhs) -> Float
+{
+  return Float{ binary_op(OpKind::Sub, lhs.id, rhs.id) };
+}
+inline auto operator*(Float lhs, Float rhs) -> Float
+{
+  return Float{ binary_op(OpKind::Mul, lhs.id, rhs.id) };
+}
+inline auto operator/(Float lhs, Float rhs) -> Float
+{
+  return Float{ binary_op(OpKind::Div, lhs.id, rhs.id) };
+}
+inline auto operator-(Float lhs) -> Float { return Float{ unary_op(OpKind::Neg, lhs.id) }; }
+
+inline auto operator+(Float lhs, double rhs) -> Float { return lhs + Float::constant(rhs); }
+inline auto operator-(Float lhs, double rhs) -> Float { return lhs - Float::constant(rhs); }
+inline auto operator*(Float lhs, double rhs) -> Float { return lhs * Float::constant(rhs); }
+inline auto operator/(Float lhs, double rhs) -> Float { return lhs / Float::constant(rhs); }
+inline auto operator+(double lhs, Float rhs) -> Float { return Float::constant(lhs) + rhs; }
+inline auto operator-(double lhs, Float rhs) -> Float { return Float::constant(lhs) - rhs; }
+inline auto operator*(double lhs, Float rhs) -> Float { return Float::constant(lhs) * rhs; }
+inline auto operator/(double lhs, Float rhs) -> Float { return Float::constant(lhs) / rhs; }
+
+inline auto operator<(Int lhs, Int rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::Less, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator<=(Int lhs, Int rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::LessEqual, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator>(Int lhs, Int rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::Greater, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator>=(Int lhs, Int rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::GreaterEqual, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator==(Int lhs, Int rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::Equal, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator!=(Int lhs, Int rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::NotEqual, lhs.id, rhs.id, ValueType::Bool) };
 }
 
-inline Float2 vec2(Float x, Float y)
+inline auto operator<(Float lhs, Float rhs) -> Bool
 {
-  ExprNode n = ExprNode::make(OpKind::Vec2, x.id, y.id);
-  n.type = ValueType::Vec2;
-  return Float2{ ast().append(std::move(n)) };
+  return Bool{ binary_op(OpKind::Less, lhs.id, rhs.id, ValueType::Bool) };
 }
-inline Float2 vec2(double x, double y) { return vec2(Float::constant(x), Float::constant(y)); }
+inline auto operator<=(Float lhs, Float rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::LessEqual, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator>(Float lhs, Float rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::Greater, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator>=(Float lhs, Float rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::GreaterEqual, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator==(Float lhs, Float rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::Equal, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator!=(Float lhs, Float rhs) -> Bool
+{
+  return Bool{ binary_op(OpKind::NotEqual, lhs.id, rhs.id, ValueType::Bool) };
+}
 
-inline Float3 vec3(Float x, Float y, Float z)
+inline auto operator&&(Bool lhs, Bool rhs) -> Bool
 {
-  ExprNode n = ExprNode::make(OpKind::Vec3, x.id, y.id, z.id);
-  n.type = ValueType::Vec3;
-  return Float3{ ast().append(std::move(n)) };
+  return Bool{ binary_op(OpKind::LogicalAnd, lhs.id, rhs.id, ValueType::Bool) };
 }
-inline Float3 vec3(double x, double y, double z)
+inline auto operator||(Bool lhs, Bool rhs) -> Bool
 {
-  return vec3(Float::constant(x), Float::constant(y), Float::constant(z));
+  return Bool{ binary_op(OpKind::LogicalOr, lhs.id, rhs.id, ValueType::Bool) };
+}
+inline auto operator!(Bool lhs) -> Bool
+{
+  return Bool{ unary_op(OpKind::LogicalNot, lhs.id, ValueType::Bool) };
 }
 
-inline Float4 vec4(Float x, Float y, Float z, Float w)
+inline auto sin(Float value) -> Float { return Float{ unary_op(OpKind::Sin, value.id) }; }
+inline auto cos(Float value) -> Float { return Float{ unary_op(OpKind::Cos, value.id) }; }
+inline auto sqrt(Float value) -> Float { return Float{ unary_op(OpKind::Sqrt, value.id) }; }
+inline auto abs(Float value) -> Float { return Float{ unary_op(OpKind::Abs, value.id) }; }
+inline auto floor(Float value) -> Float { return Float{ unary_op(OpKind::Floor, value.id) }; }
+inline auto ceil(Float value) -> Float { return Float{ unary_op(OpKind::Ceil, value.id) }; }
+inline auto min(Float lhs, Float rhs) -> Float
 {
-  ExprNode n = ExprNode::make(OpKind::Vec4, x.id, y.id, z.id, w.id);
-  n.type = ValueType::Vec4;
-  return Float4{ ast().append(std::move(n)) };
+  return Float{ binary_op(OpKind::Min, lhs.id, rhs.id) };
 }
-inline Float4 vec4(Float2 v, Float z, Float w)
+inline auto max(Float lhs, Float rhs) -> Float
 {
-  ExprNode n = ExprNode::make(OpKind::Vec4From2, v.id, z.id, w.id);
-  n.type = ValueType::Vec4;
-  return Float4{ ast().append(std::move(n)) };
+  return Float{ binary_op(OpKind::Max, lhs.id, rhs.id) };
 }
-inline Float4 vec4(Float3 v, Float w)
-{
-  ExprNode n = ExprNode::make(OpKind::Vec4From2, v.id, w.id); // reuse: vec4(vec3, float)
-  n.kind = OpKind::Vec4From2;
-  n.name = "vec3";
-  n.type = ValueType::Vec4;
-  return Float4{ ast().append(std::move(n)) };
-}
-inline Float4 vec4(Float3 v, double w) { return vec4(v, Float::constant(w)); }
 
-inline void emit_assign(int dst_var, int src)
+inline auto select(Bool cond, Float when_true, Float when_false) -> Float
+{
+  ExprNode node = ExprNode::make(OpKind::Select, cond.id, when_true.id, when_false.id);
+  node.type = ValueType::Float;
+  return Float{ ast().append(std::move(node)) };
+}
+inline auto select(Bool cond, Int when_true, Int when_false) -> Int
+{
+  ExprNode node = ExprNode::make(OpKind::Select, cond.id, when_true.id, when_false.id);
+  node.type = ValueType::Int;
+  return Int{ ast().append(std::move(node)) };
+}
+inline auto select(Bool cond, Float2 when_true, Float2 when_false) -> Float2
+{
+  ExprNode node = ExprNode::make(OpKind::Select, cond.id, when_true.id, when_false.id);
+  node.type = ValueType::Vec2;
+  return Float2{ ast().append(std::move(node)) };
+}
+inline auto select(Bool cond, Float3 when_true, Float3 when_false) -> Float3
+{
+  ExprNode node = ExprNode::make(OpKind::Select, cond.id, when_true.id, when_false.id);
+  node.type = ValueType::Vec3;
+  return Float3{ ast().append(std::move(node)) };
+}
+inline auto select(Bool cond, Float4 when_true, Float4 when_false) -> Float4
+{
+  ExprNode node = ExprNode::make(OpKind::Select, cond.id, when_true.id, when_false.id);
+  node.type = ValueType::Vec4;
+  return Float4{ ast().append(std::move(node)) };
+}
+
+inline auto vec2(Float coord_x, Float coord_y) -> Float2
+{
+  ExprNode node = ExprNode::make(OpKind::Vec2, coord_x.id, coord_y.id);
+  node.type = ValueType::Vec2;
+  return Float2{ ast().append(std::move(node)) };
+}
+inline auto vec2(double coord_x, double coord_y) -> Float2
+{
+  return vec2(Float::constant(coord_x), Float::constant(coord_y));
+}
+
+inline auto vec3(Float coord_x, Float coord_y, Float coord_z) -> Float3
+{
+  ExprNode node = ExprNode::make(OpKind::Vec3, coord_x.id, coord_y.id, coord_z.id);
+  node.type = ValueType::Vec3;
+  return Float3{ ast().append(std::move(node)) };
+}
+inline auto vec3(double coord_x, double coord_y, double coord_z) -> Float3
+{
+  return vec3(Float::constant(coord_x), Float::constant(coord_y), Float::constant(coord_z));
+}
+
+inline auto vec4(Float coord_x, Float coord_y, Float coord_z, Float coord_w) -> Float4
+{
+  ExprNode node = ExprNode::make(OpKind::Vec4, coord_x.id, coord_y.id, coord_z.id, coord_w.id);
+  node.type = ValueType::Vec4;
+  return Float4{ ast().append(std::move(node)) };
+}
+inline auto vec4(Float2 vec, Float coord_z, Float coord_w) -> Float4
+{
+  ExprNode node = ExprNode::make(OpKind::Vec4From2, vec.id, coord_z.id, coord_w.id);
+  node.type = ValueType::Vec4;
+  return Float4{ ast().append(std::move(node)) };
+}
+inline auto vec4(Float3 vec, Float coord_w) -> Float4
+{
+  ExprNode node = ExprNode::make(OpKind::Vec4From2, vec.id, coord_w.id); // reuse: vec4(vec3, float)
+  node.kind = OpKind::Vec4From2;
+  node.name = "vec3";
+  node.type = ValueType::Vec4;
+  return Float4{ ast().append(std::move(node)) };
+}
+inline auto vec4(Float3 vec, double coord_w) -> Float4 { return vec4(vec, Float::constant(coord_w)); }
+
+inline auto emit_assign(int dst_var, int src) -> void
 {
   ast().append(ExprNode::make(OpKind::Assign, dst_var, src));
 }
 
-inline Int &Int::operator=(const Int &other)
+inline auto Int::operator=(const Int &other) -> Int &
 {
+  if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("i", ValueType::Int); }
   emit_assign(id, other.id);
   return *this;
 }
-inline Int &Int::operator+=(Int other) { return (*this = *this + other); }
-inline Int &Int::operator-=(Int other) { return (*this = *this - other); }
-inline Int &Int::operator*=(Int other) { return (*this = *this * other); }
-inline Int &Int::operator/=(Int other) { return (*this = *this / other); }
+inline auto Int::operator+=(Int other) -> Int & { return (*this = *this + other); }
+inline auto Int::operator-=(Int other) -> Int & { return (*this = *this - other); }
+inline auto Int::operator*=(Int other) -> Int & { return (*this = *this * other); }
+inline auto Int::operator/=(Int other) -> Int & { return (*this = *this / other); }
 
-inline Float &Float::operator=(const Float &other)
+inline auto Float::operator=(const Float &other) -> Float &
 {
+  if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("f", ValueType::Float); }
   emit_assign(id, other.id);
   return *this;
 }
-inline Float &Float::operator+=(Float other) { return (*this = *this + other); }
-inline Float &Float::operator-=(Float other) { return (*this = *this - other); }
-inline Float &Float::operator*=(Float other) { return (*this = *this * other); }
-inline Float &Float::operator/=(Float other) { return (*this = *this / other); }
+inline auto Float::operator+=(Float other) -> Float & { return (*this = *this + other); }
+inline auto Float::operator-=(Float other) -> Float & { return (*this = *this - other); }
+inline auto Float::operator*=(Float other) -> Float & { return (*this = *this * other); }
+inline auto Float::operator/=(Float other) -> Float & { return (*this = *this / other); }
 
-inline Float2 &Float2::operator=(const Float2 &other)
+inline auto Float2::operator=(const Float2 &other) -> Float2 &
 {
+  if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("v2", ValueType::Vec2); }
   emit_assign(id, other.id);
   return *this;
 }
-inline Float3 &Float3::operator=(const Float3 &other)
+inline auto Float3::operator=(const Float3 &other) -> Float3 &
 {
+  if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("v3", ValueType::Vec3); }
   emit_assign(id, other.id);
   return *this;
 }
-inline Float4 &Float4::operator=(const Float4 &other)
+inline auto Float4::operator=(const Float4 &other) -> Float4 &
 {
+  if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("v4", ValueType::Vec4); }
   emit_assign(id, other.id);
   return *this;
@@ -294,76 +397,86 @@ inline Float4 &Float4::operator=(const Float4 &other)
 
 /// Vertex-stage outputs written during tracing.
 struct VertexWriter {
-  void position(Float2 xy)
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  auto position(Float2 pos_xy) -> void
   {
-    Float4 clip = vec4(xy, Float::constant(0.0), Float::constant(1.0));
-    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
-    n.name = "gl_Position";
-    n.type = ValueType::Vec4;
-    ast().append(std::move(n));
+    const Float4 clip = vec4(pos_xy, Float::constant(0.0), Float::constant(1.0));
+    ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
+    node.name = "gl_Position";
+    node.type = ValueType::Vec4;
+    ast().append(std::move(node));
   }
-  void position(Float4 clip)
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  auto position(Float4 clip) -> void
   {
-    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
-    n.name = "gl_Position";
-    n.type = ValueType::Vec4;
-    ast().append(std::move(n));
+    ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
+    node.name = "gl_Position";
+    node.type = ValueType::Vec4;
+    ast().append(std::move(node));
   }
-  void point_size(Float size)
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  auto point_size(Float size) -> void
   {
-    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, size.id);
-    n.name = "gl_PointSize";
-    n.type = ValueType::Float;
-    ast().append(std::move(n));
+    ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, size.id);
+    node.name = "gl_PointSize";
+    node.type = ValueType::Float;
+    ast().append(std::move(node));
   }
-  void color(Float3 rgb)
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  auto color(Float3 rgb) -> void
   {
-    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, rgb.id);
-    n.name = "vColor";
-    n.type = ValueType::Vec3;
-    n.const_i = 0; // location
-    ast().append(std::move(n));
+    ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, rgb.id);
+    node.name = "vColor";
+    node.type = ValueType::Vec3;
+    node.const_i = 0; // location
+    ast().append(std::move(node));
   }
-  void color(Float4 rgba)
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  auto color(Float4 rgba) -> void
   {
-    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
-    n.name = "vColor4";
-    n.type = ValueType::Vec4;
-    n.const_i = 0;
-    ast().append(std::move(n));
+    ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
+    node.name = "vColor4";
+    node.type = ValueType::Vec4;
+    node.const_i = 0;
+    ast().append(std::move(node));
   }
 };
 
 /// Fragment-stage interpolated inputs.
 struct FragmentReader {
-  [[nodiscard]] Float3 color() const
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto color() const -> Float3
   {
-    ExprNode n = ExprNode::make(OpKind::InputVarying);
-    n.name = "vColor";
-    n.type = ValueType::Vec3;
-    n.const_i = 0;
-    return Float3{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::InputVarying);
+    node.name = "vColor";
+    node.type = ValueType::Vec3;
+    node.const_i = 0;
+    return Float3{ ast().append(std::move(node)) };
   }
-  [[nodiscard]] Float4 color4() const
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto color4() const -> Float4
   {
-    ExprNode n = ExprNode::make(OpKind::InputVarying);
-    n.name = "vColor4";
-    n.type = ValueType::Vec4;
-    n.const_i = 0;
-    return Float4{ ast().append(std::move(n)) };
+    ExprNode node = ExprNode::make(OpKind::InputVarying);
+    node.name = "vColor4";
+    node.type = ValueType::Vec4;
+    node.const_i = 0;
+    return Float4{ ast().append(std::move(node)) };
   }
 };
 
 /// Fragment-stage color attachment outputs.
 struct FragmentWriter {
-  void color(Float4 rgba)
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  auto color(Float4 rgba) -> void
   {
-    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
-    n.name = "fragColor";
-    n.type = ValueType::Vec4;
-    n.const_i = 0;
-    ast().append(std::move(n));
+    ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
+    node.name = "fragColor";
+    node.type = ValueType::Vec4;
+    node.const_i = 0;
+    ast().append(std::move(node));
   }
 };
 
 } // namespace vlk
+
+#endif  // VKEXEC_DETAIL_TYPES_HPP

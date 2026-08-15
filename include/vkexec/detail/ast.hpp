@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VKEXEC_DETAIL_AST_HPP
+#define VKEXEC_DETAIL_AST_HPP
 
 #include <cstdint>
 #include <stdexcept>
@@ -8,6 +9,8 @@
 #include <vector>
 
 namespace vlk {
+
+constexpr int k_default_local_size_x = 64;
 
 enum class ValueType : std::uint8_t { Float, Int, Bool, Vec2, Vec3, Vec4 };
 
@@ -73,16 +76,19 @@ struct ExprNode {
   int binding{ -1 };
   std::string name;
 
-  static ExprNode make(OpKind k, int left = -1, int right = -1, int ext = -1, int fourth_comp = -1)
+  // NOLINTBEGIN(bugprone-easily-swappable-parameters)
+  static auto make(OpKind kind, int left = -1, int right = -1, int third = -1, int fourth_comp = -1)
+    -> ExprNode
   {
-    ExprNode n;
-    n.kind = k;
-    n.lhs = left;
-    n.rhs = right;
-    n.extra = ext;
-    n.fourth = fourth_comp;
-    return n;
+    ExprNode node;
+    node.kind = kind;
+    node.lhs = left;
+    node.rhs = right;
+    node.extra = third;
+    node.fourth = fourth_comp;
+    return node;
   }
+  // NOLINTEND(bugprone-easily-swappable-parameters)
 };
 
 struct BufferBinding {
@@ -100,28 +106,28 @@ struct ASTContext {
   std::vector<std::string> statements;
   std::string push_block_glsl;
   std::size_t push_bytes{ 0 };
-  int local_size_x{ 64 };
+  int local_size_x{ k_default_local_size_x };
   int next_temp{ 0 };
   int next_binding{ 0 };
 
-  int append(ExprNode node)
+  auto append(ExprNode node) -> int
   {
-    const int id = static_cast<int>(nodes.size());
+    const int node_id = static_cast<int>(nodes.size());
     nodes.push_back(std::move(node));
-    return id;
+    return node_id;
   }
 
-  int make_temp(std::string_view prefix = "t", ValueType type = ValueType::Float)
+  auto make_temp(std::string_view prefix = "t", ValueType type = ValueType::Float) -> int
   {
-    const int id = next_temp++;
-    ExprNode n = ExprNode::make(OpKind::Var);
-    n.name = std::string(prefix) + std::to_string(id);
-    n.type = type;
-    return append(std::move(n));
+    const int temp_id = next_temp++;
+    ExprNode node = ExprNode::make(OpKind::Var);
+    node.name = std::string(prefix) + std::to_string(temp_id);
+    node.type = type;
+    return append(std::move(node));
   }
 };
 
-inline ASTContext *&current_ast() noexcept
+inline auto current_ast() noexcept -> ASTContext *&
 {
   thread_local ASTContext *ctx = nullptr;
   return ctx;
@@ -134,17 +140,19 @@ public:
   explicit ASTScope(ASTContext &ctx) : previous_(current_ast()) { current_ast() = &ctx; }
   ~ASTScope() { current_ast() = previous_; }
   ASTScope(const ASTScope &) = delete;
-  ASTScope &operator=(const ASTScope &) = delete;
+  auto operator=(const ASTScope &) -> ASTScope & = delete;
+  ASTScope(ASTScope &&) = delete;
+  auto operator=(ASTScope &&) -> ASTScope & = delete;
 };
 
-inline ASTContext &ast()
+inline auto ast() -> ASTContext &
 {
   ASTContext *ctx = current_ast();
   if (ctx == nullptr) { throw std::runtime_error("vlk AST used outside of a tracing scope"); }
   return *ctx;
 }
 
-inline const char *glsl_type_name(ValueType type)
+inline auto glsl_type_name(ValueType type) -> const char *
 {
   switch (type) {
   case ValueType::Int:
@@ -164,3 +172,5 @@ inline const char *glsl_type_name(ValueType type)
 }
 
 } // namespace vlk
+
+#endif // VKEXEC_DETAIL_AST_HPP

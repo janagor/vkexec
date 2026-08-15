@@ -1,4 +1,6 @@
-#pragma once
+#ifndef VKEXEC_VKEXEC_HPP
+#define VKEXEC_VKEXEC_HPP
+
 
 #include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
@@ -14,3 +16,5 @@
 namespace vkexec {
 // Public umbrella header for the vkexec stdexec Vulkan backend.
 }
+
+#endif  // VKEXEC_VKEXEC_HPP

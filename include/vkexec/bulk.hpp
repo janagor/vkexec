@@ -1,4 +1,6 @@
-#pragma once
+#ifndef VKEXEC_BULK_HPP
+#define VKEXEC_BULK_HPP
+
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/detail/glsl_emit.hpp>
@@ -13,6 +15,7 @@
 #include <exception>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace vkexec {
 
@@ -63,13 +66,13 @@ struct bulk_sender {
     {
       vlk::ASTContext ast_ctx;
       {
-        vlk::ASTScope scope(ast_ctx);
-        vlk::Int idx = vlk::Int::param_index();
-        auto pc = vlk::PushConstant<Params>::bind();
-        fun(idx, pc);
+        const vlk::ASTScope scope(ast_ctx);
+        vlk::Int const idx = vlk::Int::param_index();
+        auto push = vlk::PushConstant<Params>::bind();
+        fun(idx, push);
       }
 
-      auto &pipe = ctx->pipeline_cache().get_or_compile(ast_ctx, shape);
+      auto &pipe = ctx->get_pipeline_cache().get_or_compile(ast_ctx, shape);
 
       VkDescriptorSetAllocateInfo dsai{};
       dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -83,17 +86,17 @@ struct bulk_sender {
 
       std::vector<VkDescriptorBufferInfo> buf_infos(ast_ctx.buffers.size());
       std::vector<VkWriteDescriptorSet> writes(ast_ctx.buffers.size());
-      for (std::size_t i = 0; i < ast_ctx.buffers.size(); ++i) {
-        auto *vkbuf = static_cast<VkBuffer>(ast_ctx.buffers[i].vk_buffer);
-        buf_infos[i].buffer = vkbuf;
-        buf_infos[i].offset = 0;
-        buf_infos[i].range = ast_ctx.buffers[i].byte_size;
-        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[i].dstSet = set;
-        writes[i].dstBinding = static_cast<std::uint32_t>(ast_ctx.buffers[i].binding);
-        writes[i].descriptorCount = 1;
-        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writes[i].pBufferInfo = &buf_infos[i];
+      for (std::size_t index = 0; index < ast_ctx.buffers.size(); ++index) {
+        auto *vkbuf = static_cast<VkBuffer>(ast_ctx.buffers.at(index).vk_buffer);
+        buf_infos.at(index).buffer = vkbuf;
+        buf_infos.at(index).offset = 0;
+        buf_infos.at(index).range = ast_ctx.buffers.at(index).byte_size;
+        writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes.at(index).dstSet = set;
+        writes.at(index).dstBinding = static_cast<std::uint32_t>(ast_ctx.buffers.at(index).binding);
+        writes.at(index).descriptorCount = 1;
+        writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes.at(index).pBufferInfo = &buf_infos.at(index);
       }
       if (!writes.empty()) { vkUpdateDescriptorSets(ctx->device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr); }
 
@@ -110,8 +113,8 @@ struct bulk_sender {
           static_cast<std::uint32_t>(sizeof(Params)), &params);
       }
 
-      const std::uint32_t local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
-      const std::uint32_t groups = (shape + local - 1u) / local;
+      auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
+      const std::uint32_t groups = (shape + local - 1U) / local;
       vkCmdDispatch(cmd, groups, 1, 1);
       vkEndCommandBuffer(cmd);
 
@@ -122,31 +125,31 @@ struct bulk_sender {
   };
 
   template<class Receiver>
-  auto connect(Receiver receiver) const
+  [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
   {
     return op_state<Receiver>{ ctx, shape, params, fun, std::move(receiver) };
   }
 };
 
 template<typename Params, typename Fun>
-auto operator|(schedule_sender snd, bulk_closure<Params, Fun> cl)
+auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
 {
-  return bulk_sender<Params, Fun>{ snd.ctx, cl.shape, std::move(cl.params), std::move(cl.fun) };
+  return bulk_sender<Params, Fun>{ snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun) };
 }
 
 /// Submit without blocking; returns a binary semaphore signaled on compute completion.
 template<typename Params, typename Fun>
-VkSemaphore submit_async(bulk_sender<Params, Fun> sender)
+auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
 {
   vlk::ASTContext ast_ctx;
   {
-    vlk::ASTScope scope(ast_ctx);
-    vlk::Int idx = vlk::Int::param_index();
-    auto pc = vlk::PushConstant<Params>::bind();
-    sender.fun(idx, pc);
+    const vlk::ASTScope scope(ast_ctx);
+    vlk::Int const idx = vlk::Int::param_index();
+    auto push = vlk::PushConstant<Params>::bind();
+    sender.fun(idx, push);
   }
 
-  auto &pipe = sender.ctx->pipeline_cache().get_or_compile(ast_ctx, sender.shape);
+  auto &pipe = sender.ctx->get_pipeline_cache().get_or_compile(ast_ctx, sender.shape);
 
   VkDescriptorSetAllocateInfo dsai{};
   dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -160,16 +163,16 @@ VkSemaphore submit_async(bulk_sender<Params, Fun> sender)
 
   std::vector<VkDescriptorBufferInfo> buf_infos(ast_ctx.buffers.size());
   std::vector<VkWriteDescriptorSet> writes(ast_ctx.buffers.size());
-  for (std::size_t i = 0; i < ast_ctx.buffers.size(); ++i) {
-    buf_infos[i].buffer = static_cast<VkBuffer>(ast_ctx.buffers[i].vk_buffer);
-    buf_infos[i].offset = 0;
-    buf_infos[i].range = ast_ctx.buffers[i].byte_size;
-    writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[i].dstSet = set;
-    writes[i].dstBinding = static_cast<std::uint32_t>(ast_ctx.buffers[i].binding);
-    writes[i].descriptorCount = 1;
-    writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes[i].pBufferInfo = &buf_infos[i];
+  for (std::size_t index = 0; index < ast_ctx.buffers.size(); ++index) {
+    buf_infos.at(index).buffer = static_cast<VkBuffer>(ast_ctx.buffers.at(index).vk_buffer);
+    buf_infos.at(index).offset = 0;
+    buf_infos.at(index).range = ast_ctx.buffers.at(index).byte_size;
+    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes.at(index).dstSet = set;
+    writes.at(index).dstBinding = static_cast<std::uint32_t>(ast_ctx.buffers.at(index).binding);
+    writes.at(index).descriptorCount = 1;
+    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes.at(index).pBufferInfo = &buf_infos.at(index);
   }
   if (!writes.empty()) {
     vkUpdateDescriptorSets(sender.ctx->device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
@@ -186,8 +189,8 @@ VkSemaphore submit_async(bulk_sender<Params, Fun> sender)
     vkCmdPushConstants(cmd, pipe.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
       static_cast<std::uint32_t>(sizeof(Params)), &sender.params);
   }
-  const std::uint32_t local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
-  const std::uint32_t groups = (sender.shape + local - 1u) / local;
+  auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
+  const std::uint32_t groups = (sender.shape + local - 1U) / local;
   vkCmdDispatch(cmd, groups, 1, 1);
   vkEndCommandBuffer(cmd);
 
@@ -195,3 +198,5 @@ VkSemaphore submit_async(bulk_sender<Params, Fun> sender)
 }
 
 } // namespace vkexec
+
+#endif  // VKEXEC_BULK_HPP

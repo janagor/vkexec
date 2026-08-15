@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VKEXEC_DETAIL_PIPELINE_CACHE_HPP
+#define VKEXEC_DETAIL_PIPELINE_CACHE_HPP
 
 #include <vulkan/vulkan.h>
 
@@ -6,9 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace vlk {
 struct ASTContext;
@@ -18,7 +17,7 @@ namespace vkexec {
 
 class context;
 
-struct PipelineResources {
+struct pipeline_resources {
   VkShaderModule shader{ VK_NULL_HANDLE };
   VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
   VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
@@ -28,20 +27,24 @@ struct PipelineResources {
   std::size_t push_bytes{ 0 };
 };
 
-class PipelineCache {
+class pipeline_cache {
 public:
-  explicit PipelineCache(context &ctx);
-  ~PipelineCache();
+  explicit pipeline_cache(context &ctx);
+  ~pipeline_cache();
 
-  PipelineCache(const PipelineCache &) = delete;
-  PipelineCache &operator=(const PipelineCache &) = delete;
+  pipeline_cache(const pipeline_cache &) = delete;
+  auto operator=(const pipeline_cache &) -> pipeline_cache & = delete;
+  pipeline_cache(pipeline_cache &&) = delete;
+  auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
-  PipelineResources &get_or_compile(const vlk::ASTContext &ast, std::uint32_t work_count);
+  auto get_or_compile(const vlk::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &;
 
 private:
   context *ctx_;
   std::mutex mutex_;
-  std::unordered_map<std::size_t, std::unique_ptr<PipelineResources>> cache_;
+  std::unordered_map<std::size_t, std::unique_ptr<pipeline_resources>> cache_;
 };
 
 } // namespace vkexec
+
+#endif // VKEXEC_DETAIL_PIPELINE_CACHE_HPP

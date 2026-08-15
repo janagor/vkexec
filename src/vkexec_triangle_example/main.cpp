@@ -1,42 +1,55 @@
-#include <vkexec/vkexec.hpp>
+#include <vkexec/detail/types.hpp>
+#include <vkexec/draw.hpp>
+#include <vkexec/graphics.hpp>
+#include <vkexec/window.hpp>
 
 #include <stdexec/execution.hpp>
 
-#include <cstdio>
-#include <cstdlib>
+#include <cstdint>
+#include <exception>
+#include <print>
 
 namespace ex = stdexec;
 
-int main()
+namespace {
+constexpr std::uint32_t k_window_width = 800;
+constexpr std::uint32_t k_window_height = 600;
+constexpr std::uint32_t k_triangle_vertices = 3;
+} // namespace
+
+// NOLINTNEXTLINE(bugprone-exception-escape)
+auto main() -> int
 {
   try {
-    vkexec::window win({ .width = 800, .height = 600, .title = "vkexec triangle" });
+    vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec triangle" });
 
     // Vertex + fragment shaders traced from C++ (AST → GLSL → SPIR-V).
     vkexec::graphics_pipeline pipeline(win.ctx(),
       win.render_pass(),
-      [](vlk::Int vid, vlk::VertexWriter out) {
-        const vlk::Float2 pos = vlk::select(vid == vlk::Int::constant(0),
+      [](vlk::Int vertex_id, vlk::VertexWriter out) -> void {
+        vlk::Float2 const pos = vlk::select(vertex_id == vlk::Int::constant(0),
           vlk::vec2(0.0, -0.5),
-          vlk::select(vid == vlk::Int::constant(1), vlk::vec2(0.5, 0.5), vlk::vec2(-0.5, 0.5)));
-        const vlk::Float3 col = vlk::select(vid == vlk::Int::constant(0),
+          vlk::select(vertex_id == vlk::Int::constant(1), vlk::vec2(0.5, 0.5), vlk::vec2(-0.5, 0.5)));
+        vlk::Float3 const col = vlk::select(vertex_id == vlk::Int::constant(0),
           vlk::vec3(1.0, 0.2, 0.2),
-          vlk::select(vid == vlk::Int::constant(1), vlk::vec3(0.2, 1.0, 0.2), vlk::vec3(0.2, 0.4, 1.0)));
+          vlk::select(vertex_id == vlk::Int::constant(1), vlk::vec3(0.2, 1.0, 0.2), vlk::vec3(0.2, 0.4, 1.0)));
         out.position(pos);
         out.color(col);
       },
-      [](vlk::FragmentReader in, vlk::FragmentWriter out) { out.color(vlk::vec4(in.color(), 1.0)); });
+      [](vlk::FragmentReader fragment_in, vlk::FragmentWriter out) -> void {
+        out.color(vlk::vec4(fragment_in.color(), 1.0));
+      });
 
-    std::printf("vkexec traced triangle (stdexec frame pipeline) — close the window to exit\n");
+    std::println("vkexec traced triangle (stdexec frame pipeline) — close the window to exit");
     while (!win.should_close()) {
       win.poll_events();
       // Same shape as compute: schedule | algorithm | sync_wait
-      ex::sync_wait(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, 3));
+      (void)ex::sync_wait(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices));
     }
     win.wait_idle();
     return 0;
-  } catch (const std::exception &ex) {
-    std::fprintf(stderr, "vkexec triangle example failed: %s\n", ex.what());
+  } catch (std::exception const &ex) {
+    std::println(stderr, "vkexec triangle example failed: {}", ex.what());
     return 1;
   }
 }

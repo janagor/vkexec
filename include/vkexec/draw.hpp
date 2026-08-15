@@ -1,4 +1,6 @@
-#pragma once
+#ifndef VKEXEC_DRAW_HPP
+#define VKEXEC_DRAW_HPP
+
 
 #include <vkexec/graphics.hpp>
 #include <vkexec/scheduler.hpp>
@@ -21,9 +23,9 @@ struct draw_closure {
 };
 
 /// Present one frame: acquire → record draw → submit → present (stdexec sender adaptor).
-inline draw_closure draw(window &win, graphics_pipeline &pipeline, std::uint32_t vertex_count)
+inline auto draw(window &win, graphics_pipeline &pipeline, std::uint32_t vertex_count) -> draw_closure
 {
-  return draw_closure{ &win, &pipeline, vertex_count };
+  return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count };
 }
 
 struct draw_sender {
@@ -41,7 +43,7 @@ struct draw_sender {
     std::uint32_t vertex_count;
     Receiver receiver;
 
-    void start() noexcept
+    auto start() noexcept -> void
     {
       try {
         if (auto frame = win->begin_frame()) {
@@ -56,15 +58,22 @@ struct draw_sender {
   };
 
   template<class Receiver>
-  auto connect(Receiver receiver) const
+  [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
   {
-    return op_state<Receiver>{ win, pipeline, vertex_count, std::move(receiver) };
+    return op_state<Receiver>{
+      .win = win,
+      .pipeline = pipeline,
+      .vertex_count = vertex_count,
+      .receiver = std::move(receiver),
+    };
   }
 };
 
-inline draw_sender operator|(schedule_sender /*snd*/, draw_closure cl)
+inline auto operator|(schedule_sender /*snd*/, draw_closure closure) -> draw_sender
 {
-  return draw_sender{ cl.win, cl.pipeline, cl.vertex_count };
+  return draw_sender{ .win = closure.win, .pipeline = closure.pipeline, .vertex_count = closure.vertex_count };
 }
 
 } // namespace vkexec
+
+#endif  // VKEXEC_DRAW_HPP
