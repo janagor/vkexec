@@ -7,6 +7,7 @@
 #include <vkexec/detail/push_constant.hpp>
 #include <vkexec/detail/types.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/window.hpp>
 
 namespace vkexec {
 // Public umbrella header for the vkexec stdexec Vulkan backend.
