@@ -3,7 +3,7 @@ include(cmake/CPM.cmake)
 # Done as a function so that updates to variables like
 # CMAKE_CXX_FLAGS don't propagate out to other
 # targets
-function(vkexec_setup_dependencies)
+function(vksjit_setup_dependencies)
 
   # For each dependency, see if it's
   # already been provided to us by a parent project
@@ -78,6 +78,27 @@ function(vkexec_setup_dependencies)
       "lefticus/tools"
       GIT_TAG
       "main")
+  endif()
+
+  if(NOT TARGET glslang::glslang)
+    cpmaddpackage(
+      NAME
+      glslang
+      GITHUB_REPOSITORY
+      "KhronosGroup/glslang"
+      GIT_TAG
+      "15.4.0"
+      SYSTEM
+      YES
+      OPTIONS
+      "ENABLE_OPT OFF"
+      "ENABLE_HLSL OFF"
+      "ENABLE_GLSLANG_BINARIES OFF"
+      "ENABLE_SPVREMAPPER OFF"
+      "GLSLANG_ENABLE_INSTALL OFF"
+      "GLSLANG_TESTS OFF"
+      "BUILD_EXTERNAL OFF"
+      "ENABLE_PCH OFF")
   endif()
 
 endfunction()
