@@ -43,7 +43,7 @@ struct Int {
   Int(const Int &) = default;
   auto operator=(const Int &other) -> Int &;
   Int(Int &&) = default;
-  auto operator=(Int &&) -> Int & = default;
+  auto operator=(Int &&other) -> Int &;
   ~Int() = default;
   auto operator+=(Int other) -> Int &;
   auto operator-=(Int other) -> Int &;
@@ -83,7 +83,7 @@ struct Float {
   Float(const Float &) = default;
   auto operator=(const Float &other) -> Float &;
   Float(Float &&) = default;
-  auto operator=(Float &&) -> Float & = default;
+  auto operator=(Float &&other) -> Float &;
   ~Float() = default;
   auto operator+=(Float other) -> Float &;
   auto operator-=(Float other) -> Float &;
@@ -106,7 +106,7 @@ struct Float2 {
   Float2(const Float2 &) = default;
   auto operator=(const Float2 &other) -> Float2 &;
   Float2(Float2 &&) = default;
-  auto operator=(Float2 &&) -> Float2 & = default;
+  auto operator=(Float2 &&other) -> Float2 &;
   ~Float2() = default;
 };
 
@@ -117,7 +117,7 @@ struct Float3 {
   Float3(const Float3 &) = default;
   auto operator=(const Float3 &other) -> Float3 &;
   Float3(Float3 &&) = default;
-  auto operator=(Float3 &&) -> Float3 & = default;
+  auto operator=(Float3 &&other) -> Float3 &;
   ~Float3() = default;
 };
 
@@ -128,7 +128,7 @@ struct Float4 {
   Float4(const Float4 &) = default;
   auto operator=(const Float4 &other) -> Float4 &;
   Float4(Float4 &&) = default;
-  auto operator=(Float4 &&) -> Float4 & = default;
+  auto operator=(Float4 &&other) -> Float4 &;
   ~Float4() = default;
 };
 
@@ -356,6 +356,7 @@ inline auto Int::operator=(const Int &other) -> Int &
   emit_assign(id, other.id);
   return *this;
 }
+inline auto Int::operator=(Int &&other) -> Int & { return (*this = other); }
 inline auto Int::operator+=(Int other) -> Int & { return (*this = *this + other); }
 inline auto Int::operator-=(Int other) -> Int & { return (*this = *this - other); }
 inline auto Int::operator*=(Int other) -> Int & { return (*this = *this * other); }
@@ -368,6 +369,7 @@ inline auto Float::operator=(const Float &other) -> Float &
   emit_assign(id, other.id);
   return *this;
 }
+inline auto Float::operator=(Float &&other) -> Float & { return (*this = other); }
 inline auto Float::operator+=(Float other) -> Float & { return (*this = *this + other); }
 inline auto Float::operator-=(Float other) -> Float & { return (*this = *this - other); }
 inline auto Float::operator*=(Float other) -> Float & { return (*this = *this * other); }
@@ -380,6 +382,7 @@ inline auto Float2::operator=(const Float2 &other) -> Float2 &
   emit_assign(id, other.id);
   return *this;
 }
+inline auto Float2::operator=(Float2 &&other) -> Float2 & { return (*this = other); }
 inline auto Float3::operator=(const Float3 &other) -> Float3 &
 {
   if (this == &other) { return *this; }
@@ -387,6 +390,7 @@ inline auto Float3::operator=(const Float3 &other) -> Float3 &
   emit_assign(id, other.id);
   return *this;
 }
+inline auto Float3::operator=(Float3 &&other) -> Float3 & { return (*this = other); }
 inline auto Float4::operator=(const Float4 &other) -> Float4 &
 {
   if (this == &other) { return *this; }
@@ -394,6 +398,7 @@ inline auto Float4::operator=(const Float4 &other) -> Float4 &
   emit_assign(id, other.id);
   return *this;
 }
+inline auto Float4::operator=(Float4 &&other) -> Float4 & { return (*this = other); }
 
 /// Vertex-stage outputs written during tracing.
 struct VertexWriter {

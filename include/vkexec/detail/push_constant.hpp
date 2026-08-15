@@ -43,18 +43,6 @@ inline auto glsl_type_name(bool tag) -> const char *
   return "bool";
 }
 
-template<typename T>
-auto make_push_proxy_field(ExprNode node)
-  -> std::conditional_t<std::is_integral_v<T> && !std::is_same_v<T, bool>, Int, Float>
-{
-  const int node_id = ast().append(std::move(node));
-  if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
-    return Int{ node_id };
-  } else {
-    return Float{ node_id };
-  }
-}
-
 } // namespace detail
 } // namespace vlk
 
@@ -122,7 +110,8 @@ auto make_push_proxy_field(ExprNode node)
     vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::PushField);                                                  \
     node.name = #field;                                                                                                \
     node.const_i = static_cast<std::int64_t>(offsetof(Type, field));                                                   \
-    proxy.field = vlk::detail::make_push_proxy_field<type>(std::move(node));                                           \
+    /* Set .id directly — Float/Int operator= emits AST assigns and must not run during bind. */                       \
+    proxy.field.id = vlk::ast().append(std::move(node));                                                               \
   } while (0)
 
 #define VLK_PC_BIND_1(Type, t1, n1) VLK_PC_BIND_ONE(Type, t1, n1);
