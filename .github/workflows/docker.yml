@@ -1,0 +1,42 @@
+name: docker
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: clang
+            configure_preset: unixlike-clang-release
+            test_preset: test-unixlike-clang-release
+          - target: gcc
+            configure_preset: unixlike-gcc-release
+            test_preset: test-unixlike-gcc-release
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: |
+          docker build -f .devcontainer/Dockerfile --target ${{ matrix.target }} --tag cmake_template:${{ matrix.target }} .
+
+      - name: Configure, build, and test
+        run: |
+          docker run --rm \
+            -v "$PWD:/workspaces/cmake_template" \
+            -w /workspaces/cmake_template \
+            cmake_template:${{ matrix.target }} \
+            bash -c "
+              cmake --preset ${{ matrix.configure_preset }}
+              cmake --build out/build/${{ matrix.configure_preset }} -j\$(nproc)
+              ctest --preset ${{ matrix.test_preset }}
+            "
