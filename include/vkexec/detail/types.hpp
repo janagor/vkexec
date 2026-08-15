@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace vlk {
+namespace vkexec {
 
 struct Bool;
 struct Int;
@@ -482,6 +482,6 @@ struct FragmentWriter {
   }
 };
 
-} // namespace vlk
+} // namespace vkexec
 
 #endif  // VKEXEC_DETAIL_TYPES_HPP

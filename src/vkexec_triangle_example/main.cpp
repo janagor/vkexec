@@ -26,18 +26,18 @@ auto main() -> int
     // Vertex + fragment shaders traced from C++ (AST → GLSL → SPIR-V).
     vkexec::graphics_pipeline pipeline(win.ctx(),
       win.render_pass(),
-      [](vlk::Int vertex_id, vlk::VertexWriter out) -> void {
-        vlk::Float2 const pos = vlk::select(vertex_id == vlk::Int::constant(0),
-          vlk::vec2(0.0, -0.5),
-          vlk::select(vertex_id == vlk::Int::constant(1), vlk::vec2(0.5, 0.5), vlk::vec2(-0.5, 0.5)));
-        vlk::Float3 const col = vlk::select(vertex_id == vlk::Int::constant(0),
-          vlk::vec3(1.0, 0.2, 0.2),
-          vlk::select(vertex_id == vlk::Int::constant(1), vlk::vec3(0.2, 1.0, 0.2), vlk::vec3(0.2, 0.4, 1.0)));
+      [](vkexec::Int vertex_id, vkexec::VertexWriter out) -> void {
+        vkexec::Float2 const pos = vkexec::select(vertex_id == vkexec::Int::constant(0),
+          vkexec::vec2(0.0, -0.5),
+          vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec2(0.5, 0.5), vkexec::vec2(-0.5, 0.5)));
+        vkexec::Float3 const col = vkexec::select(vertex_id == vkexec::Int::constant(0),
+          vkexec::vec3(1.0, 0.2, 0.2),
+          vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec3(0.2, 1.0, 0.2), vkexec::vec3(0.2, 0.4, 1.0)));
         out.position(pos);
         out.color(col);
       },
-      [](vlk::FragmentReader fragment_in, vlk::FragmentWriter out) -> void {
-        out.color(vlk::vec4(fragment_in.color(), 1.0));
+      [](vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void {
+        out.color(vkexec::vec4(fragment_in.color(), 1.0));
       });
 
     std::println("vkexec traced triangle (stdexec frame pipeline) — close the window to exit");

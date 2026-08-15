@@ -16,7 +16,7 @@ struct SortParams {
   int n;
 };
 
-VLK_PUSH_CONSTANT(SortParams, int, offset, int, n);
+VKEXEC_PUSH_CONSTANT(SortParams, int, offset, int, n);
 
 int main()
 {
@@ -40,16 +40,16 @@ int main()
       SortParams params{ phase % 2, static_cast<int>(N) };
       auto pass = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(static_cast<std::uint32_t>(N / 2), params,
-                      [&](vlk::Int idx, vlk::PushConstant<SortParams> pc) {
-                        vlk::Int left = vlk::Int::constant(2) * idx + pc.offset;
-                        vlk::Int right = left + vlk::Int::constant(1);
+                      [&](vkexec::Int idx, vkexec::PushConstant<SortParams> pc) {
+                        vkexec::Int left = vkexec::Int::constant(2) * idx + pc.offset;
+                        vkexec::Int right = left + vkexec::Int::constant(1);
 
-                        vlk::if_then(right < pc.n, [&] {
-                          vlk::Float a = data[left];
-                          vlk::Float b = data[right];
-                          vlk::Bool out_of_order = a > b;
-                          data[left] = vlk::select(out_of_order, b, a);
-                          data[right] = vlk::select(out_of_order, a, b);
+                        vkexec::if_then(right < pc.n, [&] {
+                          vkexec::Float a = data[left];
+                          vkexec::Float b = data[right];
+                          vkexec::Bool out_of_order = a > b;
+                          data[left] = vkexec::select(out_of_order, b, a);
+                          data[right] = vkexec::select(out_of_order, a, b);
                         });
                       });
       ex::sync_wait(std::move(pass));

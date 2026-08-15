@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace vlk {
+namespace vkexec {
 
 constexpr int k_default_local_size_x = 64;
 
@@ -148,7 +148,7 @@ public:
 inline auto ast() -> ASTContext &
 {
   ASTContext *ctx = current_ast();
-  if (ctx == nullptr) { throw std::runtime_error("vlk AST used outside of a tracing scope"); }
+  if (ctx == nullptr) { throw std::runtime_error("vkexec AST used outside of a tracing scope"); }
   return *ctx;
 }
 
@@ -171,6 +171,6 @@ inline auto glsl_type_name(ValueType type) -> const char *
   }
 }
 
-} // namespace vlk
+} // namespace vkexec
 
 #endif // VKEXEC_DETAIL_AST_HPP

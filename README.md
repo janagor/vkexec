@@ -8,7 +8,7 @@
 
 `vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with a JIT tracing eDSL:
 
-1. Trace C++ operators on `vlk::Float` / `vlk::Int` into an AST
+1. Trace C++ operators on `vkexec::Float` / `vkexec::Int` into an AST
 2. Emit GLSL, compile to SPIR-V via glslang, and cache `VkPipeline`s
 3. Dispatch with `vkexec::bulk` on a Vulkan compute queue
 
@@ -19,7 +19,7 @@
 namespace ex = stdexec;
 
 struct SimParams { float dt; float damping; };
-VLK_PUSH_CONSTANT(SimParams, float, dt, float, damping);
+VKEXEC_PUSH_CONSTANT(SimParams, float, dt, float, damping);
 
 int main() {
   vkexec::context ctx;
@@ -28,9 +28,9 @@ int main() {
   SimParams params{ 0.016f, 0.99f };
 
   auto pipeline = ex::schedule(ctx.get_scheduler())
-    | vkexec::bulk(10000, params, [&](vlk::Int idx, vlk::PushConstant<SimParams> pc) {
-        vlk::Float p = positions[idx];
-        vlk::Float v = velocities[idx];
+    | vkexec::bulk(10000, params, [&](vkexec::Int idx, vkexec::PushConstant<SimParams> pc) {
+        vkexec::Float p = positions[idx];
+        vkexec::Float v = velocities[idx];
         v = v * pc.damping;
         p = p + (v * pc.dt);
         positions[idx] = p;
@@ -59,8 +59,8 @@ Shaders are traced from C++. Each frame is a stdexec pipeline (same shape as com
 ```cpp
 vkexec::window win({ .width = 800, .height = 600, .title = "triangle" });
 vkexec::graphics_pipeline pipeline(win.ctx(), win.render_pass(),
-  [](vlk::Int vid, vlk::VertexWriter out) { /* ... */ },
-  [](vlk::FragmentReader in, vlk::FragmentWriter out) { /* ... */ });
+  [](vkexec::Int vid, vkexec::VertexWriter out) { /* ... */ },
+  [](vkexec::FragmentReader in, vkexec::FragmentWriter out) { /* ... */ });
 
 while (!win.should_close()) {
   win.poll_events();

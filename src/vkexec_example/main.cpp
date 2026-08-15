@@ -13,7 +13,7 @@ struct SimParams {
   float damping;
 };
 
-VLK_PUSH_CONSTANT(SimParams, float, dt, float, damping);
+VKEXEC_PUSH_CONSTANT(SimParams, float, dt, float, damping);
 
 int main()
 {
@@ -27,9 +27,9 @@ int main()
 
     auto pipeline = ex::schedule(ctx.get_scheduler())
                     | vkexec::bulk(static_cast<std::uint32_t>(N), params,
-                        [&](vlk::Int idx, vlk::PushConstant<SimParams> pc) {
-                          vlk::Float p = positions[idx];
-                          vlk::Float v = velocities[idx];
+                        [&](vkexec::Int idx, vkexec::PushConstant<SimParams> pc) {
+                          vkexec::Float p = positions[idx];
+                          vkexec::Float v = velocities[idx];
 
                           v = v * pc.damping;
                           p = p + (v * pc.dt);

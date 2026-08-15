@@ -64,11 +64,11 @@ struct bulk_sender {
 
     void run()
     {
-      vlk::ASTContext ast_ctx;
+      vkexec::ASTContext ast_ctx;
       {
-        const vlk::ASTScope scope(ast_ctx);
-        vlk::Int const idx = vlk::Int::param_index();
-        auto push = vlk::PushConstant<Params>::bind();
+        const vkexec::ASTScope scope(ast_ctx);
+        vkexec::Int const idx = vkexec::Int::param_index();
+        auto push = vkexec::PushConstant<Params>::bind();
         fun(idx, push);
       }
 
@@ -141,11 +141,11 @@ auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
 template<typename Params, typename Fun>
 auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
 {
-  vlk::ASTContext ast_ctx;
+  vkexec::ASTContext ast_ctx;
   {
-    const vlk::ASTScope scope(ast_ctx);
-    vlk::Int const idx = vlk::Int::param_index();
-    auto push = vlk::PushConstant<Params>::bind();
+    const vkexec::ASTScope scope(ast_ctx);
+    vkexec::Int const idx = vkexec::Int::param_index();
+    auto push = vkexec::PushConstant<Params>::bind();
     sender.fun(idx, push);
   }
 

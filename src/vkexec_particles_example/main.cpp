@@ -43,7 +43,7 @@ struct particle_params {
 };
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-do-while,modernize-use-trailing-return-type)
-VLK_PUSH_CONSTANT(particle_params, float, delta_time);
+VKEXEC_PUSH_CONSTANT(particle_params, float, delta_time);
 // NOLINTEND(cppcoreguidelines-avoid-do-while,modernize-use-trailing-return-type)
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -107,13 +107,13 @@ auto main() -> int
       win.render_pass(),
       graphics_cfg,
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-      [&](vlk::Int vertex_id, vlk::VertexWriter out) -> void {
-        out.position(vlk::vec2(pos_x[vertex_id], pos_y[vertex_id]));
-        out.point_size(vlk::Float::constant(k_point_size));
-        out.color(vlk::vec4(col_r[vertex_id], col_g[vertex_id], col_b[vertex_id], col_a[vertex_id]));
+      [&](vkexec::Int vertex_id, vkexec::VertexWriter out) -> void {
+        out.position(vkexec::vec2(pos_x[vertex_id], pos_y[vertex_id]));
+        out.point_size(vkexec::Float::constant(k_point_size));
+        out.color(vkexec::vec4(col_r[vertex_id], col_g[vertex_id], col_b[vertex_id], col_a[vertex_id]));
       },
       // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-      [](vlk::FragmentReader fragment_in, vlk::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
+      [](vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
 
     auto last = std::chrono::steady_clock::now();
     std::println("vkexec particles (compute update + point sprites) — close the window to exit");
@@ -132,21 +132,21 @@ auto main() -> int
       (void)ex::sync_wait(ex::schedule(ctx.get_scheduler())
                           | vkexec::bulk(k_particle_count, params,
                             // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                            [&](vlk::Int const index, vlk::PushConstant<particle_params> push) -> void {
-                              vlk::Float position_x = pos_x[index];
-                              vlk::Float position_y = pos_y[index];
-                              vlk::Float velocity_x = vel_x[index];
-                              vlk::Float velocity_y = vel_y[index];
+                            [&](vkexec::Int const index, vkexec::PushConstant<particle_params> push) -> void {
+                              vkexec::Float position_x = pos_x[index];
+                              vkexec::Float position_y = pos_y[index];
+                              vkexec::Float velocity_x = vel_x[index];
+                              vkexec::Float velocity_y = vel_y[index];
 
                               position_x = position_x + (velocity_x * push.delta_time);
                               position_y = position_y + (velocity_y * push.delta_time);
 
-                              vlk::if_then((position_x <= vlk::Float::constant(-1.0))
-                                  || (position_x >= vlk::Float::constant(1.0)),
-                                [&]() -> void { velocity_x = vlk::Float::constant(0.0) - velocity_x; });
-                              vlk::if_then((position_y <= vlk::Float::constant(-1.0))
-                                  || (position_y >= vlk::Float::constant(1.0)),
-                                [&]() -> void { velocity_y = vlk::Float::constant(0.0) - velocity_y; });
+                              vkexec::if_then((position_x <= vkexec::Float::constant(-1.0))
+                                  || (position_x >= vkexec::Float::constant(1.0)),
+                                [&]() -> void { velocity_x = vkexec::Float::constant(0.0) - velocity_x; });
+                              vkexec::if_then((position_y <= vkexec::Float::constant(-1.0))
+                                  || (position_y >= vkexec::Float::constant(1.0)),
+                                [&]() -> void { velocity_y = vkexec::Float::constant(0.0) - velocity_y; });
 
                               pos_x[index] = position_x;
                               pos_y[index] = position_y;

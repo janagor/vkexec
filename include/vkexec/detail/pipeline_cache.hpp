@@ -9,11 +9,9 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace vlk {
-struct ASTContext;
-}
-
 namespace vkexec {
+
+struct ASTContext;
 
 class context;
 
@@ -37,7 +35,7 @@ public:
   pipeline_cache(pipeline_cache &&) = delete;
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
-  auto get_or_compile(const vlk::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &;
+  auto get_or_compile(const ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &;
 
 private:
   context *ctx_;

@@ -5,7 +5,7 @@
 
 #include <utility>
 
-namespace vlk {
+namespace vkexec {
 
 template<typename Body>
 auto if_then(Bool condition, Body &&body) -> void
@@ -37,6 +37,6 @@ auto for_loop(int start, int end, Body &&body) -> void
   ast().append(ExprNode::make(OpKind::ForEnd, loop_var));
 }
 
-} // namespace vlk
+} // namespace vkexec
 
 #endif // VKEXEC_DETAIL_CONTROL_HPP

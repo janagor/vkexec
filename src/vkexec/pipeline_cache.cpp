@@ -55,7 +55,7 @@ pipeline_cache::~pipeline_cache()
   cache_.clear();
 }
 
-auto pipeline_cache::get_or_compile(const vlk::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &
+auto pipeline_cache::get_or_compile(const ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &
 {
   const std::size_t key = detail::hash_ast(ast) ^ (static_cast<std::size_t>(work_count) << 1U);
   {

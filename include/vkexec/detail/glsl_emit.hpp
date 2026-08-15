@@ -29,13 +29,13 @@ inline auto hash_combine(std::size_t seed, std::size_t value) -> std::size_t
          ^ (value + k_hash_golden_ratio + (seed << k_hash_shift_left) + (seed >> k_hash_shift_right));
 }
 
-inline auto emit_expr(const vlk::ASTContext &ctx,
+inline auto emit_expr(const vkexec::ASTContext &ctx,
   int node_id,
   std::unordered_map<int, std::string> &names) -> std::string;
 
-inline auto op_symbol(vlk::OpKind kind) -> std::string
+inline auto op_symbol(vkexec::OpKind kind) -> std::string
 {
-  using vlk::OpKind;
+  using vkexec::OpKind;
   switch (kind) {
   case OpKind::Add:
     return "+";
@@ -66,15 +66,15 @@ inline auto op_symbol(vlk::OpKind kind) -> std::string
   }
 }
 
-inline auto emit_expr(const vlk::ASTContext &ctx,
+inline auto emit_expr(const vkexec::ASTContext &ctx,
   int node_id,
   std::unordered_map<int, std::string> &names) -> std::string
 {
-  using vlk::OpKind;
+  using vkexec::OpKind;
   if (node_id < 0) { return "0"; }
   if (auto found = names.find(node_id); found != names.end()) { return found->second; }
 
-  const vlk::ExprNode &node = ctx.nodes.at(static_cast<std::size_t>(node_id));
+  const vkexec::ExprNode &node = ctx.nodes.at(static_cast<std::size_t>(node_id));
   std::string out;
 
   switch (node.kind) {
@@ -182,7 +182,7 @@ inline auto emit_expr(const vlk::ASTContext &ctx,
   return out;
 }
 
-inline auto hash_ast(const vlk::ASTContext &ctx) -> std::size_t
+inline auto hash_ast(const vkexec::ASTContext &ctx) -> std::size_t
 {
   std::size_t hash = ctx.nodes.size();
   for (const auto &node : ctx.nodes) {
@@ -208,16 +208,16 @@ inline auto hash_ast(const vlk::ASTContext &ctx) -> std::size_t
 }
 
 inline auto emit_body_statements(std::ostringstream &stream,
-  const vlk::ASTContext &ctx,
+  const vkexec::ASTContext &ctx,
   std::unordered_map<int, std::string> &names) -> void
 {
-  using vlk::OpKind;
+  using vkexec::OpKind;
   for (std::size_t index = 0; index < ctx.nodes.size(); ++index) {
     const auto &node = ctx.nodes.at(index);
     if (node.kind == OpKind::Var) {
       const std::string name = node.name.empty() ? std::format("v{}", index) : node.name;
       names[static_cast<int>(index)] = name;
-      stream << "  " << vlk::glsl_type_name(node.type) << " " << name << ";\n";
+      stream << "  " << vkexec::glsl_type_name(node.type) << " " << name << ";\n";
     }
   }
 
@@ -260,9 +260,9 @@ inline auto emit_body_statements(std::ostringstream &stream,
   }
 }
 
-inline auto emit_glsl(const vlk::ASTContext &ctx, std::uint32_t work_count) -> std::string
+inline auto emit_glsl(const vkexec::ASTContext &ctx, std::uint32_t work_count) -> std::string
 {
-  using vlk::OpKind;
+  using vkexec::OpKind;
   std::ostringstream stream;
   stream << "#version 450\n";
   stream << "layout(local_size_x = " << ctx.local_size_x << ") in;\n\n";
@@ -292,9 +292,9 @@ inline auto emit_glsl(const vlk::ASTContext &ctx, std::uint32_t work_count) -> s
   return stream.str();
 }
 
-inline auto emit_vertex_glsl(const vlk::ASTContext &ctx) -> std::string
+inline auto emit_vertex_glsl(const vkexec::ASTContext &ctx) -> std::string
 {
-  using vlk::OpKind;
+  using vkexec::OpKind;
   std::ostringstream stream;
   stream << "#version 450\n";
 
@@ -309,7 +309,7 @@ inline auto emit_vertex_glsl(const vlk::ASTContext &ctx) -> std::string
   for (const auto &node : ctx.nodes) {
     if (node.kind == OpKind::OutputVarying && node.name != "gl_Position" && node.name != "gl_PointSize"
         && outs.insert(node.name).second) {
-      stream << "layout(location = " << node.const_i << ") out " << vlk::glsl_type_name(node.type) << " "
+      stream << "layout(location = " << node.const_i << ") out " << vkexec::glsl_type_name(node.type) << " "
              << node.name << ";\n";
     }
   }
@@ -327,9 +327,9 @@ inline auto emit_vertex_glsl(const vlk::ASTContext &ctx) -> std::string
   return stream.str();
 }
 
-inline auto emit_fragment_glsl(const vlk::ASTContext &ctx) -> std::string
+inline auto emit_fragment_glsl(const vkexec::ASTContext &ctx) -> std::string
 {
-  using vlk::OpKind;
+  using vkexec::OpKind;
   std::ostringstream stream;
   stream << "#version 450\n";
 
@@ -337,11 +337,11 @@ inline auto emit_fragment_glsl(const vlk::ASTContext &ctx) -> std::string
   std::unordered_set<std::string> seen_out;
   for (const auto &node : ctx.nodes) {
     if (node.kind == OpKind::InputVarying && seen_in.insert(node.name).second) {
-      stream << "layout(location = " << node.const_i << ") in " << vlk::glsl_type_name(node.type) << " "
+      stream << "layout(location = " << node.const_i << ") in " << vkexec::glsl_type_name(node.type) << " "
              << node.name << ";\n";
     }
     if (node.kind == OpKind::OutputVarying && seen_out.insert(node.name).second) {
-      stream << "layout(location = " << node.const_i << ") out " << vlk::glsl_type_name(node.type) << " "
+      stream << "layout(location = " << node.const_i << ") out " << vkexec::glsl_type_name(node.type) << " "
              << node.name << ";\n";
     }
   }

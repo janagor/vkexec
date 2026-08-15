@@ -99,28 +99,28 @@ public:
 
   struct ref {
     buffer *owner;
-    vlk::Int index;
+    vkexec::Int index;
 
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
-    operator vlk::Float() const
+    operator vkexec::Float() const
       requires(std::is_floating_point_v<T>)
     {
       return load_float();
     }
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
-    operator vlk::Int() const
+    operator vkexec::Int() const
       requires(std::is_integral_v<T>)
     {
       return load_int();
     }
 
-    auto operator=(vlk::Float value) -> ref &
+    auto operator=(vkexec::Float value) -> ref &
       requires(std::is_floating_point_v<T>)
     {
       store(value.id);
       return *this;
     }
-    auto operator=(vlk::Int value) -> ref &
+    auto operator=(vkexec::Int value) -> ref &
       requires(std::is_integral_v<T>)
     {
       store(value.id);
@@ -130,7 +130,7 @@ public:
   private:
     [[nodiscard]] auto ensure_binding() const -> int
     {
-      auto &ast = vlk::ast();
+      auto &ast = vkexec::ast();
       if (owner->binding_ < 0) { owner->binding_ = ast.next_binding++; }
       for (auto &existing : ast.buffers) {
         if (existing.binding == owner->binding_) {
@@ -140,7 +140,7 @@ public:
           return owner->binding_;
         }
       }
-      vlk::BufferBinding binding_info;
+      vkexec::BufferBinding binding_info;
       binding_info.name = owner->name_;
       binding_info.elem_glsl_type = std::is_floating_point_v<T> ? "float" : "int";
       binding_info.binding = owner->binding_;
@@ -152,38 +152,38 @@ public:
       return owner->binding_;
     }
 
-    [[nodiscard]] auto load_float() const -> vlk::Float
+    [[nodiscard]] auto load_float() const -> vkexec::Float
     {
       const int binding = ensure_binding();
-      vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::Load, index.id);
+      vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::Load, index.id);
       node.binding = binding;
-      const int load = vlk::ast().append(std::move(node));
-      const int tmp = vlk::ast().make_temp("f");
-      vlk::emit_assign(tmp, load);
-      return vlk::Float{ tmp };
+      const int load = vkexec::ast().append(std::move(node));
+      const int tmp = vkexec::ast().make_temp("f");
+      vkexec::emit_assign(tmp, load);
+      return vkexec::Float{ tmp };
     }
-    [[nodiscard]] auto load_int() const -> vlk::Int
+    [[nodiscard]] auto load_int() const -> vkexec::Int
     {
       const int binding = ensure_binding();
-      vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::Load, index.id);
+      vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::Load, index.id);
       node.binding = binding;
-      const int load = vlk::ast().append(std::move(node));
-      const int tmp = vlk::ast().make_temp("i");
-      vlk::emit_assign(tmp, load);
-      return vlk::Int{ tmp };
+      const int load = vkexec::ast().append(std::move(node));
+      const int tmp = vkexec::ast().make_temp("i");
+      vkexec::emit_assign(tmp, load);
+      return vkexec::Int{ tmp };
     }
     void store(int value_id) const
     {
       const int binding = ensure_binding();
-      vlk::ExprNode node = vlk::ExprNode::make(vlk::OpKind::Store, index.id, value_id);
+      vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::Store, index.id, value_id);
       node.binding = binding;
-      vlk::ast().append(std::move(node));
+      vkexec::ast().append(std::move(node));
     }
   };
 
-  auto operator[](vlk::Int idx) -> ref { return ref{ this, idx }; }
+  auto operator[](vkexec::Int idx) -> ref { return ref{ this, idx }; }
 
-  void register_for_dispatch(vlk::ASTContext &ast) const
+  void register_for_dispatch(vkexec::ASTContext &ast) const
   {
     if (binding_ < 0) { return; }
     for (auto &entry : ast.buffers) {

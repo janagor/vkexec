@@ -6,14 +6,14 @@
 
 #include <string>
 
-TEST_CASE("vlk AST records arithmetic", "[vkexec]")
+TEST_CASE("vkexec AST records arithmetic", "[vkexec]")
 {
-  vlk::ASTContext ctx;
-  vlk::ASTScope scope(ctx);
+  vkexec::ASTContext ctx;
+  vkexec::ASTScope scope(ctx);
 
-  vlk::Float const lhs = vlk::Float::constant(1.0);
-  vlk::Float const rhs = vlk::Float::constant(2.0);
-  vlk::Float const result = lhs + (rhs * vlk::Float::constant(3.0));
+  vkexec::Float const lhs = vkexec::Float::constant(1.0);
+  vkexec::Float const rhs = vkexec::Float::constant(2.0);
+  vkexec::Float const result = lhs + (rhs * vkexec::Float::constant(3.0));
   REQUIRE(result.id >= 0);
   REQUIRE(ctx.nodes.size() >= 4);
 

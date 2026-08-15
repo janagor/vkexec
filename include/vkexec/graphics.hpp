@@ -173,21 +173,21 @@ private:
   template<typename VertexFn, typename FragmentFn>
   auto build(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn) -> void
   {
-    vlk::ASTContext vs_ast;
+    vkexec::ASTContext vs_ast;
     {
-      const vlk::ASTScope scope(vs_ast);
-      const vlk::Int vertex_id = vlk::Int::vertex_index();
-      const vlk::VertexWriter vertex_out;
+      const vkexec::ASTScope scope(vs_ast);
+      const vkexec::Int vertex_id = vkexec::Int::vertex_index();
+      const vkexec::VertexWriter vertex_out;
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
     }
     const std::string vs_glsl = detail::emit_vertex_glsl(vs_ast);
     const auto vs_spv = compile_glsl_to_spirv(vs_glsl, "vkexec.vert", shader_kind::vertex);
 
-    vlk::ASTContext fs_ast;
+    vkexec::ASTContext fs_ast;
     {
-      const vlk::ASTScope scope(fs_ast);
-      const vlk::FragmentReader fragment_in;
-      const vlk::FragmentWriter fragment_out;
+      const vkexec::ASTScope scope(fs_ast);
+      const vkexec::FragmentReader fragment_in;
+      const vkexec::FragmentWriter fragment_out;
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
     }
     const std::string fs_glsl = detail::emit_fragment_glsl(fs_ast);
