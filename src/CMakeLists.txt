@@ -1,3 +1,4 @@
 add_subdirectory(sample_library)
 add_subdirectory(vkexec)
+add_subdirectory(vkexec_example)
 add_subdirectory(ftxui_sample)
