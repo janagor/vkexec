@@ -17,17 +17,31 @@ void ensure_glslang()
   std::call_once(once, [] { glslang::InitializeProcess(); });
 }
 
+EShLanguage to_glslang(shader_kind kind)
+{
+  switch (kind) {
+  case shader_kind::vertex:
+    return EShLangVertex;
+  case shader_kind::fragment:
+    return EShLangFragment;
+  case shader_kind::compute:
+  default:
+    return EShLangCompute;
+  }
+}
+
 } // namespace
 
-std::vector<std::uint32_t> compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name)
+std::vector<std::uint32_t> compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, shader_kind kind)
 {
   ensure_glslang();
 
-  glslang::TShader shader(EShLangCompute);
+  const EShLanguage stage = to_glslang(kind);
+  glslang::TShader shader(stage);
   const char *strings[] = { glsl_source.data() };
   const int lengths[] = { static_cast<int>(glsl_source.size()) };
   shader.setStringsWithLengths(strings, lengths, 1);
-  shader.setEnvInput(glslang::EShSourceGlsl, EShLangCompute, glslang::EShClientVulkan, 100);
+  shader.setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, 100);
   shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
   shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
 
@@ -48,7 +62,7 @@ std::vector<std::uint32_t> compile_glsl_to_spirv(std::string_view glsl_source, s
   options.generateDebugInfo = false;
   options.disableOptimizer = false;
   options.optimizeSize = false;
-  glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), spirv, &options);
+  glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
   if (spirv.empty()) { throw std::runtime_error("SPIR-V emission produced empty module"); }
   return spirv;
 }

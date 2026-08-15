@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace vkexec::detail {
@@ -66,10 +67,14 @@ inline std::string emit_expr(const vlk::ASTContext &ctx, int id, std::unordered_
     break;
   case OpKind::Var:
   case OpKind::ParamIndex:
+  case OpKind::VertexIndex:
     out = n.name.empty() ? std::format("v{}", id) : n.name;
     break;
   case OpKind::PushField:
     out = "pc." + n.name;
+    break;
+  case OpKind::InputVarying:
+    out = n.name;
     break;
   case OpKind::Load: {
     const auto &buf = ctx.buffers.at(static_cast<std::size_t>(n.binding));
@@ -106,6 +111,25 @@ inline std::string emit_expr(const vlk::ASTContext &ctx, int id, std::unordered_
   case OpKind::Max:
     out = "max(" + emit_expr(ctx, n.lhs, names) + ", " + emit_expr(ctx, n.rhs, names) + ")";
     break;
+  case OpKind::Vec2:
+    out = "vec2(" + emit_expr(ctx, n.lhs, names) + ", " + emit_expr(ctx, n.rhs, names) + ")";
+    break;
+  case OpKind::Vec3:
+    out = "vec3(" + emit_expr(ctx, n.lhs, names) + ", " + emit_expr(ctx, n.rhs, names) + ", "
+          + emit_expr(ctx, n.extra, names) + ")";
+    break;
+  case OpKind::Vec4:
+    out = "vec4(" + emit_expr(ctx, n.lhs, names) + ", " + emit_expr(ctx, n.rhs, names) + ", "
+          + emit_expr(ctx, n.extra, names) + ", " + emit_expr(ctx, n.fourth, names) + ")";
+    break;
+  case OpKind::Vec4From2:
+    if (n.name == "vec3") {
+      out = "vec4(" + emit_expr(ctx, n.lhs, names) + ", " + emit_expr(ctx, n.rhs, names) + ")";
+    } else {
+      out = "vec4(" + emit_expr(ctx, n.lhs, names) + ", " + emit_expr(ctx, n.rhs, names) + ", "
+            + emit_expr(ctx, n.extra, names) + ")";
+    }
+    break;
   case OpKind::Select:
     out = std::format("({} ? {} : {})",
       emit_expr(ctx, n.lhs, names),
@@ -140,8 +164,11 @@ inline std::size_t hash_ast(const vlk::ASTContext &ctx)
   std::size_t h = ctx.nodes.size();
   for (const auto &n : ctx.nodes) {
     h ^= (static_cast<std::size_t>(n.kind) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+    h ^= (static_cast<std::size_t>(n.type) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
     h ^= (static_cast<std::size_t>(n.lhs + 3) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
     h ^= (static_cast<std::size_t>(n.rhs + 7) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+    h ^= (static_cast<std::size_t>(n.extra + 9) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
+    h ^= (static_cast<std::size_t>(n.fourth + 13) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
     h ^= (static_cast<std::size_t>(n.binding + 11) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
     for (char ch : n.name) {
       const auto c = static_cast<unsigned char>(ch);
@@ -157,6 +184,59 @@ inline std::size_t hash_ast(const vlk::ASTContext &ctx)
   }
   h ^= (ctx.push_bytes + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2));
   return h;
+}
+
+inline void emit_body_statements(std::ostringstream &ss,
+  const vlk::ASTContext &ctx,
+  std::unordered_map<int, std::string> &names)
+{
+  using vlk::OpKind;
+  for (std::size_t i = 0; i < ctx.nodes.size(); ++i) {
+    const auto &n = ctx.nodes[i];
+    if (n.kind == OpKind::Var) {
+      const std::string nm = n.name.empty() ? std::format("v{}", i) : n.name;
+      names[static_cast<int>(i)] = nm;
+      ss << "  " << vlk::glsl_type_name(n.type) << " " << nm << ";\n";
+    }
+  }
+
+  for (std::size_t i = 0; i < ctx.nodes.size(); ++i) {
+    const auto &n = ctx.nodes[i];
+    switch (n.kind) {
+    case OpKind::Assign: {
+      ss << "  " << emit_expr(ctx, n.lhs, names) << " = " << emit_expr(ctx, n.rhs, names) << ";\n";
+      break;
+    }
+    case OpKind::Store: {
+      const auto &buf = ctx.buffers.at(static_cast<std::size_t>(n.binding));
+      ss << "  " << buf.name << "[" << emit_expr(ctx, n.lhs, names) << "] = " << emit_expr(ctx, n.rhs, names)
+         << ";\n";
+      break;
+    }
+    case OpKind::OutputVarying:
+      ss << "  " << n.name << " = " << emit_expr(ctx, n.rhs, names) << ";\n";
+      break;
+    case OpKind::IfBegin:
+      ss << "  if (" << emit_expr(ctx, n.lhs, names) << ") {\n";
+      break;
+    case OpKind::ElseBegin:
+      ss << "  } else {\n";
+      break;
+    case OpKind::IfEnd:
+    case OpKind::ElseEnd:
+      ss << "  }\n";
+      break;
+    case OpKind::ForBegin:
+      ss << "  for (; " << emit_expr(ctx, n.lhs, names) << " < " << emit_expr(ctx, n.rhs, names) << "; ++"
+         << emit_expr(ctx, n.lhs, names) << ") {\n";
+      break;
+    case OpKind::ForEnd:
+      ss << "  }\n";
+      break;
+    default:
+      break;
+    }
+  }
 }
 
 inline std::string emit_glsl(const vlk::ASTContext &ctx, std::uint32_t work_count)
@@ -180,67 +260,64 @@ inline std::string emit_glsl(const vlk::ASTContext &ctx, std::uint32_t work_coun
   ss << "  if (idx >= " << work_count << "u) return;\n";
 
   std::unordered_map<int, std::string> names;
-  names.emplace(
-    [&] {
-      for (std::size_t i = 0; i < ctx.nodes.size(); ++i) {
-        if (ctx.nodes[i].kind == OpKind::ParamIndex) { return static_cast<int>(i); }
-      }
-      return -1;
-    }(),
-    "int(idx)");
-
-  // Declare temps
   for (std::size_t i = 0; i < ctx.nodes.size(); ++i) {
-    const auto &n = ctx.nodes[i];
-    if (n.kind == OpKind::Var) {
-      const std::string nm = n.name.empty() ? std::format("v{}", i) : n.name;
-      names[static_cast<int>(i)] = nm;
-      // Heuristic: names starting with i are ints
-      if (!nm.empty() && nm[0] == 'i') {
-        ss << "  int " << nm << ";\n";
-      } else {
-        ss << "  float " << nm << ";\n";
-      }
+    if (ctx.nodes[i].kind == OpKind::ParamIndex) {
+      names.emplace(static_cast<int>(i), "int(idx)");
     }
   }
 
-  for (std::size_t i = 0; i < ctx.nodes.size(); ++i) {
-    const auto &n = ctx.nodes[i];
-    switch (n.kind) {
-    case OpKind::Assign: {
-      const std::string dst = emit_expr(ctx, n.lhs, names);
-      const std::string src = emit_expr(ctx, n.rhs, names);
-      ss << "  " << dst << " = " << src << ";\n";
-      break;
-    }
-    case OpKind::Store: {
-      const auto &buf = ctx.buffers.at(static_cast<std::size_t>(n.binding));
-      ss << "  " << buf.name << "[" << emit_expr(ctx, n.lhs, names) << "] = " << emit_expr(ctx, n.rhs, names)
-         << ";\n";
-      break;
-    }
-    case OpKind::IfBegin:
-      ss << "  if (" << emit_expr(ctx, n.lhs, names) << ") {\n";
-      break;
-    case OpKind::ElseBegin:
-      ss << "  } else {\n";
-      break;
-    case OpKind::IfEnd:
-    case OpKind::ElseEnd:
-      ss << "  }\n";
-      break;
-    case OpKind::ForBegin:
-      ss << "  for (; " << emit_expr(ctx, n.lhs, names) << " < " << emit_expr(ctx, n.rhs, names) << "; ++"
-         << emit_expr(ctx, n.lhs, names) << ") {\n";
-      break;
-    case OpKind::ForEnd:
-      ss << "  }\n";
-      break;
-    default:
-      break;
+  emit_body_statements(ss, ctx, names);
+  ss << "}\n";
+  return ss.str();
+}
+
+inline std::string emit_vertex_glsl(const vlk::ASTContext &ctx)
+{
+  using vlk::OpKind;
+  std::ostringstream ss;
+  ss << "#version 450\n";
+
+  std::unordered_set<std::string> outs;
+  for (const auto &n : ctx.nodes) {
+    if (n.kind == OpKind::OutputVarying && n.name != "gl_Position" && outs.insert(n.name).second) {
+      ss << "layout(location = " << n.const_i << ") out " << vlk::glsl_type_name(n.type) << " " << n.name << ";\n";
     }
   }
+  if (!ctx.push_block_glsl.empty()) { ss << ctx.push_block_glsl << "\n"; }
 
+  ss << "void main() {\n";
+  std::unordered_map<int, std::string> names;
+  for (std::size_t i = 0; i < ctx.nodes.size(); ++i) {
+    if (ctx.nodes[i].kind == OpKind::VertexIndex) {
+      names.emplace(static_cast<int>(i), "int(gl_VertexIndex)");
+    }
+  }
+  emit_body_statements(ss, ctx, names);
+  ss << "}\n";
+  return ss.str();
+}
+
+inline std::string emit_fragment_glsl(const vlk::ASTContext &ctx)
+{
+  using vlk::OpKind;
+  std::ostringstream ss;
+  ss << "#version 450\n";
+
+  std::unordered_set<std::string> seen_in;
+  std::unordered_set<std::string> seen_out;
+  for (const auto &n : ctx.nodes) {
+    if (n.kind == OpKind::InputVarying && seen_in.insert(n.name).second) {
+      ss << "layout(location = " << n.const_i << ") in " << vlk::glsl_type_name(n.type) << " " << n.name << ";\n";
+    }
+    if (n.kind == OpKind::OutputVarying && seen_out.insert(n.name).second) {
+      ss << "layout(location = " << n.const_i << ") out " << vlk::glsl_type_name(n.type) << " " << n.name << ";\n";
+    }
+  }
+  if (!ctx.push_block_glsl.empty()) { ss << ctx.push_block_glsl << "\n"; }
+
+  ss << "void main() {\n";
+  std::unordered_map<int, std::string> names;
+  emit_body_statements(ss, ctx, names);
   ss << "}\n";
   return ss.str();
 }

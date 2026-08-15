@@ -6,6 +6,7 @@
 #include <vkexec/detail/control.hpp>
 #include <vkexec/detail/push_constant.hpp>
 #include <vkexec/detail/types.hpp>
+#include <vkexec/graphics.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/window.hpp>
 
