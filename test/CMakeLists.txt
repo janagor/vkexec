@@ -49,6 +49,7 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_warnings
           vkexec::vkexec_options
           vkexec::sample_library
+          vkexec::vkexec
           Catch2::Catch2WithMain)
 
 vkexec_configure_linker(tests)
