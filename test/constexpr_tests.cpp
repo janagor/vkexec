@@ -1,12 +1,23 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/sample_library.hpp>
+#include <cstdint>
 
-TEST_CASE("Factorials are computed with constexpr", "[factorial]")
+namespace {
+
+[[nodiscard]] constexpr auto saturate_u8(int value) noexcept -> std::uint8_t
 {
-  STATIC_REQUIRE(FactorialConstexpr(0) == 1);
-  STATIC_REQUIRE(FactorialConstexpr(1) == 1);
-  STATIC_REQUIRE(FactorialConstexpr(2) == 2);
-  STATIC_REQUIRE(FactorialConstexpr(3) == 6);
-  STATIC_REQUIRE(FactorialConstexpr(10) == 3628800);
+  if (value < 0) { return 0; }
+  if (value > 255) { return 255; }
+  return static_cast<std::uint8_t>(value);
+}
+
+} // namespace
+
+TEST_CASE("saturate_u8 is usable in constexpr context", "[constexpr]")
+{
+  STATIC_REQUIRE(saturate_u8(0) == 0);
+  STATIC_REQUIRE(saturate_u8(128) == 128);
+  STATIC_REQUIRE(saturate_u8(255) == 255);
+  STATIC_REQUIRE(saturate_u8(-1) == 0);
+  STATIC_REQUIRE(saturate_u8(300) == 255);
 }

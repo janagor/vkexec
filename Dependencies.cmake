@@ -46,40 +46,6 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
-  if(NOT TARGET CLI11::CLI11)
-    cpmaddpackage(
-      NAME
-      CLI11
-      VERSION
-      2.6.1
-      GITHUB_REPOSITORY
-      "CLIUtils/CLI11"
-      SYSTEM
-      YES)
-  endif()
-
-  if(NOT TARGET ftxui::screen)
-    cpmaddpackage(
-      NAME
-      FTXUI
-      VERSION
-      6.1.9
-      GITHUB_REPOSITORY
-      "ArthurSonzogni/FTXUI"
-      SYSTEM
-      YES)
-  endif()
-
-  if(NOT TARGET tools::tools)
-    cpmaddpackage(
-      NAME
-      tools
-      GITHUB_REPOSITORY
-      "lefticus/tools"
-      GIT_TAG
-      "main")
-  endif()
-
   if(NOT TARGET glslang::glslang)
     cpmaddpackage(
       NAME

@@ -26,7 +26,6 @@ project(
   LANGUAGES CXX C)
 
 include(cmake/PreventInSourceBuilds.cmake)
-include(cmake/Emscripten.cmake)
 include(ProjectOptions.cmake)
 
 vkexec_setup_options()
@@ -63,11 +62,6 @@ add_subdirectory(configured_files)
 # Adding the src:
 add_subdirectory(src)
 
-# Create unified web deployment directory (for WASM builds)
-if(EMSCRIPTEN)
-  vkexec_create_web_dist()
-endif()
-
 # Don't even look at tests if we're not top level
 if(NOT PROJECT_IS_TOP_LEVEL)
   return()
@@ -102,7 +96,7 @@ if(MSVC)
 endif()
 
 # set the startup project for the "play" button in MSVC
-set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT intro)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT vkexec_triangle_example)
 
 if(CMAKE_SKIP_INSTALL_RULES)
   return()
@@ -114,7 +108,6 @@ include(cmake/PackageProject.cmake)
 # we know we want to ship
 vkexec_package_project(
   TARGETS
-  intro
   vkexec_options
   vkexec_warnings
   # FIXME: this does not work! CK
