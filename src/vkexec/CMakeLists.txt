@@ -9,6 +9,7 @@ target_link_libraries(
          Vulkan::Vulkan
          STDEXEC::stdexec
          glfw
+         vk-bootstrap::vk-bootstrap
   PRIVATE glslang::glslang
           glslang::SPIRV
           glslang::glslang-default-resource-limits)

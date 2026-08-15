@@ -2,11 +2,11 @@
 
 #include <vkexec/detail/pipeline_cache.hpp>
 
+#include <VkBootstrap.h>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace vkexec {
@@ -27,9 +27,11 @@ public:
 
   [[nodiscard]] scheduler get_scheduler() noexcept;
 
-  [[nodiscard]] VkInstance instance() const noexcept { return instance_; }
-  [[nodiscard]] VkPhysicalDevice physical_device() const noexcept { return physical_; }
-  [[nodiscard]] VkDevice device() const noexcept { return device_; }
+  [[nodiscard]] VkInstance instance() const noexcept { return instance_.instance; }
+  [[nodiscard]] VkPhysicalDevice physical_device() const noexcept { return physical_device_.physical_device; }
+  [[nodiscard]] VkDevice device() const noexcept { return device_.device; }
+  [[nodiscard]] vkb::Device &vkb_device() noexcept { return device_; }
+  [[nodiscard]] vkb::Device const &vkb_device() const noexcept { return device_; }
   [[nodiscard]] VkQueue compute_queue() const noexcept { return compute_queue_; }
   [[nodiscard]] VkQueue graphics_queue() const noexcept { return graphics_queue_; }
   [[nodiscard]] VkQueue present_queue() const noexcept { return present_queue_; }
@@ -56,14 +58,12 @@ private:
   explicit context(instance_only_tag, std::vector<const char *> instance_extensions);
   void complete_for_surface(VkSurfaceKHR surface);
 
-  void create_instance(const std::vector<const char *> &extra_extensions);
-  void pick_device(VkSurfaceKHR surface);
-  void create_device(bool enable_swapchain);
   void create_command_pool();
+  void fetch_queues(bool want_present);
 
-  VkInstance instance_{ VK_NULL_HANDLE };
-  VkPhysicalDevice physical_{ VK_NULL_HANDLE };
-  VkDevice device_{ VK_NULL_HANDLE };
+  vkb::Instance instance_{};
+  vkb::PhysicalDevice physical_device_{};
+  vkb::Device device_{};
   VkQueue compute_queue_{ VK_NULL_HANDLE };
   VkQueue graphics_queue_{ VK_NULL_HANDLE };
   VkQueue present_queue_{ VK_NULL_HANDLE };
@@ -73,6 +73,8 @@ private:
   VkCommandPool command_pool_{ VK_NULL_HANDLE };
   std::unique_ptr<PipelineCache> pipeline_cache_;
   bool presentation_enabled_{ false };
+  bool has_instance_{ false };
+  bool has_device_{ false };
 };
 
 } // namespace vkexec

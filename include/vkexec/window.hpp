@@ -76,7 +76,7 @@ private:
   std::unique_ptr<context> ctx_;
   VkSurfaceKHR surface_{ VK_NULL_HANDLE };
 
-  VkSwapchainKHR swapchain_{ VK_NULL_HANDLE };
+  vkb::Swapchain swapchain_{};
   VkFormat swapchain_format_{ VK_FORMAT_B8G8R8A8_SRGB };
   VkExtent2D swapchain_extent_{};
   std::vector<VkImage> swapchain_images_;

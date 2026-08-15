@@ -139,4 +139,17 @@ function(vkexec_setup_dependencies)
 
   find_package(Vulkan REQUIRED)
 
+  if(NOT TARGET vk-bootstrap::vk-bootstrap)
+    cpmaddpackage(
+      NAME
+      vk-bootstrap
+      GITHUB_REPOSITORY
+      "charles-lunarg/vk-bootstrap"
+      GIT_TAG
+      "v1.4.352"
+      SYSTEM
+      YES)
+  endif()
+
+
 endfunction()

@@ -3,9 +3,8 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <algorithm>
-#include <limits>
 #include <stdexcept>
+#include <string>
 
 namespace vkexec {
 namespace {
@@ -13,6 +12,16 @@ namespace {
 void check(VkResult result, const char *what)
 {
   if (result != VK_SUCCESS) { throw std::runtime_error(what); }
+}
+
+template<typename T>
+T unwrap(vkb::Result<T> result, char const *what)
+{
+  if (!result) {
+    throw std::runtime_error(
+      std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")");
+  }
+  return result.value();
 }
 
 } // namespace
@@ -74,7 +83,7 @@ window::~window()
     cleanup_swapchain();
     if (render_pass_ != VK_NULL_HANDLE) { vkDestroyRenderPass(ctx_->device(), render_pass_, nullptr); }
     if (surface_ != VK_NULL_HANDLE) {
-      vkDestroySurfaceKHR(ctx_->instance(), surface_, nullptr);
+      vkb::destroy_surface(ctx_->instance(), surface_);
       surface_ = VK_NULL_HANDLE;
     }
   }
@@ -102,90 +111,28 @@ void window::create_surface()
 
 void window::create_swapchain()
 {
-  VkSurfaceCapabilitiesKHR caps{};
-  check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx_->physical_device(), surface_, &caps),
-    "vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed");
+  int fb_w = 0;
+  int fb_h = 0;
+  glfwGetFramebufferSize(glfw_, &fb_w, &fb_h);
 
-  std::uint32_t format_count = 0;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(ctx_->physical_device(), surface_, &format_count, nullptr);
-  std::vector<VkSurfaceFormatKHR> formats(format_count);
-  vkGetPhysicalDeviceSurfaceFormatsKHR(ctx_->physical_device(), surface_, &format_count, formats.data());
+  vkb::Swapchain old = swapchain_;
+  auto builder = vkb::SwapchainBuilder{ ctx_->vkb_device(), surface_ }
+                   .set_desired_format({ VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+                   .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+                   .set_desired_extent(static_cast<std::uint32_t>(fb_w), static_cast<std::uint32_t>(fb_h))
+                   .set_old_swapchain(old);
 
-  VkSurfaceFormatKHR chosen = formats.front();
-  for (const auto &f : formats) {
-    if (f.format == VK_FORMAT_B8G8R8A8_SRGB && f.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-      chosen = f;
-      break;
-    }
-  }
-  swapchain_format_ = chosen.format;
+  swapchain_ = unwrap(builder.build(), "vk-bootstrap SwapchainBuilder");
+  if (old.swapchain != VK_NULL_HANDLE) { vkb::destroy_swapchain(old); }
 
-  if (caps.currentExtent.width != std::numeric_limits<std::uint32_t>::max()) {
-    swapchain_extent_ = caps.currentExtent;
-  } else {
-    int fb_w = 0;
-    int fb_h = 0;
-    glfwGetFramebufferSize(glfw_, &fb_w, &fb_h);
-    swapchain_extent_.width =
-      std::clamp(static_cast<std::uint32_t>(fb_w), caps.minImageExtent.width, caps.maxImageExtent.width);
-    swapchain_extent_.height =
-      std::clamp(static_cast<std::uint32_t>(fb_h), caps.minImageExtent.height, caps.maxImageExtent.height);
-  }
-
-  std::uint32_t image_count = caps.minImageCount + 1;
-  if (caps.maxImageCount > 0 && image_count > caps.maxImageCount) { image_count = caps.maxImageCount; }
-
-  VkSwapchainCreateInfoKHR sci{};
-  sci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  sci.surface = surface_;
-  sci.minImageCount = image_count;
-  sci.imageFormat = swapchain_format_;
-  sci.imageColorSpace = chosen.colorSpace;
-  sci.imageExtent = swapchain_extent_;
-  sci.imageArrayLayers = 1;
-  sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-  const std::uint32_t qfams[] = { ctx_->graphics_queue_family(), ctx_->present_queue_family() };
-  if (qfams[0] != qfams[1]) {
-    sci.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    sci.queueFamilyIndexCount = 2;
-    sci.pQueueFamilyIndices = qfams;
-  } else {
-    sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  }
-
-  sci.preTransform = caps.currentTransform;
-  sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  sci.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-  sci.clipped = VK_TRUE;
-  sci.oldSwapchain = VK_NULL_HANDLE;
-
-  check(vkCreateSwapchainKHR(ctx_->device(), &sci, nullptr, &swapchain_), "vkCreateSwapchainKHR failed");
-
-  std::uint32_t actual = 0;
-  vkGetSwapchainImagesKHR(ctx_->device(), swapchain_, &actual, nullptr);
-  swapchain_images_.resize(actual);
-  vkGetSwapchainImagesKHR(ctx_->device(), swapchain_, &actual, swapchain_images_.data());
+  swapchain_format_ = swapchain_.image_format;
+  swapchain_extent_ = swapchain_.extent;
+  swapchain_images_ = unwrap(swapchain_.get_images(), "vk-bootstrap Swapchain::get_images");
 }
 
 void window::create_image_views()
 {
-  swapchain_views_.resize(swapchain_images_.size());
-  for (std::size_t i = 0; i < swapchain_images_.size(); ++i) {
-    VkImageViewCreateInfo ivci{};
-    ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    ivci.image = swapchain_images_[i];
-    ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    ivci.format = swapchain_format_;
-    ivci.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
-      VK_COMPONENT_SWIZZLE_IDENTITY };
-    ivci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    ivci.subresourceRange.baseMipLevel = 0;
-    ivci.subresourceRange.levelCount = 1;
-    ivci.subresourceRange.baseArrayLayer = 0;
-    ivci.subresourceRange.layerCount = 1;
-    check(vkCreateImageView(ctx_->device(), &ivci, nullptr, &swapchain_views_[i]), "vkCreateImageView failed");
-  }
+  swapchain_views_ = unwrap(swapchain_.get_image_views(), "vk-bootstrap Swapchain::get_image_views");
 }
 
 void window::create_render_pass()
@@ -272,13 +219,14 @@ void window::cleanup_swapchain()
     if (fb != VK_NULL_HANDLE) { vkDestroyFramebuffer(ctx_->device(), fb, nullptr); }
   }
   framebuffers_.clear();
-  for (VkImageView view : swapchain_views_) {
-    if (view != VK_NULL_HANDLE) { vkDestroyImageView(ctx_->device(), view, nullptr); }
+  if (!swapchain_views_.empty()) {
+    swapchain_.destroy_image_views(swapchain_views_);
+    swapchain_views_.clear();
   }
-  swapchain_views_.clear();
-  if (swapchain_ != VK_NULL_HANDLE) {
-    vkDestroySwapchainKHR(ctx_->device(), swapchain_, nullptr);
-    swapchain_ = VK_NULL_HANDLE;
+  swapchain_images_.clear();
+  if (swapchain_.swapchain != VK_NULL_HANDLE) {
+    vkb::destroy_swapchain(swapchain_);
+    swapchain_ = {};
   }
 }
 
@@ -293,7 +241,17 @@ void window::recreate_swapchain()
   }
 
   vkDeviceWaitIdle(ctx_->device());
-  cleanup_swapchain();
+
+  for (VkFramebuffer fb : framebuffers_) {
+    if (fb != VK_NULL_HANDLE) { vkDestroyFramebuffer(ctx_->device(), fb, nullptr); }
+  }
+  framebuffers_.clear();
+  if (!swapchain_views_.empty()) {
+    swapchain_.destroy_image_views(swapchain_views_);
+    swapchain_views_.clear();
+  }
+  swapchain_images_.clear();
+
   create_swapchain();
   create_image_views();
   create_framebuffers();
@@ -355,7 +313,7 @@ void window::end_frame(const frame &drawn)
   present.waitSemaphoreCount = 1;
   present.pWaitSemaphores = &sync.render_finished;
   present.swapchainCount = 1;
-  present.pSwapchains = &swapchain_;
+  present.pSwapchains = &swapchain_.swapchain;
   present.pImageIndices = &current_image_index_;
 
   VkResult presented = vkQueuePresentKHR(ctx_->present_queue(), &present);
