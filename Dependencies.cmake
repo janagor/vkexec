@@ -118,6 +118,25 @@ function(vkexec_setup_dependencies)
       "STDEXEC_ENABLE_IO_URING OFF")
   endif()
 
+  if(NOT TARGET glfw)
+    cpmaddpackage(
+      NAME
+      glfw
+      GITHUB_REPOSITORY
+      "glfw/glfw"
+      GIT_TAG
+      "3.4"
+      SYSTEM
+      YES
+      OPTIONS
+      "GLFW_BUILD_EXAMPLES OFF"
+      "GLFW_BUILD_TESTS OFF"
+      "GLFW_BUILD_DOCS OFF"
+      "GLFW_INSTALL OFF"
+      "GLFW_BUILD_WAYLAND OFF"
+      "GLFW_BUILD_X11 ON")
+  endif()
+
   find_package(Vulkan REQUIRED)
 
 endfunction()

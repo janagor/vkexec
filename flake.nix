@@ -43,6 +43,13 @@
           shaderc
           glslang
           spirv-tools
+          glfw
+          libx11
+          libxrandr
+          libxi
+          libxcursor
+          libxinerama
+          libxkbcommon
         ];
 
         clangShell = pkgs.mkShell.override { stdenv = llvmStdenv; } {
