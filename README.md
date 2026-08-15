@@ -49,6 +49,25 @@ cmake --preset unixlike-clang-release
 cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_example/vkexec_example
 ./out/build/unixlike-clang-release/src/vkexec_sort_example/vkexec_sort_example
+./out/build/unixlike-clang-release/src/vkexec_triangle_example/vkexec_triangle_example
+```
+
+### Triangle window
+
+Shaders are traced from C++. Each frame is a stdexec pipeline (same shape as compute `bulk`):
+
+```cpp
+vkexec::window win({ .width = 800, .height = 600, .title = "triangle" });
+vkexec::graphics_pipeline pipeline(win.ctx(), win.render_pass(),
+  [](vlk::Int vid, vlk::VertexWriter out) { /* ... */ },
+  [](vlk::FragmentReader in, vlk::FragmentWriter out) { /* ... */ });
+
+while (!win.should_close()) {
+  win.poll_events();
+  ex::sync_wait(
+    ex::schedule(win.ctx().get_scheduler())
+    | vkexec::draw(win, pipeline, 3));
+}
 ```
 
 
