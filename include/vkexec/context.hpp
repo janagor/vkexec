@@ -3,6 +3,7 @@
 #include <vkexec/detail/pipeline_cache.hpp>
 
 #include <VkBootstrap.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
@@ -39,6 +40,7 @@ public:
   [[nodiscard]] std::uint32_t graphics_queue_family() const noexcept { return graphics_family_; }
   [[nodiscard]] std::uint32_t present_queue_family() const noexcept { return present_family_; }
   [[nodiscard]] VkCommandPool command_pool() const noexcept { return command_pool_; }
+  [[nodiscard]] VmaAllocator allocator() const noexcept { return allocator_; }
   [[nodiscard]] PipelineCache &pipeline_cache() noexcept { return *pipeline_cache_; }
   [[nodiscard]] bool presentation_enabled() const noexcept { return presentation_enabled_; }
 
@@ -59,11 +61,13 @@ private:
   void complete_for_surface(VkSurfaceKHR surface);
 
   void create_command_pool();
+  void create_allocator();
   void fetch_queues(bool want_present);
 
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};
   vkb::Device device_{};
+  VmaAllocator allocator_{ VK_NULL_HANDLE };
   VkQueue compute_queue_{ VK_NULL_HANDLE };
   VkQueue graphics_queue_{ VK_NULL_HANDLE };
   VkQueue present_queue_{ VK_NULL_HANDLE };

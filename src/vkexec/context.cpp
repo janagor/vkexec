@@ -42,6 +42,7 @@ context::context()
   has_device_ = true;
   fetch_queues(false);
   create_command_pool();
+  create_allocator();
   pipeline_cache_ = std::make_unique<PipelineCache>(*this);
 }
 
@@ -68,6 +69,7 @@ void context::complete_for_surface(VkSurfaceKHR surface)
   has_device_ = true;
   fetch_queues(true);
   create_command_pool();
+  create_allocator();
   pipeline_cache_ = std::make_unique<PipelineCache>(*this);
   presentation_enabled_ = true;
 }
@@ -111,6 +113,10 @@ context::~context()
   pipeline_cache_.reset();
   if (has_device_) {
     vkDeviceWaitIdle(device_.device);
+    if (allocator_ != VK_NULL_HANDLE) {
+      vmaDestroyAllocator(allocator_);
+      allocator_ = VK_NULL_HANDLE;
+    }
     if (command_pool_ != VK_NULL_HANDLE) {
       vkDestroyCommandPool(device_.device, command_pool_, nullptr);
       command_pool_ = VK_NULL_HANDLE;
@@ -133,6 +139,16 @@ void context::create_command_pool()
   if (vkCreateCommandPool(device_.device, &pci, nullptr, &command_pool_) != VK_SUCCESS) {
     fail("vkCreateCommandPool failed");
   }
+}
+
+void context::create_allocator()
+{
+  VmaAllocatorCreateInfo aci{};
+  aci.physicalDevice = physical_device_.physical_device;
+  aci.device = device_.device;
+  aci.instance = instance_.instance;
+  aci.vulkanApiVersion = VK_API_VERSION_1_2;
+  if (vmaCreateAllocator(&aci, &allocator_) != VK_SUCCESS) { fail("vmaCreateAllocator failed"); }
 }
 
 VkCommandBuffer context::allocate_command_buffer()

@@ -50,17 +50,46 @@
           libxcursor
           libxinerama
           libxkbcommon
+          wayland
+          wayland-protocols
+          wayland-scanner
+          libffi
+          libdecor
+          kdePackages.extra-cmake-modules
         ];
 
-        clangShell = pkgs.mkShell.override { stdenv = llvmStdenv; } {
-          packages = commonPackages;
+        runtimeLibs = with pkgs; [
+          vulkan-loader
+          libx11
+          libxrandr
+          libxi
+          libxcursor
+          libxinerama
+          libxkbcommon
+          wayland
+          libffi
+          libdecor
+        ];
+
+        shellEnv = {
           VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
+          # GLFW 3.4 dlopens X11/Wayland at runtime; expose them in the nix shell.
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibs;
         };
 
-        gccShell = pkgs.mkShell.override { stdenv = pkgs.gcc16Stdenv; } {
-          packages = commonPackages ++ [ pkgs.mold ];
-          VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
-        };
+        clangShell = pkgs.mkShell.override { stdenv = llvmStdenv; } (
+          shellEnv
+          // {
+            packages = commonPackages;
+          }
+        );
+
+        gccShell = pkgs.mkShell.override { stdenv = pkgs.gcc16Stdenv; } (
+          shellEnv
+          // {
+            packages = commonPackages ++ [ pkgs.mold ];
+          }
+        );
       in
       {
         devShells = {

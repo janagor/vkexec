@@ -3,8 +3,6 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/types.hpp>
 
-#include <vulkan/vulkan.h>
-
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -29,26 +27,18 @@ public:
     bci.size = bytes;
     bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    if (vkCreateBuffer(ctx_->device(), &bci, nullptr, &buffer_) != VK_SUCCESS) {
-      throw std::runtime_error("vkCreateBuffer failed");
-    }
 
-    VkMemoryRequirements req{};
-    vkGetBufferMemoryRequirements(ctx_->device(), buffer_, &req);
+    VmaAllocationCreateInfo aci{};
+    aci.usage = VMA_MEMORY_USAGE_AUTO;
+    aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-    VkMemoryAllocateInfo mai{};
-    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize = req.size;
-    mai.memoryTypeIndex = find_memory_type(req.memoryTypeBits,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    if (vkAllocateMemory(ctx_->device(), &mai, nullptr, &memory_) != VK_SUCCESS) {
-      throw std::runtime_error("vkAllocateMemory failed");
+    VmaAllocationInfo ainfo{};
+    if (vmaCreateBuffer(ctx_->allocator(), &bci, &aci, &buffer_, &allocation_, &ainfo) != VK_SUCCESS) {
+      throw std::runtime_error("vmaCreateBuffer failed");
     }
-    vkBindBufferMemory(ctx_->device(), buffer_, memory_, 0);
-    if (vkMapMemory(ctx_->device(), memory_, 0, bytes, 0, &mapped_) != VK_SUCCESS) {
-      throw std::runtime_error("vkMapMemory failed");
-    }
+    mapped_ = ainfo.pMappedData;
+    if (mapped_ == nullptr) { throw std::runtime_error("vmaCreateBuffer did not map host-visible memory"); }
 
     auto *ptr = static_cast<T *>(mapped_);
     for (std::size_t i = 0; i < count_; ++i) { ptr[i] = fill; }
@@ -56,10 +46,8 @@ public:
 
   ~buffer()
   {
-    if (ctx_ && ctx_->device() != VK_NULL_HANDLE) {
-      if (mapped_) { vkUnmapMemory(ctx_->device(), memory_); }
-      if (buffer_ != VK_NULL_HANDLE) { vkDestroyBuffer(ctx_->device(), buffer_, nullptr); }
-      if (memory_ != VK_NULL_HANDLE) { vkFreeMemory(ctx_->device(), memory_, nullptr); }
+    if (ctx_ && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
+      vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);
     }
   }
 
@@ -67,12 +55,12 @@ public:
   buffer &operator=(const buffer &) = delete;
 
   buffer(buffer &&other) noexcept
-    : ctx_(other.ctx_), buffer_(other.buffer_), memory_(other.memory_), mapped_(other.mapped_), count_(other.count_),
-      name_(std::move(other.name_)), binding_(-1)
+    : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
+      count_(other.count_), name_(std::move(other.name_)), binding_(-1)
   {
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;
-    other.memory_ = VK_NULL_HANDLE;
+    other.allocation_ = VK_NULL_HANDLE;
     other.mapped_ = nullptr;
   }
 
@@ -185,19 +173,9 @@ private:
     return id++;
   }
 
-  std::uint32_t find_memory_type(std::uint32_t type_bits, VkMemoryPropertyFlags props) const
-  {
-    VkPhysicalDeviceMemoryProperties mp{};
-    vkGetPhysicalDeviceMemoryProperties(ctx_->physical_device(), &mp);
-    for (std::uint32_t i = 0; i < mp.memoryTypeCount; ++i) {
-      if ((type_bits & (1u << i)) && (mp.memoryTypes[i].propertyFlags & props) == props) { return i; }
-    }
-    throw std::runtime_error("no suitable host-visible memory type");
-  }
-
   context *ctx_{ nullptr };
   VkBuffer buffer_{ VK_NULL_HANDLE };
-  VkDeviceMemory memory_{ VK_NULL_HANDLE };
+  VmaAllocation allocation_{ VK_NULL_HANDLE };
   void *mapped_{ nullptr };
   std::size_t count_{ 0 };
   std::string name_;

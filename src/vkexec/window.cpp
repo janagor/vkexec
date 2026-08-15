@@ -9,6 +9,13 @@
 namespace vkexec {
 namespace {
 
+std::string g_glfw_error;
+
+void glfw_error_callback(int code, const char *description)
+{
+  g_glfw_error = "GLFW " + std::to_string(code) + ": " + (description != nullptr ? description : "(no description)");
+}
+
 void check(VkResult result, const char *what)
 {
   if (result != VK_SUCCESS) { throw std::runtime_error(what); }
@@ -36,7 +43,11 @@ window::window() : window(config{}) {}
 
 window::window(config cfg) : cfg_(std::move(cfg))
 {
-  if (glfwInit() != GLFW_TRUE) { throw std::runtime_error("glfwInit failed"); }
+  g_glfw_error.clear();
+  glfwSetErrorCallback(glfw_error_callback);
+  if (glfwInit() != GLFW_TRUE) {
+    throw std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
+  }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 

@@ -133,7 +133,7 @@ function(vkexec_setup_dependencies)
       "GLFW_BUILD_TESTS OFF"
       "GLFW_BUILD_DOCS OFF"
       "GLFW_INSTALL OFF"
-      "GLFW_BUILD_WAYLAND OFF"
+      "GLFW_BUILD_WAYLAND ON"
       "GLFW_BUILD_X11 ON")
   endif()
 
@@ -151,5 +151,16 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
+  if(NOT TARGET GPUOpen::VulkanMemoryAllocator)
+    cpmaddpackage(
+      NAME
+      VulkanMemoryAllocator
+      GITHUB_REPOSITORY
+      "GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator"
+      GIT_TAG
+      "v3.4.0"
+      SYSTEM
+      YES)
+  endif()
 
 endfunction()
