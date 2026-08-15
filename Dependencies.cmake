@@ -3,7 +3,7 @@ include(cmake/CPM.cmake)
 # Done as a function so that updates to variables like
 # CMAKE_CXX_FLAGS don't propagate out to other
 # targets
-function(vksjit_setup_dependencies)
+function(vkexec_setup_dependencies)
 
   # For each dependency, see if it's
   # already been provided to us by a parent project
@@ -100,5 +100,24 @@ function(vksjit_setup_dependencies)
       "BUILD_EXTERNAL OFF"
       "ENABLE_PCH OFF")
   endif()
+
+  if(NOT TARGET STDEXEC::stdexec)
+    cpmaddpackage(
+      NAME
+      stdexec
+      GITHUB_REPOSITORY
+      "NVIDIA/stdexec"
+      GIT_TAG
+      "main"
+      SYSTEM
+      YES
+      OPTIONS
+      "STDEXEC_BUILD_EXAMPLES OFF"
+      "STDEXEC_BUILD_TESTS OFF"
+      "STDEXEC_ENABLE_CUDA OFF"
+      "STDEXEC_ENABLE_IO_URING OFF")
+  endif()
+
+  find_package(Vulkan REQUIRED)
 
 endfunction()

@@ -74,7 +74,7 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 endif()
 
 include(cmake/Format.cmake)
-vkgsplat_enable_formatting()
+vkexec_enable_formatting()
 
 # Adding the tests:
 include(CTest)

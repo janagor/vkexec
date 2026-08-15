@@ -1,4 +1,4 @@
-function(vkgsplat_enable_formatting)
+function(vkexec_enable_formatting)
   if(NOT PROJECT_IS_TOP_LEVEL)
     return()
   endif()

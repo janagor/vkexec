@@ -1,5 +1,5 @@
 {
-  description = "A C++ flake for cmake_template project";
+  description = "vkexec — stdexec Vulkan compute backend";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -24,36 +24,35 @@
           }
         );
 
+        commonPackages = with pkgs; [
+          cmake
+          ninja
+          gcovr
+          ccache
+          doxygen
+          cppcheck
+          graphviz
+          pkg-config
+          include-what-you-use
+          llvm.clang-tools
+
+          vulkan-headers
+          vulkan-loader
+          vulkan-validation-layers
+          vulkan-tools
+          shaderc
+          glslang
+          spirv-tools
+        ];
+
         clangShell = pkgs.mkShell.override { stdenv = llvmStdenv; } {
-          packages = with pkgs; [
-            cmake
-            ninja
-            gcovr
-            ccache
-            doxygen
-            cppcheck
-            graphviz
-            pkg-config
-            include-what-you-use
-            llvm.clang-tools
-          ];
+          packages = commonPackages;
+          VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
         };
 
         gccShell = pkgs.mkShell.override { stdenv = pkgs.gcc16Stdenv; } {
-          packages = with pkgs; [
-            cmake
-            ninja
-            gcovr
-            ccache
-            doxygen
-            cppcheck
-            graphviz
-            pkg-config
-            include-what-you-use
-            llvm.clang-tools
-
-            mold
-          ];
+          packages = commonPackages ++ [ pkgs.mold ];
+          VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
         };
       in
       {
