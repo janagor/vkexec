@@ -309,12 +309,27 @@ struct VertexWriter {
     n.type = ValueType::Vec4;
     ast().append(std::move(n));
   }
+  void point_size(Float size)
+  {
+    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, size.id);
+    n.name = "gl_PointSize";
+    n.type = ValueType::Float;
+    ast().append(std::move(n));
+  }
   void color(Float3 rgb)
   {
     ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, rgb.id);
     n.name = "vColor";
     n.type = ValueType::Vec3;
     n.const_i = 0; // location
+    ast().append(std::move(n));
+  }
+  void color(Float4 rgba)
+  {
+    ExprNode n = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
+    n.name = "vColor4";
+    n.type = ValueType::Vec4;
+    n.const_i = 0;
     ast().append(std::move(n));
   }
 };
@@ -328,6 +343,14 @@ struct FragmentReader {
     n.type = ValueType::Vec3;
     n.const_i = 0;
     return Float3{ ast().append(std::move(n)) };
+  }
+  [[nodiscard]] Float4 color4() const
+  {
+    ExprNode n = ExprNode::make(OpKind::InputVarying);
+    n.name = "vColor4";
+    n.type = ValueType::Vec4;
+    n.const_i = 0;
+    return Float4{ ast().append(std::move(n)) };
   }
 };
 

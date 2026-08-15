@@ -277,9 +277,17 @@ inline std::string emit_vertex_glsl(const vlk::ASTContext &ctx)
   std::ostringstream ss;
   ss << "#version 450\n";
 
+  for (const auto &buf : ctx.buffers) {
+    ss << "layout(set = 0, binding = " << buf.binding << ") readonly buffer Buf" << buf.binding << " {\n";
+    ss << "  " << buf.elem_glsl_type << " data[];\n";
+    ss << "} " << buf.name << "_block;\n";
+    ss << "#define " << buf.name << " " << buf.name << "_block.data\n\n";
+  }
+
   std::unordered_set<std::string> outs;
   for (const auto &n : ctx.nodes) {
-    if (n.kind == OpKind::OutputVarying && n.name != "gl_Position" && outs.insert(n.name).second) {
+    if (n.kind == OpKind::OutputVarying && n.name != "gl_Position" && n.name != "gl_PointSize"
+        && outs.insert(n.name).second) {
       ss << "layout(location = " << n.const_i << ") out " << vlk::glsl_type_name(n.type) << " " << n.name << ";\n";
     }
   }
