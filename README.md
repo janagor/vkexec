@@ -10,7 +10,7 @@
 
 1. Trace C++ operators on `vkexec::Float` / `vkexec::Int` into an AST
 2. Emit GLSL, compile to SPIR-V via glslang, and cache `VkPipeline`s
-3. Dispatch with `vkexec::bulk` on a Vulkan compute queue
+3. Dispatch with `vkexec::bulk`, or sequence several `compute_pass`es plus barriers in one submit
 
 ```cpp
 #include <vkexec/vkexec.hpp>
@@ -38,6 +38,13 @@ int main() {
       });
 
   ex::sync_wait(pipeline);
+
+  // Several compute kernels in one command buffer:
+  auto graph = ex::schedule(ctx.get_scheduler())
+    | vkexec::compute_pass(10000, params, /* kernel */)
+    | vkexec::barrier::compute_to_compute()
+    | vkexec::compute_pass(10000, params, /* kernel */);
+  ex::sync_wait(std::move(graph));
 }
 ```
 

@@ -1,6 +1,7 @@
+#include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
-#include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec_edsl/control.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -16,6 +17,7 @@
 #include <exception>
 #include <print>
 #include <random>
+#include <utility>
 #include <vector>
 
 namespace ex = stdexec;
@@ -56,28 +58,32 @@ auto main() -> int
     // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     std::ranges::sort(expected);
 
-    // Odd-even transposition sort: N phases, each comparing disjoint pairs.
-    for (std::size_t phase = 0; phase < k_element_count; ++phase) {
+    auto make_phase = [&](std::size_t phase) -> auto {
       sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
-      auto pass = ex::schedule(ctx.get_scheduler())
-                  | vkexec::bulk(static_cast<std::uint32_t>(k_element_count / 2),
-                    params,
-                    [&](edsl::Int idx, edsl::push_constant<sort_params> push) -> void {
-                      edsl::Int left = edsl::Int::constant(2) * idx + push.get<&sort_params::offset>();
-                      edsl::Int right = left + edsl::Int::constant(1);
+      return vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count / 2),
+        params,
+        [&](edsl::Int idx, edsl::push_constant<sort_params> push) -> void {
+          edsl::Int left = edsl::Int::constant(2) * idx + push.get<&sort_params::offset>();
+          edsl::Int right = left + edsl::Int::constant(1);
 
-                      edsl::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
-                        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                        edsl::Float const left_value = data[left];
-                        edsl::Float const right_value = data[right];
-                        edsl::Bool const out_of_order = left_value > right_value;
-                        data[left] = edsl::select(out_of_order, right_value, left_value);
-                        data[right] = edsl::select(out_of_order, left_value, right_value);
-                        // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                      });
-                    });
-      ex::sync_wait(pass);
+          edsl::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
+            // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+            edsl::Float const left_value = data[left];
+            edsl::Float const right_value = data[right];
+            edsl::Bool const out_of_order = left_value > right_value;
+            data[left] = edsl::select(out_of_order, right_value, left_value);
+            data[right] = edsl::select(out_of_order, left_value, right_value);
+            // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+          });
+        });
+    };
+
+    // Odd-even transposition sort: N phases in one command buffer, barrier between each.
+    auto graph = ex::schedule(ctx.get_scheduler()) | make_phase(0);
+    for (std::size_t phase = 1; phase < k_element_count; ++phase) {
+      graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
     }
+    ex::sync_wait(std::move(graph));
 
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     for (std::size_t index = 0; index < k_element_count; ++index) {

@@ -2,9 +2,11 @@
 #define VKEXEC_VKEXEC_HPP
 
 
+#include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/edsl.hpp>
 
