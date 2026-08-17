@@ -3,7 +3,7 @@
 
 
 #include <vkexec/buffer.hpp>
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/push_constant.hpp>
@@ -74,7 +74,7 @@ template<typename Params, typename Fun> struct bulk_sender
         fun(idx, push);
       }
 
-      auto &pipe = ctx->get_pipeline_cache().get_or_compile(ast_ctx, shape);
+      auto &pipe = ctx->get_or_compile(ast_ctx, shape);
 
       VkDescriptorSetAllocateInfo dsai{};
       dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -143,7 +143,7 @@ template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fu
     sender.fun(idx, push);
   }
 
-  auto &pipe = sender.ctx->get_pipeline_cache().get_or_compile(ast_ctx, sender.shape);
+  auto &pipe = sender.ctx->get_or_compile(ast_ctx, sender.shape);
 
   VkDescriptorSetAllocateInfo dsai{};
   dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

@@ -1,4 +1,5 @@
 #include <vkexec/context.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
 
 #include <VkBootstrap.h>
@@ -8,6 +9,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -280,6 +282,17 @@ auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemapho
     fail("vkQueueSubmit failed");
   }
   return sem;
+}
+
+auto context::get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &
+{
+  return pipeline_cache_->get_or_compile(ast, work_count);
+}
+
+auto context::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
+  -> pipeline_resources &
+{
+  return pipeline_cache_->get_or_create_from_spirv(spirv, desc);
 }
 
 }// namespace vkexec

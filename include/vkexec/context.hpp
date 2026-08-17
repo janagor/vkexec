@@ -1,7 +1,7 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -9,12 +9,18 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <vector>
+
+namespace vkexec::edsl {
+struct ASTContext;
+}
 
 namespace vkexec {
 
 class scheduler;
 class window;
+class pipeline_cache;
 
 /// Handles borrowed from an embedder. vkexec never destroys these.
 struct context_adopt_info
@@ -66,8 +72,11 @@ public:
   [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t { return present_family_; }
   [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool { return command_pool_; }
   [[nodiscard]] auto allocator() const noexcept -> VmaAllocator { return allocator_; }
-  [[nodiscard]] auto get_pipeline_cache() noexcept -> pipeline_cache & { return *pipeline_cache_; }
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
+
+  [[nodiscard]] auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &;
+  [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
+    -> pipeline_resources &;
 
   auto allocate_command_buffer() -> VkCommandBuffer;
   auto free_command_buffer(VkCommandBuffer cmd) -> void;

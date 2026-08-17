@@ -69,7 +69,7 @@ headers. Default set: fmt, spdlog, Catch2, Boost.Describe/Mp11, glslang, stdexec
 
 ## Libraries
 
-* `vkexec` — compute runtime (`context`, `buffer`, `bulk`, `pipeline_cache`, `compute_pipeline`)
+* `vkexec` — compute runtime (`context`, `buffer`, `bulk`, `compute_pipeline`)
 * `vkexec_edsl` — shader tracing / GLSL / SPIR-V (`vkexec::edsl`)
 * `vkexec_graphics` — optional GLFW window, graphics pipelines, and `draw` senders
 

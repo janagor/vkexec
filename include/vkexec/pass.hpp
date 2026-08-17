@@ -2,7 +2,7 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/push_constant.hpp>
@@ -327,7 +327,7 @@ auto make_jit_step(compute_pass_closure<Params, Fun> closure) -> pass_step
       closure.fun(idx, push);
     }
 
-    auto &pipe = ctx.get_pipeline_cache().get_or_compile(ast_ctx, closure.shape);
+    auto &pipe = ctx.get_or_compile(ast_ctx, closure.shape);
     VkDescriptorSet set = bind_or_allocate_set(ctx, pipe, ast_ctx, cleanup);
     auto const local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
     std::uint32_t const groups = (closure.shape + local - 1U) / local;

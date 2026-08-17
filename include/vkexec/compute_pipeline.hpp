@@ -3,7 +3,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 
 #include <vulkan/vulkan.h>

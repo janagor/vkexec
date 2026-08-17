@@ -2,7 +2,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>

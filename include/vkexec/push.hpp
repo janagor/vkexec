@@ -1,7 +1,7 @@
 #ifndef VKEXEC_PUSH_HPP
 #define VKEXEC_PUSH_HPP
 
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 
 #include <vulkan/vulkan.h>
 

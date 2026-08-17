@@ -1,6 +1,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/pipeline_cache.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec_edsl/spirv.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -17,7 +17,7 @@ namespace vkexec {
 auto compute_pipeline::from_spirv(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> compute_pipeline
 {
-  pipeline_resources &cached = ctx.get_pipeline_cache().get_or_create_from_spirv(spirv, desc);
+  pipeline_resources &cached = ctx.get_or_create_from_spirv(spirv, desc);
   return compute_pipeline{ &ctx, &cached };
 }
 

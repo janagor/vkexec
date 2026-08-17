@@ -1,24 +1,14 @@
-#ifndef VKEXEC_PIPELINE_CACHE_HPP
-#define VKEXEC_PIPELINE_CACHE_HPP
+#ifndef VKEXEC_PIPELINE_HPP
+#define VKEXEC_PIPELINE_HPP
 
 #include <vulkan/vulkan.h>
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <mutex>
-#include <span>
-#include <unordered_map>
 #include <vector>
 
-namespace vkexec::edsl {
-struct ASTContext;
-}
-
 namespace vkexec {
-
-class context;
 
 enum class buffer_access : std::uint8_t { readonly, writeonly, readwrite };
 
@@ -46,27 +36,6 @@ struct pipeline_resources
   std::array<std::uint32_t, 3> local_size{ k_default_local_size };
 };
 
-class pipeline_cache
-{
-public:
-  explicit pipeline_cache(context &ctx);
-  ~pipeline_cache();
-
-  pipeline_cache(pipeline_cache const &) = delete;
-  auto operator=(pipeline_cache const &) -> pipeline_cache & = delete;
-  pipeline_cache(pipeline_cache &&) = delete;
-  auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
-
-  auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &;
-  auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> pipeline_resources &;
-
-private:
-  context *ctx_;
-  std::mutex mutex_;
-  std::unordered_map<std::size_t, std::unique_ptr<pipeline_resources>> cache_;
-};
-
 }// namespace vkexec
 
-#endif// VKEXEC_PIPELINE_CACHE_HPP
+#endif// VKEXEC_PIPELINE_HPP
