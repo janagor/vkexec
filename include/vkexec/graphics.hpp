@@ -9,6 +9,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <stdexcept>
@@ -200,13 +201,14 @@ private:
     const std::string fs_glsl = edsl::emit_fragment_glsl(fs_ast);
     const auto fs_spv = edsl::compile_glsl_to_spirv(fs_glsl, "vkexec.frag", edsl::shader_kind::fragment);
 
-    for (const auto &buffer_binding : vs_ast.buffers) {
-      buffers_.push_back(bound_buffer{
-        .binding = static_cast<std::uint32_t>(buffer_binding.binding),
-        .buffer = static_cast<VkBuffer>(buffer_binding.vk_buffer),
-        .byte_size = static_cast<VkDeviceSize>(buffer_binding.byte_size),
+    std::ranges::transform(vs_ast.buffers, std::back_inserter(buffers_),
+      [](const edsl::BufferBinding &buffer_binding) -> bound_buffer {
+        return bound_buffer{
+          .binding = static_cast<std::uint32_t>(buffer_binding.binding),
+          .buffer = static_cast<VkBuffer>(buffer_binding.vk_buffer),
+          .byte_size = static_cast<VkDeviceSize>(buffer_binding.byte_size),
+        };
       });
-    }
 
     if (!buffers_.empty()) {
       std::vector<VkDescriptorSetLayoutBinding> bindings(buffers_.size());
