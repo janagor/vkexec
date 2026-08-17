@@ -17,20 +17,20 @@ struct SortParams {
 };
 BOOST_DESCRIBE_STRUCT(SortParams, (), (offset, n))
 
-int main()
+auto main() -> int
 {
   try {
     vkexec::context ctx;
     constexpr std::size_t N = 256;
-    vkexec::buffer<float> data(ctx, N, 0.0f);
+    vkexec::buffer<float> data(ctx, N, 0.0F);
 
     std::mt19937 rng{ 42 };
-    std::uniform_real_distribution<float> dist(0.0f, 1000.0f);
+    std::uniform_real_distribution<float> dist(0.0F, 1000.0F);
     std::vector<float> expected(N);
-    for (std::size_t i = 0; i < N; ++i) {
-      const float v = dist(rng);
-      data.data()[i] = v;
-      expected[i] = v;
+    for (std::size_t index = 0; index < N; ++index) {
+      float const value = dist(rng);
+      data.data()[index] = value;
+      expected[index] = value;
     }
     std::sort(expected.begin(), expected.end());
 
@@ -44,28 +44,35 @@ int main()
                         vkexec::Int right = left + vkexec::Int::constant(1);
 
                         vkexec::if_then(right < pc.get<&SortParams::n>(), [&] {
-                          vkexec::Float a = data[left];
-                          vkexec::Float b = data[right];
-                          vkexec::Bool out_of_order = a > b;
-                          data[left] = vkexec::select(out_of_order, b, a);
-                          data[right] = vkexec::select(out_of_order, a, b);
+                          vkexec::Float left_value = data[left];
+                          vkexec::Float right_value = data[right];
+                          vkexec::Bool out_of_order = left_value > right_value;
+                          data[left] = vkexec::select(out_of_order, right_value, left_value);
+                          data[right] = vkexec::select(out_of_order, left_value, right_value);
                         });
                       });
       ex::sync_wait(std::move(pass));
     }
 
-    for (std::size_t i = 0; i < N; ++i) {
-      if (std::fabs(data.data()[i] - expected[i]) > 1e-4f) {
-        std::fprintf(stderr, "sort mismatch at %zu: got %f expected %f\n", i, static_cast<double>(data.data()[i]),
-          static_cast<double>(expected[i]));
+    for (std::size_t index = 0; index < N; ++index) {
+      if (std::fabs(data.data()[index] - expected[index]) > 1e-4F) {
+        std::fprintf(stderr,
+          "sort mismatch at %zu: got %f expected %f\n",
+          index,
+          static_cast<double>(data.data()[index]),
+          static_cast<double>(expected[index]));
         return 1;
       }
     }
 
-    std::printf("vkexec sort ok: N=%zu first=%f mid=%f last=%f\n", N, static_cast<double>(data.data()[0]),
-      static_cast<double>(data.data()[N / 2]), static_cast<double>(data.data()[N - 1]));
+    std::printf(
+      "vkexec sort ok: N=%zu first=%f mid=%f last=%f\n",
+      N,
+      static_cast<double>(data.data()[0]),
+      static_cast<double>(data.data()[N / 2]),
+      static_cast<double>(data.data()[N - 1]));
     return 0;
-  } catch (const std::exception &ex) {
+  } catch (std::exception const &ex) {
     std::fprintf(stderr, "vkexec sort example failed: %s\n", ex.what());
     return 1;
   }

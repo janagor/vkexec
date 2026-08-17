@@ -23,16 +23,18 @@ auto main() -> int
   try {
     vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec triangle" });
 
-    // Vertex + fragment shaders traced from C++ (AST → GLSL → SPIR-V).
+    // Vertex + fragment shaders traced from C++ (AST -> GLSL -> SPIR-V).
     vkexec::graphics_pipeline pipeline(win.ctx(),
       win.render_pass(),
       [](vkexec::Int vertex_id, vkexec::VertexWriter out) -> void {
         vkexec::Float2 const pos = vkexec::select(vertex_id == vkexec::Int::constant(0),
           vkexec::vec2(0.0, -0.5),
-          vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec2(0.5, 0.5), vkexec::vec2(-0.5, 0.5)));
+          vkexec::select(
+            vertex_id == vkexec::Int::constant(1), vkexec::vec2(0.5, 0.5), vkexec::vec2(-0.5, 0.5)));
         vkexec::Float3 const col = vkexec::select(vertex_id == vkexec::Int::constant(0),
           vkexec::vec3(1.0, 0.2, 0.2),
-          vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec3(0.2, 1.0, 0.2), vkexec::vec3(0.2, 0.4, 1.0)));
+          vkexec::select(
+            vertex_id == vkexec::Int::constant(1), vkexec::vec3(0.2, 1.0, 0.2), vkexec::vec3(0.2, 0.4, 1.0)));
         out.position(pos);
         out.color(col);
       },
@@ -40,7 +42,7 @@ auto main() -> int
         out.color(vkexec::vec4(fragment_in.color(), 1.0));
       });
 
-    std::println("vkexec traced triangle (stdexec frame pipeline) — close the window to exit");
+    std::println("vkexec traced triangle (stdexec frame pipeline) - close the window to exit");
     while (!win.should_close()) {
       win.poll_events();
       // Same shape as compute: schedule | algorithm | sync_wait

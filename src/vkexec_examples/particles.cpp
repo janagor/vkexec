@@ -113,7 +113,7 @@ auto main() -> int
       [](vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
 
     auto last = std::chrono::steady_clock::now();
-    std::println("vkexec particles (compute update + point sprites) — close the window to exit");
+    std::println("vkexec particles (compute update + point sprites) - close the window to exit");
 
     while (!win.should_close()) {
       win.poll_events();

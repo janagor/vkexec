@@ -1,5 +1,2 @@
 add_subdirectory(vkexec)
-add_subdirectory(vkexec_example)
-add_subdirectory(vkexec_sort_example)
-add_subdirectory(vkexec_triangle_example)
-add_subdirectory(vkexec_particles_example)
+add_subdirectory(vkexec_examples)
