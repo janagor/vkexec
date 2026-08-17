@@ -3,6 +3,7 @@
 
 #include <vkexec_edsl/ast.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -183,24 +184,24 @@ inline auto emit_expr(const ASTContext &ctx,
 inline auto hash_ast(const ASTContext &ctx) -> std::size_t
 {
   std::size_t hash = ctx.nodes.size();
-  for (const auto &node : ctx.nodes) {
-    hash = hash_combine(hash, static_cast<std::size_t>(node.kind));
-    hash = hash_combine(hash, static_cast<std::size_t>(node.type));
-    hash = hash_combine(hash, static_cast<std::size_t>(node.lhs) + static_cast<std::size_t>(k_hash_mix_lhs));
-    hash = hash_combine(hash, static_cast<std::size_t>(node.rhs) + static_cast<std::size_t>(k_hash_mix_rhs));
-    hash = hash_combine(hash, static_cast<std::size_t>(node.extra) + static_cast<std::size_t>(k_hash_mix_extra));
-    hash = hash_combine(hash, static_cast<std::size_t>(node.fourth) + static_cast<std::size_t>(k_hash_mix_fourth));
-    hash = hash_combine(hash, static_cast<std::size_t>(node.binding) + static_cast<std::size_t>(k_hash_mix_binding));
-    for (char const character : node.name) {
-      hash = hash_combine(hash, static_cast<std::size_t>(static_cast<unsigned char>(character)));
-    }
-  }
-  for (const auto &buffer : ctx.buffers) {
-    hash = hash_combine(hash, static_cast<std::size_t>(buffer.binding));
-    for (char const character : buffer.elem_glsl_type) {
-      hash = hash_combine(hash, static_cast<std::size_t>(static_cast<unsigned char>(character)));
-    }
-  }
+  hash = std::ranges::fold_left(ctx.nodes, hash, [](std::size_t seed, const ExprNode &node) -> std::size_t {
+    seed = hash_combine(seed, static_cast<std::size_t>(node.kind));
+    seed = hash_combine(seed, static_cast<std::size_t>(node.type));
+    seed = hash_combine(seed, static_cast<std::size_t>(node.lhs) + static_cast<std::size_t>(k_hash_mix_lhs));
+    seed = hash_combine(seed, static_cast<std::size_t>(node.rhs) + static_cast<std::size_t>(k_hash_mix_rhs));
+    seed = hash_combine(seed, static_cast<std::size_t>(node.extra) + static_cast<std::size_t>(k_hash_mix_extra));
+    seed = hash_combine(seed, static_cast<std::size_t>(node.fourth) + static_cast<std::size_t>(k_hash_mix_fourth));
+    seed = hash_combine(seed, static_cast<std::size_t>(node.binding) + static_cast<std::size_t>(k_hash_mix_binding));
+    return std::ranges::fold_left(node.name, seed, [](std::size_t current, char character) -> std::size_t {
+      return hash_combine(current, static_cast<std::size_t>(static_cast<unsigned char>(character)));
+    });
+  });
+  hash = std::ranges::fold_left(ctx.buffers, hash, [](std::size_t seed, const BufferBinding &buffer) -> std::size_t {
+    seed = hash_combine(seed, static_cast<std::size_t>(buffer.binding));
+    return std::ranges::fold_left(buffer.elem_glsl_type, seed, [](std::size_t current, char character) -> std::size_t {
+      return hash_combine(current, static_cast<std::size_t>(static_cast<unsigned char>(character)));
+    });
+  });
   hash = hash_combine(hash, ctx.push_bytes);
   return hash;
 }
