@@ -130,6 +130,7 @@ public:
       auto &ast_ctx = edsl::ast();
       if (owner->binding_ < 0) { owner->binding_ = ast_ctx.next_binding++; }
       for (auto &existing : ast_ctx.buffers) {
+        // cppcheck-suppress useStlAlgorithm
         if (existing.binding == owner->binding_) {
           existing.vk_buffer = owner->buffer_;
           existing.byte_size = owner->count_ * sizeof(T);
@@ -149,6 +150,7 @@ public:
       return owner->binding_;
     }
 
+    // cppcheck-suppress unusedPrivateFunction
     [[nodiscard]] auto load_float() const -> edsl::Float
     {
       int const binding = ensure_binding();
@@ -159,6 +161,7 @@ public:
       edsl::emit_assign(tmp, load);
       return edsl::Float{ tmp };
     }
+    // cppcheck-suppress unusedPrivateFunction
     [[nodiscard]] auto load_int() const -> edsl::Int
     {
       int const binding = ensure_binding();

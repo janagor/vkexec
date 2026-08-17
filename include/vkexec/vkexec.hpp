@@ -5,6 +5,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
+#include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/scheduler.hpp>

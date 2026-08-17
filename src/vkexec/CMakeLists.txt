@@ -1,4 +1,4 @@
-add_library(vkexec context.cpp pipeline_cache.cpp vma.cpp)
+add_library(vkexec context.cpp pipeline_cache.cpp compute_pipeline.cpp vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
 

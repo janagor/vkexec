@@ -1,0 +1,61 @@
+#include <vkexec/compute_pipeline.hpp>
+#include <vkexec/context.hpp>
+#include <vkexec/pipeline_cache.hpp>
+
+#include <vulkan/vulkan_core.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <stdexcept>
+#include <vector>
+
+namespace vkexec {
+
+auto compute_pipeline::from_spirv(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+  -> compute_pipeline
+{
+  pipeline_resources &cached = ctx.get_pipeline_cache().get_or_create_from_spirv(spirv, desc);
+  return compute_pipeline{ &ctx, &cached };
+}
+
+auto compute_pipeline::allocate_set() -> VkDescriptorSet
+{
+  VkDescriptorSetAllocateInfo dsai{};
+  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  dsai.descriptorPool = resources_->descriptor_pool;
+  dsai.descriptorSetCount = 1;
+  dsai.pSetLayouts = &resources_->set_layout;
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  if (vkAllocateDescriptorSets(ctx_->device(), &dsai, &set) != VK_SUCCESS) {
+    throw std::runtime_error("vkAllocateDescriptorSets failed");
+  }
+  return set;
+}
+
+auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> void
+{
+  if (buffers.size() != resources_->binding_count) {
+    throw std::invalid_argument("update_set buffer count must match layout_desc.bindings");
+  }
+  if (buffers.empty()) { return; }
+
+  std::vector<VkDescriptorBufferInfo> infos(buffers.size());
+  std::vector<VkWriteDescriptorSet> writes(buffers.size());
+  std::size_t index = 0;
+  for (storage_binding const &buffer : buffers) {
+    infos.at(index).buffer = buffer.buffer;
+    infos.at(index).offset = 0;
+    infos.at(index).range = buffer.byte_size;
+    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes.at(index).dstSet = set;
+    writes.at(index).dstBinding = static_cast<std::uint32_t>(index);
+    writes.at(index).descriptorCount = 1;
+    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes.at(index).pBufferInfo = &infos.at(index);
+    ++index;
+  }
+  vkUpdateDescriptorSets(ctx_->device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+}// namespace vkexec

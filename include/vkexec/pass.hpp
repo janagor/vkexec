@@ -105,7 +105,7 @@ struct pass_cleanup
   std::unordered_map<pipeline_resources *, VkDescriptorSet> sets;
   std::vector<allocated_set> allocated;
 
-  auto release(context &ctx) -> void
+  auto release(context const &ctx) -> void
   {
     for (allocated_set const &item : allocated) {
       vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set);
@@ -115,7 +115,8 @@ struct pass_cleanup
   }
 };
 
-inline auto allocate_compute_set(context &ctx, pipeline_resources &pipe, edsl::ASTContext const &ast) -> VkDescriptorSet
+inline auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, edsl::ASTContext const &ast)
+  -> VkDescriptorSet
 {
   VkDescriptorSetAllocateInfo dsai{};
   dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -146,7 +147,10 @@ inline auto allocate_compute_set(context &ctx, pipeline_resources &pipe, edsl::A
   return set;
 }
 
-inline auto bind_or_allocate_set(context &ctx, pipeline_resources &pipe, edsl::ASTContext const &ast, pass_cleanup &cleanup)
+inline auto bind_or_allocate_set(context const &ctx,
+  pipeline_resources &pipe,
+  edsl::ASTContext const &ast,
+  pass_cleanup &cleanup)
   -> VkDescriptorSet
 {
   if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
