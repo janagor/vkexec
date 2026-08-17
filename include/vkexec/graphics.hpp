@@ -84,27 +84,11 @@ public:
   }
 
   [[nodiscard]] auto pipeline() const noexcept -> VkPipeline { return pipeline_; }
+  [[nodiscard]] auto config() const noexcept -> graphics_pipeline_config const & { return cfg_; }
 
-  /// Begin the render pass, bind this pipeline, draw `vertex_count` verts, end the pass, and end the cmd buffer.
-  auto draw(VkCommandBuffer cmd,
-    VkRenderPass render_pass,
-    VkFramebuffer framebuffer,
-    VkExtent2D extent,
-    std::uint32_t vertex_count) const -> void
+  /// Bind pipeline, descriptors, viewport/scissor, and issue `vkCmdDraw` (no render-pass management).
+  auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
   {
-    VkClearValue clear{};
-    clear.color = { { cfg_.clear_r, cfg_.clear_g, cfg_.clear_b, cfg_.clear_a } };
-
-    VkRenderPassBeginInfo rp_begin{};
-    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp_begin.renderPass = render_pass;
-    rp_begin.framebuffer = framebuffer;
-    rp_begin.renderArea.offset = { .x = 0, .y = 0 };
-    rp_begin.renderArea.extent = extent;
-    rp_begin.clearValueCount = 1;
-    rp_begin.pClearValues = &clear;
-
-    vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
 
     if (descriptor_set_ != VK_NULL_HANDLE) {
@@ -140,6 +124,29 @@ public:
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     vkCmdDraw(cmd, vertex_count, 1, 0, 0);
+  }
+
+  /// Begin the render pass, bind this pipeline, draw `vertex_count` verts, end the pass, and end the cmd buffer.
+  auto draw(VkCommandBuffer cmd,
+    VkRenderPass render_pass,
+    VkFramebuffer framebuffer,
+    VkExtent2D extent,
+    std::uint32_t vertex_count) const -> void
+  {
+    VkClearValue clear{};
+    clear.color = { { cfg_.clear_r, cfg_.clear_g, cfg_.clear_b, cfg_.clear_a } };
+
+    VkRenderPassBeginInfo rp_begin{};
+    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp_begin.renderPass = render_pass;
+    rp_begin.framebuffer = framebuffer;
+    rp_begin.renderArea.offset = { .x = 0, .y = 0 };
+    rp_begin.renderArea.extent = extent;
+    rp_begin.clearValueCount = 1;
+    rp_begin.pClearValues = &clear;
+
+    vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+    record_draw(cmd, extent, vertex_count);
     vkCmdEndRenderPass(cmd);
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
   }
