@@ -4,6 +4,7 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/pipeline_cache.hpp>
+#include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 
@@ -111,14 +112,7 @@ template<typename Params, typename Fun> struct bulk_sender
 
       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline);
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline_layout, 0, 1, &set, 0, nullptr);
-      if (pipe.push_bytes > 0) {
-        vkCmdPushConstants(cmd,
-          pipe.pipeline_layout,
-          VK_SHADER_STAGE_COMPUTE_BIT,
-          0,
-          static_cast<std::uint32_t>(sizeof(Params)),
-          &params);
-      }
+      if (pipe.push_bytes > 0) { upload_push_constants(cmd, pipe, params); }
 
       auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
       std::uint32_t const groups = (shape + local - 1U) / local;
@@ -185,14 +179,7 @@ template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fu
   vkBeginCommandBuffer(cmd, &begin);
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline);
   vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline_layout, 0, 1, &set, 0, nullptr);
-  if (pipe.push_bytes > 0) {
-    vkCmdPushConstants(cmd,
-      pipe.pipeline_layout,
-      VK_SHADER_STAGE_COMPUTE_BIT,
-      0,
-      static_cast<std::uint32_t>(sizeof(Params)),
-      &sender.params);
-  }
+  if (pipe.push_bytes > 0) { upload_push_constants(cmd, pipe, sender.params); }
   auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
   std::uint32_t const groups = (sender.shape + local - 1U) / local;
   vkCmdDispatch(cmd, groups, 1, 1);

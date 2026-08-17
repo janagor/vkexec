@@ -50,9 +50,11 @@ int main() {
 
 ### Existing SPIR-V (hybrid)
 
-Keep hand-written shaders. vkexec caches the pipeline and records dispatch:
+Keep hand-written shaders. vkexec caches the pipeline and records dispatch. Push constants are a host POD (`upload_push_constants` / `compute_pass`) — not `push_constant<T>::get<&...>()`:
 
 ```cpp
+struct ProjectPush { float view[16]; float projection[16]; std::uint64_t gaussian_addr; std::uint32_t splat_count; };
+
 auto pipe = vkexec::compute_pipeline::from_glsl(ctx, glsl, vkexec::layout_desc{
   .bindings = { vkexec::buffer_access::readonly, vkexec::buffer_access::writeonly },
   .push_constant_size = sizeof(ProjectPush),
@@ -63,6 +65,8 @@ auto pipe = vkexec::compute_pipeline::from_glsl(ctx, glsl, vkexec::layout_desc{
 VkDescriptorSet set = pipe.allocate_set();
 pipe.update_set(set, buffers);
 ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(pipe, set, push, splat_count));
+// or, with your own command buffer:
+vkexec::upload_push_constants(cmd, pipe, push);
 ```
 
 Build and run the sample:

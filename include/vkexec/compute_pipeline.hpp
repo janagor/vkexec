@@ -4,6 +4,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline_cache.hpp>
+#include <vkexec/push.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -70,6 +71,12 @@ inline auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, std:
   -> prebuilt_compute_pass_closure
 {
   return compute_pass(pipe.bind(set), pipe.groups_for(work_count));
+}
+
+template<typename T>
+auto upload_push_constants(VkCommandBuffer cmd, compute_pipeline const &pipe, T const &params) -> void
+{
+  upload_push_constants(cmd, pipe.resources().pipeline_layout, params);
 }
 
 }// namespace vkexec

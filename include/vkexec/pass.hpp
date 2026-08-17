@@ -3,6 +3,7 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/pipeline_cache.hpp>
+#include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 
@@ -60,9 +61,7 @@ inline auto record_pass(VkCommandBuffer cmd,
   if (bind.set != VK_NULL_HANDLE) {
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
   }
-  if (push != nullptr && push_bytes > 0) {
-    vkCmdPushConstants(cmd, bind.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_bytes, push);
-  }
+  upload_push_constants(cmd, bind.layout, push, push_bytes);
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
 }
 
@@ -76,9 +75,7 @@ inline auto record_pass(VkCommandBuffer cmd,
   if (bind.set != VK_NULL_HANDLE) {
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
   }
-  if (push != nullptr && push_bytes > 0) {
-    vkCmdPushConstants(cmd, bind.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, push_bytes, push);
-  }
+  upload_push_constants(cmd, bind.layout, push, push_bytes);
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
 }
 
