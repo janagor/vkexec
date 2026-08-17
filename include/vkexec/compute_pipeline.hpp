@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <span>
+#include <string_view>
 
 namespace vkexec {
 
@@ -24,6 +25,10 @@ class compute_pipeline
 public:
   [[nodiscard]] static auto from_spirv(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> compute_pipeline;
+  [[nodiscard]] static auto from_glsl(context &ctx,
+    std::string_view glsl,
+    layout_desc const &desc,
+    std::string_view name = "vkexec.comp") -> compute_pipeline;
 
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }

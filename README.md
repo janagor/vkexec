@@ -53,12 +53,13 @@ int main() {
 Keep hand-written shaders. vkexec caches the pipeline and records dispatch:
 
 ```cpp
-auto pipe = vkexec::compute_pipeline::from_spirv(ctx, spirv, vkexec::layout_desc{
+auto pipe = vkexec::compute_pipeline::from_glsl(ctx, glsl, vkexec::layout_desc{
   .bindings = { vkexec::buffer_access::readonly, vkexec::buffer_access::writeonly },
   .push_constant_size = sizeof(ProjectPush),
   .specialization = { splat_count },
   .local_size = { 64, 1, 1 },
 });
+// or from_spirv(ctx, spirv, layout) when you already have .spv
 VkDescriptorSet set = pipe.allocate_set();
 pipe.update_set(set, buffers);
 ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(pipe, set, push, splat_count));

@@ -3,7 +3,6 @@
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline_cache.hpp>
-#include <vkexec_edsl/spirv.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -17,7 +16,6 @@
 #include <print>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 namespace ex = stdexec;
 
@@ -56,18 +54,16 @@ auto main() -> int
     vkexec::buffer<float> const input(ctx, k_element_count, k_initial);
     vkexec::buffer<float> output(ctx, k_element_count, 0.0F);
 
-    std::vector<std::uint32_t> const spirv =
-      vkexec::edsl::compile_glsl_to_spirv(k_scale_glsl, "scale.comp", vkexec::edsl::shader_kind::compute);
-
     using enum vkexec::buffer_access;
-    auto pipe = vkexec::compute_pipeline::from_spirv(ctx,
-      spirv,
+    auto pipe = vkexec::compute_pipeline::from_glsl(ctx,
+      k_scale_glsl,
       vkexec::layout_desc{
         .bindings = { readonly, writeonly },
         .push_constant_size = sizeof(scale_params),
         .specialization = { static_cast<std::uint32_t>(k_element_count) },
         .local_size = { k_local_size_x, 1, 1 },
-      });
+      },
+      "scale.comp");
 
     VkDescriptorSet set = pipe.allocate_set();
     std::array<vkexec::storage_binding, 2> const buffers{
