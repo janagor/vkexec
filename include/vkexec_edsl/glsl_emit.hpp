@@ -207,6 +207,7 @@ inline auto emit_body_statements(std::ostringstream &stream,
     auto const &node = ctx.nodes.at(index);
     if (node.kind == OpKind::Var) {
       std::string const name = node.name.empty() ? std::format("v{}", index) : node.name;
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       names[static_cast<int>(index)] = name;
       stream << "  " << glsl_type_name(node.type) << " " << name << ";\n";
     }

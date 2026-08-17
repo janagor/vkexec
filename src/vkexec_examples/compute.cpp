@@ -47,7 +47,6 @@ auto main() -> int
                     | vkexec::bulk(static_cast<std::uint32_t>(k_element_count),
                       params,
                       [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
-                        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                         edsl::Float position = positions[idx];
                         edsl::Float velocity = velocities[idx];
 
@@ -56,7 +55,6 @@ auto main() -> int
 
                         positions[idx] = position;
                         velocities[idx] = velocity;
-                        // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                       });
 
     ex::sync_wait(pipeline);

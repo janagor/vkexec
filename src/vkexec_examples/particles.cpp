@@ -109,13 +109,11 @@ auto main() -> int
       ctx,
       win.render_pass(),
       graphics_cfg,
-      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       [&](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
         out.position(edsl::vec2(pos_x[vertex_id], pos_y[vertex_id]));
         out.point_size(edsl::Float::constant(k_point_size));
         out.color(edsl::vec4(col_r[vertex_id], col_g[vertex_id], col_b[vertex_id], col_a[vertex_id]));
       },
-      // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
       [](edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
 
     auto last = std::chrono::steady_clock::now();
@@ -136,7 +134,6 @@ auto main() -> int
         ex::schedule(ctx.get_scheduler())
         | vkexec::bulk(k_particle_count,
           params,
-          // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           [&](edsl::Int const index, edsl::push_constant<particle_params> push) -> void {
             edsl::Float position_x = pos_x[index];
             edsl::Float position_y = pos_y[index];
@@ -156,7 +153,6 @@ auto main() -> int
             vel_x[index] = velocity_x;
             vel_y[index] = velocity_y;
           }));
-      // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
       (void)ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
     }

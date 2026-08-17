@@ -67,13 +67,11 @@ auto main() -> int
           edsl::Int right = left + edsl::Int::constant(1);
 
           edsl::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
-            // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
             edsl::Float const left_value = data[left];
             edsl::Float const right_value = data[right];
             edsl::Bool const out_of_order = left_value > right_value;
             data[left] = edsl::select(out_of_order, right_value, left_value);
             data[right] = edsl::select(out_of_order, left_value, right_value);
-            // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
           });
         });
     };

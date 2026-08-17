@@ -45,14 +45,12 @@ auto main() -> int
                  | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
                    pass_params{ .value = k_add },
                    [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
-                     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                      values[idx] = values[idx] + push.get<&pass_params::value>();
                    })
                  | vkexec::barrier::compute_to_compute()
                  | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
                    pass_params{ .value = k_scale },
                    [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
-                     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                      values[idx] = values[idx] * push.get<&pass_params::value>();
                    });
     ex::sync_wait(std::move(graph));
