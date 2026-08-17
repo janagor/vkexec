@@ -3,6 +3,7 @@
 
 
 #include <vkexec/context.hpp>
+#include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
 #include <cstddef>
@@ -127,73 +128,24 @@ public:
   private:
     [[nodiscard]] auto ensure_binding() const -> int
     {
-      auto &ast_ctx = edsl::ast();
-      if (owner->binding_ < 0) { owner->binding_ = ast_ctx.next_binding++; }
-      for (auto &existing : ast_ctx.buffers) {
-        // cppcheck-suppress useStlAlgorithm
-        if (existing.binding == owner->binding_) {
-          existing.vk_buffer = owner->buffer_;
-          existing.byte_size = owner->count_ * sizeof(T);
-          existing.elem_count = owner->count_;
-          return owner->binding_;
-        }
-      }
-      edsl::BufferBinding binding_info;
-      binding_info.name = owner->name_;
-      binding_info.elem_glsl_type = std::is_floating_point_v<T> ? "float" : "int";
-      binding_info.binding = owner->binding_;
-      binding_info.vk_buffer = owner->buffer_;
-      binding_info.byte_size = owner->count_ * sizeof(T);
-      binding_info.elem_count = owner->count_;
-      ast_ctx.buffers.push_back(binding_info);
-      if (ast_ctx.next_binding <= owner->binding_) { ast_ctx.next_binding = owner->binding_ + 1; }
-      return owner->binding_;
+      return edsl::bind_storage_buffer(owner->buffer_,
+        owner->binding_,
+        owner->name_.c_str(),
+        owner->count_ * sizeof(T),
+        std::is_floating_point_v<T> ? "float" : "int",
+        owner->count_);
     }
 
     // cppcheck-suppress unusedPrivateFunction
     [[nodiscard]] auto load_float() const -> edsl::Float
-    {
-      int const binding = ensure_binding();
-      edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Load, index.id);
-      node.binding = binding;
-      int const load = edsl::ast().append(std::move(node));
-      int const tmp = edsl::ast().make_temp("f");
-      edsl::emit_assign(tmp, load);
-      return edsl::Float{ tmp };
-    }
+    { return edsl::load_buffer_float(ensure_binding(), index.id); }
     // cppcheck-suppress unusedPrivateFunction
     [[nodiscard]] auto load_int() const -> edsl::Int
-    {
-      int const binding = ensure_binding();
-      edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Load, index.id);
-      node.binding = binding;
-      int const load = edsl::ast().append(std::move(node));
-      int const tmp = edsl::ast().make_temp("i");
-      edsl::emit_assign(tmp, load);
-      return edsl::Int{ tmp };
-    }
-    void store(int value_id) const
-    {
-      int const binding = ensure_binding();
-      edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Store, index.id, value_id);
-      node.binding = binding;
-      edsl::ast().append(std::move(node));
-    }
+    { return edsl::load_buffer_int(ensure_binding(), index.id); }
+    void store(int value_id) const { edsl::store_buffer(ensure_binding(), index.id, value_id); }
   };
 
   auto operator[](edsl::Int idx) -> ref { return ref{ this, idx }; }
-
-  void register_for_dispatch(edsl::ASTContext &ast_ctx) const
-  {
-    if (binding_ < 0) { return; }
-    for (auto &entry : ast_ctx.buffers) {
-      if (entry.binding == binding_) {
-        entry.vk_buffer = buffer_;
-        entry.byte_size = count_ * sizeof(T);
-        entry.elem_count = count_;
-      }
-    }
-  }
 
 private:
   static auto next_name_id() -> int

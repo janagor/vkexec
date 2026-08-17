@@ -1,6 +1,7 @@
 #ifndef VKEXEC_EDSL_PUSH_CONSTANT_HPP
 #define VKEXEC_EDSL_PUSH_CONSTANT_HPP
 
+#include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
 #include <boost/describe/class.hpp>
@@ -14,7 +15,6 @@
 #include <memory>
 #include <string>
 #include <type_traits>
-#include <utility>
 
 namespace vkexec::edsl {
 namespace detail {
@@ -95,14 +95,10 @@ template<typename T> struct push_constant
     push_constant proxy{};
     std::size_t index = 0;
     boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) -> void {
-      ExprNode node = ExprNode::make(OpKind::PushField);
-      node.name = descriptor.name;
-      node.const_i = detail::member_byte_offset<T>(descriptor.pointer);
-      proxy.field_ids.at(index) = ast().append(std::move(node));
+      proxy.field_ids.at(index) = append_push_field(descriptor.name, detail::member_byte_offset<T>(descriptor.pointer));
       ++index;
     });
-    ast().push_block_glsl = glsl_block();
-    ast().push_bytes = k_byte_size;
+    set_push_block(glsl_block(), k_byte_size);
     return proxy;
   }
 

@@ -6,6 +6,8 @@
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/push_constant.hpp>
+#include <vkexec_edsl/trace.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
@@ -15,6 +17,7 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <span>
 #include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
@@ -112,8 +115,32 @@ struct pass_cleanup
   }
 };
 
-inline auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, edsl::ASTContext const &ast)
-  -> VkDescriptorSet
+inline auto write_storage_descriptors(VkDevice device,
+  VkDescriptorSet set,
+  std::span<edsl::storage_trace const> buffers) -> void
+{
+  if (buffers.empty()) { return; }
+  std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
+  std::vector<VkWriteDescriptorSet> writes(buffers.size());
+  std::size_t index = 0;
+  for (edsl::storage_trace const &buffer : buffers) {
+    buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
+    buf_infos.at(index).offset = 0;
+    buf_infos.at(index).range = buffer.byte_size;
+    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes.at(index).dstSet = set;
+    writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
+    writes.at(index).descriptorCount = 1;
+    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes.at(index).pBufferInfo = &buf_infos.at(index);
+    ++index;
+  }
+  vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+inline auto allocate_compute_set(context const &ctx,
+  pipeline_resources &pipe,
+  std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
 {
   VkDescriptorSetAllocateInfo dsai{};
   dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -124,54 +151,21 @@ inline auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, e
   if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
     throw std::runtime_error("vkAllocateDescriptorSets failed");
   }
-
-  std::vector<VkDescriptorBufferInfo> buf_infos(ast.buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(ast.buffers.size());
-  for (std::size_t index = 0; index < ast.buffers.size(); ++index) {
-    buf_infos.at(index).buffer = static_cast<VkBuffer>(ast.buffers.at(index).vk_buffer);
-    buf_infos.at(index).offset = 0;
-    buf_infos.at(index).range = ast.buffers.at(index).byte_size;
-    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.at(index).dstSet = set;
-    writes.at(index).dstBinding = static_cast<std::uint32_t>(ast.buffers.at(index).binding);
-    writes.at(index).descriptorCount = 1;
-    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes.at(index).pBufferInfo = &buf_infos.at(index);
-  }
-  if (!writes.empty()) {
-    vkUpdateDescriptorSets(ctx.device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-  }
+  write_storage_descriptors(ctx.device(), set, buffers);
   return set;
 }
 
 inline auto bind_or_allocate_set(context const &ctx,
   pipeline_resources &pipe,
-  edsl::ASTContext const &ast,
-  pass_cleanup &cleanup)
-  -> VkDescriptorSet
+  std::span<edsl::storage_trace const> buffers,
+  pass_cleanup &cleanup) -> VkDescriptorSet
 {
   if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-    VkDescriptorSet set = found->second;
-    if (!ast.buffers.empty()) {
-      std::vector<VkDescriptorBufferInfo> buf_infos(ast.buffers.size());
-      std::vector<VkWriteDescriptorSet> writes(ast.buffers.size());
-      for (std::size_t index = 0; index < ast.buffers.size(); ++index) {
-        buf_infos.at(index).buffer = static_cast<VkBuffer>(ast.buffers.at(index).vk_buffer);
-        buf_infos.at(index).offset = 0;
-        buf_infos.at(index).range = ast.buffers.at(index).byte_size;
-        writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes.at(index).dstSet = set;
-        writes.at(index).dstBinding = static_cast<std::uint32_t>(ast.buffers.at(index).binding);
-        writes.at(index).descriptorCount = 1;
-        writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writes.at(index).pBufferInfo = &buf_infos.at(index);
-      }
-      vkUpdateDescriptorSets(ctx.device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-    }
-    return set;
+    write_storage_descriptors(ctx.device(), found->second, buffers);
+    return found->second;
   }
 
-  VkDescriptorSet set = allocate_compute_set(ctx, pipe, ast);
+  VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
   cleanup.sets.emplace(&pipe, set);
   cleanup.allocated.push_back({ .pool = pipe.descriptor_pool, .set = set });
   return set;
@@ -315,25 +309,26 @@ auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &p
 namespace detail {
 
 template<typename Params, typename Fun>
-auto make_jit_step(compute_pass_closure<Params, Fun> closure) -> pass_step
+auto make_jit_step(context &ctx, compute_pass_closure<Params, Fun> closure) -> pass_step
 {
-  return pass_step{ .record = [closure = std::move(closure)](
-                                context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
-    edsl::ASTContext ast_ctx;
-    {
-      edsl::ASTScope const scope(ast_ctx);
-      edsl::Int const idx = edsl::Int::param_index();
-      auto push = edsl::push_constant<Params>::bind();
-      closure.fun(idx, push);
-    }
+  edsl::trace_scope const scope;
+  edsl::Int const idx = edsl::Int::param_index();
+  auto push = edsl::push_constant<Params>::bind();
+  closure.fun(idx, push);
 
-    auto &pipe = ctx.get_or_compile(ast_ctx, closure.shape);
-    VkDescriptorSet set = bind_or_allocate_set(ctx, pipe, ast_ctx, cleanup);
-    auto const local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
-    std::uint32_t const groups = (closure.shape + local - 1U) / local;
-    void const *push_ptr = pipe.push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
-    auto const push_bytes = static_cast<std::uint32_t>(pipe.push_bytes > 0 ? sizeof(Params) : 0);
-    record_pass(cmd, pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
+  pipeline_resources *pipe = &ctx.get_or_compile(scope, closure.shape);
+  std::vector<edsl::storage_trace> buffers = scope.buffers();
+  auto const local = scope.local_size_x();
+  Params const params = closure.params;
+  std::uint32_t const shape = closure.shape;
+
+  return pass_step{ .record = [pipe, buffers = std::move(buffers), local, params, shape](
+                                context const &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
+    VkDescriptorSet set = bind_or_allocate_set(record_ctx, *pipe, buffers, cleanup);
+    std::uint32_t const groups = (shape + local - 1U) / local;
+    void const *push_ptr = pipe->push_bytes > 0 ? static_cast<void const *>(&params) : nullptr;
+    auto const push_bytes = static_cast<std::uint32_t>(pipe->push_bytes > 0 ? sizeof(Params) : 0);
+    record_pass(cmd, *pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
   } };
 }
 
@@ -369,13 +364,14 @@ inline auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_s
 template<typename Params, typename Fun>
 auto operator|(schedule_sender snd, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
 {
-  return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_jit_step(std::move(closure)) } };
+  return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_jit_step(*snd.ctx, std::move(closure)) } };
 }
 
 template<typename Params, typename Fun>
 auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
 {
-  return detail::append_step(std::move(graph), detail::make_jit_step(std::move(closure)));
+  context *const host = graph.ctx;
+  return detail::append_step(std::move(graph), detail::make_jit_step(*host, std::move(closure)));
 }
 
 inline auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender

@@ -13,7 +13,7 @@
 #include <vector>
 
 namespace vkexec::edsl {
-struct ASTContext;
+class trace_scope;
 }
 
 namespace vkexec {
@@ -74,7 +74,7 @@ public:
   [[nodiscard]] auto allocator() const noexcept -> VmaAllocator { return allocator_; }
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
 
-  [[nodiscard]] auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &;
+  [[nodiscard]] auto get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &;
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> pipeline_resources &;
 

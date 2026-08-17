@@ -1,4 +1,4 @@
-add_library(vkexec_graphics window.cpp)
+add_library(vkexec_graphics window.cpp graphics.cpp)
 
 add_library(vkexec::vkexec_graphics ALIAS vkexec_graphics)
 

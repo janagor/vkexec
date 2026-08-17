@@ -1,6 +1,7 @@
 #ifndef VKEXEC_EDSL_CONTROL_HPP
 #define VKEXEC_EDSL_CONTROL_HPP
 
+#include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
 #include <utility>
@@ -9,30 +10,26 @@ namespace vkexec::edsl {
 
 template<typename Body> auto if_then(Bool condition, Body &&body) -> void
 {
-  ast().append(ExprNode::make(OpKind::IfBegin, condition.id));
+  control_if_begin(condition.id);
   std::forward<Body>(body)();
-  ast().append(ExprNode::make(OpKind::IfEnd));
+  control_if_end();
 }
 
 template<typename ThenBody, typename ElseBody>
 auto if_then_else(Bool condition, ThenBody &&then_body, ElseBody &&else_body) -> void
 {
-  ast().append(ExprNode::make(OpKind::IfBegin, condition.id));
+  control_if_begin(condition.id);
   std::forward<ThenBody>(then_body)();
-  ast().append(ExprNode::make(OpKind::ElseBegin));
+  control_else_begin();
   std::forward<ElseBody>(else_body)();
-  ast().append(ExprNode::make(OpKind::ElseEnd));
+  control_else_end();
 }
 
 template<typename Body> auto for_loop(int start, int end, Body &&body) -> void
 {
-  Int const begin = Int::constant(start);
-  Int const stop = Int::constant(end);
-  int const loop_var = ast().make_temp("i");
-  emit_assign(loop_var, begin.id);
-  ast().append(ExprNode::make(OpKind::ForBegin, loop_var, stop.id));
+  int const loop_var = control_for_begin(start, end);
   std::forward<Body>(body)(Int{ loop_var });
-  ast().append(ExprNode::make(OpKind::ForEnd, loop_var));
+  control_for_end(loop_var);
 }
 
 }// namespace vkexec::edsl

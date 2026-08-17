@@ -1,4 +1,4 @@
-add_library(vkexec_edsl spirv.cpp)
+add_library(vkexec_edsl spirv.cpp types.cpp trace.cpp)
 
 add_library(vkexec::vkexec_edsl ALIAS vkexec_edsl)
 
@@ -12,7 +12,8 @@ target_link_libraries(
 
 target_include_directories(
   vkexec_edsl ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include> $<INSTALL_INTERFACE:include>)
+                                      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include> $<INSTALL_INTERFACE:include>
+  PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_compile_features(vkexec_edsl PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
