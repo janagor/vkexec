@@ -64,7 +64,7 @@ auto main() -> int
     float const expected_v = k_initial_velocity * k_damping;
     float const expected_p = expected_v * k_timestep;
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    for (const std::size_t index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
+    for (std::size_t const index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
       if (std::fabs(velocities.data()[index] - expected_v) > k_epsilon
           || std::fabs(positions.data()[index] - expected_p) > k_epsilon) {
         std::println(stderr,

@@ -67,7 +67,7 @@ template<typename Params, typename Fun> struct bulk_sender
     {
       edsl::ASTContext ast_ctx;
       {
-        const edsl::ASTScope scope(ast_ctx);
+        edsl::ASTScope const scope(ast_ctx);
         edsl::Int const idx = edsl::Int::param_index();
         auto push = edsl::push_constant<Params>::bind();
         fun(idx, push);
@@ -121,7 +121,7 @@ template<typename Params, typename Fun> struct bulk_sender
       }
 
       auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
-      const std::uint32_t groups = (shape + local - 1U) / local;
+      std::uint32_t const groups = (shape + local - 1U) / local;
       vkCmdDispatch(cmd, groups, 1, 1);
       vkEndCommandBuffer(cmd);
 
@@ -143,7 +143,7 @@ template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fu
 {
   edsl::ASTContext ast_ctx;
   {
-    const edsl::ASTScope scope(ast_ctx);
+    edsl::ASTScope const scope(ast_ctx);
     edsl::Int const idx = edsl::Int::param_index();
     auto push = edsl::push_constant<Params>::bind();
     sender.fun(idx, push);
@@ -194,7 +194,7 @@ template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fu
       &sender.params);
   }
   auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
-  const std::uint32_t groups = (sender.shape + local - 1U) / local;
+  std::uint32_t const groups = (sender.shape + local - 1U) / local;
   vkCmdDispatch(cmd, groups, 1, 1);
   vkEndCommandBuffer(cmd);
 

@@ -46,8 +46,8 @@ public:
   /// command pool and pipeline cache; create a VMA allocator when `allocator` is null.
   [[nodiscard]] static auto adopt(context_adopt_info const &info) -> std::unique_ptr<context>;
 
-  context(const context &) = delete;
-  auto operator=(const context &) -> context & = delete;
+  context(context const &) = delete;
+  auto operator=(context const &) -> context & = delete;
   context(context &&) noexcept = delete;
   auto operator=(context &&) noexcept -> context & = delete;
 
@@ -83,7 +83,7 @@ private:
   struct instance_only_tag
   {
   };
-  explicit context(instance_only_tag tag, std::vector<const char *> const &instance_extensions);
+  explicit context(instance_only_tag tag, std::vector<char const *> const &instance_extensions);
   explicit context(context_adopt_info const &info);
   auto complete_for_surface(VkSurfaceKHR surface) -> void;
 

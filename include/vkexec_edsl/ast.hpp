@@ -114,14 +114,14 @@ struct ASTContext
 
   auto append(ExprNode node) -> int
   {
-    const int node_id = static_cast<int>(nodes.size());
+    int const node_id = static_cast<int>(nodes.size());
     nodes.push_back(std::move(node));
     return node_id;
   }
 
   auto make_temp(std::string_view prefix = "t", ValueType type = ValueType::Float) -> int
   {
-    const int temp_id = next_temp++;
+    int const temp_id = next_temp++;
     ExprNode node = ExprNode::make(OpKind::Var);
     node.name = std::string(prefix) + std::to_string(temp_id);
     node.type = type;
@@ -142,8 +142,8 @@ class ASTScope
 public:
   explicit ASTScope(ASTContext &ctx) : previous_(current_ast()) { current_ast() = &ctx; }
   ~ASTScope() { current_ast() = previous_; }
-  ASTScope(const ASTScope &) = delete;
-  auto operator=(const ASTScope &) -> ASTScope & = delete;
+  ASTScope(ASTScope const &) = delete;
+  auto operator=(ASTScope const &) -> ASTScope & = delete;
   ASTScope(ASTScope &&) = delete;
   auto operator=(ASTScope &&) -> ASTScope & = delete;
 };
@@ -155,7 +155,7 @@ inline auto ast() -> ASTContext &
   return *ctx;
 }
 
-inline auto glsl_type_name(ValueType type) -> const char *
+inline auto glsl_type_name(ValueType type) -> char const *
 {
   switch (type) {
   case ValueType::Int:

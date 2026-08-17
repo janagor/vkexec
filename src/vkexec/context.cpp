@@ -33,7 +33,7 @@ namespace {
     return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
   }
 
-  auto build_instance_with_extensions(std::vector<const char *> const &instance_extensions) -> vkb::Instance
+  auto build_instance_with_extensions(std::vector<char const *> const &instance_extensions) -> vkb::Instance
   {
     auto builder = vkb::InstanceBuilder{}
                      .set_app_name("vkexec")
@@ -107,7 +107,7 @@ context::context(context_adopt_info const &info)
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
 }
 
-context::context(instance_only_tag tag, std::vector<const char *> const &instance_extensions)
+context::context(instance_only_tag tag, std::vector<char const *> const &instance_extensions)
   : instance_(build_instance_with_extensions(instance_extensions)), has_instance_(true), owns_instance_(true)
 { (void)tag; }
 

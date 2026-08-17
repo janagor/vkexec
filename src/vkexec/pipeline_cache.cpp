@@ -21,7 +21,7 @@ namespace {
 
   constexpr std::uint32_t k_descriptor_sets_per_pool = 64;
 
-  auto check(VkResult result, const char *what) -> void
+  auto check(VkResult result, char const *what) -> void
   {
     if (result != VK_SUCCESS) { throw std::runtime_error(what); }
   }
@@ -53,16 +53,16 @@ pipeline_cache::~pipeline_cache()
   cache_.clear();
 }
 
-auto pipeline_cache::get_or_compile(const edsl::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &
+auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &
 {
-  const std::size_t key = edsl::hash_ast(ast) ^ (static_cast<std::size_t>(work_count) << 1U);
+  std::size_t const key = edsl::hash_ast(ast) ^ (static_cast<std::size_t>(work_count) << 1U);
   {
-    const std::scoped_lock lock(mutex_);
+    std::scoped_lock const lock(mutex_);
     if (auto cached = cache_.find(key); cached != cache_.end()) { return *cached->second; }
   }
 
-  const std::string glsl = edsl::emit_glsl(ast, work_count);
-  const auto spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk");
+  std::string const glsl = edsl::emit_glsl(ast, work_count);
+  auto const spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk");
 
   auto resources = std::make_unique<pipeline_resources>();
   resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
@@ -129,7 +129,7 @@ auto pipeline_cache::get_or_compile(const edsl::ASTContext &ast, std::uint32_t w
   check(vkCreateDescriptorPool(ctx_->device(), &pool_info, nullptr, &resources->descriptor_pool),
     "vkCreateDescriptorPool failed");
 
-  const std::scoped_lock lock(mutex_);
+  std::scoped_lock const lock(mutex_);
   if (auto cached = cache_.find(key); cached != cache_.end()) {
     destroy_resources(*ctx_, *resources);
     return *cached->second;

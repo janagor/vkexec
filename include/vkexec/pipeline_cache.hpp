@@ -34,12 +34,12 @@ public:
   explicit pipeline_cache(context &ctx);
   ~pipeline_cache();
 
-  pipeline_cache(const pipeline_cache &) = delete;
-  auto operator=(const pipeline_cache &) -> pipeline_cache & = delete;
+  pipeline_cache(pipeline_cache const &) = delete;
+  auto operator=(pipeline_cache const &) -> pipeline_cache & = delete;
   pipeline_cache(pipeline_cache &&) = delete;
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
-  auto get_or_compile(const edsl::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &;
+  auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &;
 
 private:
   context *ctx_;

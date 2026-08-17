@@ -19,7 +19,7 @@
 namespace vkexec::edsl {
 namespace detail {
 
-  template<typename T> inline auto glsl_type_name_of() -> const char *
+  template<typename T> inline auto glsl_type_name_of() -> char const *
   {
     if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
       return "float";

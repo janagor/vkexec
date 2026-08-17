@@ -57,8 +57,8 @@ public:
 
   ~graphics_pipeline() { destroy(); }
 
-  graphics_pipeline(const graphics_pipeline &) = delete;
-  auto operator=(const graphics_pipeline &) -> graphics_pipeline & = delete;
+  graphics_pipeline(graphics_pipeline const &) = delete;
+  auto operator=(graphics_pipeline const &) -> graphics_pipeline & = delete;
 
   graphics_pipeline(graphics_pipeline &&other) noexcept
     : device_(other.device_), cfg_(other.cfg_), layout_(other.layout_), pipeline_(other.pipeline_),
@@ -182,26 +182,26 @@ private:
   {
     edsl::ASTContext vs_ast;
     {
-      const edsl::ASTScope scope(vs_ast);
-      const edsl::Int vertex_id = edsl::Int::vertex_index();
-      const edsl::VertexWriter vertex_out;
+      edsl::ASTScope const scope(vs_ast);
+      edsl::Int const vertex_id = edsl::Int::vertex_index();
+      edsl::VertexWriter const vertex_out;
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
     }
-    const std::string vs_glsl = edsl::emit_vertex_glsl(vs_ast);
-    const auto vs_spv = edsl::compile_glsl_to_spirv(vs_glsl, "vkexec.vert", edsl::shader_kind::vertex);
+    std::string const vs_glsl = edsl::emit_vertex_glsl(vs_ast);
+    auto const vs_spv = edsl::compile_glsl_to_spirv(vs_glsl, "vkexec.vert", edsl::shader_kind::vertex);
 
     edsl::ASTContext fs_ast;
     {
-      const edsl::ASTScope scope(fs_ast);
-      const edsl::FragmentReader fragment_in;
-      const edsl::FragmentWriter fragment_out;
+      edsl::ASTScope const scope(fs_ast);
+      edsl::FragmentReader const fragment_in;
+      edsl::FragmentWriter const fragment_out;
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
     }
-    const std::string fs_glsl = edsl::emit_fragment_glsl(fs_ast);
-    const auto fs_spv = edsl::compile_glsl_to_spirv(fs_glsl, "vkexec.frag", edsl::shader_kind::fragment);
+    std::string const fs_glsl = edsl::emit_fragment_glsl(fs_ast);
+    auto const fs_spv = edsl::compile_glsl_to_spirv(fs_glsl, "vkexec.frag", edsl::shader_kind::fragment);
 
     std::ranges::transform(
-      vs_ast.buffers, std::back_inserter(buffers_), [](const edsl::BufferBinding &buffer_binding) -> bound_buffer {
+      vs_ast.buffers, std::back_inserter(buffers_), [](edsl::BufferBinding const &buffer_binding) -> bound_buffer {
         return bound_buffer{
           .binding = static_cast<std::uint32_t>(buffer_binding.binding),
           .buffer = static_cast<VkBuffer>(buffer_binding.vk_buffer),
@@ -337,14 +337,14 @@ private:
     gpci.layout = layout_;
     gpci.renderPass = render_pass;
     gpci.subpass = 0;
-    const VkResult created = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &gpci, nullptr, &pipeline_);
+    VkResult const created = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &gpci, nullptr, &pipeline_);
     vkDestroyShaderModule(device_, frag, nullptr);
     vkDestroyShaderModule(device_, vert, nullptr);
     if (created != VK_SUCCESS) { throw std::runtime_error("vkCreateGraphicsPipelines failed"); }
     (void)ctx;
   }
 
-  [[nodiscard]] auto create_module(const std::vector<std::uint32_t> &spirv) const -> VkShaderModule
+  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> VkShaderModule
   {
     VkShaderModuleCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

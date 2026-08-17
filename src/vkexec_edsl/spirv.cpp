@@ -46,7 +46,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
 {
   ensure_glslang();
 
-  const EShLanguage stage = to_glslang(kind);
+  EShLanguage const stage = to_glslang(kind);
   glslang::TShader shader(stage);
   std::array<char const *, 1> strings{ { glsl_source.data() } };
   std::array<int, 1> lengths{ { static_cast<int>(glsl_source.size()) } };
@@ -55,7 +55,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
   shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
   shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
 
-  const TBuiltInResource &resources = *GetDefaultResources();
+  TBuiltInResource const &resources = *GetDefaultResources();
   // NOLINTNEXTLINE(hicpp-signed-bitwise,clang-analyzer-optin.core.EnumCastOutOfRange)
   auto const messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
   if (!shader.parse(&resources, k_glsl_version, false, messages)) {

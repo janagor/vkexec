@@ -41,8 +41,8 @@ public:
   window();
   ~window();
 
-  window(const window &) = delete;
-  auto operator=(const window &) -> window & = delete;
+  window(window const &) = delete;
+  auto operator=(window const &) -> window & = delete;
   window(window &&) = delete;
   auto operator=(window &&) -> window & = delete;
 
@@ -62,7 +62,7 @@ public:
   [[nodiscard]] auto begin_frame() -> std::optional<frame>;
 
   /// Submit the recorded command buffer and present. The command buffer must already be ended.
-  auto end_frame(const frame &drawn) -> void;
+  auto end_frame(frame const &drawn) -> void;
 
 private:
   struct frame_sync

@@ -24,12 +24,12 @@ namespace {
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   std::string g_glfw_error;
 
-  auto glfw_error_callback(int code, const char *description) -> void
+  auto glfw_error_callback(int code, char const *description) -> void
   {
     g_glfw_error = "GLFW " + std::to_string(code) + ": " + (description != nullptr ? description : "(no description)");
   }
 
-  auto check(VkResult result, const char *what) -> void
+  auto check(VkResult result, char const *what) -> void
   {
     if (result != VK_SUCCESS) { throw std::runtime_error(what); }
   }
@@ -77,11 +77,11 @@ window::window(config cfg) : cfg_(std::move(cfg))
   glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
 
   std::uint32_t ext_count = 0;
-  const char *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
+  char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
   if (glfw_exts == nullptr || ext_count == 0) {
     throw std::runtime_error("glfwGetRequiredInstanceExtensions failed (no presentation support?)");
   }
-  std::vector<const char *> instance_exts;
+  std::vector<char const *> instance_exts;
   instance_exts.reserve(ext_count);
   for (std::uint32_t index = 0; index < ext_count; ++index) {
     instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -341,7 +341,7 @@ auto window::begin_frame() -> std::optional<frame>
     .image_index = image_index };
 }
 
-auto window::end_frame(const frame &drawn) -> void
+auto window::end_frame(frame const &drawn) -> void
 {
   if (!frame_open_) { throw std::logic_error("end_frame called without begin_frame"); }
   (void)drawn;

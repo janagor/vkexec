@@ -56,8 +56,8 @@ public:
     }
   }
 
-  buffer(const buffer &) = delete;
-  auto operator=(const buffer &) -> buffer & = delete;
+  buffer(buffer const &) = delete;
+  auto operator=(buffer const &) -> buffer & = delete;
 
   buffer(buffer &&other) noexcept
     : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
@@ -92,10 +92,10 @@ public:
   }
 
   [[nodiscard]] auto data() noexcept -> T * { return static_cast<T *>(mapped_); }
-  [[nodiscard]] auto data() const noexcept -> const T * { return static_cast<const T *>(mapped_); }
+  [[nodiscard]] auto data() const noexcept -> T const * { return static_cast<T const *>(mapped_); }
   [[nodiscard]] auto size() const noexcept -> std::size_t { return count_; }
   [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return buffer_; }
-  [[nodiscard]] auto name() const noexcept -> const std::string & { return name_; }
+  [[nodiscard]] auto name() const noexcept -> std::string const & { return name_; }
 
   struct ref
   {
@@ -151,27 +151,27 @@ public:
 
     [[nodiscard]] auto load_float() const -> edsl::Float
     {
-      const int binding = ensure_binding();
+      int const binding = ensure_binding();
       edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Load, index.id);
       node.binding = binding;
-      const int load = edsl::ast().append(std::move(node));
-      const int tmp = edsl::ast().make_temp("f");
+      int const load = edsl::ast().append(std::move(node));
+      int const tmp = edsl::ast().make_temp("f");
       edsl::emit_assign(tmp, load);
       return edsl::Float{ tmp };
     }
     [[nodiscard]] auto load_int() const -> edsl::Int
     {
-      const int binding = ensure_binding();
+      int const binding = ensure_binding();
       edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Load, index.id);
       node.binding = binding;
-      const int load = edsl::ast().append(std::move(node));
-      const int tmp = edsl::ast().make_temp("i");
+      int const load = edsl::ast().append(std::move(node));
+      int const tmp = edsl::ast().make_temp("i");
       edsl::emit_assign(tmp, load);
       return edsl::Int{ tmp };
     }
     void store(int value_id) const
     {
-      const int binding = ensure_binding();
+      int const binding = ensure_binding();
       edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Store, index.id, value_id);
       node.binding = binding;
       edsl::ast().append(std::move(node));

@@ -21,8 +21,8 @@ struct Bool
 
   Bool() = default;
   explicit Bool(int node_id) : id(node_id) {}
-  Bool(const Bool &) = default;
-  auto operator=(const Bool &) -> Bool & = default;
+  Bool(Bool const &) = default;
+  auto operator=(Bool const &) -> Bool & = default;
   Bool(Bool &&) = default;
   auto operator=(Bool &&) -> Bool & = default;
   ~Bool() = default;
@@ -42,8 +42,8 @@ struct Int
 
   Int() = default;
   explicit Int(int node_id) : id(node_id) {}
-  Int(const Int &) = default;
-  auto operator=(const Int &other) -> Int &;
+  Int(Int const &) = default;
+  auto operator=(Int const &other) -> Int &;
   Int(Int &&) = default;
   // NOLINTNEXTLINE(cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
   auto operator=(Int &&other) -> Int &;
@@ -84,8 +84,8 @@ struct Float
 
   Float() = default;
   explicit Float(int node_id) : id(node_id) {}
-  Float(const Float &) = default;
-  auto operator=(const Float &other) -> Float &;
+  Float(Float const &) = default;
+  auto operator=(Float const &other) -> Float &;
   Float(Float &&) = default;
   // NOLINTNEXTLINE(cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
   auto operator=(Float &&other) -> Float &;
@@ -109,8 +109,8 @@ struct Float2
   int id{ -1 };
   Float2() = default;
   explicit Float2(int node_id) : id(node_id) {}
-  Float2(const Float2 &) = default;
-  auto operator=(const Float2 &other) -> Float2 &;
+  Float2(Float2 const &) = default;
+  auto operator=(Float2 const &other) -> Float2 &;
   Float2(Float2 &&) = default;
   // NOLINTNEXTLINE(cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
   auto operator=(Float2 &&other) -> Float2 &;
@@ -122,8 +122,8 @@ struct Float3
   int id{ -1 };
   Float3() = default;
   explicit Float3(int node_id) : id(node_id) {}
-  Float3(const Float3 &) = default;
-  auto operator=(const Float3 &other) -> Float3 &;
+  Float3(Float3 const &) = default;
+  auto operator=(Float3 const &other) -> Float3 &;
   Float3(Float3 &&) = default;
   // NOLINTNEXTLINE(cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
   auto operator=(Float3 &&other) -> Float3 &;
@@ -135,8 +135,8 @@ struct Float4
   int id{ -1 };
   Float4() = default;
   explicit Float4(int node_id) : id(node_id) {}
-  Float4(const Float4 &) = default;
-  auto operator=(const Float4 &other) -> Float4 &;
+  Float4(Float4 const &) = default;
+  auto operator=(Float4 const &other) -> Float4 &;
   Float4(Float4 &&) = default;
   // NOLINTNEXTLINE(cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
   auto operator=(Float4 &&other) -> Float4 &;
@@ -292,7 +292,7 @@ inline auto vec4(Float3 vec, double coord_w) -> Float4 { return vec4(vec, Float:
 
 inline auto emit_assign(int dst_var, int src) -> void { ast().append(ExprNode::make(OpKind::Assign, dst_var, src)); }
 
-inline auto Int::operator=(const Int &other) -> Int &
+inline auto Int::operator=(Int const &other) -> Int &
 {
   if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("i", ValueType::Int); }
@@ -306,7 +306,7 @@ inline auto Int::operator-=(Int other) -> Int & { return (*this = *this - other)
 inline auto Int::operator*=(Int other) -> Int & { return (*this = *this * other); }
 inline auto Int::operator/=(Int other) -> Int & { return (*this = *this / other); }
 
-inline auto Float::operator=(const Float &other) -> Float &
+inline auto Float::operator=(Float const &other) -> Float &
 {
   if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("f", ValueType::Float); }
@@ -320,7 +320,7 @@ inline auto Float::operator-=(Float other) -> Float & { return (*this = *this - 
 inline auto Float::operator*=(Float other) -> Float & { return (*this = *this * other); }
 inline auto Float::operator/=(Float other) -> Float & { return (*this = *this / other); }
 
-inline auto Float2::operator=(const Float2 &other) -> Float2 &
+inline auto Float2::operator=(Float2 const &other) -> Float2 &
 {
   if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("v2", ValueType::Vec2); }
@@ -329,7 +329,7 @@ inline auto Float2::operator=(const Float2 &other) -> Float2 &
 }
 // NOLINTNEXTLINE(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
 inline auto Float2::operator=(Float2 &&other) -> Float2 & { return (*this = other); }
-inline auto Float3::operator=(const Float3 &other) -> Float3 &
+inline auto Float3::operator=(Float3 const &other) -> Float3 &
 {
   if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("v3", ValueType::Vec3); }
@@ -338,7 +338,7 @@ inline auto Float3::operator=(const Float3 &other) -> Float3 &
 }
 // NOLINTNEXTLINE(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
 inline auto Float3::operator=(Float3 &&other) -> Float3 & { return (*this = other); }
-inline auto Float4::operator=(const Float4 &other) -> Float4 &
+inline auto Float4::operator=(Float4 const &other) -> Float4 &
 {
   if (this == &other) { return *this; }
   if (id < 0) { id = ast().make_temp("v4", ValueType::Vec4); }
@@ -353,7 +353,7 @@ struct VertexWriter
 {
   static auto position(Float2 pos_xy) -> void
   {
-    const Float4 clip = vec4(pos_xy, Float::constant(0.0), Float::constant(1.0));
+    Float4 const clip = vec4(pos_xy, Float::constant(0.0), Float::constant(1.0));
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
     node.name = "gl_Position";
     node.type = ValueType::Vec4;

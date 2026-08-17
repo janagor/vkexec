@@ -11,7 +11,7 @@ namespace edsl = vkexec::edsl;
 TEST_CASE("vkexec AST records arithmetic", "[vkexec]")
 {
   edsl::ASTContext ctx;
-  const edsl::ASTScope scope(ctx);
+  edsl::ASTScope const scope(ctx);
 
   edsl::Float const lhs = edsl::Float::constant(1.0);
   edsl::Float const rhs = edsl::Float::constant(2.0);
