@@ -16,8 +16,8 @@
 
 namespace vkexec {
 
-template<typename T>
-class buffer {
+template<typename T> class buffer
+{
 public:
   buffer(context &ctx, std::size_t count, T fill = T{})
     : ctx_(&ctx), count_(count), name_("buf" + std::to_string(next_name_id()))
@@ -97,22 +97,19 @@ public:
   [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return buffer_; }
   [[nodiscard]] auto name() const noexcept -> const std::string & { return name_; }
 
-  struct ref {
+  struct ref
+  {
     buffer *owner;
     edsl::Int index;
 
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
     operator edsl::Float() const
       requires(std::is_floating_point_v<T>)
-    {
-      return load_float();
-    }
+    { return load_float(); }
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
     operator edsl::Int() const
       requires(std::is_integral_v<T>)
-    {
-      return load_int();
-    }
+    { return load_int(); }
 
     auto operator=(edsl::Float value) -> ref &
       requires(std::is_floating_point_v<T>)
@@ -211,6 +208,6 @@ private:
   mutable int binding_{ -1 };
 };
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif  // VKEXEC_BUFFER_HPP
+#endif// VKEXEC_BUFFER_HPP

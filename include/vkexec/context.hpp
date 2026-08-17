@@ -17,7 +17,8 @@ class scheduler;
 class window;
 
 /// Handles borrowed from an embedder. vkexec never destroys these.
-struct context_adopt_info {
+struct context_adopt_info
+{
   VkInstance instance{ VK_NULL_HANDLE };
   VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
   VkDevice device{ VK_NULL_HANDLE };
@@ -33,7 +34,8 @@ struct context_adopt_info {
   std::uint32_t present_queue_family{ 0 };
 };
 
-class context {
+class context
+{
 public:
   /// Compute-only context (no window / swapchain).
   context();
@@ -52,10 +54,7 @@ public:
   [[nodiscard]] auto get_scheduler() noexcept -> scheduler;
 
   [[nodiscard]] auto instance() const noexcept -> VkInstance { return instance_.instance; }
-  [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice
-  {
-    return physical_device_.physical_device;
-  }
+  [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice { return physical_device_.physical_device; }
   [[nodiscard]] auto device() const noexcept -> VkDevice { return device_.device; }
   [[nodiscard]] auto vkb_device() noexcept -> vkb::Device & { return device_; }
   [[nodiscard]] auto vkb_device() const noexcept -> vkb::Device const & { return device_; }
@@ -79,10 +78,11 @@ public:
 private:
   friend class pipeline_cache;
   friend class window;
-  template<typename T>
-  friend class buffer;
+  template<typename T> friend class buffer;
 
-  struct instance_only_tag {};
+  struct instance_only_tag
+  {
+  };
   explicit context(instance_only_tag tag, std::vector<const char *> const &instance_extensions);
   explicit context(context_adopt_info const &info);
   auto complete_for_surface(VkSurfaceKHR surface) -> void;
@@ -111,6 +111,6 @@ private:
   bool owns_allocator_{ false };
 };
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif // VKEXEC_CONTEXT_HPP
+#endif// VKEXEC_CONTEXT_HPP

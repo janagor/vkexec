@@ -19,35 +19,35 @@ namespace vkexec {
 
 namespace ex = stdexec;
 
-struct draw_closure {
+struct draw_closure
+{
   window *win{ nullptr };
   graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 };
 
-struct draw_layer {
+struct draw_layer
+{
   graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 };
 
-struct draw_layers_closure {
+struct draw_layers_closure
+{
   window *win{ nullptr };
   std::vector<draw_layer> layers;
 };
 
 /// Present one frame: acquire → record draw → submit → present (stdexec sender adaptor).
 inline auto draw(window &win, graphics_pipeline &pipeline, std::uint32_t vertex_count) -> draw_closure
-{
-  return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count };
-}
+{ return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count }; }
 
 /// Present one frame using multiple graphics pipelines in a single render pass.
 inline auto draw_layers(window &win, std::initializer_list<draw_layer> layers) -> draw_layers_closure
-{
-  return draw_layers_closure{ .win = &win, .layers = std::vector<draw_layer>(layers) };
-}
+{ return draw_layers_closure{ .win = &win, .layers = std::vector<draw_layer>(layers) }; }
 
-struct draw_sender {
+struct draw_sender
+{
   using sender_concept = ex::sender_t;
   using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
 
@@ -55,8 +55,8 @@ struct draw_sender {
   graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
-  template<class Receiver>
-  struct op_state {
+  template<class Receiver> struct op_state
+  {
     window *win;
     graphics_pipeline *pipeline;
     std::uint32_t vertex_count;
@@ -81,8 +81,7 @@ struct draw_sender {
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .win = win,
@@ -93,15 +92,16 @@ struct draw_sender {
   }
 };
 
-struct draw_layers_sender {
+struct draw_layers_sender
+{
   using sender_concept = ex::sender_t;
   using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
 
   window *win{ nullptr };
   std::vector<draw_layer> layers;
 
-  template<class Receiver>
-  struct op_state {
+  template<class Receiver> struct op_state
+  {
     window *win{};
     std::vector<draw_layer> layers;
     Receiver receiver;
@@ -146,23 +146,16 @@ struct draw_layers_sender {
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ .win = win, .layers = layers, .receiver = std::move(receiver) };
-  }
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  { return op_state<Receiver>{ .win = win, .layers = layers, .receiver = std::move(receiver) }; }
 };
 
 inline auto operator|(schedule_sender /*snd*/, draw_closure closure) -> draw_sender
-{
-  return draw_sender{ .win = closure.win, .pipeline = closure.pipeline, .vertex_count = closure.vertex_count };
-}
+{ return draw_sender{ .win = closure.win, .pipeline = closure.pipeline, .vertex_count = closure.vertex_count }; }
 
 inline auto operator|(schedule_sender /*snd*/, draw_layers_closure closure) -> draw_layers_sender
-{
-  return draw_layers_sender{ .win = closure.win, .layers = std::move(closure.layers) };
-}
+{ return draw_layers_sender{ .win = closure.win, .layers = std::move(closure.layers) }; }
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif  // VKEXEC_DRAW_HPP
+#endif// VKEXEC_DRAW_HPP

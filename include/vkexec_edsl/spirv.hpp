@@ -14,6 +14,6 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
   std::string_view name = "vkexec",
   shader_kind kind = shader_kind::compute) -> std::vector<std::uint32_t>;
 
-} // namespace vkexec::edsl
+}// namespace vkexec::edsl
 
-#endif // VKEXEC_EDSL_SPIRV_HPP
+#endif// VKEXEC_EDSL_SPIRV_HPP

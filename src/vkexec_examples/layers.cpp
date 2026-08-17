@@ -35,9 +35,7 @@ auto fullscreen_vertex(edsl::Int vertex_id, edsl::VertexWriter out) -> void
 }
 
 auto gradient_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void
-{
-  out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(1.0)));
-}
+{ out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(1.0))); }
 
 auto foreground_vertex(edsl::Int vertex_id, edsl::VertexWriter out) -> void
 {
@@ -46,17 +44,14 @@ auto foreground_vertex(edsl::Int vertex_id, edsl::VertexWriter out) -> void
     edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec2(0.35, 0.35), edsl::vec2(-0.35, 0.35)));
   edsl::Float3 const col = edsl::select(vertex_id == edsl::Int::constant(0),
     edsl::vec3(1.0, 0.95, 0.2),
-    edsl::select(
-      vertex_id == edsl::Int::constant(1), edsl::vec3(1.0, 0.35, 0.55), edsl::vec3(0.35, 0.85, 1.0)));
+    edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec3(1.0, 0.35, 0.55), edsl::vec3(0.35, 0.85, 1.0)));
   out.position(pos);
   out.color(col);
 }
 
 auto tinted_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void
-{
-  out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(static_cast<double>(k_foreground_alpha))));
-}
-} // namespace
+{ out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(static_cast<double>(k_foreground_alpha)))); }
+}// namespace
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
@@ -69,19 +64,16 @@ auto main() -> int
     background_cfg.clear_g = k_clear_g;
     background_cfg.clear_b = k_clear_b;
 
-    vkexec::graphics_pipeline background(win.ctx(),
-      win.render_pass(),
-      background_cfg,
-      fullscreen_vertex,
-      gradient_fragment);
+    vkexec::graphics_pipeline background(
+      win.ctx(), win.render_pass(), background_cfg, fullscreen_vertex, gradient_fragment);
 
     vkexec::graphics_pipeline_config foreground_cfg{};
     foreground_cfg.alpha_blend = true;
 
-    vkexec::graphics_pipeline foreground(win.ctx(), win.render_pass(), foreground_cfg, foreground_vertex, tinted_fragment);
+    vkexec::graphics_pipeline foreground(
+      win.ctx(), win.render_pass(), foreground_cfg, foreground_vertex, tinted_fragment);
 
-    std::println(
-      "vkexec layers (two graphics pipelines, four traced shaders) - close the window to exit");
+    std::println("vkexec layers (two graphics pipelines, four traced shaders) - close the window to exit");
 
     while (!win.should_close()) {
       win.poll_events();

@@ -19,30 +19,28 @@
 namespace vkexec {
 namespace {
 
-constexpr std::uint32_t k_descriptor_sets_per_pool = 64;
+  constexpr std::uint32_t k_descriptor_sets_per_pool = 64;
 
-auto check(VkResult result, const char *what) -> void
-{
-  if (result != VK_SUCCESS) { throw std::runtime_error(what); }
-}
+  auto check(VkResult result, const char *what) -> void
+  {
+    if (result != VK_SUCCESS) { throw std::runtime_error(what); }
+  }
 
-auto destroy_resources(context const &ctx, pipeline_resources &resources) -> void
-{
-  VkDevice device = ctx.device();
-  if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
-  if (resources.pipeline_layout != VK_NULL_HANDLE) {
-    vkDestroyPipelineLayout(device, resources.pipeline_layout, nullptr);
+  auto destroy_resources(context const &ctx, pipeline_resources &resources) -> void
+  {
+    VkDevice device = ctx.device();
+    if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
+    if (resources.pipeline_layout != VK_NULL_HANDLE) {
+      vkDestroyPipelineLayout(device, resources.pipeline_layout, nullptr);
+    }
+    if (resources.descriptor_pool != VK_NULL_HANDLE) {
+      vkDestroyDescriptorPool(device, resources.descriptor_pool, nullptr);
+    }
+    if (resources.set_layout != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, resources.set_layout, nullptr); }
+    if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
   }
-  if (resources.descriptor_pool != VK_NULL_HANDLE) {
-    vkDestroyDescriptorPool(device, resources.descriptor_pool, nullptr);
-  }
-  if (resources.set_layout != VK_NULL_HANDLE) {
-    vkDestroyDescriptorSetLayout(device, resources.set_layout, nullptr);
-  }
-  if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
-}
 
-} // namespace
+}// namespace
 
 pipeline_cache::pipeline_cache(context &ctx) : ctx_(&ctx) {}
 
@@ -74,8 +72,7 @@ auto pipeline_cache::get_or_compile(const edsl::ASTContext &ast, std::uint32_t w
   module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   module_info.codeSize = spirv.size() * sizeof(std::uint32_t);
   module_info.pCode = spirv.data();
-  check(vkCreateShaderModule(ctx_->device(), &module_info, nullptr, &resources->shader),
-    "vkCreateShaderModule failed");
+  check(vkCreateShaderModule(ctx_->device(), &module_info, nullptr, &resources->shader), "vkCreateShaderModule failed");
 
   std::vector<VkDescriptorSetLayoutBinding> bindings(ast.buffers.size());
   for (std::size_t index = 0; index < ast.buffers.size(); ++index) {
@@ -142,4 +139,4 @@ auto pipeline_cache::get_or_compile(const edsl::ASTContext &ast, std::uint32_t w
   return *inserted_at->second;
 }
 
-} // namespace vkexec
+}// namespace vkexec

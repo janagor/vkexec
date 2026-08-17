@@ -7,8 +7,7 @@
 
 namespace vkexec::edsl {
 
-template<typename Body>
-auto if_then(Bool condition, Body &&body) -> void
+template<typename Body> auto if_then(Bool condition, Body &&body) -> void
 {
   ast().append(ExprNode::make(OpKind::IfBegin, condition.id));
   std::forward<Body>(body)();
@@ -25,8 +24,7 @@ auto if_then_else(Bool condition, ThenBody &&then_body, ElseBody &&else_body) ->
   ast().append(ExprNode::make(OpKind::ElseEnd));
 }
 
-template<typename Body>
-auto for_loop(int start, int end, Body &&body) -> void
+template<typename Body> auto for_loop(int start, int end, Body &&body) -> void
 {
   Int const begin = Int::constant(start);
   Int const stop = Int::constant(end);
@@ -37,6 +35,6 @@ auto for_loop(int start, int end, Body &&body) -> void
   ast().append(ExprNode::make(OpKind::ForEnd, loop_var));
 }
 
-} // namespace vkexec::edsl
+}// namespace vkexec::edsl
 
-#endif // VKEXEC_EDSL_CONTROL_HPP
+#endif// VKEXEC_EDSL_CONTROL_HPP

@@ -16,54 +16,43 @@
 namespace vkexec {
 namespace {
 
-[[noreturn]] auto fail(std::string const &what) -> void
-{
-  throw std::runtime_error(what);
-}
+  [[noreturn]] auto fail(std::string const &what) -> void { throw std::runtime_error(what); }
 
-template<typename T>
-auto unwrap(vkb::Result<T> result, char const *what) -> T
-{
-  if (!result) {
-    fail(std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")");
+  template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
+  {
+    if (!result) {
+      fail(std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")");
+    }
+    return result.value();
   }
-  return result.value();
-}
 
-auto build_headless_instance() -> vkb::Instance
-{
-  auto builder = vkb::InstanceBuilder{}
-                   .set_app_name("vkexec")
-                   .set_engine_name("vkexec")
-                   .require_api_version(1, 2)
-                   .set_headless();
-  return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
-}
+  auto build_headless_instance() -> vkb::Instance
+  {
+    auto builder =
+      vkb::InstanceBuilder{}.set_app_name("vkexec").set_engine_name("vkexec").require_api_version(1, 2).set_headless();
+    return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
+  }
 
-auto build_instance_with_extensions(std::vector<const char *> const &instance_extensions) -> vkb::Instance
-{
-  auto builder = vkb::InstanceBuilder{}
-                   .set_app_name("vkexec")
-                   .set_engine_name("vkexec")
-                   .require_api_version(1, 2)
-                   .set_headless()
-                   .enable_extensions(instance_extensions.size(), instance_extensions.data());
-  return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
-}
+  auto build_instance_with_extensions(std::vector<const char *> const &instance_extensions) -> vkb::Instance
+  {
+    auto builder = vkb::InstanceBuilder{}
+                     .set_app_name("vkexec")
+                     .set_engine_name("vkexec")
+                     .require_api_version(1, 2)
+                     .set_headless()
+                     .enable_extensions(instance_extensions.size(), instance_extensions.data());
+    return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
+  }
 
-} // namespace
+}// namespace
 
 context::context()
   : instance_(build_headless_instance()),
-    physical_device_(unwrap(
-      vkb::PhysicalDeviceSelector{ instance_ }.set_minimum_version(1, 2).require_present(false).select(),
-      "vk-bootstrap PhysicalDeviceSelector")),
-    device_(unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder")),
-    has_instance_(true),
-    has_device_(true),
-    owns_instance_(true),
-    owns_device_(true),
-    owns_allocator_(true)
+    physical_device_(
+      unwrap(vkb::PhysicalDeviceSelector{ instance_ }.set_minimum_version(1, 2).require_present(false).select(),
+        "vk-bootstrap PhysicalDeviceSelector")),
+    device_(unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder")), has_instance_(true),
+    has_device_(true), owns_instance_(true), owns_device_(true), owns_allocator_(true)
 {
   fetch_queues(false);
   create_command_pool();
@@ -72,9 +61,7 @@ context::context()
 }
 
 auto context::adopt(context_adopt_info const &info) -> std::unique_ptr<context>
-{
-  return std::unique_ptr<context>(new context(info));
-}
+{ return std::unique_ptr<context>(new context(info)); }
 
 context::context(context_adopt_info const &info)
 {
@@ -122,17 +109,15 @@ context::context(context_adopt_info const &info)
 
 context::context(instance_only_tag tag, std::vector<const char *> const &instance_extensions)
   : instance_(build_instance_with_extensions(instance_extensions)), has_instance_(true), owns_instance_(true)
-{
-  (void)tag;
-}
+{ (void)tag; }
 
 auto context::complete_for_surface(VkSurfaceKHR surface) -> void
 {
   if (surface == VK_NULL_HANDLE) { throw std::invalid_argument("complete_for_surface requires a surface"); }
 
-  physical_device_ = unwrap(
-    vkb::PhysicalDeviceSelector{ instance_ }.set_surface(surface).set_minimum_version(1, 2).select(),
-    "vk-bootstrap PhysicalDeviceSelector");
+  physical_device_ =
+    unwrap(vkb::PhysicalDeviceSelector{ instance_ }.set_surface(surface).set_minimum_version(1, 2).select(),
+      "vk-bootstrap PhysicalDeviceSelector");
   device_ = unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder");
   has_device_ = true;
   owns_device_ = true;
@@ -240,9 +225,7 @@ auto context::allocate_command_buffer() -> VkCommandBuffer
 }
 
 auto context::free_command_buffer(VkCommandBuffer cmd) -> void
-{
-  vkFreeCommandBuffers(device_.device, command_pool_, 1, &cmd);
-}
+{ vkFreeCommandBuffers(device_.device, command_pool_, 1, &cmd); }
 
 auto context::submit_and_wait(VkCommandBuffer cmd) -> void
 {
@@ -299,4 +282,4 @@ auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemapho
   return sem;
 }
 
-} // namespace vkexec
+}// namespace vkexec

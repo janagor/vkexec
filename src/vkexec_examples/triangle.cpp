@@ -1,7 +1,7 @@
 #include <vkexec/draw.hpp>
-#include <vkexec_edsl/types.hpp>
 #include <vkexec/graphics.hpp>
 #include <vkexec/window.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -16,7 +16,7 @@ namespace {
 constexpr std::uint32_t k_window_width = 800;
 constexpr std::uint32_t k_window_height = 600;
 constexpr std::uint32_t k_triangle_vertices = 3;
-} // namespace
+}// namespace
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
@@ -25,17 +25,16 @@ auto main() -> int
     vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec triangle" });
 
     // Vertex + fragment shaders traced from C++ (AST -> GLSL -> SPIR-V).
-    vkexec::graphics_pipeline pipeline(win.ctx(),
+    vkexec::graphics_pipeline pipeline(
+      win.ctx(),
       win.render_pass(),
       [](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
         edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),
           edsl::vec2(0.0, -0.5),
-          edsl::select(
-            vertex_id == edsl::Int::constant(1), edsl::vec2(0.5, 0.5), edsl::vec2(-0.5, 0.5)));
+          edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec2(0.5, 0.5), edsl::vec2(-0.5, 0.5)));
         edsl::Float3 const col = edsl::select(vertex_id == edsl::Int::constant(0),
           edsl::vec3(1.0, 0.2, 0.2),
-          edsl::select(
-            vertex_id == edsl::Int::constant(1), edsl::vec3(0.2, 1.0, 0.2), edsl::vec3(0.2, 0.4, 1.0)));
+          edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec3(0.2, 1.0, 0.2), edsl::vec3(0.2, 0.4, 1.0)));
         out.position(pos);
         out.color(col);
       },

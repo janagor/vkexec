@@ -4,35 +4,15 @@ add_executable(triangle triangle.cpp)
 add_executable(particles particles.cpp)
 add_executable(layers layers.cpp)
 
-target_link_libraries(
-  compute
-  PRIVATE vkexec::vkexec_options
-          vkexec::vkexec_warnings
-          vkexec::vkexec)
+target_link_libraries(compute PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
-target_link_libraries(
-  sort
-  PRIVATE vkexec::vkexec_options
-          vkexec::vkexec_warnings
-          vkexec::vkexec)
+target_link_libraries(sort PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
-target_link_libraries(
-  triangle
-  PRIVATE vkexec::vkexec_options
-          vkexec::vkexec_warnings
-          vkexec::vkexec)
+target_link_libraries(triangle PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
-target_link_libraries(
-  particles
-  PRIVATE vkexec::vkexec_options
-          vkexec::vkexec_warnings
-          vkexec::vkexec)
+target_link_libraries(particles PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
-target_link_libraries(
-  layers
-  PRIVATE vkexec::vkexec_options
-          vkexec::vkexec_warnings
-          vkexec::vkexec)
+target_link_libraries(layers PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
 vkexec_configure_linker(compute)
 vkexec_configure_linker(sort)

@@ -17,7 +17,8 @@ constexpr std::uint32_t k_default_window_width = 800;
 constexpr std::uint32_t k_default_window_height = 600;
 
 /// Per-frame recording handle returned by `window::begin_frame()`.
-struct frame {
+struct frame
+{
   VkCommandBuffer command_buffer{ VK_NULL_HANDLE };
   VkFramebuffer framebuffer{ VK_NULL_HANDLE };
   VkExtent2D extent{};
@@ -26,9 +27,11 @@ struct frame {
 
 /// GLFW window with a Vulkan swapchain and render pass for presentation.
 /// Drawing (pipelines, meshes, etc.) belongs in the application, not here.
-class window {
+class window
+{
 public:
-  struct config {
+  struct config
+  {
     std::uint32_t width{ k_default_window_width };
     std::uint32_t height{ k_default_window_height };
     std::string title{ "vkexec" };
@@ -62,7 +65,8 @@ public:
   auto end_frame(const frame &drawn) -> void;
 
 private:
-  struct frame_sync {
+  struct frame_sync
+  {
     VkSemaphore image_available{ VK_NULL_HANDLE };
     VkSemaphore render_finished{ VK_NULL_HANDLE };
     VkFence in_flight{ VK_NULL_HANDLE };
@@ -102,6 +106,6 @@ private:
   static auto on_framebuffer_resize(GLFWwindow *win, int width, int height) -> void;
 };
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif // VKEXEC_WINDOW_HPP
+#endif// VKEXEC_WINDOW_HPP

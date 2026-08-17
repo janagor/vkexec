@@ -56,10 +56,12 @@ macro(vkexec_enable_clang_tidy target WARNINGS_AS_ERRORS)
 
   find_program(CLANGTIDY clang-tidy)
   if(CLANGTIDY)
-    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(NOT
+       CMAKE_CXX_COMPILER_ID
+       MATCHES
+       "Clang")
       message(
-        STATUS
-          "clang-tidy disabled: ${CMAKE_CXX_COMPILER_ID} libstdc++ headers are not reliably parsed by clang-tidy")
+        STATUS "clang-tidy disabled: ${CMAKE_CXX_COMPILER_ID} libstdc++ headers are not reliably parsed by clang-tidy")
     else()
       set(CLANG_TIDY_OPTIONS
           ${CLANGTIDY}

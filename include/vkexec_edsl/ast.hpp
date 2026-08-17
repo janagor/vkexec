@@ -64,7 +64,8 @@ enum class OpKind : std::uint8_t {
   Statement
 };
 
-struct ExprNode {
+struct ExprNode
+{
   OpKind kind{};
   ValueType type{ ValueType::Float };
   int lhs{ -1 };
@@ -77,8 +78,7 @@ struct ExprNode {
   std::string name;
 
   // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-  static auto make(OpKind kind, int left = -1, int right = -1, int third = -1, int fourth_comp = -1)
-    -> ExprNode
+  static auto make(OpKind kind, int left = -1, int right = -1, int third = -1, int fourth_comp = -1) -> ExprNode
   {
     ExprNode node;
     node.kind = kind;
@@ -91,7 +91,8 @@ struct ExprNode {
   // NOLINTEND(bugprone-easily-swappable-parameters)
 };
 
-struct BufferBinding {
+struct BufferBinding
+{
   std::string name;
   std::string elem_glsl_type;
   int binding{ -1 };
@@ -100,7 +101,8 @@ struct BufferBinding {
   std::size_t elem_count{ 0 };
 };
 
-struct ASTContext {
+struct ASTContext
+{
   std::vector<ExprNode> nodes;
   std::vector<BufferBinding> buffers;
   std::vector<std::string> statements;
@@ -133,7 +135,8 @@ inline auto current_ast() noexcept -> ASTContext *&
   return ctx;
 }
 
-class ASTScope {
+class ASTScope
+{
   ASTContext *previous_;
 
 public:
@@ -171,6 +174,6 @@ inline auto glsl_type_name(ValueType type) -> const char *
   }
 }
 
-} // namespace vkexec::edsl
+}// namespace vkexec::edsl
 
-#endif // VKEXEC_EDSL_AST_HPP
+#endif// VKEXEC_EDSL_AST_HPP

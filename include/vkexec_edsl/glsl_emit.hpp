@@ -25,14 +25,9 @@ constexpr int k_hash_mix_fourth = 13;
 constexpr int k_hash_mix_binding = 11;
 
 inline auto hash_combine(std::size_t seed, std::size_t value) -> std::size_t
-{
-  return seed
-         ^ (value + k_hash_golden_ratio + (seed << k_hash_shift_left) + (seed >> k_hash_shift_right));
-}
+{ return seed ^ (value + k_hash_golden_ratio + (seed << k_hash_shift_left) + (seed >> k_hash_shift_right)); }
 
-inline auto emit_expr(const ASTContext &ctx,
-  int node_id,
-  std::unordered_map<int, std::string> &names) -> std::string;
+inline auto emit_expr(const ASTContext &ctx, int node_id, std::unordered_map<int, std::string> &names) -> std::string;
 
 inline auto op_symbol(OpKind kind) -> std::string
 {
@@ -66,9 +61,7 @@ inline auto op_symbol(OpKind kind) -> std::string
   }
 }
 
-inline auto emit_expr(const ASTContext &ctx,
-  int node_id,
-  std::unordered_map<int, std::string> &names) -> std::string
+inline auto emit_expr(const ASTContext &ctx, int node_id, std::unordered_map<int, std::string> &names) -> std::string
 {
   if (node_id < 0) { return "0"; }
   if (auto found = names.find(node_id); found != names.end()) { return found->second; }
@@ -169,8 +162,8 @@ inline auto emit_expr(const ASTContext &ctx,
   case OpKind::NotEqual:
   case OpKind::LogicalAnd:
   case OpKind::LogicalOr:
-    out = "(" + emit_expr(ctx, node.lhs, names) + " " + op_symbol(node.kind) + " "
-          + emit_expr(ctx, node.rhs, names) + ")";
+    out =
+      "(" + emit_expr(ctx, node.lhs, names) + " " + op_symbol(node.kind) + " " + emit_expr(ctx, node.rhs, names) + ")";
     break;
   default:
     out = "0 /*unsupported*/";
@@ -228,8 +221,8 @@ inline auto emit_body_statements(std::ostringstream &stream,
     }
     case OpKind::Store: {
       const auto &buf = ctx.buffers.at(static_cast<std::size_t>(node.binding));
-      stream << "  " << buf.name << "[" << emit_expr(ctx, node.lhs, names)
-             << "] = " << emit_expr(ctx, node.rhs, names) << ";\n";
+      stream << "  " << buf.name << "[" << emit_expr(ctx, node.lhs, names) << "] = " << emit_expr(ctx, node.rhs, names)
+             << ";\n";
       break;
     }
     case OpKind::OutputVarying:
@@ -246,8 +239,8 @@ inline auto emit_body_statements(std::ostringstream &stream,
       stream << "  }\n";
       break;
     case OpKind::ForBegin:
-      stream << "  for (; " << emit_expr(ctx, node.lhs, names) << " < " << emit_expr(ctx, node.rhs, names)
-             << "; ++" << emit_expr(ctx, node.lhs, names) << ") {\n";
+      stream << "  for (; " << emit_expr(ctx, node.lhs, names) << " < " << emit_expr(ctx, node.rhs, names) << "; ++"
+             << emit_expr(ctx, node.lhs, names) << ") {\n";
       break;
     case OpKind::ForEnd:
       stream << "  }\n";
@@ -279,9 +272,7 @@ inline auto emit_glsl(const ASTContext &ctx, std::uint32_t work_count) -> std::s
 
   std::unordered_map<int, std::string> names;
   for (std::size_t index = 0; index < ctx.nodes.size(); ++index) {
-    if (ctx.nodes.at(index).kind == OpKind::ParamIndex) {
-      names.emplace(static_cast<int>(index), "int(idx)");
-    }
+    if (ctx.nodes.at(index).kind == OpKind::ParamIndex) { names.emplace(static_cast<int>(index), "int(idx)"); }
   }
 
   emit_body_statements(stream, ctx, names);
@@ -305,8 +296,8 @@ inline auto emit_vertex_glsl(const ASTContext &ctx) -> std::string
   for (const auto &node : ctx.nodes) {
     if (node.kind == OpKind::OutputVarying && node.name != "gl_Position" && node.name != "gl_PointSize"
         && outs.insert(node.name).second) {
-      stream << "layout(location = " << node.const_i << ") out " << glsl_type_name(node.type) << " "
-             << node.name << ";\n";
+      stream << "layout(location = " << node.const_i << ") out " << glsl_type_name(node.type) << " " << node.name
+             << ";\n";
     }
   }
   if (!ctx.push_block_glsl.empty()) { stream << ctx.push_block_glsl << "\n"; }
@@ -332,12 +323,12 @@ inline auto emit_fragment_glsl(const ASTContext &ctx) -> std::string
   std::unordered_set<std::string> seen_out;
   for (const auto &node : ctx.nodes) {
     if (node.kind == OpKind::InputVarying && seen_in.insert(node.name).second) {
-      stream << "layout(location = " << node.const_i << ") in " << glsl_type_name(node.type) << " "
-             << node.name << ";\n";
+      stream << "layout(location = " << node.const_i << ") in " << glsl_type_name(node.type) << " " << node.name
+             << ";\n";
     }
     if (node.kind == OpKind::OutputVarying && seen_out.insert(node.name).second) {
-      stream << "layout(location = " << node.const_i << ") out " << glsl_type_name(node.type) << " "
-             << node.name << ";\n";
+      stream << "layout(location = " << node.const_i << ") out " << glsl_type_name(node.type) << " " << node.name
+             << ";\n";
     }
   }
   if (!ctx.push_block_glsl.empty()) { stream << ctx.push_block_glsl << "\n"; }
@@ -349,6 +340,6 @@ inline auto emit_fragment_glsl(const ASTContext &ctx) -> std::string
   return stream.str();
 }
 
-} // namespace vkexec::edsl
+}// namespace vkexec::edsl
 
-#endif // VKEXEC_EDSL_GLSL_EMIT_HPP
+#endif// VKEXEC_EDSL_GLSL_EMIT_HPP

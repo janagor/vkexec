@@ -16,29 +16,29 @@
 namespace vkexec::edsl {
 namespace {
 
-constexpr int k_glslang_vulkan_client_version = 100;
-constexpr int k_glsl_version = 450;
+  constexpr int k_glslang_vulkan_client_version = 100;
+  constexpr int k_glsl_version = 450;
 
-auto ensure_glslang() -> void
-{
-  static std::once_flag once;
-  std::call_once(once, []() -> void { glslang::InitializeProcess(); });
-}
-
-auto to_glslang(shader_kind kind) -> EShLanguage
-{
-  switch (kind) {
-  case shader_kind::vertex:
-    return EShLangVertex;
-  case shader_kind::fragment:
-    return EShLangFragment;
-  case shader_kind::compute:
-  default:
-    return EShLangCompute;
+  auto ensure_glslang() -> void
+  {
+    static std::once_flag once;
+    std::call_once(once, []() -> void { glslang::InitializeProcess(); });
   }
-}
 
-} // namespace
+  auto to_glslang(shader_kind kind) -> EShLanguage
+  {
+    switch (kind) {
+    case shader_kind::vertex:
+      return EShLangVertex;
+    case shader_kind::fragment:
+      return EShLangFragment;
+    case shader_kind::compute:
+    default:
+      return EShLangCompute;
+    }
+  }
+
+}// namespace
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, shader_kind kind)
@@ -51,8 +51,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
   std::array<char const *, 1> strings{ { glsl_source.data() } };
   std::array<int, 1> lengths{ { static_cast<int>(glsl_source.size()) } };
   shader.setStringsWithLengths(strings.data(), lengths.data(), 1);
-  shader.setEnvInput(
-    glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, k_glslang_vulkan_client_version);
+  shader.setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientVulkan, k_glslang_vulkan_client_version);
   shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
   shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
 
@@ -81,4 +80,4 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
   return spirv;
 }
 
-} // namespace vkexec::edsl
+}// namespace vkexec::edsl

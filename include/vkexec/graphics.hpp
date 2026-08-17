@@ -23,7 +23,8 @@ constexpr float k_default_clear_g = 0.09F;
 constexpr float k_default_clear_b = 0.12F;
 constexpr float k_default_clear_a = 1.0F;
 
-struct graphics_pipeline_config {
+struct graphics_pipeline_config
+{
   VkPrimitiveTopology topology{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST };
   bool alpha_blend{ false };
   float clear_r{ k_default_clear_r };
@@ -33,7 +34,8 @@ struct graphics_pipeline_config {
 };
 
 /// Graphics pipeline built by tracing vertex/fragment eDSL lambdas to GLSL/SPIR-V.
-class graphics_pipeline {
+class graphics_pipeline
+{
 public:
   template<typename VertexFn, typename FragmentFn>
   graphics_pipeline(context &ctx,
@@ -42,20 +44,18 @@ public:
     VertexFn &&vertex_fn,
     FragmentFn &&fragment_fn)
     : device_(ctx.device()), cfg_(cfg)
-  {
-    build(ctx, render_pass, std::forward<VertexFn>(vertex_fn), std::forward<FragmentFn>(fragment_fn));
-  }
+  { build(ctx, render_pass, std::forward<VertexFn>(vertex_fn), std::forward<FragmentFn>(fragment_fn)); }
 
   template<typename VertexFn, typename FragmentFn>
   graphics_pipeline(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn)
-    : graphics_pipeline(ctx, render_pass, graphics_pipeline_config{}, std::forward<VertexFn>(vertex_fn),
+    : graphics_pipeline(ctx,
+        render_pass,
+        graphics_pipeline_config{},
+        std::forward<VertexFn>(vertex_fn),
         std::forward<FragmentFn>(fragment_fn))
   {}
 
-  ~graphics_pipeline()
-  {
-    destroy();
-  }
+  ~graphics_pipeline() { destroy(); }
 
   graphics_pipeline(const graphics_pipeline &) = delete;
   auto operator=(const graphics_pipeline &) -> graphics_pipeline & = delete;
@@ -64,9 +64,7 @@ public:
     : device_(other.device_), cfg_(other.cfg_), layout_(other.layout_), pipeline_(other.pipeline_),
       set_layout_(other.set_layout_), descriptor_pool_(other.descriptor_pool_), descriptor_set_(other.descriptor_set_),
       buffers_(std::move(other.buffers_))
-  {
-    other.release();
-  }
+  { other.release(); }
 
   auto operator=(graphics_pipeline &&other) noexcept -> graphics_pipeline &
   {
@@ -153,7 +151,8 @@ public:
   }
 
 private:
-  struct bound_buffer {
+  struct bound_buffer
+  {
     std::uint32_t binding{ 0 };
     VkBuffer buffer{ VK_NULL_HANDLE };
     VkDeviceSize byte_size{ 0 };
@@ -201,8 +200,8 @@ private:
     const std::string fs_glsl = edsl::emit_fragment_glsl(fs_ast);
     const auto fs_spv = edsl::compile_glsl_to_spirv(fs_glsl, "vkexec.frag", edsl::shader_kind::fragment);
 
-    std::ranges::transform(vs_ast.buffers, std::back_inserter(buffers_),
-      [](const edsl::BufferBinding &buffer_binding) -> bound_buffer {
+    std::ranges::transform(
+      vs_ast.buffers, std::back_inserter(buffers_), [](const edsl::BufferBinding &buffer_binding) -> bound_buffer {
         return bound_buffer{
           .binding = static_cast<std::uint32_t>(buffer_binding.binding),
           .buffer = static_cast<VkBuffer>(buffer_binding.vk_buffer),
@@ -368,6 +367,6 @@ private:
   std::vector<bound_buffer> buffers_;
 };
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif  // VKEXEC_GRAPHICS_HPP
+#endif// VKEXEC_GRAPHICS_HPP

@@ -1,5 +1,5 @@
-#include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
+#include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -23,9 +23,10 @@ constexpr float k_initial_velocity = 1.5F;
 constexpr float k_timestep = 0.016F;
 constexpr float k_damping = 0.99F;
 constexpr float k_epsilon = 1.0E-4F;
-} // namespace
+}// namespace
 
-struct sim_params {
+struct sim_params
+{
   float dt;
   float damping;
 };
@@ -43,19 +44,20 @@ auto main() -> int
     sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
     auto pipeline = ex::schedule(ctx.get_scheduler())
-                    | vkexec::bulk(static_cast<std::uint32_t>(k_element_count), params,
-                        [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
-                          // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                          edsl::Float position = positions[idx];
-                          edsl::Float velocity = velocities[idx];
+                    | vkexec::bulk(static_cast<std::uint32_t>(k_element_count),
+                      params,
+                      [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
+                        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+                        edsl::Float position = positions[idx];
+                        edsl::Float velocity = velocities[idx];
 
-                          velocity = velocity * push.get<&sim_params::damping>();
-                          position = position + (velocity * push.get<&sim_params::dt>());
+                        velocity = velocity * push.get<&sim_params::damping>();
+                        position = position + (velocity * push.get<&sim_params::dt>());
 
-                          positions[idx] = position;
-                          velocities[idx] = velocity;
-                          // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                        });
+                        positions[idx] = position;
+                        velocities[idx] = velocity;
+                        // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+                      });
 
     ex::sync_wait(pipeline);
 

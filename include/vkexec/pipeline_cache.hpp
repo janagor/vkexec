@@ -17,7 +17,8 @@ namespace vkexec {
 
 class context;
 
-struct pipeline_resources {
+struct pipeline_resources
+{
   VkShaderModule shader{ VK_NULL_HANDLE };
   VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
   VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
@@ -27,7 +28,8 @@ struct pipeline_resources {
   std::size_t push_bytes{ 0 };
 };
 
-class pipeline_cache {
+class pipeline_cache
+{
 public:
   explicit pipeline_cache(context &ctx);
   ~pipeline_cache();
@@ -45,6 +47,6 @@ private:
   std::unordered_map<std::size_t, std::unique_ptr<pipeline_resources>> cache_;
 };
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif // VKEXEC_PIPELINE_CACHE_HPP
+#endif// VKEXEC_PIPELINE_CACHE_HPP

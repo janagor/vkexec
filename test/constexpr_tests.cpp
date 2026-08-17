@@ -13,7 +13,7 @@ constexpr int k_u8_max = 255;
   return static_cast<std::uint8_t>(value);
 }
 
-} // namespace
+}// namespace
 
 TEST_CASE("saturate_u8 is usable in constexpr context", "[constexpr]")
 {

@@ -4,8 +4,8 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/pipeline_cache.hpp>
-#include <vkexec_edsl/push_constant.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec_edsl/push_constant.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -20,21 +20,18 @@ namespace vkexec {
 
 namespace ex = stdexec;
 
-template<typename Params, typename Fun>
-struct bulk_closure {
+template<typename Params, typename Fun> struct bulk_closure
+{
   std::uint32_t shape{};
   Params params{};
   Fun fun{};
 };
 
-template<typename Params, typename Fun>
-auto bulk(std::uint32_t shape, Params params, Fun fun)
-{
-  return bulk_closure<Params, Fun>{ shape, std::move(params), std::move(fun) };
-}
+template<typename Params, typename Fun> auto bulk(std::uint32_t shape, Params params, Fun fun)
+{ return bulk_closure<Params, Fun>{ shape, std::move(params), std::move(fun) }; }
 
-template<typename Params, typename Fun>
-struct bulk_sender {
+template<typename Params, typename Fun> struct bulk_sender
+{
   using sender_concept = ex::sender_t;
   using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
 
@@ -43,8 +40,8 @@ struct bulk_sender {
   Params params{};
   Fun fun{};
 
-  template<class Receiver>
-  struct op_state {
+  template<class Receiver> struct op_state
+  {
     context *ctx;
     std::uint32_t shape;
     Params params;
@@ -102,7 +99,9 @@ struct bulk_sender {
         writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         writes.at(index).pBufferInfo = &buf_infos.at(index);
       }
-      if (!writes.empty()) { vkUpdateDescriptorSets(ctx->device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr); }
+      if (!writes.empty()) {
+        vkUpdateDescriptorSets(ctx->device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+      }
 
       VkCommandBuffer cmd = ctx->allocate_command_buffer();
       VkCommandBufferBeginInfo begin{};
@@ -113,8 +112,12 @@ struct bulk_sender {
       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline);
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline_layout, 0, 1, &set, 0, nullptr);
       if (pipe.push_bytes > 0) {
-        vkCmdPushConstants(cmd, pipe.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-          static_cast<std::uint32_t>(sizeof(Params)), &params);
+        vkCmdPushConstants(cmd,
+          pipe.pipeline_layout,
+          VK_SHADER_STAGE_COMPUTE_BIT,
+          0,
+          static_cast<std::uint32_t>(sizeof(Params)),
+          &params);
       }
 
       auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
@@ -128,22 +131,15 @@ struct bulk_sender {
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ ctx, shape, params, fun, std::move(receiver) };
-  }
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  { return op_state<Receiver>{ ctx, shape, params, fun, std::move(receiver) }; }
 };
 
-template<typename Params, typename Fun>
-auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
-{
-  return bulk_sender<Params, Fun>{ snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun) };
-}
+template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
+{ return bulk_sender<Params, Fun>{ snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun) }; }
 
 /// Submit without blocking; returns a binary semaphore signaled on compute completion.
-template<typename Params, typename Fun>
-auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
+template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
 {
   edsl::ASTContext ast_ctx;
   {
@@ -190,8 +186,12 @@ auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline);
   vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe.pipeline_layout, 0, 1, &set, 0, nullptr);
   if (pipe.push_bytes > 0) {
-    vkCmdPushConstants(cmd, pipe.pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-      static_cast<std::uint32_t>(sizeof(Params)), &sender.params);
+    vkCmdPushConstants(cmd,
+      pipe.pipeline_layout,
+      VK_SHADER_STAGE_COMPUTE_BIT,
+      0,
+      static_cast<std::uint32_t>(sizeof(Params)),
+      &sender.params);
   }
   auto local = static_cast<std::uint32_t>(ast_ctx.local_size_x);
   const std::uint32_t groups = (sender.shape + local - 1U) / local;
@@ -201,6 +201,6 @@ auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
   return sender.ctx->submit_async(cmd);
 }
 
-} // namespace vkexec
+}// namespace vkexec
 
-#endif  // VKEXEC_BULK_HPP
+#endif// VKEXEC_BULK_HPP

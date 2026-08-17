@@ -1,5 +1,5 @@
-#include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
+#include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec_edsl/control.hpp>
 #include <vkexec_edsl/push_constant.hpp>
@@ -26,9 +26,10 @@ constexpr std::size_t k_element_count = 256;
 constexpr unsigned k_rng_seed = 42;
 constexpr float k_value_max = 1000.0F;
 constexpr float k_epsilon = 1.0E-4F;
-} // namespace
+}// namespace
 
-struct sort_params {
+struct sort_params
+{
   int offset;
   int n;
 };
@@ -59,32 +60,29 @@ auto main() -> int
     for (std::size_t phase = 0; phase < k_element_count; ++phase) {
       sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
       auto pass = ex::schedule(ctx.get_scheduler())
-                  | vkexec::bulk(static_cast<std::uint32_t>(k_element_count / 2), params,
-                      [&](edsl::Int idx, edsl::push_constant<sort_params> push) -> void {
-                        edsl::Int left = edsl::Int::constant(2) * idx + push.get<&sort_params::offset>();
-                        edsl::Int right = left + edsl::Int::constant(1);
+                  | vkexec::bulk(static_cast<std::uint32_t>(k_element_count / 2),
+                    params,
+                    [&](edsl::Int idx, edsl::push_constant<sort_params> push) -> void {
+                      edsl::Int left = edsl::Int::constant(2) * idx + push.get<&sort_params::offset>();
+                      edsl::Int right = left + edsl::Int::constant(1);
 
-                        edsl::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
-                          // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                          edsl::Float const left_value = data[left];
-                          edsl::Float const right_value = data[right];
-                          edsl::Bool const out_of_order = left_value > right_value;
-                          data[left] = edsl::select(out_of_order, right_value, left_value);
-                          data[right] = edsl::select(out_of_order, left_value, right_value);
-                          // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                        });
+                      edsl::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
+                        // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+                        edsl::Float const left_value = data[left];
+                        edsl::Float const right_value = data[right];
+                        edsl::Bool const out_of_order = left_value > right_value;
+                        data[left] = edsl::select(out_of_order, right_value, left_value);
+                        data[right] = edsl::select(out_of_order, left_value, right_value);
+                        // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                       });
+                    });
       ex::sync_wait(pass);
     }
 
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     for (std::size_t index = 0; index < k_element_count; ++index) {
       if (std::fabs(data.data()[index] - expected.at(index)) > k_epsilon) {
-        std::println(stderr,
-          "sort mismatch at {}: got {} expected {}",
-          index,
-          data.data()[index],
-          expected.at(index));
+        std::println(stderr, "sort mismatch at {}: got {} expected {}", index, data.data()[index], expected.at(index));
         return 1;
       }
     }

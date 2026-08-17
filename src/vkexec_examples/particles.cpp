@@ -1,5 +1,5 @@
-#include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
+#include <vkexec/bulk.hpp>
 #include <vkexec/draw.hpp>
 #include <vkexec/graphics.hpp>
 #include <vkexec/window.hpp>
@@ -39,9 +39,10 @@ constexpr float k_clear_r = 0.02F;
 constexpr float k_clear_g = 0.02F;
 constexpr float k_clear_b = 0.05F;
 constexpr unsigned k_rng_seed = 42;
-} // namespace
+}// namespace
 
-struct particle_params {
+struct particle_params
+{
   float delta_time;
 };
 // cppcheck-suppress unknownMacro
@@ -104,7 +105,8 @@ auto main() -> int
     graphics_cfg.clear_g = k_clear_g;
     graphics_cfg.clear_b = k_clear_b;
 
-    vkexec::graphics_pipeline gfx(ctx,
+    vkexec::graphics_pipeline gfx(
+      ctx,
       win.render_pass(),
       graphics_cfg,
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
@@ -130,30 +132,30 @@ auto main() -> int
       particle_params const params{ delta_time };
 
       // GPU particle update (in-place SSBO), synchronized before draw.
-      (void)ex::sync_wait(ex::schedule(ctx.get_scheduler())
-                          | vkexec::bulk(k_particle_count, params,
-                            // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                            [&](edsl::Int const index, edsl::push_constant<particle_params> push) -> void {
-                              edsl::Float position_x = pos_x[index];
-                              edsl::Float position_y = pos_y[index];
-                              edsl::Float velocity_x = vel_x[index];
-                              edsl::Float velocity_y = vel_y[index];
+      (void)ex::sync_wait(
+        ex::schedule(ctx.get_scheduler())
+        | vkexec::bulk(k_particle_count,
+          params,
+          // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+          [&](edsl::Int const index, edsl::push_constant<particle_params> push) -> void {
+            edsl::Float position_x = pos_x[index];
+            edsl::Float position_y = pos_y[index];
+            edsl::Float velocity_x = vel_x[index];
+            edsl::Float velocity_y = vel_y[index];
 
-                              position_x = position_x + (velocity_x * push.get<&particle_params::delta_time>());
-                              position_y = position_y + (velocity_y * push.get<&particle_params::delta_time>());
+            position_x = position_x + (velocity_x * push.get<&particle_params::delta_time>());
+            position_y = position_y + (velocity_y * push.get<&particle_params::delta_time>());
 
-                              edsl::if_then((position_x <= edsl::Float::constant(-1.0))
-                                  || (position_x >= edsl::Float::constant(1.0)),
-                                [&]() -> void { velocity_x = edsl::Float::constant(0.0) - velocity_x; });
-                              edsl::if_then((position_y <= edsl::Float::constant(-1.0))
-                                  || (position_y >= edsl::Float::constant(1.0)),
-                                [&]() -> void { velocity_y = edsl::Float::constant(0.0) - velocity_y; });
+            edsl::if_then((position_x <= edsl::Float::constant(-1.0)) || (position_x >= edsl::Float::constant(1.0)),
+              [&]() -> void { velocity_x = edsl::Float::constant(0.0) - velocity_x; });
+            edsl::if_then((position_y <= edsl::Float::constant(-1.0)) || (position_y >= edsl::Float::constant(1.0)),
+              [&]() -> void { velocity_y = edsl::Float::constant(0.0) - velocity_y; });
 
-                              pos_x[index] = position_x;
-                              pos_y[index] = position_y;
-                              vel_x[index] = velocity_x;
-                              vel_y[index] = velocity_y;
-                            }));
+            pos_x[index] = position_x;
+            pos_y[index] = position_y;
+            vel_x[index] = velocity_x;
+            vel_y[index] = velocity_y;
+          }));
       // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
       (void)ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
