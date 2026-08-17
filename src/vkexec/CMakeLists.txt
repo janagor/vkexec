@@ -11,6 +11,8 @@ target_link_libraries(
          glfw
          vk-bootstrap::vk-bootstrap
          GPUOpen::VulkanMemoryAllocator
+         Boost::describe
+         Boost::mp11
   PRIVATE glslang::glslang
           glslang::SPIRV
           glslang::glslang-default-resource-limits)

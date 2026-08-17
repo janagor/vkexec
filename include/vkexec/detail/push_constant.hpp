@@ -1,138 +1,127 @@
 #ifndef VKEXEC_DETAIL_PUSH_CONSTANT_HPP
 #define VKEXEC_DETAIL_PUSH_CONSTANT_HPP
 
-
 #include <vkexec/detail/types.hpp>
 
+#include <boost/describe/class.hpp>
+#include <boost/describe/members.hpp>
+#include <boost/describe/modifiers.hpp>
+#include <boost/mp11/algorithm.hpp>
+
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 namespace vkexec {
-
-/// GPU push-constant proxy. Member access is provided by VKEXEC_PUSH_CONSTANT.
-template<typename T>
-struct PushConstant;
-
 namespace detail {
 
-inline auto glsl_type_name(float tag) -> const char *
+template<typename T>
+inline auto glsl_type_name_of() -> const char *
 {
-  (void)tag;
-  return "float";
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+    return "float";
+  } else if constexpr (std::is_same_v<T, bool>) {
+    return "bool";
+  } else if constexpr (std::is_unsigned_v<T>) {
+    return "uint";
+  } else if constexpr (std::is_integral_v<T>) {
+    return "int";
+  } else {
+    static_assert(sizeof(T) == 0, "unsupported push-constant member type");
+    return "float";
+  }
 }
-inline auto glsl_type_name(double tag) -> const char *
+
+template<typename T>
+using describe_members_t = boost::describe::describe_members<T, boost::describe::mod_any_access>;
+
+template<typename T>
+inline constexpr std::size_t describe_member_count = boost::mp11::mp_size<describe_members_t<T>>::value;
+
+template<typename MemberT>
+using proxy_type_for = std::conditional_t<std::is_integral_v<MemberT> && !std::is_same_v<MemberT, bool>, Int, Float>;
+
+template<typename T>
+auto member_byte_offset(auto member_pointer) -> std::int64_t
 {
-  (void)tag;
-  return "float";
+  alignas(T) unsigned char storage[sizeof(T)]{};
+  auto *object = reinterpret_cast<T *>(storage); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto *member = reinterpret_cast<unsigned char *>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    std::addressof(object->*member_pointer));
+  return static_cast<std::int64_t>(member - storage);
 }
-inline auto glsl_type_name(int tag) -> const char *
-{
-  (void)tag;
-  return "int";
-}
-inline auto glsl_type_name(unsigned tag) -> const char *
-{
-  (void)tag;
-  return "uint";
-}
-inline auto glsl_type_name(bool tag) -> const char *
-{
-  (void)tag;
-  return "bool";
-}
+
+template<auto MemberPtr>
+struct matches_member_pointer {
+  template<typename Descriptor>
+  using fn = std::bool_constant<Descriptor::pointer == MemberPtr>;
+};
 
 } // namespace detail
-} // namespace vkexec
 
-// Reflection macros intentionally emit struct specializations and field lists.
-// NOLINTBEGIN(cppcoreguidelines-macro-usage,bugprone-macro-parentheses,hicpp-vararg)
+/// Tracing proxy for a Boost.Describe'd POD push-constant struct.
+///
+/// Describe the host struct, then access fields with `pc.get<&Params::field>()`:
+/// ```
+/// struct params { float dt; };
+/// BOOST_DESCRIBE_STRUCT(params, (), (dt))
+/// ...
+/// auto dt = pc.get<&params::dt>();
+/// ```
+template<typename T>
+struct PushConstant {
+  static constexpr std::size_t byte_size = sizeof(T);
+  static constexpr std::size_t member_count = detail::describe_member_count<T>;
 
-/// Reflect a POD push-constant struct into a tracing proxy.
-/// Usage: `VKEXEC_PUSH_CONSTANT(SimParams, float, dt, float, damping)`
-#define VKEXEC_PUSH_CONSTANT(Type, ...)                                                                                   \
-  template<>                                                                                                           \
-  struct vkexec::PushConstant<Type> {                                                                                     \
-    VKEXEC_PC_DECL_MEMBERS(__VA_ARGS__)                                                                                   \
-    static constexpr std::size_t byte_size = sizeof(Type);                                                             \
-    static std::string glsl_block()                                                                                    \
-    {                                                                                                                  \
-      std::string body;                                                                                                \
-      VKEXEC_PC_EMIT_GLSL(__VA_ARGS__)                                                                                    \
-      return "layout(push_constant) uniform PushConstants {\n" + body + "} pc;\n";                                     \
-    }                                                                                                                  \
-    static PushConstant bind()                                                                                         \
-    {                                                                                                                  \
-      PushConstant proxy{};                                                                                            \
-      VKEXEC_PC_BIND_FIELDS(Type, __VA_ARGS__)                                                                            \
-      vkexec::ast().push_block_glsl = glsl_block();                                                                       \
-      vkexec::ast().push_bytes = byte_size;                                                                               \
-      return proxy;                                                                                                    \
-    }                                                                                                                  \
+  std::array<int, member_count == 0 ? 1 : member_count> field_ids_{};
+
+  [[nodiscard]] static auto glsl_block() -> std::string
+  {
+    std::string body;
+    boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) {
+      using member_type =
+        std::remove_cv_t<std::remove_reference_t<decltype(std::declval<T>().*descriptor.pointer)>>;
+      body += "  ";
+      body += detail::glsl_type_name_of<member_type>();
+      body += ' ';
+      body += descriptor.name;
+      body += ";\n";
+    });
+    return "layout(push_constant) uniform PushConstants {\n" + body + "} pc;\n";
   }
 
-#define VKEXEC_PC_FIELD_TYPE(type)                                                                                        \
-  std::conditional_t<std::is_integral_v<type> && !std::is_same_v<type, bool>, vkexec::Int, vkexec::Float>
+  [[nodiscard]] static auto bind() -> PushConstant
+  {
+    static_assert(member_count > 0, "PushConstant<T> requires BOOST_DESCRIBE_STRUCT(T, (), (members...))");
+    PushConstant proxy{};
+    std::size_t index = 0;
+    boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) {
+      ExprNode node = ExprNode::make(OpKind::PushField);
+      node.name = descriptor.name;
+      node.const_i = detail::member_byte_offset<T>(descriptor.pointer);
+      proxy.field_ids_.at(index) = ast().append(std::move(node));
+      ++index;
+    });
+    ast().push_block_glsl = glsl_block();
+    ast().push_bytes = byte_size;
+    return proxy;
+  }
 
-#define VKEXEC_PC_DECL_1(t1, n1) VKEXEC_PC_FIELD_TYPE(t1) n1;
-#define VKEXEC_PC_DECL_2(t1, n1, t2, n2)                                                                                  \
-  VKEXEC_PC_DECL_1(t1, n1)                                                                                                \
-  VKEXEC_PC_DECL_1(t2, n2)
-#define VKEXEC_PC_DECL_3(t1, n1, t2, n2, t3, n3)                                                                          \
-  VKEXEC_PC_DECL_2(t1, n1, t2, n2)                                                                                        \
-  VKEXEC_PC_DECL_1(t3, n3)
-#define VKEXEC_PC_DECL_4(t1, n1, t2, n2, t3, n3, t4, n4)                                                                  \
-  VKEXEC_PC_DECL_3(t1, n1, t2, n2, t3, n3)                                                                                \
-  VKEXEC_PC_DECL_1(t4, n4)
+  /// Look up the tracing handle for a described data member.
+  template<auto MemberPtr>
+  [[nodiscard]] auto get() const
+  {
+    using member_type = std::remove_cv_t<std::remove_reference_t<decltype(std::declval<T>().*MemberPtr)>>;
+    using index_t = boost::mp11::mp_find_if_q<detail::describe_members_t<T>, detail::matches_member_pointer<MemberPtr>>;
+    static_assert(index_t::value < member_count, "member pointer is not described for this PushConstant type");
+    return detail::proxy_type_for<member_type>{ field_ids_.at(index_t::value) };
+  }
+};
 
-#define VKEXEC_PC_DECL_MEMBERS(...) VKEXEC_PC_DECL_MEMBERS_N(VKEXEC_PC_NARG(__VA_ARGS__), __VA_ARGS__)
-#define VKEXEC_PC_DECL_MEMBERS_N(N, ...) VKEXEC_PC_DECL_MEMBERS_N_(N, __VA_ARGS__)
-#define VKEXEC_PC_DECL_MEMBERS_N_(N, ...) VKEXEC_PC_DECL_##N(__VA_ARGS__)
+} // namespace vkexec
 
-#define VKEXEC_PC_GLSL_1(t1, n1) body += std::string("  ") + vkexec::detail::glsl_type_name(t1{}) + " " #n1 ";\n";
-#define VKEXEC_PC_GLSL_2(t1, n1, t2, n2)                                                                                  \
-  VKEXEC_PC_GLSL_1(t1, n1)                                                                                                \
-  VKEXEC_PC_GLSL_1(t2, n2)
-#define VKEXEC_PC_GLSL_3(t1, n1, t2, n2, t3, n3)                                                                          \
-  VKEXEC_PC_GLSL_2(t1, n1, t2, n2)                                                                                        \
-  VKEXEC_PC_GLSL_1(t3, n3)
-#define VKEXEC_PC_GLSL_4(t1, n1, t2, n2, t3, n3, t4, n4)                                                                  \
-  VKEXEC_PC_GLSL_3(t1, n1, t2, n2, t3, n3)                                                                                \
-  VKEXEC_PC_GLSL_1(t4, n4)
-
-#define VKEXEC_PC_EMIT_GLSL(...) VKEXEC_PC_EMIT_GLSL_N(VKEXEC_PC_NARG(__VA_ARGS__), __VA_ARGS__)
-#define VKEXEC_PC_EMIT_GLSL_N(N, ...) VKEXEC_PC_EMIT_GLSL_N_(N, __VA_ARGS__)
-#define VKEXEC_PC_EMIT_GLSL_N_(N, ...) VKEXEC_PC_GLSL_##N(__VA_ARGS__)
-
-#define VKEXEC_PC_BIND_ONE(Type, type, field)                                                                             \
-  do {                                                                                                                 \
-    vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::PushField);                                                  \
-    node.name = #field;                                                                                                \
-    node.const_i = static_cast<std::int64_t>(offsetof(Type, field));                                                   \
-    /* Set .id directly — Float/Int operator= emits AST assigns and must not run during bind. */                       \
-    proxy.field.id = vkexec::ast().append(std::move(node));                                                               \
-  } while (0)
-
-#define VKEXEC_PC_BIND_1(Type, t1, n1) VKEXEC_PC_BIND_ONE(Type, t1, n1);
-#define VKEXEC_PC_BIND_2(Type, t1, n1, t2, n2)                                                                            \
-  VKEXEC_PC_BIND_1(Type, t1, n1)                                                                                          \
-  VKEXEC_PC_BIND_1(Type, t2, n2)
-#define VKEXEC_PC_BIND_3(Type, t1, n1, t2, n2, t3, n3)                                                                    \
-  VKEXEC_PC_BIND_2(Type, t1, n1, t2, n2)                                                                                  \
-  VKEXEC_PC_BIND_1(Type, t3, n3)
-#define VKEXEC_PC_BIND_4(Type, t1, n1, t2, n2, t3, n3, t4, n4)                                                            \
-  VKEXEC_PC_BIND_3(Type, t1, n1, t2, n2, t3, n3)                                                                          \
-  VKEXEC_PC_BIND_1(Type, t4, n4)
-
-#define VKEXEC_PC_BIND_FIELDS(Type, ...) VKEXEC_PC_BIND_FIELDS_N(Type, VKEXEC_PC_NARG(__VA_ARGS__), __VA_ARGS__)
-#define VKEXEC_PC_BIND_FIELDS_N(Type, N, ...) VKEXEC_PC_BIND_FIELDS_N_(Type, N, __VA_ARGS__)
-#define VKEXEC_PC_BIND_FIELDS_N_(Type, N, ...) VKEXEC_PC_BIND_##N(Type, __VA_ARGS__)
-
-// Number of (type, name) pairs from a flat type,name,... list (2/4/6/8 args → 1/2/3/4 pairs)
-#define VKEXEC_PC_NARG(...) VKEXEC_PC_NARG_(__VA_ARGS__, 4, 4, 3, 3, 2, 2, 1, 1, 0)
-#define VKEXEC_PC_NARG_(_1, _2, _3, _4, _5, _6, _7, _8, N, ...) N
-
-// NOLINTEND(cppcoreguidelines-macro-usage,bugprone-macro-parentheses,hicpp-vararg)
-
-#endif  // VKEXEC_DETAIL_PUSH_CONSTANT_HPP
+#endif // VKEXEC_DETAIL_PUSH_CONSTANT_HPP

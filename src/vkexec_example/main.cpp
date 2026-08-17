@@ -12,8 +12,7 @@ struct SimParams {
   float dt;
   float damping;
 };
-
-VKEXEC_PUSH_CONSTANT(SimParams, float, dt, float, damping);
+BOOST_DESCRIBE_STRUCT(SimParams, (), (dt, damping))
 
 int main()
 {
@@ -31,8 +30,8 @@ int main()
                           vkexec::Float p = positions[idx];
                           vkexec::Float v = velocities[idx];
 
-                          v = v * pc.damping;
-                          p = p + (v * pc.dt);
+                          v = v * pc.get<&SimParams::damping>();
+                          p = p + (v * pc.get<&SimParams::dt>());
 
                           positions[idx] = p;
                           velocities[idx] = v;

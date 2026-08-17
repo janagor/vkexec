@@ -15,8 +15,7 @@ struct SortParams {
   int offset;
   int n;
 };
-
-VKEXEC_PUSH_CONSTANT(SortParams, int, offset, int, n);
+BOOST_DESCRIBE_STRUCT(SortParams, (), (offset, n))
 
 int main()
 {
@@ -41,10 +40,10 @@ int main()
       auto pass = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(static_cast<std::uint32_t>(N / 2), params,
                       [&](vkexec::Int idx, vkexec::PushConstant<SortParams> pc) {
-                        vkexec::Int left = vkexec::Int::constant(2) * idx + pc.offset;
+                        vkexec::Int left = vkexec::Int::constant(2) * idx + pc.get<&SortParams::offset>();
                         vkexec::Int right = left + vkexec::Int::constant(1);
 
-                        vkexec::if_then(right < pc.n, [&] {
+                        vkexec::if_then(right < pc.get<&SortParams::n>(), [&] {
                           vkexec::Float a = data[left];
                           vkexec::Float b = data[right];
                           vkexec::Bool out_of_order = a > b;

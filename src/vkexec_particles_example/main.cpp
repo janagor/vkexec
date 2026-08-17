@@ -41,10 +41,7 @@ constexpr unsigned k_rng_seed = 42;
 struct particle_params {
   float delta_time;
 };
-
-// NOLINTBEGIN(cppcoreguidelines-avoid-do-while,modernize-use-trailing-return-type)
-VKEXEC_PUSH_CONSTANT(particle_params, float, delta_time);
-// NOLINTEND(cppcoreguidelines-avoid-do-while,modernize-use-trailing-return-type)
+BOOST_DESCRIBE_STRUCT(particle_params, (), (delta_time))
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
@@ -138,8 +135,8 @@ auto main() -> int
                               vkexec::Float velocity_x = vel_x[index];
                               vkexec::Float velocity_y = vel_y[index];
 
-                              position_x = position_x + (velocity_x * push.delta_time);
-                              position_y = position_y + (velocity_y * push.delta_time);
+                              position_x = position_x + (velocity_x * push.get<&particle_params::delta_time>());
+                              position_y = position_y + (velocity_y * push.get<&particle_params::delta_time>());
 
                               vkexec::if_then((position_x <= vkexec::Float::constant(-1.0))
                                   || (position_x >= vkexec::Float::constant(1.0)),

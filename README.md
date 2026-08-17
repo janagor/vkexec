@@ -19,7 +19,7 @@
 namespace ex = stdexec;
 
 struct SimParams { float dt; float damping; };
-VKEXEC_PUSH_CONSTANT(SimParams, float, dt, float, damping);
+BOOST_DESCRIBE_STRUCT(SimParams, (), (dt, damping))
 
 int main() {
   vkexec::context ctx;
@@ -31,8 +31,8 @@ int main() {
     | vkexec::bulk(10000, params, [&](vkexec::Int idx, vkexec::PushConstant<SimParams> pc) {
         vkexec::Float p = positions[idx];
         vkexec::Float v = velocities[idx];
-        v = v * pc.damping;
-        p = p + (v * pc.dt);
+        v = v * pc.get<&SimParams::damping>();
+        p = p + (v * pc.get<&SimParams::dt>());
         positions[idx] = p;
         velocities[idx] = v;
       });
