@@ -1,41 +1,41 @@
-add_executable(vkexec_example compute.cpp)
-add_executable(vkexec_sort_example sort.cpp)
-add_executable(vkexec_triangle_example triangle.cpp)
-add_executable(vkexec_particles_example particles.cpp)
-add_executable(vkexec_layers_example layers.cpp)
+add_executable(compute compute.cpp)
+add_executable(sort sort.cpp)
+add_executable(triangle triangle.cpp)
+add_executable(particles particles.cpp)
+add_executable(layers layers.cpp)
 
 target_link_libraries(
-  vkexec_example
+  compute
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec)
 
 target_link_libraries(
-  vkexec_sort_example
+  sort
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec)
 
 target_link_libraries(
-  vkexec_triangle_example
+  triangle
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec)
 
 target_link_libraries(
-  vkexec_particles_example
+  particles
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec)
 
 target_link_libraries(
-  vkexec_layers_example
+  layers
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec)
 
-vkexec_configure_linker(vkexec_example)
-vkexec_configure_linker(vkexec_sort_example)
-vkexec_configure_linker(vkexec_triangle_example)
-vkexec_configure_linker(vkexec_particles_example)
-vkexec_configure_linker(vkexec_layers_example)
+vkexec_configure_linker(compute)
+vkexec_configure_linker(sort)
+vkexec_configure_linker(triangle)
+vkexec_configure_linker(particles)
+vkexec_configure_linker(layers)
