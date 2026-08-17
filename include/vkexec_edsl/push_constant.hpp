@@ -1,7 +1,7 @@
-#ifndef VKEXEC_DETAIL_PUSH_CONSTANT_HPP
-#define VKEXEC_DETAIL_PUSH_CONSTANT_HPP
+#ifndef VKEXEC_EDSL_PUSH_CONSTANT_HPP
+#define VKEXEC_EDSL_PUSH_CONSTANT_HPP
 
-#include <vkexec/detail/types.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <boost/describe/class.hpp>
 #include <boost/describe/members.hpp>
@@ -16,7 +16,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace vkexec {
+namespace vkexec::edsl {
 namespace detail {
 
 template<typename T>
@@ -122,6 +122,6 @@ struct push_constant {
   }
 };
 
-} // namespace vkexec
+} // namespace vkexec::edsl
 
-#endif // VKEXEC_DETAIL_PUSH_CONSTANT_HPP
+#endif // VKEXEC_EDSL_PUSH_CONSTANT_HPP

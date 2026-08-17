@@ -1,7 +1,7 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
-#include <vkexec/detail/pipeline_cache.hpp>
+#include <vkexec/pipeline_cache.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>

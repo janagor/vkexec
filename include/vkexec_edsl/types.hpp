@@ -1,12 +1,12 @@
-#ifndef VKEXEC_DETAIL_TYPES_HPP
-#define VKEXEC_DETAIL_TYPES_HPP
+#ifndef VKEXEC_EDSL_TYPES_HPP
+#define VKEXEC_EDSL_TYPES_HPP
 
 
-#include <vkexec/detail/ast.hpp>
+#include <vkexec_edsl/ast.hpp>
 
 #include <cstdint>
 
-namespace vkexec {
+namespace vkexec::edsl {
 
 struct Bool;
 struct Int;
@@ -492,6 +492,6 @@ struct FragmentWriter {
   }
 };
 
-} // namespace vkexec
+} // namespace vkexec::edsl
 
-#endif  // VKEXEC_DETAIL_TYPES_HPP
+#endif  // VKEXEC_EDSL_TYPES_HPP

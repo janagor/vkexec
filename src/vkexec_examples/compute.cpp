@@ -1,8 +1,8 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/push_constant.hpp>
-#include <vkexec/detail/types.hpp>
+#include <vkexec_edsl/push_constant.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <boost/describe/class.hpp>
 
@@ -15,6 +15,7 @@
 #include <print>
 
 namespace ex = stdexec;
+namespace edsl = vkexec::edsl;
 
 namespace {
 constexpr std::size_t k_element_count = 10000;
@@ -42,10 +43,10 @@ auto main() -> int
 
     auto pipeline = ex::schedule(ctx.get_scheduler())
                     | vkexec::bulk(static_cast<std::uint32_t>(k_element_count), params,
-                        [&](vkexec::Int idx, vkexec::push_constant<sim_params> push) -> void {
+                        [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
                           // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                          vkexec::Float position = positions[idx];
-                          vkexec::Float velocity = velocities[idx];
+                          edsl::Float position = positions[idx];
+                          edsl::Float velocity = velocities[idx];
 
                           velocity = velocity * push.get<&sim_params::damping>();
                           position = position + (velocity * push.get<&sim_params::dt>());

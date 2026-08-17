@@ -1,9 +1,9 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/control.hpp>
-#include <vkexec/detail/push_constant.hpp>
-#include <vkexec/detail/types.hpp>
+#include <vkexec_edsl/control.hpp>
+#include <vkexec_edsl/push_constant.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <boost/describe/class.hpp>
 
@@ -19,6 +19,7 @@
 #include <vector>
 
 namespace ex = stdexec;
+namespace edsl = vkexec::edsl;
 
 namespace {
 constexpr std::size_t k_element_count = 256;
@@ -58,17 +59,17 @@ auto main() -> int
       sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
       auto pass = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(static_cast<std::uint32_t>(k_element_count / 2), params,
-                      [&](vkexec::Int idx, vkexec::push_constant<sort_params> push) -> void {
-                        vkexec::Int left = vkexec::Int::constant(2) * idx + push.get<&sort_params::offset>();
-                        vkexec::Int right = left + vkexec::Int::constant(1);
+                      [&](edsl::Int idx, edsl::push_constant<sort_params> push) -> void {
+                        edsl::Int left = edsl::Int::constant(2) * idx + push.get<&sort_params::offset>();
+                        edsl::Int right = left + edsl::Int::constant(1);
 
-                        vkexec::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
+                        edsl::if_then(right < push.get<&sort_params::n>(), [&]() -> void {
                           // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                          vkexec::Float const left_value = data[left];
-                          vkexec::Float const right_value = data[right];
-                          vkexec::Bool const out_of_order = left_value > right_value;
-                          data[left] = vkexec::select(out_of_order, right_value, left_value);
-                          data[right] = vkexec::select(out_of_order, left_value, right_value);
+                          edsl::Float const left_value = data[left];
+                          edsl::Float const right_value = data[right];
+                          edsl::Bool const out_of_order = left_value > right_value;
+                          data[left] = edsl::select(out_of_order, right_value, left_value);
+                          data[right] = edsl::select(out_of_order, left_value, right_value);
                           // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                         });
                       });

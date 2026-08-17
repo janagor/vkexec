@@ -1,5 +1,5 @@
-#ifndef VKEXEC_DETAIL_AST_HPP
-#define VKEXEC_DETAIL_AST_HPP
+#ifndef VKEXEC_EDSL_AST_HPP
+#define VKEXEC_EDSL_AST_HPP
 
 #include <cstdint>
 #include <stdexcept>
@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace vkexec {
+namespace vkexec::edsl {
 
 constexpr int k_default_local_size_x = 64;
 
@@ -148,7 +148,7 @@ public:
 inline auto ast() -> ASTContext &
 {
   ASTContext *ctx = current_ast();
-  if (ctx == nullptr) { throw std::runtime_error("vkexec AST used outside of a tracing scope"); }
+  if (ctx == nullptr) { throw std::runtime_error("vkexec::edsl AST used outside of a tracing scope"); }
   return *ctx;
 }
 
@@ -171,6 +171,6 @@ inline auto glsl_type_name(ValueType type) -> const char *
   }
 }
 
-} // namespace vkexec
+} // namespace vkexec::edsl
 
-#endif // VKEXEC_DETAIL_AST_HPP
+#endif // VKEXEC_EDSL_AST_HPP

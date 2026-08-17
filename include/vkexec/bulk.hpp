@@ -3,9 +3,8 @@
 
 
 #include <vkexec/buffer.hpp>
-#include <vkexec/detail/glsl_emit.hpp>
-#include <vkexec/detail/pipeline_cache.hpp>
-#include <vkexec/detail/push_constant.hpp>
+#include <vkexec/pipeline_cache.hpp>
+#include <vkexec_edsl/push_constant.hpp>
 #include <vkexec/scheduler.hpp>
 
 #include <stdexec/execution.hpp>
@@ -64,11 +63,11 @@ struct bulk_sender {
 
     void run()
     {
-      vkexec::ASTContext ast_ctx;
+      edsl::ASTContext ast_ctx;
       {
-        const vkexec::ASTScope scope(ast_ctx);
-        vkexec::Int const idx = vkexec::Int::param_index();
-        auto push = vkexec::push_constant<Params>::bind();
+        const edsl::ASTScope scope(ast_ctx);
+        edsl::Int const idx = edsl::Int::param_index();
+        auto push = edsl::push_constant<Params>::bind();
         fun(idx, push);
       }
 
@@ -141,11 +140,11 @@ auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
 template<typename Params, typename Fun>
 auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
 {
-  vkexec::ASTContext ast_ctx;
+  edsl::ASTContext ast_ctx;
   {
-    const vkexec::ASTScope scope(ast_ctx);
-    vkexec::Int const idx = vkexec::Int::param_index();
-    auto push = vkexec::push_constant<Params>::bind();
+    const edsl::ASTScope scope(ast_ctx);
+    edsl::Int const idx = edsl::Int::param_index();
+    auto push = edsl::push_constant<Params>::bind();
     sender.fun(idx, push);
   }
 

@@ -1,7 +1,7 @@
-#include <vkexec/detail/types.hpp>
 #include <vkexec/draw.hpp>
 #include <vkexec/graphics.hpp>
 #include <vkexec/window.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -10,6 +10,7 @@
 #include <print>
 
 namespace ex = stdexec;
+namespace edsl = vkexec::edsl;
 
 namespace {
 constexpr std::uint32_t k_window_width = 800;
@@ -21,39 +22,39 @@ constexpr float k_clear_r = 0.05F;
 constexpr float k_clear_g = 0.05F;
 constexpr float k_clear_b = 0.08F;
 
-auto fullscreen_vertex(vkexec::Int vertex_id, vkexec::VertexWriter out) -> void
+auto fullscreen_vertex(edsl::Int vertex_id, edsl::VertexWriter out) -> void
 {
-  vkexec::Float2 const pos = vkexec::select(vertex_id == vkexec::Int::constant(0),
-    vkexec::vec2(-1.0, -1.0),
-    vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec2(3.0, -1.0), vkexec::vec2(-1.0, 3.0)));
-  vkexec::Float3 const corner_color = vkexec::select(vertex_id == vkexec::Int::constant(0),
-    vkexec::vec3(0.08, 0.10, 0.35),
-    vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec3(0.45, 0.12, 0.55), vkexec::vec3(0.10, 0.40, 0.50)));
+  edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),
+    edsl::vec2(-1.0, -1.0),
+    edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec2(3.0, -1.0), edsl::vec2(-1.0, 3.0)));
+  edsl::Float3 const corner_color = edsl::select(vertex_id == edsl::Int::constant(0),
+    edsl::vec3(0.08, 0.10, 0.35),
+    edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec3(0.45, 0.12, 0.55), edsl::vec3(0.10, 0.40, 0.50)));
   out.position(pos);
   out.color(corner_color);
 }
 
-auto gradient_fragment(vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void
+auto gradient_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void
 {
-  out.color(vkexec::vec4(fragment_in.color(), vkexec::Float::constant(1.0)));
+  out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(1.0)));
 }
 
-auto foreground_vertex(vkexec::Int vertex_id, vkexec::VertexWriter out) -> void
+auto foreground_vertex(edsl::Int vertex_id, edsl::VertexWriter out) -> void
 {
-  vkexec::Float2 const pos = vkexec::select(vertex_id == vkexec::Int::constant(0),
-    vkexec::vec2(0.0, -0.35),
-    vkexec::select(vertex_id == vkexec::Int::constant(1), vkexec::vec2(0.35, 0.35), vkexec::vec2(-0.35, 0.35)));
-  vkexec::Float3 const col = vkexec::select(vertex_id == vkexec::Int::constant(0),
-    vkexec::vec3(1.0, 0.95, 0.2),
-    vkexec::select(
-      vertex_id == vkexec::Int::constant(1), vkexec::vec3(1.0, 0.35, 0.55), vkexec::vec3(0.35, 0.85, 1.0)));
+  edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),
+    edsl::vec2(0.0, -0.35),
+    edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec2(0.35, 0.35), edsl::vec2(-0.35, 0.35)));
+  edsl::Float3 const col = edsl::select(vertex_id == edsl::Int::constant(0),
+    edsl::vec3(1.0, 0.95, 0.2),
+    edsl::select(
+      vertex_id == edsl::Int::constant(1), edsl::vec3(1.0, 0.35, 0.55), edsl::vec3(0.35, 0.85, 1.0)));
   out.position(pos);
   out.color(col);
 }
 
-auto tinted_fragment(vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void
+auto tinted_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void
 {
-  out.color(vkexec::vec4(fragment_in.color(), vkexec::Float::constant(static_cast<double>(k_foreground_alpha))));
+  out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(static_cast<double>(k_foreground_alpha))));
 }
 } // namespace
 

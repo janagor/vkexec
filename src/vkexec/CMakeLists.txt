@@ -1,4 +1,4 @@
-add_library(vkexec context.cpp spirv.cpp pipeline_cache.cpp window.cpp vma.cpp)
+add_library(vkexec context.cpp pipeline_cache.cpp window.cpp vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
 
@@ -6,13 +6,12 @@ target_link_libraries(
   vkexec
   PUBLIC vkexec_options
          vkexec_warnings
+         vkexec::vkexec_edsl
          Vulkan::Vulkan
          STDEXEC::stdexec
          glfw
          vk-bootstrap::vk-bootstrap
          GPUOpen::VulkanMemoryAllocator
-         Boost::describe
-         Boost::mp11
   PRIVATE glslang::glslang
           glslang::SPIRV
           glslang::glslang-default-resource-limits)

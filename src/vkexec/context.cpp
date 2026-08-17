@@ -1,5 +1,5 @@
 #include <vkexec/context.hpp>
-#include <vkexec/detail/pipeline_cache.hpp>
+#include <vkexec/pipeline_cache.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>

@@ -1,11 +1,11 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
-#include <vkexec/detail/control.hpp>
-#include <vkexec/detail/push_constant.hpp>
-#include <vkexec/detail/types.hpp>
 #include <vkexec/draw.hpp>
 #include <vkexec/graphics.hpp>
 #include <vkexec/window.hpp>
+#include <vkexec_edsl/control.hpp>
+#include <vkexec_edsl/push_constant.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <boost/describe/class.hpp>
 
@@ -22,6 +22,7 @@
 #include <random>
 
 namespace ex = stdexec;
+namespace edsl = vkexec::edsl;
 
 namespace {
 constexpr std::uint32_t k_particle_count = 8192;
@@ -106,13 +107,13 @@ auto main() -> int
       win.render_pass(),
       graphics_cfg,
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-      [&](vkexec::Int vertex_id, vkexec::VertexWriter out) -> void {
-        out.position(vkexec::vec2(pos_x[vertex_id], pos_y[vertex_id]));
-        out.point_size(vkexec::Float::constant(k_point_size));
-        out.color(vkexec::vec4(col_r[vertex_id], col_g[vertex_id], col_b[vertex_id], col_a[vertex_id]));
+      [&](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
+        out.position(edsl::vec2(pos_x[vertex_id], pos_y[vertex_id]));
+        out.point_size(edsl::Float::constant(k_point_size));
+        out.color(edsl::vec4(col_r[vertex_id], col_g[vertex_id], col_b[vertex_id], col_a[vertex_id]));
       },
       // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-      [](vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
+      [](edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void { out.color(fragment_in.color4()); });
 
     auto last = std::chrono::steady_clock::now();
     std::println("vkexec particles (compute update + point sprites) - close the window to exit");
@@ -131,21 +132,21 @@ auto main() -> int
       (void)ex::sync_wait(ex::schedule(ctx.get_scheduler())
                           | vkexec::bulk(k_particle_count, params,
                             // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                            [&](vkexec::Int const index, vkexec::push_constant<particle_params> push) -> void {
-                              vkexec::Float position_x = pos_x[index];
-                              vkexec::Float position_y = pos_y[index];
-                              vkexec::Float velocity_x = vel_x[index];
-                              vkexec::Float velocity_y = vel_y[index];
+                            [&](edsl::Int const index, edsl::push_constant<particle_params> push) -> void {
+                              edsl::Float position_x = pos_x[index];
+                              edsl::Float position_y = pos_y[index];
+                              edsl::Float velocity_x = vel_x[index];
+                              edsl::Float velocity_y = vel_y[index];
 
                               position_x = position_x + (velocity_x * push.get<&particle_params::delta_time>());
                               position_y = position_y + (velocity_y * push.get<&particle_params::delta_time>());
 
-                              vkexec::if_then((position_x <= vkexec::Float::constant(-1.0))
-                                  || (position_x >= vkexec::Float::constant(1.0)),
-                                [&]() -> void { velocity_x = vkexec::Float::constant(0.0) - velocity_x; });
-                              vkexec::if_then((position_y <= vkexec::Float::constant(-1.0))
-                                  || (position_y >= vkexec::Float::constant(1.0)),
-                                [&]() -> void { velocity_y = vkexec::Float::constant(0.0) - velocity_y; });
+                              edsl::if_then((position_x <= edsl::Float::constant(-1.0))
+                                  || (position_x >= edsl::Float::constant(1.0)),
+                                [&]() -> void { velocity_x = edsl::Float::constant(0.0) - velocity_x; });
+                              edsl::if_then((position_y <= edsl::Float::constant(-1.0))
+                                  || (position_y >= edsl::Float::constant(1.0)),
+                                [&]() -> void { velocity_y = edsl::Float::constant(0.0) - velocity_y; });
 
                               pos_x[index] = position_x;
                               pos_y[index] = position_y;

@@ -1,5 +1,5 @@
-#include <vkexec/detail/types.hpp>
 #include <vkexec/draw.hpp>
+#include <vkexec_edsl/types.hpp>
 #include <vkexec/graphics.hpp>
 #include <vkexec/window.hpp>
 
@@ -10,6 +10,7 @@
 #include <print>
 
 namespace ex = stdexec;
+namespace edsl = vkexec::edsl;
 
 namespace {
 constexpr std::uint32_t k_window_width = 800;
@@ -26,20 +27,20 @@ auto main() -> int
     // Vertex + fragment shaders traced from C++ (AST -> GLSL -> SPIR-V).
     vkexec::graphics_pipeline pipeline(win.ctx(),
       win.render_pass(),
-      [](vkexec::Int vertex_id, vkexec::VertexWriter out) -> void {
-        vkexec::Float2 const pos = vkexec::select(vertex_id == vkexec::Int::constant(0),
-          vkexec::vec2(0.0, -0.5),
-          vkexec::select(
-            vertex_id == vkexec::Int::constant(1), vkexec::vec2(0.5, 0.5), vkexec::vec2(-0.5, 0.5)));
-        vkexec::Float3 const col = vkexec::select(vertex_id == vkexec::Int::constant(0),
-          vkexec::vec3(1.0, 0.2, 0.2),
-          vkexec::select(
-            vertex_id == vkexec::Int::constant(1), vkexec::vec3(0.2, 1.0, 0.2), vkexec::vec3(0.2, 0.4, 1.0)));
+      [](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
+        edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),
+          edsl::vec2(0.0, -0.5),
+          edsl::select(
+            vertex_id == edsl::Int::constant(1), edsl::vec2(0.5, 0.5), edsl::vec2(-0.5, 0.5)));
+        edsl::Float3 const col = edsl::select(vertex_id == edsl::Int::constant(0),
+          edsl::vec3(1.0, 0.2, 0.2),
+          edsl::select(
+            vertex_id == edsl::Int::constant(1), edsl::vec3(0.2, 1.0, 0.2), edsl::vec3(0.2, 0.4, 1.0)));
         out.position(pos);
         out.color(col);
       },
-      [](vkexec::FragmentReader fragment_in, vkexec::FragmentWriter out) -> void {
-        out.color(vkexec::vec4(fragment_in.color(), 1.0));
+      [](edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void {
+        out.color(edsl::vec4(fragment_in.color(), 1.0));
       });
 
     std::println("vkexec traced triangle (stdexec frame pipeline) - close the window to exit");

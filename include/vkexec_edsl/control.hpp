@@ -1,11 +1,11 @@
-#ifndef VKEXEC_DETAIL_CONTROL_HPP
-#define VKEXEC_DETAIL_CONTROL_HPP
+#ifndef VKEXEC_EDSL_CONTROL_HPP
+#define VKEXEC_EDSL_CONTROL_HPP
 
-#include <vkexec/detail/types.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <utility>
 
-namespace vkexec {
+namespace vkexec::edsl {
 
 template<typename Body>
 auto if_then(Bool condition, Body &&body) -> void
@@ -37,6 +37,6 @@ auto for_loop(int start, int end, Body &&body) -> void
   ast().append(ExprNode::make(OpKind::ForEnd, loop_var));
 }
 
-} // namespace vkexec
+} // namespace vkexec::edsl
 
-#endif // VKEXEC_DETAIL_CONTROL_HPP
+#endif // VKEXEC_EDSL_CONTROL_HPP

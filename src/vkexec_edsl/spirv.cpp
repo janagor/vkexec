@@ -1,4 +1,4 @@
-#include <vkexec/detail/spirv.hpp>
+#include <vkexec_edsl/spirv.hpp>
 
 #include <glslang/Include/ResourceLimits.h>
 #include <glslang/Public/ResourceLimits.h>
@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace vkexec {
+namespace vkexec::edsl {
 namespace {
 
 constexpr int k_glslang_vulkan_client_version = 100;
@@ -81,4 +81,4 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
   return spirv;
 }
 
-} // namespace vkexec
+} // namespace vkexec::edsl

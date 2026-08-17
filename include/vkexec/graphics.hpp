@@ -3,9 +3,9 @@
 
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/glsl_emit.hpp>
-#include <vkexec/detail/spirv.hpp>
-#include <vkexec/detail/types.hpp>
+#include <vkexec_edsl/glsl_emit.hpp>
+#include <vkexec_edsl/spirv.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -180,25 +180,25 @@ private:
   template<typename VertexFn, typename FragmentFn>
   auto build(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn) -> void
   {
-    vkexec::ASTContext vs_ast;
+    edsl::ASTContext vs_ast;
     {
-      const vkexec::ASTScope scope(vs_ast);
-      const vkexec::Int vertex_id = vkexec::Int::vertex_index();
-      const vkexec::VertexWriter vertex_out;
+      const edsl::ASTScope scope(vs_ast);
+      const edsl::Int vertex_id = edsl::Int::vertex_index();
+      const edsl::VertexWriter vertex_out;
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
     }
-    const std::string vs_glsl = detail::emit_vertex_glsl(vs_ast);
-    const auto vs_spv = compile_glsl_to_spirv(vs_glsl, "vkexec.vert", shader_kind::vertex);
+    const std::string vs_glsl = edsl::emit_vertex_glsl(vs_ast);
+    const auto vs_spv = edsl::compile_glsl_to_spirv(vs_glsl, "vkexec.vert", edsl::shader_kind::vertex);
 
-    vkexec::ASTContext fs_ast;
+    edsl::ASTContext fs_ast;
     {
-      const vkexec::ASTScope scope(fs_ast);
-      const vkexec::FragmentReader fragment_in;
-      const vkexec::FragmentWriter fragment_out;
+      const edsl::ASTScope scope(fs_ast);
+      const edsl::FragmentReader fragment_in;
+      const edsl::FragmentWriter fragment_out;
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
     }
-    const std::string fs_glsl = detail::emit_fragment_glsl(fs_ast);
-    const auto fs_spv = compile_glsl_to_spirv(fs_glsl, "vkexec.frag", shader_kind::fragment);
+    const std::string fs_glsl = edsl::emit_fragment_glsl(fs_ast);
+    const auto fs_spv = edsl::compile_glsl_to_spirv(fs_glsl, "vkexec.frag", edsl::shader_kind::fragment);
 
     for (const auto &buffer_binding : vs_ast.buffers) {
       buffers_.push_back(bound_buffer{

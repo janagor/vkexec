@@ -1,5 +1,5 @@
-#ifndef VKEXEC_DETAIL_PIPELINE_CACHE_HPP
-#define VKEXEC_DETAIL_PIPELINE_CACHE_HPP
+#ifndef VKEXEC_PIPELINE_CACHE_HPP
+#define VKEXEC_PIPELINE_CACHE_HPP
 
 #include <vulkan/vulkan.h>
 
@@ -9,9 +9,11 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace vkexec {
-
+namespace vkexec::edsl {
 struct ASTContext;
+}
+
+namespace vkexec {
 
 class context;
 
@@ -35,7 +37,7 @@ public:
   pipeline_cache(pipeline_cache &&) = delete;
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
-  auto get_or_compile(const ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &;
+  auto get_or_compile(const edsl::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &;
 
 private:
   context *ctx_;
@@ -45,4 +47,4 @@ private:
 
 } // namespace vkexec
 
-#endif // VKEXEC_DETAIL_PIPELINE_CACHE_HPP
+#endif // VKEXEC_PIPELINE_CACHE_HPP

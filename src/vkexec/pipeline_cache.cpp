@@ -1,8 +1,8 @@
 #include <vkexec/context.hpp>
-#include <vkexec/detail/ast.hpp>
-#include <vkexec/detail/glsl_emit.hpp>
-#include <vkexec/detail/pipeline_cache.hpp>
-#include <vkexec/detail/spirv.hpp>
+#include <vkexec/pipeline_cache.hpp>
+#include <vkexec_edsl/ast.hpp>
+#include <vkexec_edsl/glsl_emit.hpp>
+#include <vkexec_edsl/spirv.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -55,16 +55,16 @@ pipeline_cache::~pipeline_cache()
   cache_.clear();
 }
 
-auto pipeline_cache::get_or_compile(const ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &
+auto pipeline_cache::get_or_compile(const edsl::ASTContext &ast, std::uint32_t work_count) -> pipeline_resources &
 {
-  const std::size_t key = detail::hash_ast(ast) ^ (static_cast<std::size_t>(work_count) << 1U);
+  const std::size_t key = edsl::hash_ast(ast) ^ (static_cast<std::size_t>(work_count) << 1U);
   {
     const std::scoped_lock lock(mutex_);
     if (auto cached = cache_.find(key); cached != cache_.end()) { return *cached->second; }
   }
 
-  const std::string glsl = detail::emit_glsl(ast, work_count);
-  const auto spirv = compile_glsl_to_spirv(glsl, "vkexec_bulk");
+  const std::string glsl = edsl::emit_glsl(ast, work_count);
+  const auto spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk");
 
   auto resources = std::make_unique<pipeline_resources>();
   resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());

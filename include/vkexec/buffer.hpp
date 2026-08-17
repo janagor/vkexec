@@ -3,7 +3,7 @@
 
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/types.hpp>
+#include <vkexec_edsl/types.hpp>
 
 #include <cstddef>
 #include <cstring>
@@ -99,28 +99,28 @@ public:
 
   struct ref {
     buffer *owner;
-    vkexec::Int index;
+    edsl::Int index;
 
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
-    operator vkexec::Float() const
+    operator edsl::Float() const
       requires(std::is_floating_point_v<T>)
     {
       return load_float();
     }
     // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
-    operator vkexec::Int() const
+    operator edsl::Int() const
       requires(std::is_integral_v<T>)
     {
       return load_int();
     }
 
-    auto operator=(vkexec::Float value) -> ref &
+    auto operator=(edsl::Float value) -> ref &
       requires(std::is_floating_point_v<T>)
     {
       store(value.id);
       return *this;
     }
-    auto operator=(vkexec::Int value) -> ref &
+    auto operator=(edsl::Int value) -> ref &
       requires(std::is_integral_v<T>)
     {
       store(value.id);
@@ -130,9 +130,9 @@ public:
   private:
     [[nodiscard]] auto ensure_binding() const -> int
     {
-      auto &ast = vkexec::ast();
-      if (owner->binding_ < 0) { owner->binding_ = ast.next_binding++; }
-      for (auto &existing : ast.buffers) {
+      auto &ast_ctx = edsl::ast();
+      if (owner->binding_ < 0) { owner->binding_ = ast_ctx.next_binding++; }
+      for (auto &existing : ast_ctx.buffers) {
         if (existing.binding == owner->binding_) {
           existing.vk_buffer = owner->buffer_;
           existing.byte_size = owner->count_ * sizeof(T);
@@ -140,53 +140,53 @@ public:
           return owner->binding_;
         }
       }
-      vkexec::BufferBinding binding_info;
+      edsl::BufferBinding binding_info;
       binding_info.name = owner->name_;
       binding_info.elem_glsl_type = std::is_floating_point_v<T> ? "float" : "int";
       binding_info.binding = owner->binding_;
       binding_info.vk_buffer = owner->buffer_;
       binding_info.byte_size = owner->count_ * sizeof(T);
       binding_info.elem_count = owner->count_;
-      ast.buffers.push_back(binding_info);
-      if (ast.next_binding <= owner->binding_) { ast.next_binding = owner->binding_ + 1; }
+      ast_ctx.buffers.push_back(binding_info);
+      if (ast_ctx.next_binding <= owner->binding_) { ast_ctx.next_binding = owner->binding_ + 1; }
       return owner->binding_;
     }
 
-    [[nodiscard]] auto load_float() const -> vkexec::Float
+    [[nodiscard]] auto load_float() const -> edsl::Float
     {
       const int binding = ensure_binding();
-      vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::Load, index.id);
+      edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Load, index.id);
       node.binding = binding;
-      const int load = vkexec::ast().append(std::move(node));
-      const int tmp = vkexec::ast().make_temp("f");
-      vkexec::emit_assign(tmp, load);
-      return vkexec::Float{ tmp };
+      const int load = edsl::ast().append(std::move(node));
+      const int tmp = edsl::ast().make_temp("f");
+      edsl::emit_assign(tmp, load);
+      return edsl::Float{ tmp };
     }
-    [[nodiscard]] auto load_int() const -> vkexec::Int
+    [[nodiscard]] auto load_int() const -> edsl::Int
     {
       const int binding = ensure_binding();
-      vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::Load, index.id);
+      edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Load, index.id);
       node.binding = binding;
-      const int load = vkexec::ast().append(std::move(node));
-      const int tmp = vkexec::ast().make_temp("i");
-      vkexec::emit_assign(tmp, load);
-      return vkexec::Int{ tmp };
+      const int load = edsl::ast().append(std::move(node));
+      const int tmp = edsl::ast().make_temp("i");
+      edsl::emit_assign(tmp, load);
+      return edsl::Int{ tmp };
     }
     void store(int value_id) const
     {
       const int binding = ensure_binding();
-      vkexec::ExprNode node = vkexec::ExprNode::make(vkexec::OpKind::Store, index.id, value_id);
+      edsl::ExprNode node = edsl::ExprNode::make(edsl::OpKind::Store, index.id, value_id);
       node.binding = binding;
-      vkexec::ast().append(std::move(node));
+      edsl::ast().append(std::move(node));
     }
   };
 
-  auto operator[](vkexec::Int idx) -> ref { return ref{ this, idx }; }
+  auto operator[](edsl::Int idx) -> ref { return ref{ this, idx }; }
 
-  void register_for_dispatch(vkexec::ASTContext &ast) const
+  void register_for_dispatch(edsl::ASTContext &ast_ctx) const
   {
     if (binding_ < 0) { return; }
-    for (auto &entry : ast.buffers) {
+    for (auto &entry : ast_ctx.buffers) {
       if (entry.binding == binding_) {
         entry.vk_buffer = buffer_;
         entry.byte_size = count_ * sizeof(T);
