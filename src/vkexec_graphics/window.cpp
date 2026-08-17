@@ -3,12 +3,14 @@
 #include <vkexec/context.hpp>
 
 #include <VkBootstrap.h>
+#include <vk_mem_alloc.h>
 
 #include <vulkan/vulkan_core.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -29,9 +31,46 @@ namespace {
     g_glfw_error = "GLFW " + std::to_string(code) + ": " + (description != nullptr ? description : "(no description)");
   }
 
+  constexpr std::uint32_t k_color_attachment_index = 0;
+  constexpr std::uint32_t k_depth_attachment_index = 1;
+  constexpr std::uint32_t k_framebuffer_attachment_count = 2;
+  constexpr std::uint32_t k_depth_mip_levels = 1;
+  constexpr std::uint32_t k_depth_array_layers = 1;
+
   auto check(VkResult result, char const *what) -> void
   {
     if (result != VK_SUCCESS) { throw std::runtime_error(what); }
+  }
+
+  auto pick_depth_format(VkPhysicalDevice phys) -> VkFormat
+  {
+    static constexpr std::array k_candidates{
+      VK_FORMAT_D32_SFLOAT,
+      VK_FORMAT_D32_SFLOAT_S8_UINT,
+      VK_FORMAT_D24_UNORM_S8_UINT,
+    };
+    for (VkFormat const format : k_candidates) {
+      VkFormatProperties properties{};
+      vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
+      if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) {
+        return format;
+      }
+    }
+    throw std::runtime_error("no supported depth format");
+  }
+
+  auto format_has_stencil(VkFormat format) -> bool
+  {
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+  }
+
+  auto depth_aspect_mask(VkFormat format) -> VkImageAspectFlags
+  {
+    if (format_has_stencil(format)) {
+      return static_cast<VkImageAspectFlags>(
+        static_cast<std::uint32_t>(VK_IMAGE_ASPECT_DEPTH_BIT) | static_cast<std::uint32_t>(VK_IMAGE_ASPECT_STENCIL_BIT));
+    }
+    return VK_IMAGE_ASPECT_DEPTH_BIT;
   }
 
   template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
@@ -94,6 +133,7 @@ window::window(config cfg) : cfg_(std::move(cfg))
   create_swapchain();
   create_image_views();
   create_render_pass();
+  create_depth_resources();
   create_framebuffers();
   create_frame_resources();
 }
@@ -169,6 +209,8 @@ auto window::create_image_views() -> void
 
 auto window::create_render_pass() -> void
 {
+  if (depth_format_ == VK_FORMAT_UNDEFINED) { depth_format_ = pick_depth_format(ctx_->physical_device()); }
+
   VkAttachmentDescription const color{
     .flags = 0,
     .format = swapchain_format_,
@@ -181,9 +223,28 @@ auto window::create_render_pass() -> void
     .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
   };
 
+  bool const has_stencil = format_has_stencil(depth_format_);
+  VkAttachmentDescription const depth{
+    .flags = 0,
+    .format = depth_format_,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+    .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    .stencilLoadOp = has_stencil ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+  };
+
+  std::array const attachments{ color, depth };
+
   VkAttachmentReference const color_ref{
-    .attachment = 0,
+    .attachment = k_color_attachment_index,
     .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+  };
+  VkAttachmentReference const depth_ref{
+    .attachment = k_depth_attachment_index,
+    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
   };
 
   VkSubpassDescription const subpass{
@@ -194,18 +255,26 @@ auto window::create_render_pass() -> void
     .colorAttachmentCount = 1,
     .pColorAttachments = &color_ref,
     .pResolveAttachments = nullptr,
-    .pDepthStencilAttachment = nullptr,
+    .pDepthStencilAttachment = &depth_ref,
     .preserveAttachmentCount = 0,
     .pPreserveAttachments = nullptr,
   };
 
+  auto const attachment_stages = static_cast<VkPipelineStageFlags>(
+    static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+    | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+    | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT));
+  auto const attachment_access = static_cast<VkAccessFlags>(
+    static_cast<std::uint32_t>(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+    | static_cast<std::uint32_t>(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT));
+
   VkSubpassDependency const dependency{
     .srcSubpass = VK_SUBPASS_EXTERNAL,
     .dstSubpass = 0,
-    .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-    .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    .srcStageMask = attachment_stages,
+    .dstStageMask = attachment_stages,
     .srcAccessMask = 0,
-    .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    .dstAccessMask = attachment_access,
     .dependencyFlags = 0,
   };
 
@@ -213,8 +282,8 @@ auto window::create_render_pass() -> void
     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
     .pNext = nullptr,
     .flags = 0,
-    .attachmentCount = 1,
-    .pAttachments = &color,
+    .attachmentCount = static_cast<std::uint32_t>(attachments.size()),
+    .pAttachments = attachments.data(),
     .subpassCount = 1,
     .pSubpasses = &subpass,
     .dependencyCount = 1,
@@ -223,15 +292,65 @@ auto window::create_render_pass() -> void
   check(vkCreateRenderPass(ctx_->device(), &render_pass_info, nullptr, &render_pass_), "vkCreateRenderPass failed");
 }
 
+auto window::create_depth_resources() -> void
+{
+  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
+  VkImageCreateInfo image_info{};
+  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  image_info.imageType = VK_IMAGE_TYPE_2D;
+  image_info.format = depth_format_;
+  image_info.extent = { .width = swapchain_extent_.width, .height = swapchain_extent_.height, .depth = 1 };
+  image_info.mipLevels = k_depth_mip_levels;
+  image_info.arrayLayers = k_depth_array_layers;
+  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+  image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+  image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+  VmaAllocationCreateInfo alloc_info{};
+  alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+  check(vmaCreateImage(ctx_->allocator(), &image_info, &alloc_info, &depth_image_, &depth_allocation_, nullptr),
+    "vmaCreateImage failed (depth)");
+
+  VkImageViewCreateInfo view_info{};
+  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_info.image = depth_image_;
+  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_info.format = depth_format_;
+  view_info.subresourceRange.aspectMask = depth_aspect_mask(depth_format_);
+  view_info.subresourceRange.baseMipLevel = 0;
+  view_info.subresourceRange.levelCount = k_depth_mip_levels;
+  view_info.subresourceRange.baseArrayLayer = 0;
+  view_info.subresourceRange.layerCount = k_depth_array_layers;
+  check(vkCreateImageView(ctx_->device(), &view_info, nullptr, &depth_view_), "vkCreateImageView failed (depth)");
+}
+
+auto window::destroy_depth_resources() noexcept -> void
+{
+  if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) { return; }
+  if (depth_view_ != VK_NULL_HANDLE) {
+    vkDestroyImageView(ctx_->device(), depth_view_, nullptr);
+    depth_view_ = VK_NULL_HANDLE;
+  }
+  if (depth_image_ != VK_NULL_HANDLE) {
+    vmaDestroyImage(ctx_->allocator(), depth_image_, depth_allocation_);
+    depth_image_ = VK_NULL_HANDLE;
+    depth_allocation_ = VK_NULL_HANDLE;
+  }
+}
+
 auto window::create_framebuffers() -> void
 {
   framebuffers_.resize(swapchain_views_.size());
   for (std::size_t index = 0; index < swapchain_views_.size(); ++index) {
+    std::array const views{ swapchain_views_.at(index), depth_view_ };
     VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_info.renderPass = render_pass_;
-    framebuffer_info.attachmentCount = 1;
-    framebuffer_info.pAttachments = &swapchain_views_.at(index);
+    framebuffer_info.attachmentCount = k_framebuffer_attachment_count;
+    framebuffer_info.pAttachments = views.data();
     framebuffer_info.width = swapchain_extent_.width;
     framebuffer_info.height = swapchain_extent_.height;
     framebuffer_info.layers = 1;
@@ -269,6 +388,7 @@ auto window::cleanup_swapchain() -> void
     if (framebuffer != VK_NULL_HANDLE) { vkDestroyFramebuffer(ctx_->device(), framebuffer, nullptr); }
   }
   framebuffers_.clear();
+  destroy_depth_resources();
   if (!swapchain_views_.empty()) {
     swapchain_.destroy_image_views(swapchain_views_);
     swapchain_views_.clear();
@@ -296,6 +416,7 @@ auto window::recreate_swapchain() -> void
     if (framebuffer != VK_NULL_HANDLE) { vkDestroyFramebuffer(ctx_->device(), framebuffer, nullptr); }
   }
   framebuffers_.clear();
+  destroy_depth_resources();
   if (!swapchain_views_.empty()) {
     swapchain_.destroy_image_views(swapchain_views_);
     swapchain_views_.clear();
@@ -304,6 +425,7 @@ auto window::recreate_swapchain() -> void
 
   create_swapchain();
   create_image_views();
+  create_depth_resources();
   create_framebuffers();
 }
 

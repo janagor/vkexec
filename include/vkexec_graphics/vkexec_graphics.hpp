@@ -3,6 +3,7 @@
 
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/window.hpp>
 
 namespace vkexec {

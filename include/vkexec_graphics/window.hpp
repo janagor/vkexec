@@ -76,6 +76,8 @@ private:
   auto create_swapchain() -> void;
   auto create_image_views() -> void;
   auto create_render_pass() -> void;
+  auto create_depth_resources() -> void;
+  auto destroy_depth_resources() noexcept -> void;
   auto create_framebuffers() -> void;
   auto create_frame_resources() -> void;
   auto cleanup_swapchain() -> void;
@@ -88,10 +90,15 @@ private:
 
   vkb::Swapchain swapchain_{};
   VkFormat swapchain_format_{ VK_FORMAT_B8G8R8A8_SRGB };
+  VkFormat depth_format_{ VK_FORMAT_UNDEFINED };
   VkExtent2D swapchain_extent_{};
   std::vector<VkImage> swapchain_images_;
   std::vector<VkImageView> swapchain_views_;
   std::vector<VkFramebuffer> framebuffers_;
+
+  VkImage depth_image_{ VK_NULL_HANDLE };
+  VmaAllocation depth_allocation_{ VK_NULL_HANDLE };
+  VkImageView depth_view_{ VK_NULL_HANDLE };
 
   VkRenderPass render_pass_{ VK_NULL_HANDLE };
 

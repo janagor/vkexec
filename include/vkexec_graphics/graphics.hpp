@@ -8,6 +8,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <stdexcept>
@@ -16,10 +18,15 @@
 
 namespace vkexec {
 
+class mesh;
+
 constexpr float k_default_clear_r = 0.08F;
 constexpr float k_default_clear_g = 0.09F;
 constexpr float k_default_clear_b = 0.12F;
 constexpr float k_default_clear_a = 1.0F;
+constexpr float k_depth_clear_value = 1.0F;
+constexpr std::uint32_t k_graphics_clear_count = 2;
+constexpr std::uint32_t k_stencil_clear_value = 0;
 
 struct graphics_pipeline_config
 {
@@ -29,7 +36,19 @@ struct graphics_pipeline_config
   float clear_g{ k_default_clear_g };
   float clear_b{ k_default_clear_b };
   float clear_a{ k_default_clear_a };
+  bool depth_test{ false };
+  bool depth_write{ true };
+  bool use_mesh_vertices{ false };
 };
+
+[[nodiscard]] inline auto make_clear_values(graphics_pipeline_config const &cfg)
+  -> std::array<VkClearValue, k_graphics_clear_count>
+{
+  std::array<VkClearValue, k_graphics_clear_count> clears{};
+  clears.at(0).color = { { cfg.clear_r, cfg.clear_g, cfg.clear_b, cfg.clear_a } };
+  clears.at(1).depthStencil = { .depth = k_depth_clear_value, .stencil = k_stencil_clear_value };
+  return clears;
+}
 
 /// Graphics pipeline built by tracing vertex/fragment eDSL lambdas to GLSL/SPIR-V.
 class graphics_pipeline
@@ -86,42 +105,12 @@ public:
   /// Bind pipeline, descriptors, viewport/scissor, and issue `vkCmdDraw` (no render-pass management).
   auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
   {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
-
-    if (descriptor_set_ != VK_NULL_HANDLE) {
-      std::vector<VkDescriptorBufferInfo> infos(buffers_.size());
-      std::vector<VkWriteDescriptorSet> writes(buffers_.size());
-      for (std::size_t index = 0; index < buffers_.size(); ++index) {
-        infos.at(index).buffer = buffers_.at(index).buffer;
-        infos.at(index).offset = 0;
-        infos.at(index).range = buffers_.at(index).byte_size;
-        writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes.at(index).dstSet = descriptor_set_;
-        writes.at(index).dstBinding = buffers_.at(index).binding;
-        writes.at(index).descriptorCount = 1;
-        writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        writes.at(index).pBufferInfo = &infos.at(index);
-      }
-      vkUpdateDescriptorSets(device_, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, nullptr);
-    }
-
-    VkViewport viewport{};
-    viewport.x = 0.0F;
-    viewport.y = 0.0F;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0F;
-    viewport.maxDepth = 1.0F;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = { .x = 0, .y = 0 };
-    scissor.extent = extent;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
+    bind_draw_state(cmd, extent);
     vkCmdDraw(cmd, vertex_count, 1, 0, 0);
   }
+
+  /// Bind pipeline, vertex/index buffers, and issue `vkCmdDrawIndexed`.
+  auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void;
 
   /// Begin the render pass, bind this pipeline, draw `vertex_count` verts, end the pass, and end the cmd buffer.
   auto draw(VkCommandBuffer cmd,
@@ -130,23 +119,18 @@ public:
     VkExtent2D extent,
     std::uint32_t vertex_count) const -> void
   {
-    VkClearValue clear{};
-    clear.color = { { cfg_.clear_r, cfg_.clear_g, cfg_.clear_b, cfg_.clear_a } };
-
-    VkRenderPassBeginInfo rp_begin{};
-    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp_begin.renderPass = render_pass;
-    rp_begin.framebuffer = framebuffer;
-    rp_begin.renderArea.offset = { .x = 0, .y = 0 };
-    rp_begin.renderArea.extent = extent;
-    rp_begin.clearValueCount = 1;
-    rp_begin.pClearValues = &clear;
-
-    vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+    begin_pass(cmd, render_pass, framebuffer, extent);
     record_draw(cmd, extent, vertex_count);
     vkCmdEndRenderPass(cmd);
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
   }
+
+  /// Begin the render pass, bind this pipeline, draw an indexed mesh, end the pass, and end the cmd buffer.
+  auto draw(VkCommandBuffer cmd,
+    VkRenderPass render_pass,
+    VkFramebuffer framebuffer,
+    VkExtent2D extent,
+    mesh const &drawn) const -> void;
 
 private:
   struct bound_buffer
@@ -206,6 +190,58 @@ private:
     std::span<edsl::storage_trace const> buffers) -> void;
 
   [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> VkShaderModule;
+
+  auto bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void
+  {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
+
+    if (descriptor_set_ != VK_NULL_HANDLE) {
+      std::vector<VkDescriptorBufferInfo> infos(buffers_.size());
+      std::vector<VkWriteDescriptorSet> writes(buffers_.size());
+      for (std::size_t index = 0; index < buffers_.size(); ++index) {
+        infos.at(index).buffer = buffers_.at(index).buffer;
+        infos.at(index).offset = 0;
+        infos.at(index).range = buffers_.at(index).byte_size;
+        writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes.at(index).dstSet = descriptor_set_;
+        writes.at(index).dstBinding = buffers_.at(index).binding;
+        writes.at(index).descriptorCount = 1;
+        writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes.at(index).pBufferInfo = &infos.at(index);
+      }
+      vkUpdateDescriptorSets(device_, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, nullptr);
+    }
+
+    VkViewport viewport{};
+    viewport.x = 0.0F;
+    viewport.y = 0.0F;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { .x = 0, .y = 0 };
+    scissor.extent = extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+  }
+
+  auto begin_pass(VkCommandBuffer cmd, VkRenderPass render_pass, VkFramebuffer framebuffer, VkExtent2D extent) const
+    -> void
+  {
+    std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(cfg_);
+    VkRenderPassBeginInfo rp_begin{};
+    rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp_begin.renderPass = render_pass;
+    rp_begin.framebuffer = framebuffer;
+    rp_begin.renderArea.offset = { .x = 0, .y = 0 };
+    rp_begin.renderArea.extent = extent;
+    rp_begin.clearValueCount = k_graphics_clear_count;
+    rp_begin.pClearValues = clears.data();
+    vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+  }
 
   VkDevice device_{ VK_NULL_HANDLE };
   graphics_pipeline_config cfg_{};

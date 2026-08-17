@@ -65,8 +65,8 @@ CheckOptions:
 
   # Compact eDSL / AST vocabulary kept for shader-like readability (stdexec-style
   # snake_case still applies to public vkexec API types and functions).
-  - { key: readability-identifier-naming.ClassIgnoredRegexp,           value: '^(Bool|Int|Float|Float2|Float3|Float4|ASTScope)$' }
-  - { key: readability-identifier-naming.StructIgnoredRegexp,          value: '^(Bool|Int|Float|Float2|Float3|Float4|ExprNode|BufferBinding|ASTContext|ASTScope|VertexWriter|FragmentReader|FragmentWriter)$' }
+  - { key: readability-identifier-naming.ClassIgnoredRegexp,           value: '^(Bool|Int|Float|Float2|Float3|Float4|ASTScope|VertexIn)$' }
+  - { key: readability-identifier-naming.StructIgnoredRegexp,          value: '^(Bool|Int|Float|Float2|Float3|Float4|ExprNode|BufferBinding|ASTContext|ASTScope|VertexIn|VertexWriter|FragmentReader|FragmentWriter)$' }
   - { key: readability-identifier-naming.EnumIgnoredRegexp,            value: '^(OpKind|ValueType)$' }
   - { key: readability-identifier-naming.EnumConstantIgnoredRegexp,    value: '^(Bool|Int|Float|Vec2|Vec3|Vec4|Vec4From2|Index|Var|ConstFloat|ConstInt|ConstBool|ParamIndex|VertexIndex|PushField|InputVarying|OutputVarying|Load|Store|Assign|Neg|Add|Sub|Mul|Div|Less|LessEqual|Greater|GreaterEqual|Equal|NotEqual|LogicalAnd|LogicalOr|LogicalNot|Sin|Cos|Sqrt|Abs|Floor|Ceil|Min|Max|Select|IfBegin|IfEnd|ElseBegin|ElseEnd|ForBegin|ForEnd|Statement)$' }
   - { key: cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses, value: '::vkexec::buffer' }

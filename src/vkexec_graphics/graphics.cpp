@@ -1,4 +1,5 @@
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -99,8 +100,32 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   stages.at(1).module = frag;
   stages.at(1).pName = "main";
 
+  constexpr std::uint32_t k_mesh_binding = 0;
+  constexpr std::uint32_t k_mesh_position_location = 0;
+  constexpr std::uint32_t k_mesh_color_location = 1;
+  constexpr std::uint32_t k_mesh_attribute_count = 2;
+
+  VkVertexInputBindingDescription mesh_binding{};
+  std::array<VkVertexInputAttributeDescription, k_mesh_attribute_count> mesh_attributes{};
   VkPipelineVertexInputStateCreateInfo vertex_input{};
   vertex_input.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  if (cfg_.use_mesh_vertices) {
+    mesh_binding.binding = k_mesh_binding;
+    mesh_binding.stride = static_cast<std::uint32_t>(sizeof(mesh_vertex));
+    mesh_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    mesh_attributes.at(0).location = k_mesh_position_location;
+    mesh_attributes.at(0).binding = k_mesh_binding;
+    mesh_attributes.at(0).format = VK_FORMAT_R32G32B32_SFLOAT;
+    mesh_attributes.at(0).offset = static_cast<std::uint32_t>(offsetof(mesh_vertex, position));
+    mesh_attributes.at(1).location = k_mesh_color_location;
+    mesh_attributes.at(1).binding = k_mesh_binding;
+    mesh_attributes.at(1).format = VK_FORMAT_R32G32B32_SFLOAT;
+    mesh_attributes.at(1).offset = static_cast<std::uint32_t>(offsetof(mesh_vertex, color));
+    vertex_input.vertexBindingDescriptionCount = 1;
+    vertex_input.pVertexBindingDescriptions = &mesh_binding;
+    vertex_input.vertexAttributeDescriptionCount = k_mesh_attribute_count;
+    vertex_input.pVertexAttributeDescriptions = mesh_attributes.data();
+  }
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly{};
   input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -122,6 +147,14 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   VkPipelineMultisampleStateCreateInfo multisample{};
   multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+  VkPipelineDepthStencilStateCreateInfo depth_stencil{};
+  depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+  depth_stencil.depthTestEnable = cfg_.depth_test ? VK_TRUE : VK_FALSE;
+  depth_stencil.depthWriteEnable = (cfg_.depth_test && cfg_.depth_write) ? VK_TRUE : VK_FALSE;
+  depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+  depth_stencil.depthBoundsTestEnable = VK_FALSE;
+  depth_stencil.stencilTestEnable = VK_FALSE;
 
   VkPipelineColorBlendAttachmentState blend_attachment{};
   blend_attachment.colorWriteMask = static_cast<VkColorComponentFlags>(
@@ -169,6 +202,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   gpci.pViewportState = &viewport_state;
   gpci.pRasterizationState = &raster;
   gpci.pMultisampleState = &multisample;
+  gpci.pDepthStencilState = &depth_stencil;
   gpci.pColorBlendState = &blend;
   gpci.pDynamicState = &dynamic;
   gpci.layout = layout_;
@@ -178,6 +212,28 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   vkDestroyShaderModule(device_, frag, nullptr);
   vkDestroyShaderModule(device_, vert, nullptr);
   if (created != VK_SUCCESS) { throw std::runtime_error("vkCreateGraphicsPipelines failed"); }
+}
+
+auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void
+{
+  bind_draw_state(cmd, extent);
+  VkBuffer vertex_buffer = drawn.vk_vertex_buffer();
+  VkDeviceSize const vertex_offset = 0;
+  vkCmdBindVertexBuffers(cmd, 0, 1, &vertex_buffer, &vertex_offset);
+  vkCmdBindIndexBuffer(cmd, drawn.vk_index_buffer(), 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexed(cmd, drawn.index_count(), 1, 0, 0, 0);
+}
+
+auto graphics_pipeline::draw(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  mesh const &drawn) const -> void
+{
+  begin_pass(cmd, render_pass, framebuffer, extent);
+  record_draw(cmd, extent, drawn);
+  vkCmdEndRenderPass(cmd);
+  if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
 }
 
 }// namespace vkexec

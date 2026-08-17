@@ -283,6 +283,25 @@ auto Float4::operator=(Float4 const &other) -> Float4 &
 // NOLINTNEXTLINE(bugprone-exception-escape,cppcoreguidelines-noexcept-move-operations,hicpp-noexcept-move,performance-noexcept-move-constructor)
 auto Float4::operator=(Float4 &&other) -> Float4 & { return (*this = other); }
 
+auto VertexIn::position() -> Float3
+{
+  constexpr int k_vertex_in_position_location = 0;
+  ExprNode node = ExprNode::make(OpKind::InputVarying);
+  node.name = "inPosition";
+  node.type = ValueType::Vec3;
+  node.const_i = k_vertex_in_position_location;
+  return Float3{ ast().append(std::move(node)) };
+}
+auto VertexIn::color() -> Float3
+{
+  constexpr int k_vertex_in_color_location = 1;
+  ExprNode node = ExprNode::make(OpKind::InputVarying);
+  node.name = "inColor";
+  node.type = ValueType::Vec3;
+  node.const_i = k_vertex_in_color_location;
+  return Float3{ ast().append(std::move(node)) };
+}
+
 auto VertexWriter::position(Float2 pos_xy) -> void
 {
   Float4 const clip = vec4(pos_xy, Float::constant(0.0), Float::constant(1.0));

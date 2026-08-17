@@ -171,6 +171,13 @@ auto vec4(Float2 vec, Float coord_z, Float coord_w) -> Float4;
 auto vec4(Float3 vec, Float coord_w) -> Float4;
 auto vec4(Float3 vec, double coord_w) -> Float4;
 
+/// Vertex-stage inputs read from the bound mesh vertex buffer.
+struct VertexIn
+{
+  [[nodiscard]] static auto position() -> Float3;
+  [[nodiscard]] static auto color() -> Float3;
+};
+
 /// Vertex-stage outputs written during tracing.
 struct VertexWriter
 {

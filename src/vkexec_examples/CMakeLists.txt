@@ -5,6 +5,7 @@ add_executable(spirv spirv.cpp)
 add_executable(triangle triangle.cpp)
 add_executable(particles particles.cpp)
 add_executable(layers layers.cpp)
+add_executable(mesh mesh.cpp)
 
 target_link_libraries(compute PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
@@ -35,6 +36,13 @@ target_link_libraries(
           vkexec::vkexec
           vkexec::vkexec_graphics)
 
+target_link_libraries(
+  mesh
+  PRIVATE vkexec::vkexec_options
+          vkexec::vkexec_warnings
+          vkexec::vkexec
+          vkexec::vkexec_graphics)
+
 vkexec_configure_linker(compute)
 vkexec_configure_linker(sort)
 vkexec_configure_linker(passes)
@@ -42,3 +50,4 @@ vkexec_configure_linker(spirv)
 vkexec_configure_linker(triangle)
 vkexec_configure_linker(particles)
 vkexec_configure_linker(layers)
+vkexec_configure_linker(mesh)

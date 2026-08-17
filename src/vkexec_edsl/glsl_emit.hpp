@@ -293,6 +293,14 @@ inline auto emit_vertex_glsl(ASTContext const &ctx) -> std::string
     stream << "#define " << buf.name << " " << buf.name << "_block.data\n\n";
   }
 
+  std::unordered_set<std::string> seen_in;
+  for (auto const &node : ctx.nodes) {
+    if (node.kind == OpKind::InputVarying && seen_in.insert(node.name).second) {
+      stream << "layout(location = " << node.const_i << ") in " << glsl_type_name(node.type) << " " << node.name
+             << ";\n";
+    }
+  }
+
   std::unordered_set<std::string> outs;
   for (auto const &node : ctx.nodes) {
     if (node.kind == OpKind::OutputVarying && node.name != "gl_Position" && node.name != "gl_PointSize"
