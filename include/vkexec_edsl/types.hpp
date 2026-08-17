@@ -412,8 +412,7 @@ inline auto Float4::operator=(Float4 &&other) -> Float4 & { return (*this = othe
 
 /// Vertex-stage outputs written during tracing.
 struct VertexWriter {
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  auto position(Float2 pos_xy) -> void
+  static auto position(Float2 pos_xy) -> void
   {
     const Float4 clip = vec4(pos_xy, Float::constant(0.0), Float::constant(1.0));
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
@@ -421,24 +420,21 @@ struct VertexWriter {
     node.type = ValueType::Vec4;
     ast().append(std::move(node));
   }
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  auto position(Float4 clip) -> void
+  static auto position(Float4 clip) -> void
   {
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, clip.id);
     node.name = "gl_Position";
     node.type = ValueType::Vec4;
     ast().append(std::move(node));
   }
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  auto point_size(Float size) -> void
+  static auto point_size(Float size) -> void
   {
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, size.id);
     node.name = "gl_PointSize";
     node.type = ValueType::Float;
     ast().append(std::move(node));
   }
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  auto color(Float3 rgb) -> void
+  static auto color(Float3 rgb) -> void
   {
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, rgb.id);
     node.name = "vColor";
@@ -446,8 +442,7 @@ struct VertexWriter {
     node.const_i = 0; // location
     ast().append(std::move(node));
   }
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  auto color(Float4 rgba) -> void
+  static auto color(Float4 rgba) -> void
   {
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
     node.name = "vColor4";
@@ -459,8 +454,7 @@ struct VertexWriter {
 
 /// Fragment-stage interpolated inputs.
 struct FragmentReader {
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] auto color() const -> Float3
+  [[nodiscard]] static auto color() -> Float3
   {
     ExprNode node = ExprNode::make(OpKind::InputVarying);
     node.name = "vColor";
@@ -468,8 +462,7 @@ struct FragmentReader {
     node.const_i = 0;
     return Float3{ ast().append(std::move(node)) };
   }
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] auto color4() const -> Float4
+  [[nodiscard]] static auto color4() -> Float4
   {
     ExprNode node = ExprNode::make(OpKind::InputVarying);
     node.name = "vColor4";
@@ -481,8 +474,7 @@ struct FragmentReader {
 
 /// Fragment-stage color attachment outputs.
 struct FragmentWriter {
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  auto color(Float4 rgba) -> void
+  static auto color(Float4 rgba) -> void
   {
     ExprNode node = ExprNode::make(OpKind::OutputVarying, -1, rgba.id);
     node.name = "fragColor";
