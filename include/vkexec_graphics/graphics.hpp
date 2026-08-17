@@ -1,5 +1,5 @@
-#ifndef VKEXEC_GRAPHICS_HPP
-#define VKEXEC_GRAPHICS_HPP
+#ifndef VKEXEC_GRAPHICS_GRAPHICS_HPP
+#define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
 
 #include <vkexec/context.hpp>
@@ -369,4 +369,4 @@ private:
 
 }// namespace vkexec
 
-#endif// VKEXEC_GRAPHICS_HPP
+#endif// VKEXEC_GRAPHICS_GRAPHICS_HPP

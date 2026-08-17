@@ -1,7 +1,7 @@
-#include <vkexec/draw.hpp>
-#include <vkexec/graphics.hpp>
-#include <vkexec/window.hpp>
 #include <vkexec_edsl/types.hpp>
+#include <vkexec_graphics/draw.hpp>
+#include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/window.hpp>
 
 #include <stdexec/execution.hpp>
 

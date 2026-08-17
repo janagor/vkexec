@@ -5,10 +5,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/draw.hpp>
-#include <vkexec/graphics.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/window.hpp>
 #include <vkexec_edsl/edsl.hpp>
 
 namespace vkexec {

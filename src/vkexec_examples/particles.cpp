@@ -1,11 +1,11 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
-#include <vkexec/draw.hpp>
-#include <vkexec/graphics.hpp>
-#include <vkexec/window.hpp>
 #include <vkexec_edsl/control.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
+#include <vkexec_graphics/draw.hpp>
+#include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/window.hpp>
 
 #include <boost/describe/class.hpp>
 

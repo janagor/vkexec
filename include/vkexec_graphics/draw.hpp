@@ -1,10 +1,10 @@
-#ifndef VKEXEC_DRAW_HPP
-#define VKEXEC_DRAW_HPP
+#ifndef VKEXEC_GRAPHICS_DRAW_HPP
+#define VKEXEC_GRAPHICS_DRAW_HPP
 
 
-#include <vkexec/graphics.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/window.hpp>
+#include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/window.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -158,4 +158,4 @@ inline auto operator|(schedule_sender /*snd*/, draw_layers_closure closure) -> d
 
 }// namespace vkexec
 
-#endif// VKEXEC_DRAW_HPP
+#endif// VKEXEC_GRAPHICS_DRAW_HPP
