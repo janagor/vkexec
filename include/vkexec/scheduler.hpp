@@ -5,7 +5,6 @@
 
 #include <stdexec/execution.hpp>
 
-#include <exception>
 #include <utility>
 
 namespace vkexec {
@@ -23,11 +22,7 @@ struct schedule_sender {
     Receiver receiver;
     auto start() noexcept -> void
     {
-      try {
-        ex::set_value(std::move(receiver));
-      } catch (...) {
-        ex::set_error(std::move(receiver), std::current_exception());
-      }
+      ex::set_value(std::move(receiver));
     }
   };
 

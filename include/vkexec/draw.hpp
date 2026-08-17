@@ -64,14 +64,19 @@ struct draw_sender {
 
     auto start() noexcept -> void
     {
+      std::exception_ptr error;
       try {
         if (auto frame = win->begin_frame()) {
           pipeline->draw(frame->command_buffer, win->render_pass(), frame->framebuffer, frame->extent, vertex_count);
           win->end_frame(*frame);
         }
-        ex::set_value(std::move(receiver));
       } catch (...) {
-        ex::set_error(std::move(receiver), std::current_exception());
+        error = std::current_exception();
+      }
+      if (error) {
+        ex::set_error(std::move(receiver), error);
+      } else {
+        ex::set_value(std::move(receiver));
       }
     }
   };
@@ -103,6 +108,7 @@ struct draw_layers_sender {
 
     auto start() noexcept -> void
     {
+      std::exception_ptr error;
       try {
         if (layers.empty()) { throw std::invalid_argument("draw_layers requires at least one layer"); }
         if (auto frame = win->begin_frame()) {
@@ -129,9 +135,13 @@ struct draw_layers_sender {
           }
           win->end_frame(*frame);
         }
-        ex::set_value(std::move(receiver));
       } catch (...) {
-        ex::set_error(std::move(receiver), std::current_exception());
+        error = std::current_exception();
+      }
+      if (error) {
+        ex::set_error(std::move(receiver), error);
+      } else {
+        ex::set_value(std::move(receiver));
       }
     }
   };

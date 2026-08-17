@@ -53,11 +53,16 @@ struct bulk_sender {
 
     void start() noexcept
     {
+      std::exception_ptr error;
       try {
         run();
-        ex::set_value(std::move(receiver));
       } catch (...) {
-        ex::set_error(std::move(receiver), std::current_exception());
+        error = std::current_exception();
+      }
+      if (error) {
+        ex::set_error(std::move(receiver), error);
+      } else {
+        ex::set_value(std::move(receiver));
       }
     }
 
