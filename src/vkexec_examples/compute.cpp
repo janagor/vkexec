@@ -1,65 +1,84 @@
-#include <vkexec/vkexec.hpp>
+#include <vkexec/bulk.hpp>
+#include <vkexec/buffer.hpp>
+#include <vkexec/context.hpp>
+#include <vkexec/detail/push_constant.hpp>
+#include <vkexec/detail/types.hpp>
+
+#include <boost/describe/class.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <print>
 
 namespace ex = stdexec;
 
-struct SimParams {
+namespace {
+constexpr std::size_t k_element_count = 10000;
+constexpr float k_initial_velocity = 1.5F;
+constexpr float k_timestep = 0.016F;
+constexpr float k_damping = 0.99F;
+constexpr float k_epsilon = 1.0E-4F;
+} // namespace
+
+struct sim_params {
   float dt;
   float damping;
 };
-BOOST_DESCRIBE_STRUCT(SimParams, (), (dt, damping))
+BOOST_DESCRIBE_STRUCT(sim_params, (), (dt, damping))
 
+// NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
 {
   try {
     vkexec::context ctx;
-    constexpr std::size_t N = 10000;
-    vkexec::buffer<float> positions(ctx, N, 0.0F);
-    vkexec::buffer<float> velocities(ctx, N, 1.5F);
+    vkexec::buffer<float> positions(ctx, k_element_count, 0.0F);
+    vkexec::buffer<float> velocities(ctx, k_element_count, k_initial_velocity);
 
-    SimParams params{ 0.016F, 0.99F };
+    sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
     auto pipeline = ex::schedule(ctx.get_scheduler())
-                    | vkexec::bulk(static_cast<std::uint32_t>(N), params,
-                        [&](vkexec::Int idx, vkexec::PushConstant<SimParams> pc) {
+                    | vkexec::bulk(static_cast<std::uint32_t>(k_element_count), params,
+                        [&](vkexec::Int idx, vkexec::push_constant<sim_params> push) -> void {
+                          // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                           vkexec::Float position = positions[idx];
                           vkexec::Float velocity = velocities[idx];
 
-                          velocity = velocity * pc.get<&SimParams::damping>();
-                          position = position + (velocity * pc.get<&SimParams::dt>());
+                          velocity = velocity * push.get<&sim_params::damping>();
+                          position = position + (velocity * push.get<&sim_params::dt>());
 
                           positions[idx] = position;
                           velocities[idx] = velocity;
+                          // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
                         });
 
-    ex::sync_wait(std::move(pipeline));
+    ex::sync_wait(pipeline);
 
-    float const expected_v = 1.5F * 0.99F;
-    float const expected_p = expected_v * 0.016F;
-    for (std::size_t index : { std::size_t{ 0 }, N / 2, N - 1 }) {
-      if (std::fabs(velocities.data()[index] - expected_v) > 1e-4F
-          || std::fabs(positions.data()[index] - expected_p) > 1e-4F) {
-        std::fprintf(stderr,
-          "mismatch at %zu: p=%f v=%f (expected p=%f v=%f)\n",
+    float const expected_v = k_initial_velocity * k_damping;
+    float const expected_p = expected_v * k_timestep;
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    for (const std::size_t index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
+      if (std::fabs(velocities.data()[index] - expected_v) > k_epsilon
+          || std::fabs(positions.data()[index] - expected_p) > k_epsilon) {
+        std::println(stderr,
+          "mismatch at {}: p={} v={} (expected p={} v={})",
           index,
-          static_cast<double>(positions.data()[index]),
-          static_cast<double>(velocities.data()[index]),
-          static_cast<double>(expected_p),
-          static_cast<double>(expected_v));
+          positions.data()[index],
+          velocities.data()[index],
+          expected_p,
+          expected_v);
         return 1;
       }
     }
 
-    std::printf(
-      "vkexec sim ok: p[0]=%f v[0]=%f\n", static_cast<double>(positions.data()[0]), static_cast<double>(velocities.data()[0]));
+    std::println("vkexec sim ok: p[0]={} v[0]={}", positions.data()[0], velocities.data()[0]);
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     return 0;
   } catch (std::exception const &ex) {
-    std::fprintf(stderr, "vkexec example failed: %s\n", ex.what());
+    std::println(stderr, "vkexec example failed: {}", ex.what());
     return 1;
   }
 }

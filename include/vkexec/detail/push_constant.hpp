@@ -40,7 +40,7 @@ template<typename T>
 using describe_members_t = boost::describe::describe_members<T, boost::describe::mod_any_access>;
 
 template<typename T>
-inline constexpr std::size_t describe_member_count = boost::mp11::mp_size<describe_members_t<T>>::value;
+inline constexpr std::size_t k_describe_member_count = boost::mp11::mp_size<describe_members_t<T>>::value;
 
 template<typename MemberT>
 using proxy_type_for = std::conditional_t<std::is_integral_v<MemberT> && !std::is_same_v<MemberT, bool>, Int, Float>;
@@ -48,11 +48,11 @@ using proxy_type_for = std::conditional_t<std::is_integral_v<MemberT> && !std::i
 template<typename T>
 auto member_byte_offset(auto member_pointer) -> std::int64_t
 {
-  alignas(T) unsigned char storage[sizeof(T)]{};
-  auto *object = reinterpret_cast<T *>(storage); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+  alignas(T) std::array<unsigned char, sizeof(T)> storage{};
+  auto *object = reinterpret_cast<T *>(storage.data()); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   auto *member = reinterpret_cast<unsigned char *>( // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     std::addressof(object->*member_pointer));
-  return static_cast<std::int64_t>(member - storage);
+  return static_cast<std::int64_t>(member - storage.data());
 }
 
 template<auto MemberPtr>
@@ -73,16 +73,16 @@ struct matches_member_pointer {
 /// auto dt = pc.get<&params::dt>();
 /// ```
 template<typename T>
-struct PushConstant {
-  static constexpr std::size_t byte_size = sizeof(T);
-  static constexpr std::size_t member_count = detail::describe_member_count<T>;
+struct push_constant {
+  static constexpr std::size_t k_byte_size = sizeof(T);
+  static constexpr std::size_t k_member_count = detail::k_describe_member_count<T>;
 
-  std::array<int, member_count == 0 ? 1 : member_count> field_ids_{};
+  std::array<int, k_member_count == 0 ? 1 : k_member_count> field_ids{};
 
   [[nodiscard]] static auto glsl_block() -> std::string
   {
     std::string body;
-    boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) {
+    boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) -> void {
       using member_type =
         std::remove_cv_t<std::remove_reference_t<decltype(std::declval<T>().*descriptor.pointer)>>;
       body += "  ";
@@ -94,20 +94,20 @@ struct PushConstant {
     return "layout(push_constant) uniform PushConstants {\n" + body + "} pc;\n";
   }
 
-  [[nodiscard]] static auto bind() -> PushConstant
+  [[nodiscard]] static auto bind() -> push_constant
   {
-    static_assert(member_count > 0, "PushConstant<T> requires BOOST_DESCRIBE_STRUCT(T, (), (members...))");
-    PushConstant proxy{};
+    static_assert(k_member_count > 0, "push_constant<T> requires BOOST_DESCRIBE_STRUCT(T, (), (members...))");
+    push_constant proxy{};
     std::size_t index = 0;
-    boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) {
+    boost::mp11::mp_for_each<detail::describe_members_t<T>>([&](auto descriptor) -> void {
       ExprNode node = ExprNode::make(OpKind::PushField);
       node.name = descriptor.name;
       node.const_i = detail::member_byte_offset<T>(descriptor.pointer);
-      proxy.field_ids_.at(index) = ast().append(std::move(node));
+      proxy.field_ids.at(index) = ast().append(std::move(node));
       ++index;
     });
     ast().push_block_glsl = glsl_block();
-    ast().push_bytes = byte_size;
+    ast().push_bytes = k_byte_size;
     return proxy;
   }
 
@@ -117,8 +117,8 @@ struct PushConstant {
   {
     using member_type = std::remove_cv_t<std::remove_reference_t<decltype(std::declval<T>().*MemberPtr)>>;
     using index_t = boost::mp11::mp_find_if_q<detail::describe_members_t<T>, detail::matches_member_pointer<MemberPtr>>;
-    static_assert(index_t::value < member_count, "member pointer is not described for this PushConstant type");
-    return detail::proxy_type_for<member_type>{ field_ids_.at(index_t::value) };
+    static_assert(index_t::value < k_member_count, "member pointer is not described for this push_constant type");
+    return detail::proxy_type_for<member_type>{ field_ids.at(index_t::value) };
   }
 };
 

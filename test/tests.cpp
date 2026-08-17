@@ -9,7 +9,7 @@
 TEST_CASE("vkexec AST records arithmetic", "[vkexec]")
 {
   vkexec::ASTContext ctx;
-  vkexec::ASTScope scope(ctx);
+  const vkexec::ASTScope scope(ctx);
 
   vkexec::Float const lhs = vkexec::Float::constant(1.0);
   vkexec::Float const rhs = vkexec::Float::constant(2.0);
@@ -18,6 +18,6 @@ TEST_CASE("vkexec AST records arithmetic", "[vkexec]")
   REQUIRE(ctx.nodes.size() >= 4);
 
   std::string const glsl = vkexec::detail::emit_glsl(ctx, 64);
-  REQUIRE(glsl.find("#version 450") != std::string::npos);
-  REQUIRE(glsl.find("void main()") != std::string::npos);
+  REQUIRE(glsl.contains("#version 450"));
+  REQUIRE(glsl.contains("void main()"));
 }

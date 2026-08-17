@@ -7,6 +7,8 @@
 #include <vkexec/graphics.hpp>
 #include <vkexec/window.hpp>
 
+#include <boost/describe/class.hpp>
+
 #include <stdexec/execution.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -129,7 +131,7 @@ auto main() -> int
       (void)ex::sync_wait(ex::schedule(ctx.get_scheduler())
                           | vkexec::bulk(k_particle_count, params,
                             // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-                            [&](vkexec::Int const index, vkexec::PushConstant<particle_params> push) -> void {
+                            [&](vkexec::Int const index, vkexec::push_constant<particle_params> push) -> void {
                               vkexec::Float position_x = pos_x[index];
                               vkexec::Float position_y = pos_y[index];
                               vkexec::Float velocity_x = vel_x[index];
