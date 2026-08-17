@@ -29,6 +29,7 @@ struct sim_params {
   float dt;
   float damping;
 };
+// cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(sim_params, (), (dt, damping))
 
 // NOLINTNEXTLINE(bugprone-exception-escape)

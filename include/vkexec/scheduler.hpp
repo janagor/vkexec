@@ -26,8 +26,8 @@ struct schedule_sender {
     }
   };
 
-  template<class Receiver>
-  auto connect(Receiver receiver) const noexcept
+  // cppcheck-suppress functionStatic
+  template<class Receiver> auto connect(Receiver receiver) const noexcept
   {
     return op_state<Receiver>{ std::move(receiver) };
   }

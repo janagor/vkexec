@@ -134,7 +134,8 @@ window::~window()
 
 auto window::should_close() const noexcept -> bool { return glfwWindowShouldClose(glfw_) == GLFW_TRUE; }
 
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+// cppcheck-suppress functionStatic
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static) 
 auto window::poll_events() -> void { glfwPollEvents(); }
 
 auto window::wait_idle() -> void

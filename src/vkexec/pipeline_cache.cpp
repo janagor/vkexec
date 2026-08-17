@@ -26,7 +26,7 @@ auto check(VkResult result, const char *what) -> void
   if (result != VK_SUCCESS) { throw std::runtime_error(what); }
 }
 
-auto destroy_resources(context &ctx, pipeline_resources &resources) -> void
+auto destroy_resources(context const &ctx, pipeline_resources &resources) -> void
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }

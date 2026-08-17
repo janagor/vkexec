@@ -32,6 +32,7 @@ struct sort_params {
   int offset;
   int n;
 };
+// cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(sort_params, (), (offset, n))
 
 // NOLINTNEXTLINE(bugprone-exception-escape)

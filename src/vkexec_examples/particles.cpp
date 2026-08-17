@@ -44,6 +44,7 @@ constexpr unsigned k_rng_seed = 42;
 struct particle_params {
   float delta_time;
 };
+// cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(particle_params, (), (delta_time))
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
