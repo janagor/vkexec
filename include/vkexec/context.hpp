@@ -16,11 +16,33 @@ namespace vkexec {
 class scheduler;
 class window;
 
+/// Handles borrowed from an embedder. vkexec never destroys these.
+struct context_adopt_info {
+  VkInstance instance{ VK_NULL_HANDLE };
+  VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
+  VkDevice device{ VK_NULL_HANDLE };
+  VmaAllocator allocator{ VK_NULL_HANDLE };
+
+  VkQueue compute_queue{ VK_NULL_HANDLE };
+  std::uint32_t compute_queue_family{ 0 };
+
+  VkQueue graphics_queue{ VK_NULL_HANDLE };
+  std::uint32_t graphics_queue_family{ 0 };
+
+  VkQueue present_queue{ VK_NULL_HANDLE };
+  std::uint32_t present_queue_family{ 0 };
+};
+
 class context {
 public:
   /// Compute-only context (no window / swapchain).
   context();
   ~context();
+
+  /// Wrap an existing Vulkan device/queues. Returns a context that does not destroy the
+  /// instance, device, or an externally supplied VMA allocator. vkexec still owns its
+  /// command pool and pipeline cache; create a VMA allocator when `allocator` is null.
+  [[nodiscard]] static auto adopt(context_adopt_info const &info) -> std::unique_ptr<context>;
 
   context(const context &) = delete;
   auto operator=(const context &) -> context & = delete;
@@ -62,6 +84,7 @@ private:
 
   struct instance_only_tag {};
   explicit context(instance_only_tag tag, std::vector<const char *> const &instance_extensions);
+  explicit context(context_adopt_info const &info);
   auto complete_for_surface(VkSurfaceKHR surface) -> void;
 
   auto create_command_pool() -> void;
@@ -83,6 +106,9 @@ private:
   bool presentation_enabled_{ false };
   bool has_instance_{ false };
   bool has_device_{ false };
+  bool owns_instance_{ false };
+  bool owns_device_{ false };
+  bool owns_allocator_{ false };
 };
 
 } // namespace vkexec

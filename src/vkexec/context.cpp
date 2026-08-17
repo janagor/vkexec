@@ -59,7 +59,11 @@ context::context()
       vkb::PhysicalDeviceSelector{ instance_ }.set_minimum_version(1, 2).require_present(false).select(),
       "vk-bootstrap PhysicalDeviceSelector")),
     device_(unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder")),
-    has_instance_(true), has_device_(true)
+    has_instance_(true),
+    has_device_(true),
+    owns_instance_(true),
+    owns_device_(true),
+    owns_allocator_(true)
 {
   fetch_queues(false);
   create_command_pool();
@@ -67,8 +71,57 @@ context::context()
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
 }
 
+auto context::adopt(context_adopt_info const &info) -> std::unique_ptr<context>
+{
+  return std::unique_ptr<context>(new context(info));
+}
+
+context::context(context_adopt_info const &info)
+{
+  if (info.device == VK_NULL_HANDLE) { fail("context::adopt requires a VkDevice"); }
+  if (info.compute_queue == VK_NULL_HANDLE) { fail("context::adopt requires a compute VkQueue"); }
+
+  instance_.instance = info.instance;
+  physical_device_.physical_device = info.physical_device;
+  device_.device = info.device;
+  has_instance_ = info.instance != VK_NULL_HANDLE;
+  has_device_ = true;
+
+  compute_queue_ = info.compute_queue;
+  queue_family_ = info.compute_queue_family;
+
+  if (info.graphics_queue != VK_NULL_HANDLE) {
+    graphics_queue_ = info.graphics_queue;
+    graphics_family_ = info.graphics_queue_family;
+  } else {
+    graphics_queue_ = compute_queue_;
+    graphics_family_ = queue_family_;
+  }
+
+  if (info.present_queue != VK_NULL_HANDLE) {
+    present_queue_ = info.present_queue;
+    present_family_ = info.present_queue_family;
+  } else {
+    present_queue_ = graphics_queue_;
+    present_family_ = graphics_family_;
+  }
+
+  if (info.allocator != VK_NULL_HANDLE) {
+    allocator_ = info.allocator;
+  } else {
+    if (info.instance == VK_NULL_HANDLE || info.physical_device == VK_NULL_HANDLE) {
+      fail("context::adopt requires instance and physical_device when allocator is null");
+    }
+    create_allocator();
+    owns_allocator_ = true;
+  }
+
+  create_command_pool();
+  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
+}
+
 context::context(instance_only_tag tag, std::vector<const char *> const &instance_extensions)
-  : instance_(build_instance_with_extensions(instance_extensions)), has_instance_(true)
+  : instance_(build_instance_with_extensions(instance_extensions)), has_instance_(true), owns_instance_(true)
 {
   (void)tag;
 }
@@ -82,6 +135,8 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> void
     "vk-bootstrap PhysicalDeviceSelector");
   device_ = unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder");
   has_device_ = true;
+  owns_device_ = true;
+  owns_allocator_ = true;
   fetch_queues(true);
   create_command_pool();
   create_allocator();
@@ -126,20 +181,24 @@ auto context::fetch_queues(bool want_present) -> void
 context::~context()
 {
   pipeline_cache_.reset();
-  if (has_device_) {
-    vkDeviceWaitIdle(device_.device);
-    if (allocator_ != VK_NULL_HANDLE) {
-      vmaDestroyAllocator(allocator_);
-      allocator_ = VK_NULL_HANDLE;
-    }
+
+  if (device_.device != VK_NULL_HANDLE) {
+    if (owns_device_) { vkDeviceWaitIdle(device_.device); }
     if (command_pool_ != VK_NULL_HANDLE) {
       vkDestroyCommandPool(device_.device, command_pool_, nullptr);
       command_pool_ = VK_NULL_HANDLE;
     }
-    vkb::destroy_device(device_);
-    has_device_ = false;
+    if (owns_allocator_ && allocator_ != VK_NULL_HANDLE) {
+      vmaDestroyAllocator(allocator_);
+      allocator_ = VK_NULL_HANDLE;
+    }
+    if (owns_device_) {
+      vkb::destroy_device(device_);
+      has_device_ = false;
+    }
   }
-  if (has_instance_) {
+
+  if (owns_instance_ && has_instance_) {
     vkb::destroy_instance(instance_);
     has_instance_ = false;
   }
