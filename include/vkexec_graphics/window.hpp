@@ -69,7 +69,6 @@ private:
   struct frame_sync
   {
     VkSemaphore image_available{ VK_NULL_HANDLE };
-    VkSemaphore render_finished{ VK_NULL_HANDLE };
     VkFence in_flight{ VK_NULL_HANDLE };
   };
 
@@ -81,6 +80,8 @@ private:
   auto destroy_depth_resources() noexcept -> void;
   auto create_framebuffers() -> void;
   auto create_frame_resources() -> void;
+  auto create_swapchain_sync() -> void;
+  auto destroy_swapchain_sync() noexcept -> void;
   auto cleanup_swapchain() -> void;
   auto recreate_swapchain() -> void;
 
@@ -106,6 +107,8 @@ private:
   static constexpr int k_frames = 2;
   std::vector<frame_sync> frames_;
   std::vector<VkCommandBuffer> command_buffers_;
+  std::vector<VkSemaphore> render_finished_;
+  std::vector<VkFence> images_in_flight_;
   std::uint32_t frame_index_{ 0 };
   std::uint32_t current_image_index_{ 0 };
   bool framebuffer_resized_{ false };

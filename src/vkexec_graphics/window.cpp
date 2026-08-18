@@ -143,9 +143,9 @@ window::~window()
     vkDeviceWaitIdle(ctx_->device());
     for (auto &sync : frames_) {
       if (sync.in_flight != VK_NULL_HANDLE) { vkDestroyFence(ctx_->device(), sync.in_flight, nullptr); }
-      if (sync.render_finished != VK_NULL_HANDLE) { vkDestroySemaphore(ctx_->device(), sync.render_finished, nullptr); }
       if (sync.image_available != VK_NULL_HANDLE) { vkDestroySemaphore(ctx_->device(), sync.image_available, nullptr); }
     }
+    destroy_swapchain_sync();
     if (!command_buffers_.empty()) {
       vkFreeCommandBuffers(ctx_->device(),
         ctx_->command_pool(),
@@ -201,6 +201,7 @@ auto window::create_swapchain() -> void
   swapchain_format_ = swapchain_.image_format;
   swapchain_extent_ = swapchain_.extent;
   swapchain_images_ = unwrap(swapchain_.get_images(), "vk-bootstrap Swapchain::get_images");
+  create_swapchain_sync();
 }
 
 auto window::create_image_views() -> void
@@ -368,8 +369,6 @@ auto window::create_frame_resources() -> void
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     check(vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &frames_.at(frame_index).image_available),
       "vkCreateSemaphore failed");
-    check(vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &frames_.at(frame_index).render_finished),
-      "vkCreateSemaphore failed");
 
     VkFenceCreateInfo fence_info{};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -381,8 +380,38 @@ auto window::create_frame_resources() -> void
   }
 }
 
+auto window::create_swapchain_sync() -> void
+{
+  destroy_swapchain_sync();
+
+  render_finished_.resize(swapchain_images_.size());
+  images_in_flight_.assign(swapchain_images_.size(), VK_NULL_HANDLE);
+
+  VkSemaphoreCreateInfo semaphore_info{};
+  semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  for (VkSemaphore &render_finished : render_finished_) {
+    check(vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &render_finished),
+      "vkCreateSemaphore failed (render_finished)");
+  }
+}
+
+auto window::destroy_swapchain_sync() noexcept -> void
+{
+  if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) {
+    render_finished_.clear();
+    images_in_flight_.clear();
+    return;
+  }
+  for (VkSemaphore render_finished : render_finished_) {
+    if (render_finished != VK_NULL_HANDLE) { vkDestroySemaphore(ctx_->device(), render_finished, nullptr); }
+  }
+  render_finished_.clear();
+  images_in_flight_.clear();
+}
+
 auto window::cleanup_swapchain() -> void
 {
+  destroy_swapchain_sync();
   for (VkFramebuffer framebuffer : framebuffers_) {
     if (framebuffer != VK_NULL_HANDLE) { vkDestroyFramebuffer(ctx_->device(), framebuffer, nullptr); }
   }
@@ -446,6 +475,12 @@ auto window::begin_frame() -> std::optional<frame>
     VKEXEC_THROW(std::runtime_error("vkAcquireNextImageKHR failed"));
   }
 
+  if (images_in_flight_.at(image_index) != VK_NULL_HANDLE) {
+    check(vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX),
+      "vkWaitForFences failed (swapchain image in flight)");
+  }
+  images_in_flight_.at(image_index) = sync.in_flight;
+
   check(vkResetFences(ctx_->device(), 1, &sync.in_flight), "vkResetFences failed");
 
   VkCommandBuffer cmd = command_buffers_.at(frame_index_);
@@ -479,13 +514,13 @@ auto window::end_frame(frame const &drawn) -> void
   submit_info.commandBufferCount = 1;
   submit_info.pCommandBuffers = &cmd;
   submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &sync.render_finished;
+  submit_info.pSignalSemaphores = &render_finished_.at(current_image_index_);
   check(vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight), "vkQueueSubmit failed");
 
   VkPresentInfoKHR present_info{};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &sync.render_finished;
+  present_info.pWaitSemaphores = &render_finished_.at(current_image_index_);
   present_info.swapchainCount = 1;
   present_info.pSwapchains = &swapchain_.swapchain;
   present_info.pImageIndices = &current_image_index_;
