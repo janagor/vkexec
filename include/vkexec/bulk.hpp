@@ -2,6 +2,7 @@
 #define VKEXEC_BULK_HPP
 
 
+#include <vkexec/detail/config.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -114,9 +115,13 @@ template<typename Params, typename Fun> struct bulk_sender
     void start() noexcept
     {
       std::exception_ptr error;
-      try {
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
         run();
-      } catch (...) {
+      }
+      VKEXEC_CATCH_ALL
+      {
         error = std::current_exception();
       }
       if (error) {

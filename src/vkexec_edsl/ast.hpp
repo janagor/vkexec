@@ -1,6 +1,8 @@
 #ifndef VKEXEC_EDSL_AST_HPP
 #define VKEXEC_EDSL_AST_HPP
 
+#include <vkexec/detail/config.hpp>
+
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -151,7 +153,7 @@ public:
 inline auto ast() -> ASTContext &
 {
   ASTContext *ctx = current_ast();
-  if (ctx == nullptr) { throw std::runtime_error("vkexec::edsl AST used outside of a tracing scope"); }
+  if (ctx == nullptr) { VKEXEC_THROW(std::runtime_error("vkexec::edsl AST used outside of a tracing scope")); }
   return *ctx;
 }
 

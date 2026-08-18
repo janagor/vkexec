@@ -2,6 +2,7 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
@@ -187,9 +188,13 @@ struct pass_graph_sender
     auto start() noexcept -> void
     {
       std::exception_ptr error;
-      try {
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
         run();
-      } catch (...) {
+      }
+      VKEXEC_CATCH_ALL
+      {
         error = std::current_exception();
       }
       if (error) {
@@ -203,7 +208,9 @@ struct pass_graph_sender
     {
       detail::pass_cleanup cleanup;
       VkCommandBuffer cmd = ctx->allocate_command_buffer();
-      try {
+      std::exception_ptr error;
+      VKEXEC_TRY
+      {
         VkCommandBufferBeginInfo begin{};
         begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -213,10 +220,15 @@ struct pass_graph_sender
         for (pass_step const &step : steps) { step.record(*ctx, cmd, cleanup); }
         if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
         ctx->submit_and_wait(cmd);
-      } catch (...) {
+      }
+      VKEXEC_CATCH_ALL
+      {
+        error = std::current_exception();
+      }
+      if (error) {
         ctx->free_command_buffer(cmd);
         cleanup.release(*ctx);
-        throw;
+        std::rethrow_exception(error);
       }
       ctx->free_command_buffer(cmd);
       cleanup.release(*ctx);

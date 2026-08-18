@@ -1,6 +1,7 @@
 #include <vkexec_graphics/window.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -427,7 +428,7 @@ auto window::recreate_swapchain() -> void
 
 auto window::begin_frame() -> std::optional<frame>
 {
-  if (frame_open_) { throw std::logic_error("begin_frame called while a frame is already open"); }
+  if (frame_open_) { VKEXEC_THROW(std::logic_error("begin_frame called while a frame is already open")); }
 
   auto &sync = frames_.at(frame_index_);
   check(vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX), "vkWaitForFences failed");
@@ -461,7 +462,7 @@ auto window::begin_frame() -> std::optional<frame>
 
 auto window::end_frame(frame const &drawn) -> void
 {
-  if (!frame_open_) { throw std::logic_error("end_frame called without begin_frame"); }
+  if (!frame_open_) { VKEXEC_THROW(std::logic_error("end_frame called without begin_frame")); }
   (void)drawn;
 
   auto &sync = frames_.at(frame_index_);

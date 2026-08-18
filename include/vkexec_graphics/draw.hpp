@@ -2,6 +2,7 @@
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
 
+#include <vkexec/detail/config.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
@@ -77,12 +78,16 @@ struct draw_sender
     auto start() noexcept -> void
     {
       std::exception_ptr error;
-      try {
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
         if (auto frame = win->begin_frame()) {
           pipeline->draw(frame->command_buffer, win->render_pass(), frame->framebuffer, frame->extent, vertex_count);
           win->end_frame(*frame);
         }
-      } catch (...) {
+      }
+      VKEXEC_CATCH_ALL
+      {
         error = std::current_exception();
       }
       if (error) {
@@ -121,8 +126,10 @@ struct draw_layers_sender
     auto start() noexcept -> void
     {
       std::exception_ptr error;
-      try {
-        if (layers.empty()) { throw std::invalid_argument("draw_layers requires at least one layer"); }
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
+        if (layers.empty()) { VKEXEC_THROW(std::invalid_argument("draw_layers requires at least one layer")); }
         if (auto frame = win->begin_frame()) {
           graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
           std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
@@ -142,11 +149,13 @@ struct draw_layers_sender
           }
           vkCmdEndRenderPass(frame->command_buffer);
           if (vkEndCommandBuffer(frame->command_buffer) != VK_SUCCESS) {
-            throw std::runtime_error("vkEndCommandBuffer failed");
+            VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
           }
           win->end_frame(*frame);
         }
-      } catch (...) {
+      }
+      VKEXEC_CATCH_ALL
+      {
         error = std::current_exception();
       }
       if (error) {
@@ -183,12 +192,16 @@ struct draw_mesh_sender
     auto start() noexcept -> void
     {
       std::exception_ptr error;
-      try {
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
         if (auto frame = win->begin_frame()) {
           pipeline->draw(frame->command_buffer, win->render_pass(), frame->framebuffer, frame->extent, *drawn);
           win->end_frame(*frame);
         }
-      } catch (...) {
+      }
+      VKEXEC_CATCH_ALL
+      {
         error = std::current_exception();
       }
       if (error) {

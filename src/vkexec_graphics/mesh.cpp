@@ -1,3 +1,4 @@
+#include <vkexec/detail/config.hpp>
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
@@ -8,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -68,17 +70,24 @@ mesh::mesh(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::u
   vertex_allocation_ = vertex.allocation;
   std::memcpy(vertex.mapped, vertices.data(), vertices.size_bytes());
 
-  try {
+  std::exception_ptr error;
+  VKEXEC_TRY
+  {
     mapped_buffer const index =
       create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     index_buffer_ = index.buffer;
     index_allocation_ = index.allocation;
     std::memcpy(index.mapped, indices.data(), indices.size_bytes());
-  } catch (...) {
+  }
+  VKEXEC_CATCH_ALL
+  {
+    error = std::current_exception();
+  }
+  if (error) {
     vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
     vertex_buffer_ = VK_NULL_HANDLE;
     vertex_allocation_ = VK_NULL_HANDLE;
-    throw;
+    std::rethrow_exception(error);
   }
 }
 

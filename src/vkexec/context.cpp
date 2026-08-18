@@ -1,4 +1,5 @@
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -20,7 +21,7 @@
 namespace vkexec {
 namespace {
 
-  [[noreturn]] auto fail(std::string const &what) -> void { throw std::runtime_error(what); }
+  [[noreturn]] auto fail(std::string const &what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
 
   template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
   {
@@ -117,7 +118,7 @@ context::context(instance_only_tag tag, std::vector<char const *> const &instanc
 
 auto context::complete_for_surface(VkSurfaceKHR surface) -> void
 {
-  if (surface == VK_NULL_HANDLE) { throw std::invalid_argument("complete_for_surface requires a surface"); }
+  if (surface == VK_NULL_HANDLE) { VKEXEC_THROW(std::invalid_argument("complete_for_surface requires a surface")); }
 
   physical_device_ =
     unwrap(vkb::PhysicalDeviceSelector{ instance_ }.set_surface(surface).set_minimum_version(1, 2).select(),
