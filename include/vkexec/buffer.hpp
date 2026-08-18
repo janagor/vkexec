@@ -2,6 +2,7 @@
 #define VKEXEC_BUFFER_HPP
 
 
+#include <vkexec/detail/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -24,7 +25,7 @@ public:
     : ctx_(&ctx), count_(count), name_("buf" + std::to_string(next_name_id()))
   {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (count == 0) { throw std::invalid_argument("vkexec::buffer count must be > 0"); }
+    if (count == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::buffer count must be > 0")); }
 
     auto bytes = static_cast<VkDeviceSize>(count * sizeof(T));
 
@@ -41,10 +42,10 @@ public:
 
     VmaAllocationInfo ainfo{};
     if (vmaCreateBuffer(ctx_->allocator(), &bci, &aci, &buffer_, &allocation_, &ainfo) != VK_SUCCESS) {
-      throw std::runtime_error("vmaCreateBuffer failed");
+      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer failed"));
     }
     mapped_ = ainfo.pMappedData;
-    if (mapped_ == nullptr) { throw std::runtime_error("vmaCreateBuffer did not map host-visible memory"); }
+    if (mapped_ == nullptr) { VKEXEC_THROW(std::runtime_error("vmaCreateBuffer did not map host-visible memory")); }
 
     auto *const elems = static_cast<T *>(mapped_);
     for (T &elem : std::span<T>{ elems, count_ }) { elem = fill; }

@@ -42,19 +42,19 @@ namespace {
     VmaAllocationInfo mapped_info{};
     if (vmaCreateBuffer(ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info)
         != VK_SUCCESS) {
-      throw std::runtime_error("vmaCreateBuffer failed (mesh)");
+      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer failed (mesh)"));
     }
     created.mapped = mapped_info.pMappedData;
     if (created.mapped == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), created.buffer, created.allocation);
-      throw std::runtime_error("vmaCreateBuffer did not map host-visible memory");
+      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer did not map host-visible memory"));
     }
     return created;
   }
 
   auto count_as_uint32(std::size_t count, char const *what) -> std::uint32_t
   {
-    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) { throw std::invalid_argument(what); }
+    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) { VKEXEC_THROW(std::invalid_argument(what)); }
     return static_cast<std::uint32_t>(count);
   }
 

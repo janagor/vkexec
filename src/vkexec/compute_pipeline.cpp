@@ -1,6 +1,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/spirv.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -24,7 +25,7 @@ auto compute_pipeline::from_spirv(context &ctx, std::span<std::uint32_t const> s
 auto compute_pipeline::from_glsl(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
   -> compute_pipeline
 {
-  if (glsl.empty()) { throw std::invalid_argument("compute_pipeline::from_glsl requires non-empty GLSL"); }
+  if (glsl.empty()) { VKEXEC_THROW(std::invalid_argument("compute_pipeline::from_glsl requires non-empty GLSL")); }
   std::vector<std::uint32_t> const spirv = edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute);
   return from_spirv(ctx, spirv, desc);
 }
@@ -38,7 +39,7 @@ auto compute_pipeline::allocate_set() -> VkDescriptorSet
   dsai.pSetLayouts = &resources_->set_layout;
   VkDescriptorSet set{ VK_NULL_HANDLE };
   if (vkAllocateDescriptorSets(ctx_->device(), &dsai, &set) != VK_SUCCESS) {
-    throw std::runtime_error("vkAllocateDescriptorSets failed");
+    VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed"));
   }
   return set;
 }
@@ -46,7 +47,7 @@ auto compute_pipeline::allocate_set() -> VkDescriptorSet
 auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> void
 {
   if (buffers.size() != resources_->binding_count) {
-    throw std::invalid_argument("update_set buffer count must match layout_desc.bindings");
+    VKEXEC_THROW(std::invalid_argument("update_set buffer count must match layout_desc.bindings"));
   }
   if (buffers.empty()) { return; }
 

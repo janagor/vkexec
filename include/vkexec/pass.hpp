@@ -142,7 +142,7 @@ namespace detail {
     dsai.pSetLayouts = &pipe.set_layout;
     VkDescriptorSet set{ VK_NULL_HANDLE };
     if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-      throw std::runtime_error("vkAllocateDescriptorSets failed");
+      VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed"));
     }
     write_storage_descriptors(ctx.device(), set, buffers);
     return set;
@@ -215,10 +215,10 @@ struct pass_graph_sender
         begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-          throw std::runtime_error("vkBeginCommandBuffer failed");
+          VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
         }
         for (pass_step const &step : steps) { step.record(*ctx, cmd, cleanup); }
-        if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
+        if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
         ctx->submit_and_wait(cmd);
       }
       VKEXEC_CATCH_ALL

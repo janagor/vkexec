@@ -3,6 +3,7 @@
 
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
@@ -122,7 +123,7 @@ public:
     begin_pass(cmd, render_pass, framebuffer, extent);
     record_draw(cmd, extent, vertex_count);
     vkCmdEndRenderPass(cmd);
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
   }
 
   /// Begin the render pass, bind this pipeline, draw an indexed mesh, end the pass, and end the cmd buffer.

@@ -40,7 +40,7 @@ namespace {
 
   auto check(VkResult result, char const *what) -> void
   {
-    if (result != VK_SUCCESS) { throw std::runtime_error(what); }
+    if (result != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error(what)); }
   }
 
   auto pick_depth_format(VkPhysicalDevice phys) -> VkFormat
@@ -55,7 +55,7 @@ namespace {
       vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
       if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) { return format; }
     }
-    throw std::runtime_error("no supported depth format");
+    VKEXEC_THROW(std::runtime_error("no supported depth format"));
   }
 
   auto format_has_stencil(VkFormat format) -> bool
@@ -73,8 +73,8 @@ namespace {
   template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
   {
     if (!result) {
-      throw std::runtime_error(
-        std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")");
+      VKEXEC_THROW(std::runtime_error(std::string(what) + ": " + result.error().message() + " ("
+        + std::to_string(result.vk_result()) + ")"));
     }
     return result.value();
   }
@@ -98,7 +98,7 @@ window::window(config cfg) : cfg_(std::move(cfg))
   g_glfw_error.clear();
   glfwSetErrorCallback(glfw_error_callback);
   if (glfwInit() != GLFW_TRUE) {
-    throw std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
+    VKEXEC_THROW(std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")")));
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
@@ -107,7 +107,7 @@ window::window(config cfg) : cfg_(std::move(cfg))
     glfwCreateWindow(static_cast<int>(cfg_.width), static_cast<int>(cfg_.height), cfg_.title.c_str(), nullptr, nullptr);
   if (glfw_ == nullptr) {
     glfwTerminate();
-    throw std::runtime_error("glfwCreateWindow failed");
+    VKEXEC_THROW(std::runtime_error("glfwCreateWindow failed"));
   }
   glfwSetWindowUserPointer(glfw_, this);
   glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
@@ -115,7 +115,7 @@ window::window(config cfg) : cfg_(std::move(cfg))
   std::uint32_t ext_count = 0;
   char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
   if (glfw_exts == nullptr || ext_count == 0) {
-    throw std::runtime_error("glfwGetRequiredInstanceExtensions failed (no presentation support?)");
+    VKEXEC_THROW(std::runtime_error("glfwGetRequiredInstanceExtensions failed (no presentation support?)"));
   }
   std::vector<char const *> instance_exts;
   instance_exts.reserve(ext_count);
@@ -441,7 +441,7 @@ auto window::begin_frame() -> std::optional<frame>
     return std::nullopt;
   }
   if (acquire != VK_SUCCESS && acquire != VK_SUBOPTIMAL_KHR) {
-    throw std::runtime_error("vkAcquireNextImageKHR failed");
+    VKEXEC_THROW(std::runtime_error("vkAcquireNextImageKHR failed"));
   }
 
   check(vkResetFences(ctx_->device(), 1, &sync.in_flight), "vkResetFences failed");
@@ -493,7 +493,7 @@ auto window::end_frame(frame const &drawn) -> void
     framebuffer_resized_ = false;
     recreate_swapchain();
   } else if (presented != VK_SUCCESS) {
-    throw std::runtime_error("vkQueuePresentKHR failed");
+    VKEXEC_THROW(std::runtime_error("vkQueuePresentKHR failed"));
   }
 
   frame_index_ = (frame_index_ + 1) % static_cast<std::uint32_t>(k_frames);

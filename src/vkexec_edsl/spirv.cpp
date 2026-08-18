@@ -1,5 +1,7 @@
 #include <vkexec_edsl/spirv.hpp>
 
+#include <vkexec/detail/config.hpp>
+
 #include <glslang/Include/ResourceLimits.h>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
@@ -59,15 +61,15 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
   // NOLINTNEXTLINE(hicpp-signed-bitwise,clang-analyzer-optin.core.EnumCastOutOfRange)
   auto const messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
   if (!shader.parse(&resources, k_glsl_version, false, messages)) {
-    throw std::runtime_error(
-      std::string("glslang parse failed for ") + std::string(name) + ":\n" + shader.getInfoLog());
+    VKEXEC_THROW(std::runtime_error(
+      std::string("glslang parse failed for ") + std::string(name) + ":\n" + shader.getInfoLog()));
   }
 
   glslang::TProgram program;
   program.addShader(&shader);
   if (!program.link(messages)) {
-    throw std::runtime_error(
-      std::string("glslang link failed for ") + std::string(name) + ":\n" + program.getInfoLog());
+    VKEXEC_THROW(std::runtime_error(
+      std::string("glslang link failed for ") + std::string(name) + ":\n" + program.getInfoLog()));
   }
 
   std::vector<std::uint32_t> spirv;
@@ -76,7 +78,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source, std::string_view name, 
   options.disableOptimizer = false;
   options.optimizeSize = false;
   glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
-  if (spirv.empty()) { throw std::runtime_error("SPIR-V emission produced empty module"); }
+  if (spirv.empty()) { VKEXEC_THROW(std::runtime_error("SPIR-V emission produced empty module")); }
   return spirv;
 }
 

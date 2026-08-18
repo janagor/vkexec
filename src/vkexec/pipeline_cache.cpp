@@ -1,6 +1,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/ast.hpp>
 #include <vkexec_edsl/glsl_emit.hpp>
 #include <vkexec_edsl/spirv.hpp>
@@ -29,7 +30,7 @@ namespace {
 
   auto check(VkResult result, char const *what) -> void
   {
-    if (result != VK_SUCCESS) { throw std::runtime_error(what); }
+    if (result != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error(what)); }
   }
 
   auto hash_combine(std::size_t seed, std::size_t value) -> std::size_t
@@ -206,7 +207,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
 auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> pipeline_resources &
 {
-  if (spirv.empty()) { throw std::invalid_argument("compute_pipeline::from_spirv requires non-empty SPIR-V"); }
+  if (spirv.empty()) { VKEXEC_THROW(std::invalid_argument("compute_pipeline::from_spirv requires non-empty SPIR-V")); }
   std::size_t const key = hash_spirv_layout(spirv, desc);
   {
     std::scoped_lock const lock(mutex_);

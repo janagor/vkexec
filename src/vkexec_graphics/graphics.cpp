@@ -2,6 +2,7 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/trace.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -25,7 +26,7 @@ auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) c
   create_info.pCode = spirv.data();
   VkShaderModule module{ VK_NULL_HANDLE };
   if (vkCreateShaderModule(device_, &create_info, nullptr, &module) != VK_SUCCESS) {
-    throw std::runtime_error("vkCreateShaderModule failed");
+    VKEXEC_THROW(std::runtime_error("vkCreateShaderModule failed"));
   }
   return module;
 }
@@ -59,7 +60,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     dslci.bindingCount = static_cast<std::uint32_t>(bindings.size());
     dslci.pBindings = bindings.data();
     if (vkCreateDescriptorSetLayout(device_, &dslci, nullptr, &set_layout_) != VK_SUCCESS) {
-      throw std::runtime_error("vkCreateDescriptorSetLayout failed (graphics)");
+      VKEXEC_THROW(std::runtime_error("vkCreateDescriptorSetLayout failed (graphics)"));
     }
 
     VkDescriptorPoolSize pool_size{};
@@ -71,7 +72,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     dpci.poolSizeCount = 1;
     dpci.pPoolSizes = &pool_size;
     if (vkCreateDescriptorPool(device_, &dpci, nullptr, &descriptor_pool_) != VK_SUCCESS) {
-      throw std::runtime_error("vkCreateDescriptorPool failed (graphics)");
+      VKEXEC_THROW(std::runtime_error("vkCreateDescriptorPool failed (graphics)"));
     }
 
     VkDescriptorSetAllocateInfo dsai{};
@@ -80,7 +81,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     dsai.descriptorSetCount = 1;
     dsai.pSetLayouts = &set_layout_;
     if (vkAllocateDescriptorSets(device_, &dsai, &descriptor_set_) != VK_SUCCESS) {
-      throw std::runtime_error("vkAllocateDescriptorSets failed (graphics)");
+      VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed (graphics)"));
     }
   }
 
@@ -189,7 +190,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   if (vkCreatePipelineLayout(device_, &plci, nullptr, &layout_) != VK_SUCCESS) {
     vkDestroyShaderModule(device_, frag, nullptr);
     vkDestroyShaderModule(device_, vert, nullptr);
-    throw std::runtime_error("vkCreatePipelineLayout failed");
+    VKEXEC_THROW(std::runtime_error("vkCreatePipelineLayout failed"));
   }
 
   VkGraphicsPipelineCreateInfo gpci{};
@@ -210,7 +211,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   VkResult const created = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &gpci, nullptr, &pipeline_);
   vkDestroyShaderModule(device_, frag, nullptr);
   vkDestroyShaderModule(device_, vert, nullptr);
-  if (created != VK_SUCCESS) { throw std::runtime_error("vkCreateGraphicsPipelines failed"); }
+  if (created != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkCreateGraphicsPipelines failed")); }
 }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void
@@ -232,7 +233,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   begin_pass(cmd, render_pass, framebuffer, extent);
   record_draw(cmd, extent, drawn);
   vkCmdEndRenderPass(cmd);
-  if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { throw std::runtime_error("vkEndCommandBuffer failed"); }
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
 }
 
 }// namespace vkexec

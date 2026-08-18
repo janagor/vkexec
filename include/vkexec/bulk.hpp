@@ -60,7 +60,7 @@ namespace detail {
     dsai.pSetLayouts = &pipe.set_layout;
     VkDescriptorSet set{ VK_NULL_HANDLE };
     if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-      throw std::runtime_error("vkAllocateDescriptorSets failed");
+      VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed"));
     }
     write_traced_descriptors(ctx.device(), set, buffers);
     return set;
