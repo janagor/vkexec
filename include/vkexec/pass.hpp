@@ -337,26 +337,24 @@ auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &p
 namespace detail {
 
   template<typename Params, typename Fun>
-  auto make_jit_step(context &ctx, compute_pass_closure<Params, Fun> closure) -> pass_step
+  auto make_traced_step(compute_pass_closure<Params, Fun> closure) -> pass_step
   {
-    edsl::trace_scope const scope;
-    edsl::Int const idx = edsl::Int::param_index();
-    auto push = edsl::push_constant<Params>::bind();
-    closure.fun(idx, push);
+    return pass_step{ .record = [closure = std::move(closure)](
+                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
+      edsl::trace_scope const scope;
+      edsl::Int const idx = edsl::Int::param_index();
+      auto push = edsl::push_constant<Params>::bind();
+      closure.fun(idx, push);
 
-    pipeline_resources *pipe = &ctx.get_or_compile(scope, closure.shape);
-    std::vector<edsl::storage_trace> buffers = scope.buffers();
-    auto const local = scope.local_size_x();
-    Params const params = closure.params;
-    std::uint32_t const shape = closure.shape;
+      pipeline_resources &pipe = record_ctx.get_or_compile(scope, closure.shape);
+      std::vector<edsl::storage_trace> const buffers = scope.buffers();
+      auto const local = scope.local_size_x();
 
-    return pass_step{ .record = [pipe, buffers = std::move(buffers), local, params, shape](
-                                  context const &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
-      VkDescriptorSet set = bind_or_allocate_set(record_ctx, *pipe, buffers, cleanup);
-      std::uint32_t const groups = (shape + local - 1U) / local;
-      void const *push_ptr = pipe->push_bytes > 0 ? static_cast<void const *>(&params) : nullptr;
-      auto const push_bytes = static_cast<std::uint32_t>(pipe->push_bytes > 0 ? sizeof(Params) : 0);
-      record_pass(cmd, *pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
+      VkDescriptorSet set = bind_or_allocate_set(record_ctx, pipe, buffers, cleanup);
+      std::uint32_t const groups = (closure.shape + local - 1U) / local;
+      void const *push_ptr = pipe.push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
+      auto const push_bytes = static_cast<std::uint32_t>(pipe.push_bytes > 0 ? sizeof(Params) : 0);
+      record_pass(cmd, pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
     } };
   }
 
@@ -391,13 +389,12 @@ namespace detail {
 
 template<typename Params, typename Fun>
 auto operator|(schedule_sender snd, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
-{ return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_jit_step(*snd.ctx, std::move(closure)) } }; }
+{ return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_traced_step(std::move(closure)) } }; }
 
 template<typename Params, typename Fun>
 auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
 {
-  context *const host = graph.ctx;
-  return detail::append_step(std::move(graph), detail::make_jit_step(*host, std::move(closure)));
+  return detail::append_step(std::move(graph), detail::make_traced_step(std::move(closure)));
 }
 
 inline auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender

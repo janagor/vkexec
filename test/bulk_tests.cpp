@@ -19,7 +19,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <utility>
 
 namespace ex = stdexec;
 namespace edsl = vkexec::edsl;
@@ -85,7 +84,7 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
                     [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
                       values[idx] = values[idx] + push.get<&bulk_params::value>();
                     });
-  ex::sync_wait(std::move(pipeline));
+  ex::sync_wait(pipeline);
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::uint32_t index = 0; index < k_work_count; ++index) {
@@ -115,9 +114,8 @@ TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
                     (void)unused;
                   });
 
-  REQUIRE(sender.buffers.empty());
   REQUIRE(sender.shape == k_work_count);
-  ex::sync_wait(std::move(sender));
+  ex::sync_wait(sender);
 }
 
 TEST_CASE("submit_async runs bulk without blocking the host", "[vkexec][bulk][gpu]")
@@ -140,7 +138,7 @@ TEST_CASE("submit_async runs bulk without blocking the host", "[vkexec][bulk][gp
                     values[idx] = values[idx] + push.get<&bulk_params::value>();
                   });
 
-  VkSemaphore done = vkexec::submit_async(std::move(sender));
+  VkSemaphore done = vkexec::submit_async(sender);
   REQUIRE(done != VK_NULL_HANDLE);
   REQUIRE(vkQueueWaitIdle(ctx->compute_queue()) == VK_SUCCESS);
   vkDestroySemaphore(ctx->device(), done, nullptr);

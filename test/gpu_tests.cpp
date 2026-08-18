@@ -90,7 +90,7 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
                       positions[idx] = position;
                       velocities[idx] = velocity;
                     });
-  ex::sync_wait(std::move(pipeline));
+  ex::sync_wait(pipeline);
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;

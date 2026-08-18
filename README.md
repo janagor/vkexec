@@ -6,7 +6,7 @@
 
 ## About
 
-`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with a JIT tracing eDSL:
+`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with a tracing eDSL:
 
 1. Trace C++ operators on `vkexec::Float` / `vkexec::Int` into an AST
 2. Emit GLSL, compile to SPIR-V via glslang, and cache `VkPipeline`s

@@ -66,6 +66,27 @@ namespace detail {
     return set;
   }
 
+  struct bulk_traced_state
+  {
+    pipeline_resources *pipe{ nullptr };
+    std::vector<edsl::storage_trace> buffers;
+    std::uint32_t local_size_x{ k_default_local_size_x };
+  };
+
+  template<typename Params, typename Fun>
+  auto trace_bulk_kernel(context &ctx, std::uint32_t shape, Fun &fun) -> bulk_traced_state
+  {
+    edsl::trace_scope const scope;
+    edsl::Int const idx = edsl::Int::param_index();
+    auto push_proxy = edsl::push_constant<Params>::bind();
+    fun(idx, push_proxy);
+    return bulk_traced_state{
+      .pipe = &ctx.get_or_compile(scope, shape),
+      .buffers = scope.buffers(),
+      .local_size_x = scope.local_size_x(),
+    };
+  }
+
 }// namespace detail
 
 template<typename Params, typename Fun> struct bulk_closure
@@ -86,30 +107,18 @@ template<typename Params, typename Fun> struct bulk_sender
   context *ctx{ nullptr };
   std::uint32_t shape{};
   Params params{};
-  pipeline_resources *pipe{ nullptr };
-  std::vector<edsl::storage_trace> buffers;
-  std::uint32_t local_size_x{ k_default_local_size_x };
+  Fun fun{};
 
-  bulk_sender(context *host, std::uint32_t work_count, Params push, Fun fun)
-    : ctx(host), shape(work_count), params(std::move(push))
-  {
-    edsl::trace_scope const scope;
-    edsl::Int const idx = edsl::Int::param_index();
-    auto push_proxy = edsl::push_constant<Params>::bind();
-    fun(idx, push_proxy);
-    pipe = &ctx->get_or_compile(scope, shape);
-    buffers = scope.buffers();
-    local_size_x = scope.local_size_x();
-  }
+  bulk_sender(context *host, std::uint32_t work_count, Params push, Fun kernel)
+    : ctx(host), shape(work_count), params(std::move(push)), fun(std::move(kernel))
+  {}
 
   template<class Receiver> struct op_state
   {
     context *ctx{ nullptr };
     std::uint32_t shape{};
     Params params{};
-    pipeline_resources *pipe{ nullptr };
-    std::vector<edsl::storage_trace> buffers;
-    std::uint32_t local_size_x{ k_default_local_size_x };
+    Fun fun{};
     Receiver receiver;
 
     void start() noexcept
@@ -133,7 +142,9 @@ template<typename Params, typename Fun> struct bulk_sender
 
     void run()
     {
-      VkDescriptorSet set = detail::allocate_traced_set(*ctx, *pipe, buffers);
+      detail::bulk_traced_state const traced = detail::trace_bulk_kernel<Params>(*ctx, shape, fun);
+
+      VkDescriptorSet set = detail::allocate_traced_set(*ctx, *traced.pipe, traced.buffers);
 
       VkCommandBuffer cmd = ctx->allocate_command_buffer();
       VkCommandBufferBeginInfo begin{};
@@ -141,41 +152,57 @@ template<typename Params, typename Fun> struct bulk_sender
       begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
       vkBeginCommandBuffer(cmd, &begin);
 
-      vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe->pipeline);
-      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-      if (pipe->push_bytes > 0) { upload_push_constants(cmd, *pipe, params); }
+      vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
+      vkCmdBindDescriptorSets(
+        cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
+      if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, params); }
 
-      std::uint32_t const groups = (shape + local_size_x - 1U) / local_size_x;
+      std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
       vkCmdDispatch(cmd, groups, 1, 1);
       vkEndCommandBuffer(cmd);
 
       ctx->submit_and_wait(cmd);
       ctx->free_command_buffer(cmd);
-      vkFreeDescriptorSets(ctx->device(), pipe->descriptor_pool, 1, &set);
+      vkFreeDescriptorSets(ctx->device(), traced.pipe->descriptor_pool, 1, &set);
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
-  { return op_state<Receiver>{ ctx, shape, params, pipe, buffers, local_size_x, std::move(receiver) }; }
+  template<class Receiver> [[nodiscard]] auto connect(this auto&& self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      self.ctx,
+      self.shape,
+      std::forward_like<decltype(self)>(self.params),
+      std::forward_like<decltype(self)>(self.fun),
+      std::move(receiver),
+    };
+  }
 };
 
 template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
-{ return bulk_sender<Params, Fun>(snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun)); }
+{
+  return bulk_sender<Params, Fun>(
+    snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun));
+}
 
 /// Submit without blocking; returns a binary semaphore signaled on compute completion.
 template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
 {
-  VkDescriptorSet set = detail::allocate_traced_set(*sender.ctx, *sender.pipe, sender.buffers);
+  detail::bulk_traced_state const traced =
+    detail::trace_bulk_kernel<Params>(*sender.ctx, sender.shape, sender.fun);
+
+  VkDescriptorSet set = detail::allocate_traced_set(*sender.ctx, *traced.pipe, traced.buffers);
 
   VkCommandBuffer cmd = sender.ctx->allocate_command_buffer();
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(cmd, &begin);
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sender.pipe->pipeline);
-  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sender.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-  if (sender.pipe->push_bytes > 0) { upload_push_constants(cmd, *sender.pipe, sender.params); }
-  std::uint32_t const groups = (sender.shape + sender.local_size_x - 1U) / sender.local_size_x;
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
+  vkCmdBindDescriptorSets(
+    cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
+  if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, sender.params); }
+  std::uint32_t const groups = (sender.shape + traced.local_size_x - 1U) / traced.local_size_x;
   vkCmdDispatch(cmd, groups, 1, 1);
   vkEndCommandBuffer(cmd);
 
