@@ -52,23 +52,19 @@ namespace {
     for (VkFormat const format : k_candidates) {
       VkFormatProperties properties{};
       vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
-      if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) {
-        return format;
-      }
+      if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) { return format; }
     }
     throw std::runtime_error("no supported depth format");
   }
 
   auto format_has_stencil(VkFormat format) -> bool
-  {
-    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-  }
+  { return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT; }
 
   auto depth_aspect_mask(VkFormat format) -> VkImageAspectFlags
   {
     if (format_has_stencil(format)) {
-      return static_cast<VkImageAspectFlags>(
-        static_cast<std::uint32_t>(VK_IMAGE_ASPECT_DEPTH_BIT) | static_cast<std::uint32_t>(VK_IMAGE_ASPECT_STENCIL_BIT));
+      return static_cast<VkImageAspectFlags>(static_cast<std::uint32_t>(VK_IMAGE_ASPECT_DEPTH_BIT)
+                                             | static_cast<std::uint32_t>(VK_IMAGE_ASPECT_STENCIL_BIT));
     }
     return VK_IMAGE_ASPECT_DEPTH_BIT;
   }
@@ -260,13 +256,13 @@ auto window::create_render_pass() -> void
     .pPreserveAttachments = nullptr,
   };
 
-  auto const attachment_stages = static_cast<VkPipelineStageFlags>(
-    static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-    | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
-    | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT));
-  auto const attachment_access = static_cast<VkAccessFlags>(
-    static_cast<std::uint32_t>(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-    | static_cast<std::uint32_t>(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT));
+  auto const attachment_stages =
+    static_cast<VkPipelineStageFlags>(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                                      | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+                                      | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT));
+  auto const attachment_access =
+    static_cast<VkAccessFlags>(static_cast<std::uint32_t>(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                               | static_cast<std::uint32_t>(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT));
 
   VkSubpassDependency const dependency{
     .srcSubpass = VK_SUBPASS_EXTERNAL,

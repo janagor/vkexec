@@ -11,8 +11,9 @@ target_link_libraries(
   PRIVATE glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
 
 target_include_directories(
-  vkexec_edsl ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include> $<INSTALL_INTERFACE:include>
+  vkexec_edsl ${WARNING_GUARD}
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+         $<INSTALL_INTERFACE:include>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_compile_features(vkexec_edsl PUBLIC cxx_std_${CMAKE_CXX_STANDARD})

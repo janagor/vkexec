@@ -30,21 +30,17 @@ auto trace_scope::buffers() const -> std::vector<storage_trace>
 {
   std::vector<storage_trace> out;
   out.reserve(impl_->ast.buffers.size());
-  std::ranges::transform(
-    impl_->ast.buffers, std::back_inserter(out), [](BufferBinding const &buffer) -> storage_trace {
-      return storage_trace{
-        .vk_buffer = buffer.vk_buffer,
-        .byte_size = buffer.byte_size,
-        .binding = buffer.binding,
-      };
-    });
+  std::ranges::transform(impl_->ast.buffers, std::back_inserter(out), [](BufferBinding const &buffer) -> storage_trace {
+    return storage_trace{
+      .vk_buffer = buffer.vk_buffer,
+      .byte_size = buffer.byte_size,
+      .binding = buffer.binding,
+    };
+  });
   return out;
 }
 
-auto trace_scope::local_size_x() const -> std::uint32_t
-{
-  return static_cast<std::uint32_t>(impl_->ast.local_size_x);
-}
+auto trace_scope::local_size_x() const -> std::uint32_t { return static_cast<std::uint32_t>(impl_->ast.local_size_x); }
 
 auto detail::trace_ast_access::get(trace_scope const &scope) -> ASTContext const & { return scope.impl_->ast; }
 

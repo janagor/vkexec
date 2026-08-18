@@ -38,14 +38,13 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
 {
   buffers_.clear();
   buffers_.reserve(buffers.size());
-  std::ranges::transform(
-    buffers, std::back_inserter(buffers_), [](edsl::storage_trace const &buffer) -> bound_buffer {
-      return bound_buffer{
-        .binding = static_cast<std::uint32_t>(buffer.binding),
-        .buffer = static_cast<VkBuffer>(buffer.vk_buffer),
-        .byte_size = static_cast<VkDeviceSize>(buffer.byte_size),
-      };
-    });
+  std::ranges::transform(buffers, std::back_inserter(buffers_), [](edsl::storage_trace const &buffer) -> bound_buffer {
+    return bound_buffer{
+      .binding = static_cast<std::uint32_t>(buffer.binding),
+      .buffer = static_cast<VkBuffer>(buffer.vk_buffer),
+      .byte_size = static_cast<VkDeviceSize>(buffer.byte_size),
+    };
+  });
 
   if (!buffers_.empty()) {
     std::vector<VkDescriptorSetLayoutBinding> bindings(buffers_.size());

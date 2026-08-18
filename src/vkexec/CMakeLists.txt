@@ -1,4 +1,9 @@
-add_library(vkexec context.cpp pipeline_cache.cpp compute_pipeline.cpp vma.cpp)
+add_library(
+  vkexec
+  context.cpp
+  pipeline_cache.cpp
+  compute_pipeline.cpp
+  vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
 
@@ -14,8 +19,9 @@ target_link_libraries(
   PRIVATE glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
 
 target_include_directories(
-  vkexec ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                 $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include> $<INSTALL_INTERFACE:include>
+  vkexec ${WARNING_GUARD}
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+         $<INSTALL_INTERFACE:include>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_compile_features(vkexec PUBLIC cxx_std_${CMAKE_CXX_STANDARD})

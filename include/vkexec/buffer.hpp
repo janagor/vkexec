@@ -137,11 +137,9 @@ public:
     }
 
     // cppcheck-suppress unusedPrivateFunction
-    [[nodiscard]] auto load_float() const -> edsl::Float
-    { return edsl::load_buffer_float(ensure_binding(), index.id); }
+    [[nodiscard]] auto load_float() const -> edsl::Float { return edsl::load_buffer_float(ensure_binding(), index.id); }
     // cppcheck-suppress unusedPrivateFunction
-    [[nodiscard]] auto load_int() const -> edsl::Int
-    { return edsl::load_buffer_int(ensure_binding(), index.id); }
+    [[nodiscard]] auto load_int() const -> edsl::Int { return edsl::load_buffer_int(ensure_binding(), index.id); }
     void store(int value_id) const { edsl::store_buffer(ensure_binding(), index.id, value_id); }
   };
 

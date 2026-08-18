@@ -30,8 +30,7 @@ public:
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
   auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &;
-  auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> pipeline_resources &;
+  auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc) -> pipeline_resources &;
 
 private:
   context *ctx_;

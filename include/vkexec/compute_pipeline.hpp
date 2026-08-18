@@ -26,10 +26,9 @@ class compute_pipeline
 public:
   [[nodiscard]] static auto from_spirv(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> compute_pipeline;
-  [[nodiscard]] static auto from_glsl(context &ctx,
-    std::string_view glsl,
-    layout_desc const &desc,
-    std::string_view name = "vkexec.comp") -> compute_pipeline;
+  [[nodiscard]] static auto
+    from_glsl(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
+      -> compute_pipeline;
 
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
@@ -39,9 +38,9 @@ public:
 
   [[nodiscard]] auto local_size() const noexcept -> dispatch
   {
-    return dispatch{ .x = resources_->local_size.at(0),
-      .y = resources_->local_size.at(1),
-      .z = resources_->local_size.at(2) };
+    return dispatch{
+      .x = resources_->local_size.at(0), .y = resources_->local_size.at(1), .z = resources_->local_size.at(2)
+    };
   }
 
   [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
@@ -63,21 +62,15 @@ private:
 template<typename Params>
 auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count)
   -> prebuilt_compute_pass_closure
-{
-  return compute_pass(pipe.bind(set), params, pipe.groups_for(work_count));
-}
+{ return compute_pass(pipe.bind(set), params, pipe.groups_for(work_count)); }
 
 inline auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
   -> prebuilt_compute_pass_closure
-{
-  return compute_pass(pipe.bind(set), pipe.groups_for(work_count));
-}
+{ return compute_pass(pipe.bind(set), pipe.groups_for(work_count)); }
 
 template<typename T>
 auto upload_push_constants(VkCommandBuffer cmd, compute_pipeline const &pipe, T const &params) -> void
-{
-  upload_push_constants(cmd, pipe.resources().pipeline_layout, params);
-}
+{ upload_push_constants(cmd, pipe.resources().pipeline_layout, params); }
 
 }// namespace vkexec
 

@@ -132,9 +132,8 @@ auto main() -> int
       // GPU particle update (in-place SSBO), synchronized before draw.
       (void)ex::sync_wait(
         ex::schedule(ctx.get_scheduler())
-        | vkexec::bulk(k_particle_count,
-          params,
-          [&](edsl::Int const index, edsl::push_constant<particle_params> push) -> void {
+        | vkexec::bulk(
+          k_particle_count, params, [&](edsl::Int const index, edsl::push_constant<particle_params> push) -> void {
             edsl::Float position_x = pos_x[index];
             edsl::Float position_y = pos_y[index];
             edsl::Float velocity_x = vel_x[index];

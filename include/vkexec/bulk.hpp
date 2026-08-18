@@ -27,44 +27,43 @@ namespace ex = stdexec;
 
 namespace detail {
 
-inline auto write_traced_descriptors(VkDevice device,
-  VkDescriptorSet set,
-  std::span<edsl::storage_trace const> buffers) -> void
-{
-  if (buffers.empty()) { return; }
-  std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(buffers.size());
-  std::size_t index = 0;
-  for (edsl::storage_trace const &buffer : buffers) {
-    buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
-    buf_infos.at(index).offset = 0;
-    buf_infos.at(index).range = buffer.byte_size;
-    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.at(index).dstSet = set;
-    writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
-    writes.at(index).descriptorCount = 1;
-    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes.at(index).pBufferInfo = &buf_infos.at(index);
-    ++index;
+  inline auto
+    write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers) -> void
+  {
+    if (buffers.empty()) { return; }
+    std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
+    std::vector<VkWriteDescriptorSet> writes(buffers.size());
+    std::size_t index = 0;
+    for (edsl::storage_trace const &buffer : buffers) {
+      buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
+      buf_infos.at(index).offset = 0;
+      buf_infos.at(index).range = buffer.byte_size;
+      writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      writes.at(index).dstSet = set;
+      writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
+      writes.at(index).descriptorCount = 1;
+      writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      writes.at(index).pBufferInfo = &buf_infos.at(index);
+      ++index;
+    }
+    vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
   }
-  vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-}
 
-inline auto allocate_traced_set(context &ctx, pipeline_resources &pipe, std::span<edsl::storage_trace const> buffers)
-  -> VkDescriptorSet
-{
-  VkDescriptorSetAllocateInfo dsai{};
-  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  dsai.descriptorPool = pipe.descriptor_pool;
-  dsai.descriptorSetCount = 1;
-  dsai.pSetLayouts = &pipe.set_layout;
-  VkDescriptorSet set{ VK_NULL_HANDLE };
-  if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-    throw std::runtime_error("vkAllocateDescriptorSets failed");
+  inline auto allocate_traced_set(context &ctx, pipeline_resources &pipe, std::span<edsl::storage_trace const> buffers)
+    -> VkDescriptorSet
+  {
+    VkDescriptorSetAllocateInfo dsai{};
+    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsai.descriptorPool = pipe.descriptor_pool;
+    dsai.descriptorSetCount = 1;
+    dsai.pSetLayouts = &pipe.set_layout;
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+    if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
+      throw std::runtime_error("vkAllocateDescriptorSets failed");
+    }
+    write_traced_descriptors(ctx.device(), set, buffers);
+    return set;
   }
-  write_traced_descriptors(ctx.device(), set, buffers);
-  return set;
-}
 
 }// namespace detail
 
@@ -152,15 +151,11 @@ template<typename Params, typename Fun> struct bulk_sender
   };
 
   template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ ctx, shape, params, pipe, buffers, local_size_x, std::move(receiver) };
-  }
+  { return op_state<Receiver>{ ctx, shape, params, pipe, buffers, local_size_x, std::move(receiver) }; }
 };
 
 template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
-{
-  return bulk_sender<Params, Fun>(snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun));
-}
+{ return bulk_sender<Params, Fun>(snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun)); }
 
 /// Submit without blocking; returns a binary semaphore signaled on compute completion.
 template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
@@ -173,8 +168,7 @@ template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fu
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   vkBeginCommandBuffer(cmd, &begin);
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sender.pipe->pipeline);
-  vkCmdBindDescriptorSets(
-    cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sender.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
+  vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, sender.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
   if (sender.pipe->push_bytes > 0) { upload_push_constants(cmd, *sender.pipe, sender.params); }
   std::uint32_t const groups = (sender.shape + sender.local_size_x - 1U) / sender.local_size_x;
   vkCmdDispatch(cmd, groups, 1, 1);

@@ -80,10 +80,10 @@ auto main() -> int
 
     VkDescriptorSet set = pipe.allocate_set();
     std::array<vkexec::storage_binding, 2> const buffers{
-      vkexec::storage_binding{ .buffer = input.vk_buffer(),
-        .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
-      vkexec::storage_binding{ .buffer = output.vk_buffer(),
-        .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
+      vkexec::storage_binding{
+        .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
+      vkexec::storage_binding{
+        .buffer = output.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
     };
     pipe.update_set(set, buffers);
 

@@ -26,98 +26,98 @@ inline auto memory_barrier(VkCommandBuffer cmd, memory_barrier_params params) ->
 
 namespace barrier {
 
-[[nodiscard]] inline auto flags(std::uint32_t bits) -> VkFlags { return static_cast<VkFlags>(bits); }
+  [[nodiscard]] inline auto flags(std::uint32_t bits) -> VkFlags { return static_cast<VkFlags>(bits); }
 
-struct transfer_to_compute_t
-{
-  auto operator()(VkCommandBuffer cmd) const -> void
+  struct transfer_to_compute_t
   {
-    memory_barrier(cmd,
-      {
-        .src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
-        .dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .src_access = VK_ACCESS_TRANSFER_WRITE_BIT,
-        .dst_access = flags(static_cast<std::uint32_t>(VK_ACCESS_SHADER_READ_BIT)
-                            | static_cast<std::uint32_t>(VK_ACCESS_SHADER_WRITE_BIT)),
-      });
-  }
-};
+    auto operator()(VkCommandBuffer cmd) const -> void
+    {
+      memory_barrier(cmd,
+        {
+          .src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT,
+          .dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          .src_access = VK_ACCESS_TRANSFER_WRITE_BIT,
+          .dst_access = flags(static_cast<std::uint32_t>(VK_ACCESS_SHADER_READ_BIT)
+                              | static_cast<std::uint32_t>(VK_ACCESS_SHADER_WRITE_BIT)),
+        });
+    }
+  };
 
-struct compute_to_compute_t
-{
-  auto operator()(VkCommandBuffer cmd) const -> void
+  struct compute_to_compute_t
   {
-    memory_barrier(cmd,
-      {
-        .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dst_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
-                           | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT)),
-        .src_access = VK_ACCESS_SHADER_WRITE_BIT,
-        .dst_access = flags(static_cast<std::uint32_t>(VK_ACCESS_SHADER_READ_BIT)
-                            | static_cast<std::uint32_t>(VK_ACCESS_SHADER_WRITE_BIT)
-                            | static_cast<std::uint32_t>(VK_ACCESS_INDIRECT_COMMAND_READ_BIT)),
-      });
-  }
-};
+    auto operator()(VkCommandBuffer cmd) const -> void
+    {
+      memory_barrier(cmd,
+        {
+          .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          .dst_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
+                             | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT)),
+          .src_access = VK_ACCESS_SHADER_WRITE_BIT,
+          .dst_access = flags(static_cast<std::uint32_t>(VK_ACCESS_SHADER_READ_BIT)
+                              | static_cast<std::uint32_t>(VK_ACCESS_SHADER_WRITE_BIT)
+                              | static_cast<std::uint32_t>(VK_ACCESS_INDIRECT_COMMAND_READ_BIT)),
+        });
+    }
+  };
 
-struct compute_to_graphics_t
-{
-  auto operator()(VkCommandBuffer cmd) const -> void
+  struct compute_to_graphics_t
   {
-    memory_barrier(cmd,
-      {
-        .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dst_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT)
-                           | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
-                           | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)),
-        .src_access = VK_ACCESS_SHADER_WRITE_BIT,
-        .dst_access = flags(static_cast<std::uint32_t>(VK_ACCESS_INDIRECT_COMMAND_READ_BIT)
-                            | static_cast<std::uint32_t>(VK_ACCESS_SHADER_READ_BIT)),
-      });
-  }
-};
+    auto operator()(VkCommandBuffer cmd) const -> void
+    {
+      memory_barrier(cmd,
+        {
+          .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          .dst_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT)
+                             | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+                             | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)),
+          .src_access = VK_ACCESS_SHADER_WRITE_BIT,
+          .dst_access = flags(static_cast<std::uint32_t>(VK_ACCESS_INDIRECT_COMMAND_READ_BIT)
+                              | static_cast<std::uint32_t>(VK_ACCESS_SHADER_READ_BIT)),
+        });
+    }
+  };
 
-struct graphics_to_compute_t
-{
-  auto operator()(VkCommandBuffer cmd) const -> void
+  struct graphics_to_compute_t
   {
-    memory_barrier(cmd,
-      {
-        .src_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
-                           | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)),
-        .dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .src_access = VK_ACCESS_SHADER_READ_BIT,
-        .dst_access = VK_ACCESS_SHADER_WRITE_BIT,
-      });
-  }
-};
+    auto operator()(VkCommandBuffer cmd) const -> void
+    {
+      memory_barrier(cmd,
+        {
+          .src_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+                             | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)),
+          .dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          .src_access = VK_ACCESS_SHADER_READ_BIT,
+          .dst_access = VK_ACCESS_SHADER_WRITE_BIT,
+        });
+    }
+  };
 
-struct compute_read_t
-{
-  auto operator()(VkCommandBuffer cmd) const -> void
+  struct compute_read_t
   {
-    memory_barrier(cmd,
-      {
-        .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        .dst_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
-                           | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)),
-        .src_access = VK_ACCESS_SHADER_WRITE_BIT,
-        .dst_access = VK_ACCESS_SHADER_READ_BIT,
-      });
-  }
-};
+    auto operator()(VkCommandBuffer cmd) const -> void
+    {
+      memory_barrier(cmd,
+        {
+          .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          .dst_stage = flags(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_VERTEX_SHADER_BIT)
+                             | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)),
+          .src_access = VK_ACCESS_SHADER_WRITE_BIT,
+          .dst_access = VK_ACCESS_SHADER_READ_BIT,
+        });
+    }
+  };
 
-[[nodiscard]] inline auto transfer_to_compute() -> transfer_to_compute_t { return {}; }
-[[nodiscard]] inline auto compute_to_compute() -> compute_to_compute_t { return {}; }
-[[nodiscard]] inline auto compute_to_graphics() -> compute_to_graphics_t { return {}; }
-[[nodiscard]] inline auto graphics_to_compute() -> graphics_to_compute_t { return {}; }
-[[nodiscard]] inline auto compute_read() -> compute_read_t { return {}; }
+  [[nodiscard]] inline auto transfer_to_compute() -> transfer_to_compute_t { return {}; }
+  [[nodiscard]] inline auto compute_to_compute() -> compute_to_compute_t { return {}; }
+  [[nodiscard]] inline auto compute_to_graphics() -> compute_to_graphics_t { return {}; }
+  [[nodiscard]] inline auto graphics_to_compute() -> graphics_to_compute_t { return {}; }
+  [[nodiscard]] inline auto compute_read() -> compute_read_t { return {}; }
 
-inline auto transfer_to_compute(VkCommandBuffer cmd) -> void { transfer_to_compute()(cmd); }
-inline auto compute_to_compute(VkCommandBuffer cmd) -> void { compute_to_compute()(cmd); }
-inline auto compute_to_graphics(VkCommandBuffer cmd) -> void { compute_to_graphics()(cmd); }
-inline auto graphics_to_compute(VkCommandBuffer cmd) -> void { graphics_to_compute()(cmd); }
-inline auto compute_read(VkCommandBuffer cmd) -> void { compute_read()(cmd); }
+  inline auto transfer_to_compute(VkCommandBuffer cmd) -> void { transfer_to_compute()(cmd); }
+  inline auto compute_to_compute(VkCommandBuffer cmd) -> void { compute_to_compute()(cmd); }
+  inline auto compute_to_graphics(VkCommandBuffer cmd) -> void { compute_to_graphics()(cmd); }
+  inline auto graphics_to_compute(VkCommandBuffer cmd) -> void { graphics_to_compute()(cmd); }
+  inline auto compute_read(VkCommandBuffer cmd) -> void { compute_read()(cmd); }
 
 }// namespace barrier
 

@@ -11,7 +11,7 @@
 
 namespace vkexec::edsl {
 namespace detail {
-struct trace_ast_access;
+  struct trace_ast_access;
 }
 
 /// Storage buffer observed while tracing an eDSL kernel.

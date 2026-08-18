@@ -86,64 +86,33 @@ auto operator-(double lhs, Float rhs) -> Float { return Float::constant(lhs) - r
 auto operator*(double lhs, Float rhs) -> Float { return Float::constant(lhs) * rhs; }
 auto operator/(double lhs, Float rhs) -> Float { return Float::constant(lhs) / rhs; }
 
-auto operator<(Int lhs, Int rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::Less, lhs.id, rhs.id, ValueType::Bool) };
-}
+auto operator<(Int lhs, Int rhs) -> Bool { return Bool{ binary_op(OpKind::Less, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator<=(Int lhs, Int rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::LessEqual, lhs.id, rhs.id, ValueType::Bool) };
-}
-auto operator>(Int lhs, Int rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::Greater, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::LessEqual, lhs.id, rhs.id, ValueType::Bool) }; }
+auto operator>(Int lhs, Int rhs) -> Bool { return Bool{ binary_op(OpKind::Greater, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator>=(Int lhs, Int rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::GreaterEqual, lhs.id, rhs.id, ValueType::Bool) };
-}
-auto operator==(Int lhs, Int rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::Equal, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::GreaterEqual, lhs.id, rhs.id, ValueType::Bool) }; }
+auto operator==(Int lhs, Int rhs) -> Bool { return Bool{ binary_op(OpKind::Equal, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator!=(Int lhs, Int rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::NotEqual, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::NotEqual, lhs.id, rhs.id, ValueType::Bool) }; }
 
 auto operator<(Float lhs, Float rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::Less, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::Less, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator<=(Float lhs, Float rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::LessEqual, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::LessEqual, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator>(Float lhs, Float rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::Greater, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::Greater, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator>=(Float lhs, Float rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::GreaterEqual, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::GreaterEqual, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator==(Float lhs, Float rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::Equal, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::Equal, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator!=(Float lhs, Float rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::NotEqual, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::NotEqual, lhs.id, rhs.id, ValueType::Bool) }; }
 
 auto operator&&(Bool lhs, Bool rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::LogicalAnd, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::LogicalAnd, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator||(Bool lhs, Bool rhs) -> Bool
-{
-  return Bool{ binary_op(OpKind::LogicalOr, lhs.id, rhs.id, ValueType::Bool) };
-}
+{ return Bool{ binary_op(OpKind::LogicalOr, lhs.id, rhs.id, ValueType::Bool) }; }
 auto operator!(Bool lhs) -> Bool { return Bool{ unary_op(OpKind::LogicalNot, lhs.id, ValueType::Bool) }; }
 
 auto sin(Float value) -> Float { return Float{ unary_op(OpKind::Sin, value.id) }; }
@@ -201,9 +170,7 @@ auto vec3(Float coord_x, Float coord_y, Float coord_z) -> Float3
   return Float3{ ast().append(std::move(node)) };
 }
 auto vec3(double coord_x, double coord_y, double coord_z) -> Float3
-{
-  return vec3(Float::constant(coord_x), Float::constant(coord_y), Float::constant(coord_z));
-}
+{ return vec3(Float::constant(coord_x), Float::constant(coord_y), Float::constant(coord_z)); }
 
 auto vec4(Float coord_x, Float coord_y, Float coord_z, Float coord_w) -> Float4
 {

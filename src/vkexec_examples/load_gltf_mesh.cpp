@@ -8,14 +8,14 @@
 #include <tiny_gltf.h>
 
 #include <algorithm>
-#include <cmath>
-#include <numbers>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <format>
 #include <iterator>
+#include <numbers>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -208,10 +208,12 @@ namespace {
     return vec3{ .x = value.x / length, .y = value.y / length, .z = value.z / length };
   }
 
-  auto shade_vertex(vec3 normal, std::array<float, k_mesh_vertex_components> const &base_color) -> std::array<float, k_mesh_vertex_components>
+  auto shade_vertex(vec3 normal, std::array<float, k_mesh_vertex_components> const &base_color)
+    -> std::array<float, k_mesh_vertex_components>
   {
     constexpr auto k_inv_sqrt3 = std::numbers::inv_sqrt3_v<float>;
-    float const n_dot_l = std::max(0.0F, (normal.x * k_inv_sqrt3) + (normal.y * k_inv_sqrt3) + (normal.z * k_inv_sqrt3));
+    float const n_dot_l =
+      std::max(0.0F, (normal.x * k_inv_sqrt3) + (normal.y * k_inv_sqrt3) + (normal.z * k_inv_sqrt3));
     float const intensity = k_ambient + ((k_unit_scale - k_ambient) * n_dot_l);
     return {
       base_color.at(0) * intensity,
@@ -290,7 +292,8 @@ namespace {
   }
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto read_vec3_normals(tinygltf::Model const &model, int accessor_index, std::size_t expected_count) -> std::vector<vec3>
+  auto read_vec3_normals(tinygltf::Model const &model, int accessor_index, std::size_t expected_count)
+    -> std::vector<vec3>
   {
     tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
     if (accessor.type != k_gltf_type_vec3 || accessor.componentType != k_gltf_component_float) {
@@ -371,9 +374,9 @@ namespace {
     }
 
     indices.reserve(indices.size() + local_indices.size());
-    std::ranges::transform(local_indices, std::back_inserter(indices), [base_vertex](std::uint32_t local_index)-> std::uint32_t {
-      return base_vertex + local_index;
-    });
+    std::ranges::transform(local_indices,
+      std::back_inserter(indices),
+      [base_vertex](std::uint32_t local_index) -> std::uint32_t { return base_vertex + local_index; });
   }
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)

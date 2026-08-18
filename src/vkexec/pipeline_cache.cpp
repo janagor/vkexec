@@ -33,9 +33,7 @@ namespace {
   }
 
   auto hash_combine(std::size_t seed, std::size_t value) -> std::size_t
-  {
-    return seed ^ (value + k_hash_golden_ratio + (seed << k_hash_shift_left) + (seed >> k_hash_shift_right));
-  }
+  { return seed ^ (value + k_hash_golden_ratio + (seed << k_hash_shift_left) + (seed >> k_hash_shift_right)); }
 
   auto hash_spirv_layout(std::span<std::uint32_t const> spirv, layout_desc const &desc) -> std::size_t
   {
@@ -96,8 +94,8 @@ namespace {
     layout_info.bindingCount = binding_count;
     layout_info.pBindings = bindings.data();
     VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
-    check(vkCreateDescriptorSetLayout(device, &layout_info, nullptr, &set_layout),
-      "vkCreateDescriptorSetLayout failed");
+    check(
+      vkCreateDescriptorSetLayout(device, &layout_info, nullptr, &set_layout), "vkCreateDescriptorSetLayout failed");
     return set_layout;
   }
 

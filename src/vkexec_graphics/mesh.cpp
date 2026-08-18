@@ -52,9 +52,7 @@ namespace {
 
   auto count_as_uint32(std::size_t count, char const *what) -> std::uint32_t
   {
-    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) {
-      throw std::invalid_argument(what);
-    }
+    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) { throw std::invalid_argument(what); }
     return static_cast<std::uint32_t>(count);
   }
 

@@ -50,15 +50,11 @@ struct compute_bind
 
 [[nodiscard]] inline auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
   -> compute_bind
-{
-  return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set };
-}
+{ return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }
 
-inline auto record_pass(VkCommandBuffer cmd,
-  compute_bind bind,
-  void const *push,
-  std::uint32_t push_bytes,
-  dispatch groups) -> void
+inline auto
+  record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
+    -> void
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
   if (bind.set != VK_NULL_HANDLE) {
@@ -88,88 +84,84 @@ inline auto record_pass(VkCommandBuffer cmd,
   void const *push,
   std::uint32_t push_bytes,
   dispatch groups) -> void
-{
-  record_pass(cmd, bind_compute(pipe, set), push, push_bytes, groups);
-}
+{ record_pass(cmd, bind_compute(pipe, set), push, push_bytes, groups); }
 
 namespace detail {
 
-struct pass_cleanup
-{
-  struct allocated_set
+  struct pass_cleanup
   {
-    VkDescriptorPool pool{ VK_NULL_HANDLE };
-    VkDescriptorSet set{ VK_NULL_HANDLE };
+    struct allocated_set
+    {
+      VkDescriptorPool pool{ VK_NULL_HANDLE };
+      VkDescriptorSet set{ VK_NULL_HANDLE };
+    };
+
+    std::unordered_map<pipeline_resources *, VkDescriptorSet> sets;
+    std::vector<allocated_set> allocated;
+
+    auto release(context const &ctx) -> void
+    {
+      for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
+      allocated.clear();
+      sets.clear();
+    }
   };
 
-  std::unordered_map<pipeline_resources *, VkDescriptorSet> sets;
-  std::vector<allocated_set> allocated;
-
-  auto release(context const &ctx) -> void
+  inline auto write_storage_descriptors(VkDevice device,
+    VkDescriptorSet set,
+    std::span<edsl::storage_trace const> buffers) -> void
   {
-    for (allocated_set const &item : allocated) {
-      vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set);
+    if (buffers.empty()) { return; }
+    std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
+    std::vector<VkWriteDescriptorSet> writes(buffers.size());
+    std::size_t index = 0;
+    for (edsl::storage_trace const &buffer : buffers) {
+      buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
+      buf_infos.at(index).offset = 0;
+      buf_infos.at(index).range = buffer.byte_size;
+      writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      writes.at(index).dstSet = set;
+      writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
+      writes.at(index).descriptorCount = 1;
+      writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      writes.at(index).pBufferInfo = &buf_infos.at(index);
+      ++index;
     }
-    allocated.clear();
-    sets.clear();
-  }
-};
-
-inline auto write_storage_descriptors(VkDevice device,
-  VkDescriptorSet set,
-  std::span<edsl::storage_trace const> buffers) -> void
-{
-  if (buffers.empty()) { return; }
-  std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(buffers.size());
-  std::size_t index = 0;
-  for (edsl::storage_trace const &buffer : buffers) {
-    buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
-    buf_infos.at(index).offset = 0;
-    buf_infos.at(index).range = buffer.byte_size;
-    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.at(index).dstSet = set;
-    writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
-    writes.at(index).descriptorCount = 1;
-    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes.at(index).pBufferInfo = &buf_infos.at(index);
-    ++index;
-  }
-  vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-}
-
-inline auto allocate_compute_set(context const &ctx,
-  pipeline_resources &pipe,
-  std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
-{
-  VkDescriptorSetAllocateInfo dsai{};
-  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  dsai.descriptorPool = pipe.descriptor_pool;
-  dsai.descriptorSetCount = 1;
-  dsai.pSetLayouts = &pipe.set_layout;
-  VkDescriptorSet set{ VK_NULL_HANDLE };
-  if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-    throw std::runtime_error("vkAllocateDescriptorSets failed");
-  }
-  write_storage_descriptors(ctx.device(), set, buffers);
-  return set;
-}
-
-inline auto bind_or_allocate_set(context const &ctx,
-  pipeline_resources &pipe,
-  std::span<edsl::storage_trace const> buffers,
-  pass_cleanup &cleanup) -> VkDescriptorSet
-{
-  if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-    write_storage_descriptors(ctx.device(), found->second, buffers);
-    return found->second;
+    vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
   }
 
-  VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
-  cleanup.sets.emplace(&pipe, set);
-  cleanup.allocated.push_back({ .pool = pipe.descriptor_pool, .set = set });
-  return set;
-}
+  inline auto allocate_compute_set(context const &ctx,
+    pipeline_resources &pipe,
+    std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
+  {
+    VkDescriptorSetAllocateInfo dsai{};
+    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsai.descriptorPool = pipe.descriptor_pool;
+    dsai.descriptorSetCount = 1;
+    dsai.pSetLayouts = &pipe.set_layout;
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+    if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
+      throw std::runtime_error("vkAllocateDescriptorSets failed");
+    }
+    write_storage_descriptors(ctx.device(), set, buffers);
+    return set;
+  }
+
+  inline auto bind_or_allocate_set(context const &ctx,
+    pipeline_resources &pipe,
+    std::span<edsl::storage_trace const> buffers,
+    pass_cleanup &cleanup) -> VkDescriptorSet
+  {
+    if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
+      write_storage_descriptors(ctx.device(), found->second, buffers);
+      return found->second;
+    }
+
+    VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
+    cleanup.sets.emplace(&pipe, set);
+    cleanup.allocated.push_back({ .pool = pipe.descriptor_pool, .set = set });
+    return set;
+  }
 
 }// namespace detail
 
@@ -253,9 +245,7 @@ struct prebuilt_compute_pass_closure
 
 template<typename Params, typename Fun>
 auto compute_pass(std::uint32_t shape, Params params, Fun fun) -> compute_pass_closure<Params, Fun>
-{
-  return compute_pass_closure<Params, Fun>{ shape, std::move(params), std::move(fun) };
-}
+{ return compute_pass_closure<Params, Fun>{ shape, std::move(params), std::move(fun) }; }
 
 template<typename Params>
 auto compute_pass(compute_bind bind, Params const &params, dispatch groups) -> prebuilt_compute_pass_closure
@@ -302,70 +292,66 @@ inline auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuil
 template<typename Params>
 auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &params, dispatch groups)
   -> prebuilt_compute_pass_closure
-{
-  return compute_pass(bind_compute(pipe, set), params, groups);
-}
+{ return compute_pass(bind_compute(pipe, set), params, groups); }
 
 namespace detail {
 
-template<typename Params, typename Fun>
-auto make_jit_step(context &ctx, compute_pass_closure<Params, Fun> closure) -> pass_step
-{
-  edsl::trace_scope const scope;
-  edsl::Int const idx = edsl::Int::param_index();
-  auto push = edsl::push_constant<Params>::bind();
-  closure.fun(idx, push);
+  template<typename Params, typename Fun>
+  auto make_jit_step(context &ctx, compute_pass_closure<Params, Fun> closure) -> pass_step
+  {
+    edsl::trace_scope const scope;
+    edsl::Int const idx = edsl::Int::param_index();
+    auto push = edsl::push_constant<Params>::bind();
+    closure.fun(idx, push);
 
-  pipeline_resources *pipe = &ctx.get_or_compile(scope, closure.shape);
-  std::vector<edsl::storage_trace> buffers = scope.buffers();
-  auto const local = scope.local_size_x();
-  Params const params = closure.params;
-  std::uint32_t const shape = closure.shape;
+    pipeline_resources *pipe = &ctx.get_or_compile(scope, closure.shape);
+    std::vector<edsl::storage_trace> buffers = scope.buffers();
+    auto const local = scope.local_size_x();
+    Params const params = closure.params;
+    std::uint32_t const shape = closure.shape;
 
-  return pass_step{ .record = [pipe, buffers = std::move(buffers), local, params, shape](
-                                context const &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
-    VkDescriptorSet set = bind_or_allocate_set(record_ctx, *pipe, buffers, cleanup);
-    std::uint32_t const groups = (shape + local - 1U) / local;
-    void const *push_ptr = pipe->push_bytes > 0 ? static_cast<void const *>(&params) : nullptr;
-    auto const push_bytes = static_cast<std::uint32_t>(pipe->push_bytes > 0 ? sizeof(Params) : 0);
-    record_pass(cmd, *pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
-  } };
-}
+    return pass_step{ .record = [pipe, buffers = std::move(buffers), local, params, shape](
+                                  context const &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
+      VkDescriptorSet set = bind_or_allocate_set(record_ctx, *pipe, buffers, cleanup);
+      std::uint32_t const groups = (shape + local - 1U) / local;
+      void const *push_ptr = pipe->push_bytes > 0 ? static_cast<void const *>(&params) : nullptr;
+      auto const push_bytes = static_cast<std::uint32_t>(pipe->push_bytes > 0 ? sizeof(Params) : 0);
+      record_pass(cmd, *pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
+    } };
+  }
 
-inline auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
-{
-  return pass_step{ .record = [closure = std::move(closure)](
-                                context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
-    void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
-    auto const push_bytes = static_cast<std::uint32_t>(closure.push.size());
-    if (closure.is_indirect) {
-      record_pass(cmd, closure.bind, push_ptr, push_bytes, closure.indirect);
-    } else {
-      record_pass(cmd, closure.bind, push_ptr, push_bytes, closure.groups);
-    }
-  } };
-}
+  inline auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
+  {
+    return pass_step{ .record = [closure = std::move(closure)](
+                                  context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
+      void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
+      auto const push_bytes = static_cast<std::uint32_t>(closure.push.size());
+      if (closure.is_indirect) {
+        record_pass(cmd, closure.bind, push_ptr, push_bytes, closure.indirect);
+      } else {
+        record_pass(cmd, closure.bind, push_ptr, push_bytes, closure.groups);
+      }
+    } };
+  }
 
-template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
-{
-  return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
-    tag(cmd);
-  } };
-}
+  template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
+  {
+    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
+      tag(cmd);
+    } };
+  }
 
-inline auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender
-{
-  graph.steps.push_back(std::move(step));
-  return graph;
-}
+  inline auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender
+  {
+    graph.steps.push_back(std::move(step));
+    return graph;
+  }
 
 }// namespace detail
 
 template<typename Params, typename Fun>
 auto operator|(schedule_sender snd, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
-{
-  return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_jit_step(*snd.ctx, std::move(closure)) } };
-}
+{ return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_jit_step(*snd.ctx, std::move(closure)) } }; }
 
 template<typename Params, typename Fun>
 auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
@@ -375,14 +361,10 @@ auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closur
 }
 
 inline auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender
-{
-  return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
-}
+{ return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } }; }
 
 inline auto operator|(pass_graph_sender graph, prebuilt_compute_pass_closure closure) -> pass_graph_sender
-{
-  return detail::append_step(std::move(graph), detail::make_prebuilt_step(std::move(closure)));
-}
+{ return detail::append_step(std::move(graph), detail::make_prebuilt_step(std::move(closure))); }
 
 inline auto operator|(pass_graph_sender graph, barrier::transfer_to_compute_t tag) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }

@@ -287,14 +287,10 @@ auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemapho
 }
 
 auto context::get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &
-{
-  return pipeline_cache_->get_or_compile(edsl::detail::trace_ast_access::get(trace), work_count);
-}
+{ return pipeline_cache_->get_or_compile(edsl::detail::trace_ast_access::get(trace), work_count); }
 
 auto context::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> pipeline_resources &
-{
-  return pipeline_cache_->get_or_create_from_spirv(spirv, desc);
-}
+{ return pipeline_cache_->get_or_create_from_spirv(spirv, desc); }
 
 }// namespace vkexec
