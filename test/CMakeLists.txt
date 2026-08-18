@@ -38,6 +38,7 @@ add_executable(tests
                pass_detail_tests.cpp
                dispatch_tests.cpp
                edsl_emit_tests.cpp
+               edsl_types_tests.cpp
                error_tests.cpp
                push_constant_tests.cpp
                bulk_tests.cpp
