@@ -33,13 +33,22 @@ add_test(NAME cmake.sanitizers.apple_excludes_leak
 add_test(NAME cmake.sanitizers.non_apple_includes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_non_apple_includes_leak.cmake)
 
-add_executable(tests tests.cpp pass_detail_tests.cpp edsl_emit_tests.cpp error_tests.cpp gpu_tests.cpp)
+add_executable(tests
+               tests.cpp
+               pass_detail_tests.cpp
+               dispatch_tests.cpp
+               edsl_emit_tests.cpp
+               error_tests.cpp
+               push_constant_tests.cpp
+               graphics_tests.cpp
+               gpu_tests.cpp)
 target_link_libraries(
   tests
   PRIVATE vkexec::vkexec_warnings
           vkexec::vkexec_options
           vkexec::vkexec
           vkexec::vkexec_edsl
+          vkexec::vkexec_graphics
           Catch2::Catch2WithMain)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/src/vkexec_edsl/glsl_emit.hpp")

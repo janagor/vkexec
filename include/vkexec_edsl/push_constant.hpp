@@ -47,6 +47,7 @@ namespace detail {
   {
     alignas(T) std::array<unsigned char, sizeof(T)> storage{};
     auto *object = reinterpret_cast<T *>(storage.data());// NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+    // cppcheck-suppress constVariablePointer
     auto *member = reinterpret_cast<unsigned char *>(// NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
       std::addressof(object->*member_pointer));
     return static_cast<std::int64_t>(member - storage.data());

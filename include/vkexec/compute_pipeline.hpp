@@ -45,10 +45,7 @@ public:
   }
 
   [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
-  {
-    std::uint32_t const local_x = resources_->local_size.at(0) == 0U ? 1U : resources_->local_size.at(0);
-    return dispatch{ .x = (work_count + local_x - 1U) / local_x };
-  }
+  { return dispatch_groups_for(work_count, resources_->local_size.at(0)); }
 
   [[nodiscard]] auto allocate_set() -> VkDescriptorSet;
   auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> void;
