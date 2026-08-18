@@ -77,15 +77,19 @@ auto main() -> int
         .local_size = { k_local_size_x, 1, 1 },
       },
       "scale.comp");
+    if (!pipe) {
+      std::println(stderr, "vkexec spirv example failed: {}", pipe.error().message());
+      return 1;
+    }
 
-    VkDescriptorSet set = pipe.allocate_set();
+    VkDescriptorSet set = pipe->allocate_set();
     std::array<vkexec::storage_binding, 2> const buffers{
       vkexec::storage_binding{
         .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
       vkexec::storage_binding{
         .buffer = output.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
     };
-    pipe.update_set(set, buffers);
+    pipe->update_set(set, buffers);
 
     host_push push{};
     push.xform.at(0) = k_scale;
@@ -93,7 +97,7 @@ auto main() -> int
     push.count = static_cast<std::uint32_t>(k_element_count);
 
     auto graph = ex::schedule(ctx.get_scheduler())
-                 | vkexec::compute_pass(pipe, set, push, static_cast<std::uint32_t>(k_element_count));
+                 | vkexec::compute_pass(*pipe, set, push, static_cast<std::uint32_t>(k_element_count));
     ex::sync_wait(std::move(graph));
 
     float const expected = k_initial * k_scale;

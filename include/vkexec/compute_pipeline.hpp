@@ -2,6 +2,7 @@
 #define VKEXEC_COMPUTE_PIPELINE_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -28,7 +29,7 @@ public:
     -> compute_pipeline;
   [[nodiscard]] static auto
     from_glsl(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
-      -> compute_pipeline;
+      -> result<compute_pipeline>;
 
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }

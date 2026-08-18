@@ -1,5 +1,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/spirv.hpp>
@@ -8,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <span>
 #include <stdexcept>
 #include <string_view>
@@ -23,11 +25,14 @@ auto compute_pipeline::from_spirv(context &ctx, std::span<std::uint32_t const> s
 }
 
 auto compute_pipeline::from_glsl(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
-  -> compute_pipeline
+  -> result<compute_pipeline>
 {
-  if (glsl.empty()) { VKEXEC_THROW(std::invalid_argument("compute_pipeline::from_glsl requires non-empty GLSL")); }
-  std::vector<std::uint32_t> const spirv = edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute);
-  return from_spirv(ctx, spirv, desc);
+  if (glsl.empty()) {
+    return std::unexpected(make_error(errc::invalid_argument, "compute_pipeline::from_glsl requires non-empty GLSL"));
+  }
+  result<std::vector<std::uint32_t>> const spirv = edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute);
+  if (!spirv) { return std::unexpected(spirv.error()); }
+  return from_spirv(ctx, *spirv, desc);
 }
 
 auto compute_pipeline::allocate_set() -> VkDescriptorSet

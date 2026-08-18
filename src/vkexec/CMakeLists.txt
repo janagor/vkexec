@@ -12,6 +12,7 @@ target_link_libraries(
   PUBLIC vkexec_options
          vkexec_warnings
          vkexec::vkexec_edsl
+         cx_system_error::cx_system_error
          Vulkan::Vulkan
          STDEXEC::stdexec
          vk-bootstrap::vk-bootstrap

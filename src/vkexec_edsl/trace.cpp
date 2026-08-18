@@ -4,12 +4,14 @@
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/trace_access.hpp>
 #include <vkexec_edsl/types.hpp>
+#include <vkexec/detail/config.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -47,13 +49,17 @@ auto detail::trace_ast_access::get(trace_scope const &scope) -> ASTContext const
 auto compile_vertex_spirv(trace_scope const &scope) -> std::vector<std::uint32_t>
 {
   std::string const glsl = emit_vertex_glsl(detail::trace_ast_access::get(scope));
-  return compile_glsl_to_spirv(glsl, "vkexec.vert", shader_kind::vertex);
+  auto spirv = compile_glsl_to_spirv(glsl, "vkexec.vert", shader_kind::vertex);
+  if (!spirv) { VKEXEC_THROW(std::runtime_error(std::string(spirv.error().message()))); }
+  return *spirv;
 }
 
 auto compile_fragment_spirv(trace_scope const &scope) -> std::vector<std::uint32_t>
 {
   std::string const glsl = emit_fragment_glsl(detail::trace_ast_access::get(scope));
-  return compile_glsl_to_spirv(glsl, "vkexec.frag", shader_kind::fragment);
+  auto spirv = compile_glsl_to_spirv(glsl, "vkexec.frag", shader_kind::fragment);
+  if (!spirv) { VKEXEC_THROW(std::runtime_error(std::string(spirv.error().message()))); }
+  return *spirv;
 }
 
 auto append_push_field(char const *name, std::int64_t offset) -> int

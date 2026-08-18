@@ -32,8 +32,12 @@ auto main() -> int
   try {
     vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec mesh" });
 
-    vkexec::examples::gltf_mesh_data const mesh_data = vkexec::examples::load_gltf_mesh(k_gltf_path);
-    vkexec::mesh const drawn(win.ctx(), mesh_data.vertices, mesh_data.indices);
+    auto mesh_data = vkexec::examples::load_gltf_mesh(k_gltf_path);
+    if (!mesh_data) {
+      std::println(stderr, "vkexec mesh example failed: {}", mesh_data.error().message());
+      return 1;
+    }
+    vkexec::mesh const drawn(win.ctx(), mesh_data->vertices, mesh_data->indices);
 
     vkexec::graphics_pipeline_config const cfg{
       .depth_test = true,

@@ -181,6 +181,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
 
   std::string const glsl = edsl::emit_glsl(ast, work_count);
   auto const spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk");
+  if (!spirv) { VKEXEC_THROW(std::runtime_error(std::string(spirv.error().message()))); }
 
   auto resources = std::make_unique<pipeline_resources>();
   resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
@@ -188,7 +189,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   resources->local_size = { static_cast<std::uint32_t>(ast.local_size_x), 1, 1 };
 
   VkDevice device = ctx_->device();
-  resources->shader = create_shader_module(device, spirv);
+  resources->shader = create_shader_module(device, *spirv);
   resources->set_layout = create_set_layout(device, resources->binding_count);
   resources->pipeline_layout = create_pipeline_layout(device, resources->set_layout, ast.push_bytes);
   resources->pipeline = create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr);

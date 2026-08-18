@@ -1,11 +1,10 @@
 #include "load_gltf_mesh.hpp"
 
+#include <utility>
+#include <vkexec/error.hpp>
 #include <vkexec_graphics/mesh.hpp>
 
-#define TINYGLTF_NO_EXTERNAL_IMAGE
-#define TINYGLTF_NO_STB_IMAGE
-#define TINYGLTF_NO_STB_IMAGE_WRITE
-#include <tiny_gltf.h>
+#include <tiny_gltf_v3.h>
 
 #include <algorithm>
 #include <array>
@@ -13,6 +12,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
+#include <expected>
 #include <format>
 #include <iterator>
 #include <numbers>
@@ -24,11 +25,11 @@
 namespace vkexec::examples {
 namespace {
 
-  constexpr int k_gltf_component_float = TINYGLTF_COMPONENT_TYPE_FLOAT;
-  constexpr int k_gltf_component_unsigned_int = TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT;
-  constexpr int k_gltf_type_vec3 = TINYGLTF_TYPE_VEC3;
-  constexpr int k_gltf_type_scalar = TINYGLTF_TYPE_SCALAR;
-  constexpr int k_gltf_mode_triangles = TINYGLTF_MODE_TRIANGLES;
+  constexpr int k_gltf_component_float = TG3_COMPONENT_TYPE_FLOAT;
+  constexpr int k_gltf_component_unsigned_int = TG3_COMPONENT_TYPE_UNSIGNED_INT;
+  constexpr int k_gltf_type_vec3 = TG3_TYPE_VEC3;
+  constexpr int k_gltf_type_scalar = TG3_TYPE_SCALAR;
+  constexpr int k_gltf_mode_triangles = TG3_MODE_TRIANGLES;
   constexpr std::size_t k_mat4_element_count = 16;
   constexpr std::size_t k_matrix_stride = 4;
   constexpr std::size_t k_matrix_diag_xx = 0;
@@ -46,7 +47,6 @@ namespace {
   constexpr float k_unit_scale = 1.0F;
   constexpr float k_quaternion_scale = 2.0F;
   constexpr std::size_t k_translation_col = 3;
-  constexpr std::size_t k_quaternion_component_count = 4;
   constexpr std::size_t k_mat_col0_row1 = 1;
   constexpr std::size_t k_mat_col0_row2 = 2;
   constexpr std::size_t k_mat_col1_row0 = 4;
@@ -76,12 +76,12 @@ namespace {
     return matrix;
   }
 
-  auto matrix_from_gltf(std::vector<double> const &source) -> mat4
+  auto matrix_from_gltf(std::span<double const, k_mat4_element_count> source) -> mat4
   {
-    if (source.size() != k_mat4_element_count) { throw std::runtime_error("gltf node matrix must have 16 elements"); }
     mat4 matrix{};
     for (std::size_t index = 0; index < k_mat4_element_count; ++index) {
-      matrix.cols.at(index) = static_cast<float>(source.at(index));
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+      matrix.cols.at(index) = static_cast<float>(source[index]);
     }
     return matrix;
   }
@@ -144,33 +144,28 @@ namespace {
     return matrix;
   }
 
-  auto vec3_from_gltf(std::vector<double> const &source, vec3 fallback) -> vec3
+  auto vec3_from_gltf(double const *source, vec3 fallback) -> vec3
   {
-    if (source.size() != k_mesh_vertex_components) { return fallback; }
+    if (source == nullptr) { return fallback; }
     return vec3{
-      .x = static_cast<float>(source.at(0)),
-      .y = static_cast<float>(source.at(1)),
-      .z = static_cast<float>(source.at(2)),
+      .x = static_cast<float>(source[0]),// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      .y = static_cast<float>(source[1]),// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      .z = static_cast<float>(source[2]),// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     };
   }
 
-  auto matrix_from_trs(tinygltf::Node const &node) -> mat4
+  auto matrix_from_trs(tg3_node const &node) -> mat4
   {
-    vec3 const translation = vec3_from_gltf(node.translation, vec3{});
-    vec3 const scale = vec3_from_gltf(node.scale, vec3{ .x = k_unit_scale, .y = k_unit_scale, .z = k_unit_scale });
-    float rotation_x = 0.0F;
-    float rotation_y = 0.0F;
-    float rotation_z = 0.0F;
-    float rotation_w = k_unit_scale;
-    if (node.rotation.size() == k_quaternion_component_count) {
-      rotation_x = static_cast<float>(node.rotation.at(0));
-      rotation_y = static_cast<float>(node.rotation.at(1));
-      rotation_z = static_cast<float>(node.rotation.at(2));
-      rotation_w = static_cast<float>(node.rotation.at(3));
-    }
-    mat4 const translation_matrix = matrix_from_translation(translation);
-    mat4 const rotation_matrix = matrix_from_quaternion(rotation_x, rotation_y, rotation_z, rotation_w);
-    mat4 const scale_matrix = matrix_from_scale(scale);
+    auto const translation = vec3_from_gltf(static_cast<double const *>(node.translation), vec3{});
+    auto const scale = vec3_from_gltf(
+      static_cast<double const *>(node.scale), vec3{ .x = k_unit_scale, .y = k_unit_scale, .z = k_unit_scale });
+    auto rotation_x = static_cast<float>(node.rotation[0]);
+    auto rotation_y = static_cast<float>(node.rotation[1]);
+    auto rotation_z = static_cast<float>(node.rotation[2]);
+    auto rotation_w = static_cast<float>(node.rotation[3]);
+    auto const translation_matrix = matrix_from_translation(translation);
+    auto const rotation_matrix = matrix_from_quaternion(rotation_x, rotation_y, rotation_z, rotation_w);
+    auto const scale_matrix = matrix_from_scale(scale);
     return multiply(multiply(translation_matrix, rotation_matrix), scale_matrix);
   }
 
@@ -222,13 +217,14 @@ namespace {
     };
   }
 
-  auto node_local_matrix(tinygltf::Node const &node) -> mat4
+  auto node_local_matrix(tg3_node const &node) -> mat4
   {
-    if (node.matrix.size() == k_mat4_element_count) { return matrix_from_gltf(node.matrix); }
+    if (node.has_matrix != 0) { return matrix_from_gltf(std::span<double const, k_mat4_element_count>(node.matrix)); }
     return matrix_from_trs(node);
   }
 
-  auto material_color(tinygltf::Model const &model, int material_index) -> std::array<float, k_mesh_vertex_components>
+  auto material_color(tg3_model const &model, std::int32_t material_index)
+    -> std::array<float, k_mesh_vertex_components>
   {
     std::array<float, k_mesh_vertex_components> color{
       k_default_material_color,
@@ -236,48 +232,82 @@ namespace {
       k_default_material_color,
     };
     if (material_index < 0) { return color; }
-    auto const material_count = static_cast<int>(model.materials.size());
-    if (material_index >= material_count) { return color; }
-    tinygltf::Material const &material = model.materials.at(static_cast<std::size_t>(material_index));
-    color.at(0) = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor.at(0));
-    color.at(1) = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor.at(1));
-    color.at(2) = static_cast<float>(material.pbrMetallicRoughness.baseColorFactor.at(2));
+    if (std::cmp_greater_equal(material_index, model.materials_count)) { return color; }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_material const &material = model.materials[static_cast<std::size_t>(material_index)];
+    color.at(0) = static_cast<float>(material.pbr_metallic_roughness.base_color_factor[0]);
+    color.at(1) = static_cast<float>(material.pbr_metallic_roughness.base_color_factor[1]);
+    color.at(2) = static_cast<float>(material.pbr_metallic_roughness.base_color_factor[2]);
     return color;
   }
 
-  auto accessor_bytes(tinygltf::Model const &model, int accessor_index) -> std::span<unsigned char const>
+  auto accessor_at(tg3_model const &model, std::int32_t accessor_index) -> tg3_accessor const &
   {
     if (accessor_index < 0) { throw std::runtime_error("gltf accessor index out of range"); }
-    tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
-    if (accessor.bufferView < 0) { throw std::runtime_error("gltf accessor missing buffer view"); }
-    tinygltf::BufferView const &view = model.bufferViews.at(static_cast<std::size_t>(accessor.bufferView));
-    if (view.buffer < 0) { throw std::runtime_error("gltf buffer view missing buffer"); }
-    tinygltf::Buffer const &buffer = model.buffers.at(static_cast<std::size_t>(view.buffer));
-    std::size_t const offset =
-      static_cast<std::size_t>(view.byteOffset) + static_cast<std::size_t>(accessor.byteOffset);
-    std::size_t const byte_length =
-      static_cast<std::size_t>(accessor.count)
-      * static_cast<std::size_t>(tinygltf::GetComponentSizeInBytes(static_cast<std::uint32_t>(accessor.componentType)));
-    if (offset + byte_length > buffer.data.size()) { throw std::runtime_error("gltf accessor exceeds buffer bounds"); }
-    return std::span<unsigned char const>(buffer.data).subspan(offset, byte_length);
+    if (std::cmp_greater_equal(accessor_index, model.accessors_count)) {
+      throw std::runtime_error("gltf accessor index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return model.accessors[static_cast<std::size_t>(accessor_index)];
   }
 
-  auto read_vec3_positions(tinygltf::Model const &model, int accessor_index) -> std::vector<vec3>
+  auto buffer_view_at(tg3_model const &model, std::int32_t buffer_view_index) -> tg3_buffer_view const &
   {
-    tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
-    if (accessor.type != k_gltf_type_vec3 || accessor.componentType != k_gltf_component_float) {
+    if (buffer_view_index < 0) { throw std::runtime_error("gltf buffer view index out of range"); }
+    if (std::cmp_greater_equal(buffer_view_index, model.buffer_views_count)) {
+      throw std::runtime_error("gltf buffer view index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return model.buffer_views[static_cast<std::size_t>(buffer_view_index)];
+  }
+
+  auto buffer_at(tg3_model const &model, std::int32_t buffer_index) -> tg3_buffer const &
+  {
+    if (buffer_index < 0) { throw std::runtime_error("gltf buffer index out of range"); }
+    if (std::cmp_greater_equal(buffer_index, model.buffers_count)) {
+      throw std::runtime_error("gltf buffer index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return model.buffers[static_cast<std::size_t>(buffer_index)];
+  }
+
+  auto accessor_bytes(tg3_model const &model, std::int32_t accessor_index) -> std::span<std::uint8_t const>
+  {
+    tg3_accessor const &accessor = accessor_at(model, accessor_index);
+    if (accessor.buffer_view < 0) { throw std::runtime_error("gltf accessor missing buffer view"); }
+    tg3_buffer_view const &view = buffer_view_at(model, accessor.buffer_view);
+    if (view.buffer < 0) { throw std::runtime_error("gltf buffer view missing buffer"); }
+    tg3_buffer const &buffer = buffer_at(model, view.buffer);
+    std::size_t const offset =
+      static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
+    int const component_size = tg3_component_size(accessor.component_type);
+    int const component_count = tg3_num_components(accessor.type);
+    if (component_size < 0 || component_count < 0) {
+      throw std::runtime_error("gltf accessor has invalid component layout");
+    }
+    std::size_t const byte_length = static_cast<std::size_t>(accessor.count) * static_cast<std::size_t>(component_size)
+                                    * static_cast<std::size_t>(component_count);
+    if (offset + byte_length > buffer.data.count) { throw std::runtime_error("gltf accessor exceeds buffer bounds"); }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    return { buffer.data.data + offset, byte_length };
+  }
+
+  auto read_vec3_positions(tg3_model const &model, std::int32_t accessor_index) -> std::vector<vec3>
+  {
+    tg3_accessor const &accessor = accessor_at(model, accessor_index);
+    if (accessor.type != k_gltf_type_vec3 || accessor.component_type != k_gltf_component_float) {
       throw std::runtime_error("gltf POSITION accessor must be VEC3/float");
     }
-    if (accessor.bufferView < 0) { throw std::runtime_error("gltf POSITION accessor missing buffer view"); }
-    tinygltf::BufferView const &view = model.bufferViews.at(static_cast<std::size_t>(accessor.bufferView));
+    if (accessor.buffer_view < 0) { throw std::runtime_error("gltf POSITION accessor missing buffer view"); }
+    tg3_buffer_view const &view = buffer_view_at(model, accessor.buffer_view);
     if (view.buffer < 0) { throw std::runtime_error("gltf POSITION buffer view missing buffer"); }
-    tinygltf::Buffer const &buffer = model.buffers.at(static_cast<std::size_t>(view.buffer));
-    int const stride = accessor.ByteStride(view);
+    tg3_buffer const &buffer = buffer_at(model, view.buffer);
+    int const stride = tg3_accessor_byte_stride(&accessor, &view);
     if (stride <= 0) { throw std::runtime_error("gltf POSITION accessor has invalid byte stride"); }
 
-    std::span<unsigned char const> const bytes(buffer.data);
+    std::span<std::uint8_t const> const bytes(buffer.data.data, buffer.data.count);
     std::size_t const base_offset =
-      static_cast<std::size_t>(view.byteOffset) + static_cast<std::size_t>(accessor.byteOffset);
+      static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
     std::vector<vec3> positions(static_cast<std::size_t>(accessor.count));
     for (std::size_t index = 0; index < positions.size(); ++index) {
       std::array<float, k_mesh_vertex_components> values{};
@@ -292,23 +322,23 @@ namespace {
   }
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto read_vec3_normals(tinygltf::Model const &model, int accessor_index, std::size_t expected_count)
+  auto read_vec3_normals(tg3_model const &model, std::int32_t accessor_index, std::size_t expected_count)
     -> std::vector<vec3>
   {
-    tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
-    if (accessor.type != k_gltf_type_vec3 || accessor.componentType != k_gltf_component_float) {
+    tg3_accessor const &accessor = accessor_at(model, accessor_index);
+    if (accessor.type != k_gltf_type_vec3 || accessor.component_type != k_gltf_component_float) {
       throw std::runtime_error("gltf NORMAL accessor must be VEC3/float");
     }
-    if (accessor.bufferView < 0) { throw std::runtime_error("gltf NORMAL accessor missing buffer view"); }
-    tinygltf::BufferView const &view = model.bufferViews.at(static_cast<std::size_t>(accessor.bufferView));
+    if (accessor.buffer_view < 0) { throw std::runtime_error("gltf NORMAL accessor missing buffer view"); }
+    tg3_buffer_view const &view = buffer_view_at(model, accessor.buffer_view);
     if (view.buffer < 0) { throw std::runtime_error("gltf NORMAL buffer view missing buffer"); }
-    tinygltf::Buffer const &buffer = model.buffers.at(static_cast<std::size_t>(view.buffer));
-    int const stride = accessor.ByteStride(view);
+    tg3_buffer const &buffer = buffer_at(model, view.buffer);
+    int const stride = tg3_accessor_byte_stride(&accessor, &view);
     if (stride <= 0) { throw std::runtime_error("gltf NORMAL accessor has invalid byte stride"); }
 
-    std::span<unsigned char const> const bytes(buffer.data);
+    std::span<std::uint8_t const> const bytes(buffer.data.data, buffer.data.count);
     std::size_t const base_offset =
-      static_cast<std::size_t>(view.byteOffset) + static_cast<std::size_t>(accessor.byteOffset);
+      static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
     std::size_t const count = std::min(static_cast<std::size_t>(accessor.count), expected_count);
     std::vector<vec3> normals(count);
     for (std::size_t index = 0; index < count; ++index) {
@@ -323,39 +353,49 @@ namespace {
     return normals;
   }
 
-  auto read_indices(tinygltf::Model const &model, int accessor_index) -> std::vector<std::uint32_t>
+  auto read_indices(tg3_model const &model, std::int32_t accessor_index) -> std::vector<std::uint32_t>
   {
-    tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
-    if (accessor.type != k_gltf_type_scalar || accessor.componentType != k_gltf_component_unsigned_int) {
+    tg3_accessor const &accessor = accessor_at(model, accessor_index);
+    if (accessor.type != k_gltf_type_scalar || accessor.component_type != k_gltf_component_unsigned_int) {
       throw std::runtime_error("gltf indices accessor must be SCALAR/unsigned int");
     }
-    std::span<unsigned char const> const bytes = accessor_bytes(model, accessor_index);
+    std::span<std::uint8_t const> const bytes = accessor_bytes(model, accessor_index);
     std::vector<std::uint32_t> indices(static_cast<std::size_t>(accessor.count));
     std::memcpy(indices.data(), bytes.data(), bytes.size());
     return indices;
   }
 
+  auto find_primitive_attribute(tg3_primitive const &primitive, char const *name) -> std::int32_t
+  {
+    for (std::uint32_t index = 0; index < primitive.attributes_count; ++index) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      tg3_str_int_pair const &attribute = primitive.attributes[index];
+      if (tg3_str_equals_cstr(attribute.key, name) != 0) { return attribute.value; }
+    }
+    return TG3_INDEX_NONE;
+  }
+
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto append_primitive(tinygltf::Model const &model,
-    tinygltf::Primitive const &primitive,
+  auto append_primitive(tg3_model const &model,
+    tg3_primitive const &primitive,
     mat4 const &world,
     std::vector<mesh_vertex> &vertices,
     std::vector<std::uint32_t> &indices) -> void
   {
-    if (primitive.mode != k_gltf_mode_triangles) { return; }
-    auto const position_it = primitive.attributes.find("POSITION");
-    if (position_it == primitive.attributes.end()) { throw std::runtime_error("gltf primitive missing POSITION"); }
+    int const mode = primitive.mode < 0 ? k_gltf_mode_triangles : primitive.mode;
+    if (mode != k_gltf_mode_triangles) { return; }
+
+    std::int32_t const position_accessor = find_primitive_attribute(primitive, "POSITION");
+    if (position_accessor < 0) { throw std::runtime_error("gltf primitive missing POSITION"); }
     if (primitive.indices < 0) { throw std::runtime_error("gltf primitive missing indices"); }
 
-    std::vector<vec3> const local_positions = read_vec3_positions(model, position_it->second);
+    std::vector<vec3> const local_positions = read_vec3_positions(model, position_accessor);
     std::vector<std::uint32_t> const local_indices = read_indices(model, primitive.indices);
     std::array<float, k_mesh_vertex_components> const base_color = material_color(model, primitive.material);
 
-    auto const normal_it = primitive.attributes.find("NORMAL");
+    std::int32_t const normal_accessor = find_primitive_attribute(primitive, "NORMAL");
     std::vector<vec3> local_normals;
-    if (normal_it != primitive.attributes.end()) {
-      local_normals = read_vec3_normals(model, normal_it->second, local_positions.size());
-    }
+    if (normal_accessor >= 0) { local_normals = read_vec3_normals(model, normal_accessor, local_positions.size()); }
     bool const has_normals = local_normals.size() == local_positions.size();
 
     auto const base_vertex = static_cast<std::uint32_t>(vertices.size());
@@ -380,33 +420,40 @@ namespace {
   }
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto append_mesh(tinygltf::Model const &model,
-    int mesh_index,
+  auto append_mesh(tg3_model const &model,
+    std::int32_t mesh_index,
     mat4 const &world,
     std::vector<mesh_vertex> &vertices,
     std::vector<std::uint32_t> &indices) -> void
   {
     if (mesh_index < 0) { return; }
-    tinygltf::Mesh const &mesh = model.meshes.at(static_cast<std::size_t>(mesh_index));
-    for (tinygltf::Primitive const &primitive : mesh.primitives) {
-      append_primitive(model, primitive, world, vertices, indices);
+    if (std::cmp_greater_equal(mesh_index, model.meshes_count)) { return; }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_mesh const &mesh = model.meshes[static_cast<std::size_t>(mesh_index)];
+    for (std::uint32_t primitive_index = 0; primitive_index < mesh.primitives_count; ++primitive_index) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      append_primitive(model, mesh.primitives[primitive_index], world, vertices, indices);
     }
   }
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto traverse_nodes(tinygltf::Model const &model,
-    int node_index,
+  auto traverse_nodes(tg3_model const &model,
+    std::int32_t node_index,
     mat4 const &parent,
     std::vector<mesh_vertex> &vertices,
     std::vector<std::uint32_t> &indices) -> void
   {
     if (node_index < 0) { return; }
-    auto const node_count = static_cast<int>(model.nodes.size());
-    if (node_index >= node_count) { return; }
-    tinygltf::Node const &node = model.nodes.at(static_cast<std::size_t>(node_index));
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    if (std::cmp_greater_equal(node_index, model.nodes_count)) { return; }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_node const &node = model.nodes[static_cast<std::size_t>(node_index)];
     mat4 const world = multiply(parent, node_local_matrix(node));
     append_mesh(model, node.mesh, world, vertices, indices);
-    for (int const child : node.children) { traverse_nodes(model, child, world, vertices, indices); }
+    for (std::uint32_t child_index = 0; child_index < node.children_count; ++child_index) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      traverse_nodes(model, node.children[child_index], world, vertices, indices);
+    }
   }
 
   auto fit_mesh_to_clip_space(std::vector<mesh_vertex> &vertices) -> void
@@ -442,33 +489,64 @@ namespace {
     }
   }
 
+  auto format_tg3_errors(tg3_error_stack const *errors) -> std::string
+  {
+    std::string message;
+    std::uint32_t const count = tg3_errors_count(errors);
+    for (std::uint32_t index = 0; index < count; ++index) {
+      tg3_error_entry const *entry = tg3_errors_get(errors, index);
+      if (entry == nullptr) { continue; }
+      if (!message.empty()) { message += "; "; }
+      if (entry->message != nullptr) { message += entry->message; }
+    }
+    if (message.empty()) { message = "unknown tinygltf error"; }
+    return message;
+  }
+
 }// namespace
 
-auto load_gltf_mesh(std::string const &path) -> gltf_mesh_data
+auto load_gltf_mesh(std::string const &path) -> vkexec::result<gltf_mesh_data>
 {
-  tinygltf::TinyGLTF loader{};
-  tinygltf::Model model{};
-  std::string error{};
-  std::string warning{};
+  try {
+    tinygltf3::Model model;
+    tinygltf3::ErrorStack errors;
+    tg3_parse_options options{};
+    tg3_parse_options_init(&options);
 
-  bool const loaded = path.ends_with(".glb") ? loader.LoadBinaryFromFile(&model, &error, &warning, path)
-                                             : loader.LoadASCIIFromFile(&model, &error, &warning, path);
-  if (!loaded) { throw std::runtime_error(std::format("tinygltf failed to load {}: {}", path, error)); }
+    tg3_error_code const parse_error =
+      tg3_parse_file(model.get(), errors.get(), path.c_str(), static_cast<std::uint32_t>(path.size()), &options);
+    if (parse_error != TG3_OK || errors.has_error()) {
+      return std::unexpected(make_error(
+        errc::io_error, std::format("tinygltf failed to load {}: {}", path, format_tg3_errors(errors.get()))));
+    }
 
-  gltf_mesh_data mesh_data{};
-  mat4 const identity = identity_matrix();
-  if (model.scenes.empty()) { throw std::runtime_error("gltf file has no scenes"); }
-  int const scene_index = model.defaultScene >= 0 ? model.defaultScene : 0;
-  tinygltf::Scene const &scene = model.scenes.at(static_cast<std::size_t>(scene_index));
-  for (int const node_index : scene.nodes) {
-    traverse_nodes(model, node_index, identity, mesh_data.vertices, mesh_data.indices);
+    tg3_model const &gltf = *model.get();
+    gltf_mesh_data mesh_data{};
+    mat4 const identity = identity_matrix();
+    if (gltf.scenes_count == 0) { return std::unexpected(make_error(errc::parse_error, "gltf file has no scenes")); }
+    int const scene_index = gltf.default_scene >= 0 ? gltf.default_scene : 0;
+    if (std::cmp_greater_equal(scene_index, gltf.scenes_count)) {
+      return std::unexpected(make_error(errc::parse_error, "gltf default scene index out of range"));
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_scene const &scene = gltf.scenes[static_cast<std::size_t>(scene_index)];
+    for (std::uint32_t node_index = 0; node_index < scene.nodes_count; ++node_index) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      traverse_nodes(gltf, scene.nodes[node_index], identity, mesh_data.vertices, mesh_data.indices);
+    }
+
+    if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
+      return std::unexpected(make_error(errc::empty_result, "gltf file contained no triangle geometry"));
+    }
+    fit_mesh_to_clip_space(mesh_data.vertices);
+    return mesh_data;
+  } catch (std::out_of_range const &ex) {
+    return std::unexpected(make_error(errc::out_of_range, ex.what()));
+  } catch (std::invalid_argument const &ex) {
+    return std::unexpected(make_error(errc::invalid_argument, ex.what()));
+  } catch (std::exception const &ex) {
+    return std::unexpected(make_error(errc::parse_error, ex.what()));
   }
-
-  if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
-    throw std::runtime_error("gltf file contained no triangle geometry");
-  }
-  fit_mesh_to_clip_space(mesh_data.vertices);
-  return mesh_data;
 }
 
 }// namespace vkexec::examples

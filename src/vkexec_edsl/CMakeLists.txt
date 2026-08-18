@@ -6,6 +6,7 @@ target_link_libraries(
   vkexec_edsl
   PUBLIC vkexec_options
          vkexec_warnings
+         cx_system_error::cx_system_error
          Boost::describe
          Boost::mp11
   PRIVATE glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)

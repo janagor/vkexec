@@ -103,6 +103,18 @@ function(vkexec_setup_dependencies)
       "STDEXEC_ENABLE_IO_URING OFF")
   endif()
 
+  if(NOT TARGET cx_system_error::cx_system_error)
+    cpmaddpackage(
+      NAME
+      cx_system_error
+      GITHUB_REPOSITORY
+      "janagor/cx_system_error"
+      GIT_TAG
+      "main"
+      SYSTEM
+      YES)
+  endif()
+
   if(NOT TARGET glfw)
     cpmaddpackage(
       NAME
@@ -148,27 +160,37 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
-  if(VKEXEC_BUILD_EXAMPLES)
-    if(NOT TARGET tinygltf)
-      cpmaddpackage(
-        NAME
-        tinygltf
-        GITHUB_REPOSITORY
-        "syoyo/tinygltf"
-        GIT_TAG
-        "v2.9.3"
-        SYSTEM
-        YES
-        OPTIONS
-        "TINYGLTF_BUILD_LOADER_EXAMPLE OFF"
-        "TINYGLTF_BUILD_GL_EXAMPLES OFF"
-        "TINYGLTF_BUILD_VALIDATOR_EXAMPLE OFF"
-        "TINYGLTF_INSTALL OFF")
-    endif()
+  if(VKEXEC_BUILD_EXAMPLES AND NOT TARGET tinygltf::tinygltf)
+    cpmaddpackage(
+      NAME
+      tinygltf
+      GITHUB_REPOSITORY
+      "syoyo/tinygltf"
+      GIT_TAG
+      "v3.0.1"
+      DOWNLOAD_ONLY
+      YES
+      SYSTEM
+      YES)
 
-    if(TARGET tinygltf)
-      set_target_properties(tinygltf PROPERTIES CXX_CPPCHECK "")
-    endif()
+    add_library(tinygltf STATIC ${tinygltf_SOURCE_DIR}/tiny_gltf_v3.c)
+    add_library(tinygltf::tinygltf ALIAS tinygltf)
+
+    target_include_directories(tinygltf SYSTEM PUBLIC ${tinygltf_SOURCE_DIR})
+    target_compile_definitions(tinygltf PRIVATE TINYGLTF3_ENABLE_FS)
+    set_target_properties(
+      tinygltf
+      PROPERTIES C_STANDARD
+                 11
+                 C_STANDARD_REQUIRED
+                 ON
+                 C_CLANG_TIDY
+                 ""
+                 C_CPPCHECK
+                 "")
+    set_source_files_properties(
+      ${tinygltf_SOURCE_DIR}/tiny_gltf_v3.c
+      PROPERTIES SKIP_LINTING ON COMPILE_OPTIONS "-Wno-everything")
   endif()
 
 endfunction()
