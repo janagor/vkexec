@@ -8,6 +8,8 @@
 #include <tiny_gltf.h>
 
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +40,7 @@ namespace {
   constexpr std::size_t k_axis_z = 2;
   constexpr std::size_t k_axis_w = 3;
   constexpr float k_default_material_color = 0.7F;
+  constexpr float k_ambient = 0.15F;
   constexpr float k_fit_extent = 1.6F;
   constexpr float k_center_scale = 0.5F;
   constexpr float k_unit_scale = 1.0F;
@@ -186,6 +189,37 @@ namespace {
     };
   }
 
+  auto transform_normal(mat4 const &matrix, vec3 normal) -> vec3
+  {
+    return vec3{
+      .x = (mat_at(matrix, k_axis_x, k_axis_x) * normal.x) + (mat_at(matrix, k_axis_y, k_axis_x) * normal.y)
+           + (mat_at(matrix, k_axis_z, k_axis_x) * normal.z),
+      .y = (mat_at(matrix, k_axis_x, k_axis_y) * normal.x) + (mat_at(matrix, k_axis_y, k_axis_y) * normal.y)
+           + (mat_at(matrix, k_axis_z, k_axis_y) * normal.z),
+      .z = (mat_at(matrix, k_axis_x, k_axis_z) * normal.x) + (mat_at(matrix, k_axis_y, k_axis_z) * normal.y)
+           + (mat_at(matrix, k_axis_z, k_axis_z) * normal.z),
+    };
+  }
+
+  auto normalize_vec3(vec3 value) -> vec3
+  {
+    float const length = std::sqrt((value.x * value.x) + (value.y * value.y) + (value.z * value.z));
+    if (length <= 0.0F) { return value; }
+    return vec3{ .x = value.x / length, .y = value.y / length, .z = value.z / length };
+  }
+
+  auto shade_vertex(vec3 normal, std::array<float, k_mesh_vertex_components> const &base_color) -> std::array<float, k_mesh_vertex_components>
+  {
+    constexpr auto k_inv_sqrt3 = std::numbers::inv_sqrt3_v<float>;
+    float const n_dot_l = std::max(0.0F, (normal.x * k_inv_sqrt3) + (normal.y * k_inv_sqrt3) + (normal.z * k_inv_sqrt3));
+    float const intensity = k_ambient + ((k_unit_scale - k_ambient) * n_dot_l);
+    return {
+      base_color.at(0) * intensity,
+      base_color.at(1) * intensity,
+      base_color.at(2) * intensity,
+    };
+  }
+
   auto node_local_matrix(tinygltf::Node const &node) -> mat4
   {
     if (node.matrix.size() == k_mat4_element_count) { return matrix_from_gltf(node.matrix); }
@@ -255,6 +289,37 @@ namespace {
     return positions;
   }
 
+  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+  auto read_vec3_normals(tinygltf::Model const &model, int accessor_index, std::size_t expected_count) -> std::vector<vec3>
+  {
+    tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
+    if (accessor.type != k_gltf_type_vec3 || accessor.componentType != k_gltf_component_float) {
+      throw std::runtime_error("gltf NORMAL accessor must be VEC3/float");
+    }
+    if (accessor.bufferView < 0) { throw std::runtime_error("gltf NORMAL accessor missing buffer view"); }
+    tinygltf::BufferView const &view = model.bufferViews.at(static_cast<std::size_t>(accessor.bufferView));
+    if (view.buffer < 0) { throw std::runtime_error("gltf NORMAL buffer view missing buffer"); }
+    tinygltf::Buffer const &buffer = model.buffers.at(static_cast<std::size_t>(view.buffer));
+    int const stride = accessor.ByteStride(view);
+    if (stride <= 0) { throw std::runtime_error("gltf NORMAL accessor has invalid byte stride"); }
+
+    std::span<unsigned char const> const bytes(buffer.data);
+    std::size_t const base_offset =
+      static_cast<std::size_t>(view.byteOffset) + static_cast<std::size_t>(accessor.byteOffset);
+    std::size_t const count = std::min(static_cast<std::size_t>(accessor.count), expected_count);
+    std::vector<vec3> normals(count);
+    for (std::size_t index = 0; index < count; ++index) {
+      std::array<float, k_mesh_vertex_components> values{};
+      std::size_t const byte_offset = base_offset + (index * static_cast<std::size_t>(stride));
+      if (byte_offset + sizeof(values) > bytes.size()) {
+        throw std::runtime_error("gltf NORMAL accessor exceeds buffer bounds");
+      }
+      std::memcpy(values.data(), bytes.subspan(byte_offset, sizeof(values)).data(), sizeof(values));
+      normals.at(index) = vec3{ .x = values.at(0), .y = values.at(1), .z = values.at(2) };
+    }
+    return normals;
+  }
+
   auto read_indices(tinygltf::Model const &model, int accessor_index) -> std::vector<std::uint32_t>
   {
     tinygltf::Accessor const &accessor = model.accessors.at(static_cast<std::size_t>(accessor_index));
@@ -281,17 +346,29 @@ namespace {
 
     std::vector<vec3> const local_positions = read_vec3_positions(model, position_it->second);
     std::vector<std::uint32_t> const local_indices = read_indices(model, primitive.indices);
-    std::array<float, k_mesh_vertex_components> const color = material_color(model, primitive.material);
+    std::array<float, k_mesh_vertex_components> const base_color = material_color(model, primitive.material);
+
+    auto const normal_it = primitive.attributes.find("NORMAL");
+    std::vector<vec3> local_normals;
+    if (normal_it != primitive.attributes.end()) {
+      local_normals = read_vec3_normals(model, normal_it->second, local_positions.size());
+    }
+    bool const has_normals = local_normals.size() == local_positions.size();
 
     auto const base_vertex = static_cast<std::uint32_t>(vertices.size());
     vertices.reserve(vertices.size() + local_positions.size());
-    std::ranges::transform(local_positions, std::back_inserter(vertices), [&](vec3 const &local) -> mesh_vertex {
-      vec3 const world_position = transform_point(world, local);
-      return mesh_vertex{
+    for (std::size_t index = 0; index < local_positions.size(); ++index) {
+      vec3 const world_position = transform_point(world, local_positions.at(index));
+      std::array<float, k_mesh_vertex_components> color = base_color;
+      if (has_normals) {
+        vec3 const world_normal = normalize_vec3(transform_normal(world, local_normals.at(index)));
+        color = shade_vertex(world_normal, base_color);
+      }
+      vertices.push_back(mesh_vertex{
         .position = { world_position.x, world_position.y, world_position.z },
         .color = color,
-      };
-    });
+      });
+    }
 
     indices.reserve(indices.size() + local_indices.size());
     std::ranges::transform(local_indices, std::back_inserter(indices), [base_vertex](std::uint32_t local_index)-> std::uint32_t {
@@ -357,7 +434,7 @@ namespace {
     float const scale = k_fit_extent / max_extent;
     for (mesh_vertex &vertex : vertices) {
       vertex.position.at(0) = (vertex.position.at(0) - center_x) * scale;
-      vertex.position.at(1) = (vertex.position.at(1) - center_y) * scale;
+      vertex.position.at(1) = -((vertex.position.at(1) - center_y) * scale);
       vertex.position.at(2) = (vertex.position.at(2) - center_z) * scale;
     }
   }
