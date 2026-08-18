@@ -13,6 +13,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -97,7 +98,13 @@ namespace detail {
       VkDescriptorSet set{ VK_NULL_HANDLE };
     };
 
-    std::unordered_map<pipeline_resources *, VkDescriptorSet> sets;
+    struct pipeline_set_entry
+    {
+      std::vector<edsl::storage_trace> buffers;
+      VkDescriptorSet set{ VK_NULL_HANDLE };
+    };
+
+    std::unordered_map<pipeline_resources *, pipeline_set_entry> sets;
     std::vector<allocated_set> allocated;
 
     auto release(context const &ctx) -> void
@@ -107,6 +114,19 @@ namespace detail {
       sets.clear();
     }
   };
+
+  inline auto storage_traces_equal(std::span<edsl::storage_trace const> lhs,
+    std::span<edsl::storage_trace const> rhs) -> bool
+  {
+    return lhs.size() == rhs.size()
+           && std::equal(lhs.begin(),
+             lhs.end(),
+             rhs.begin(),
+             [](edsl::storage_trace const &left, edsl::storage_trace const &right) -> bool {
+               return left.vk_buffer == right.vk_buffer && left.byte_size == right.byte_size
+                      && left.binding == right.binding;
+             });
+  }
 
   inline auto write_storage_descriptors(VkDevice device,
     VkDescriptorSet set,
@@ -154,12 +174,12 @@ namespace detail {
     pass_cleanup &cleanup) -> VkDescriptorSet
   {
     if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-      write_storage_descriptors(ctx.device(), found->second, buffers);
-      return found->second;
+      if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
     }
 
     VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
-    cleanup.sets.emplace(&pipe, set);
+    cleanup.sets.insert_or_assign(&pipe,
+      pass_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = set });
     cleanup.allocated.push_back({ .pool = pipe.descriptor_pool, .set = set });
     return set;
   }
