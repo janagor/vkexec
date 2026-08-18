@@ -40,6 +40,7 @@ add_executable(tests
                edsl_emit_tests.cpp
                error_tests.cpp
                push_constant_tests.cpp
+               bulk_tests.cpp
                graphics_tests.cpp
                gpu_tests.cpp)
 target_link_libraries(
