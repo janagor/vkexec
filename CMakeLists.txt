@@ -59,6 +59,8 @@ add_library(vkexec::vkexec_warnings ALIAS vkexec_warnings)
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
 
+option(VKEXEC_BUILD_EXAMPLES "Build vkexec example executables (pulls extra dependencies like tinygltf)" ON)
+
 # Adding the src:
 add_subdirectory(src)
 

@@ -148,4 +148,27 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
+  if(VKEXEC_BUILD_EXAMPLES)
+    if(NOT TARGET tinygltf)
+      cpmaddpackage(
+        NAME
+        tinygltf
+        GITHUB_REPOSITORY
+        "syoyo/tinygltf"
+        GIT_TAG
+        "v2.9.3"
+        SYSTEM
+        YES
+        OPTIONS
+        "TINYGLTF_BUILD_LOADER_EXAMPLE OFF"
+        "TINYGLTF_BUILD_GL_EXAMPLES OFF"
+        "TINYGLTF_BUILD_VALIDATOR_EXAMPLE OFF"
+        "TINYGLTF_INSTALL OFF")
+    endif()
+
+    if(TARGET tinygltf)
+      set_target_properties(tinygltf PROPERTIES CXX_CPPCHECK "")
+    endif()
+  endif()
+
 endfunction()

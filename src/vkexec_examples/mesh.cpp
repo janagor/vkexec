@@ -1,3 +1,5 @@
+#include "load_gltf_mesh.hpp"
+
 #include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
@@ -6,8 +8,6 @@
 
 #include <stdexec/execution.hpp>
 
-#include <array>
-#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <print>
@@ -18,10 +18,12 @@ namespace edsl = vkexec::edsl;
 namespace {
 constexpr std::uint32_t k_window_width = 800;
 constexpr std::uint32_t k_window_height = 600;
-constexpr float k_near_depth = 0.3F;
-constexpr float k_far_depth = 0.7F;
-constexpr std::size_t k_quad_vertex_count = 8;
-constexpr std::size_t k_quad_index_count = 12;
+
+#ifndef VKEXEC_MESH_GLTF_PATH
+#error "VKEXEC_MESH_GLTF_PATH must be defined by the mesh example target"
+#endif
+
+constexpr char const *k_gltf_path = VKEXEC_MESH_GLTF_PATH;
 }// namespace
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
@@ -30,18 +32,8 @@ auto main() -> int
   try {
     vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec mesh" });
 
-    std::array<vkexec::mesh_vertex, k_quad_vertex_count> const vertices{{
-      { .position = { -0.6F, -0.4F, k_near_depth }, .color = { 0.9F, 0.25F, 0.2F } },
-      { .position = { 0.2F, -0.4F, k_near_depth }, .color = { 0.9F, 0.25F, 0.2F } },
-      { .position = { 0.2F, 0.4F, k_near_depth }, .color = { 0.9F, 0.25F, 0.2F } },
-      { .position = { -0.6F, 0.4F, k_near_depth }, .color = { 0.9F, 0.25F, 0.2F } },
-      { .position = { -0.2F, -0.4F, k_far_depth }, .color = { 0.2F, 0.35F, 0.9F } },
-      { .position = { 0.6F, -0.4F, k_far_depth }, .color = { 0.2F, 0.35F, 0.9F } },
-      { .position = { 0.6F, 0.4F, k_far_depth }, .color = { 0.2F, 0.35F, 0.9F } },
-      { .position = { -0.2F, 0.4F, k_far_depth }, .color = { 0.2F, 0.35F, 0.9F } },
-    }};
-    std::array<std::uint32_t, k_quad_index_count> const indices{ 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7 };
-    vkexec::mesh const drawn(win.ctx(), vertices, indices);
+    vkexec::examples::gltf_mesh_data const mesh_data = vkexec::examples::load_gltf_mesh(k_gltf_path);
+    vkexec::mesh const drawn(win.ctx(), mesh_data.vertices, mesh_data.indices);
 
     vkexec::graphics_pipeline_config const cfg{
       .depth_test = true,
@@ -60,7 +52,7 @@ auto main() -> int
         out.color(edsl::vec4(fragment_in.color(), 1.0));
       });
 
-    std::println("vkexec indexed mesh (overlapping quads, depth test) - close the window to exit");
+    std::println("vkexec indexed mesh (gltf: {}) - close the window to exit", k_gltf_path);
     while (!win.should_close()) {
       win.poll_events();
       (void)ex::sync_wait(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, drawn));
