@@ -31,28 +31,33 @@ namespace {
     return result.value();
   }
 
-  auto build_headless_instance() -> vkb::Instance
+  auto configure_instance_builder(vkb::InstanceBuilder &builder, bool validation_layers) -> void
   {
-    auto builder =
-      vkb::InstanceBuilder{}.set_app_name("vkexec").set_engine_name("vkexec").require_api_version(1, 2).set_headless();
+    builder.set_app_name("vkexec").set_engine_name("vkexec").require_api_version(1, 2);
+    if (validation_layers) { builder.enable_validation_layers().use_default_debug_messenger(); }
+  }
+
+  auto build_headless_instance(bool validation_layers) -> vkb::Instance
+  {
+    vkb::InstanceBuilder builder{};
+    configure_instance_builder(builder, validation_layers);
+    builder.set_headless();
     return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
   }
 
-  auto build_instance_with_extensions(std::vector<char const *> const &instance_extensions) -> vkb::Instance
+  auto build_instance_with_extensions(std::vector<char const *> const &instance_extensions, bool validation_layers)
+    -> vkb::Instance
   {
-    auto builder = vkb::InstanceBuilder{}
-                     .set_app_name("vkexec")
-                     .set_engine_name("vkexec")
-                     .require_api_version(1, 2)
-                     .set_headless()
-                     .enable_extensions(instance_extensions.size(), instance_extensions.data());
+    vkb::InstanceBuilder builder{};
+    configure_instance_builder(builder, validation_layers);
+    builder.set_headless().enable_extensions(instance_extensions.size(), instance_extensions.data());
     return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
   }
 
 }// namespace
 
-context::context()
-  : instance_(build_headless_instance()),
+context::context(scheduler_options opts)
+  : instance_(build_headless_instance(opts.validation_layers)),
     physical_device_(
       unwrap(vkb::PhysicalDeviceSelector{ instance_ }.set_minimum_version(1, 2).require_present(false).select(),
         "vk-bootstrap PhysicalDeviceSelector")),
@@ -112,8 +117,10 @@ context::context(context_adopt_info const &info)
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
 }
 
-context::context(instance_only_tag tag, std::vector<char const *> const &instance_extensions)
-  : instance_(build_instance_with_extensions(instance_extensions)), has_instance_(true), owns_instance_(true)
+context::context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions)
+  : instance_(build_instance_with_extensions(instance_extensions, opts.validation_layers)),
+    has_instance_(true),
+    owns_instance_(true)
 { (void)tag; }
 
 auto context::complete_for_surface(VkSurfaceKHR surface) -> void

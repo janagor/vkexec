@@ -123,7 +123,9 @@ window::window(config cfg) : cfg_(std::move(cfg))
     instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   }
 
-  ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{}, instance_exts));
+  ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
+    scheduler_options{ .validation_layers = cfg_.validation_layers },
+    instance_exts));
   create_surface();
   ctx_->complete_for_surface(surface_);
 

@@ -63,7 +63,7 @@ static_assert(offsetof(host_push, count) == k_count_offset);
 auto main() -> int
 {
   try {
-    vkexec::context ctx;
+    vkexec::context ctx{ { .validation_layers = true } };
     vkexec::buffer<float> const input(ctx, k_element_count, k_initial);
     vkexec::buffer<float> output(ctx, k_element_count, 0.0F);
 

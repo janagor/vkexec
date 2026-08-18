@@ -38,7 +38,7 @@ BOOST_DESCRIBE_STRUCT(pass_params, (), (value))
 auto main() -> int
 {
   try {
-    vkexec::context ctx;
+    vkexec::context ctx{ { .validation_layers = true } };
     vkexec::buffer<float> values(ctx, k_element_count, k_initial);
 
     auto graph = ex::schedule(ctx.get_scheduler())

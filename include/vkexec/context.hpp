@@ -22,6 +22,12 @@ class scheduler;
 class window;
 class pipeline_cache;
 
+/// Options passed when creating a `context` (affects the scheduler from `get_scheduler()`).
+struct scheduler_options
+{
+  bool validation_layers{ false };
+};
+
 /// Handles borrowed from an embedder. vkexec never destroys these.
 struct context_adopt_info
 {
@@ -44,7 +50,7 @@ class context
 {
 public:
   /// Compute-only context (no window / swapchain).
-  context();
+  explicit context(scheduler_options opts = {});
   ~context();
 
   /// Wrap an existing Vulkan device/queues. Returns a context that does not destroy the
@@ -92,7 +98,7 @@ private:
   struct instance_only_tag
   {
   };
-  explicit context(instance_only_tag tag, std::vector<char const *> const &instance_extensions);
+  explicit context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions);
   explicit context(context_adopt_info const &info);
   auto complete_for_surface(VkSurfaceKHR surface) -> void;
 

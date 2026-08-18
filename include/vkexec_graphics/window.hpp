@@ -35,6 +35,7 @@ public:
     std::uint32_t width{ k_default_window_width };
     std::uint32_t height{ k_default_window_height };
     std::string title{ "vkexec" };
+    bool validation_layers{ false };
   };
 
   explicit window(config cfg);

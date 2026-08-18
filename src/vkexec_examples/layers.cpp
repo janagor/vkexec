@@ -57,7 +57,10 @@ auto tinted_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out)
 auto main() -> int
 {
   try {
-    vkexec::window win({ .width = k_window_width, .height = k_window_height, .title = "vkexec layers" });
+    vkexec::window win({ .width = k_window_width,
+      .height = k_window_height,
+      .title = "vkexec layers",
+      .validation_layers = true });
 
     vkexec::graphics_pipeline_config background_cfg{};
     background_cfg.clear_r = k_clear_r;

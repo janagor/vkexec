@@ -42,7 +42,7 @@ BOOST_DESCRIBE_STRUCT(sort_params, (), (offset, n))
 auto main() -> int
 {
   try {
-    vkexec::context ctx;
+    vkexec::context ctx{ { .validation_layers = true } };
     vkexec::buffer<float> data(ctx, k_element_count, 0.0F);
 
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
