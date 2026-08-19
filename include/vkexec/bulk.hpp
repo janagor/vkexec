@@ -87,6 +87,79 @@ namespace detail {
     };
   }
 
+  struct bulk_gpu_work
+  {
+    context *ctx{ nullptr };
+    pipeline_resources *pipe{ nullptr };
+    VkCommandBuffer cmd{ VK_NULL_HANDLE };
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+  };
+
+  inline auto release_bulk_gpu_work(bulk_gpu_work const &work) noexcept -> void
+  {
+    if (work.ctx == nullptr) { return; }
+    work.ctx->free_command_buffer(work.cmd);
+    if (work.set != VK_NULL_HANDLE && work.pipe != nullptr) {
+      vkFreeDescriptorSets(work.ctx->device(), work.pipe->descriptor_pool, 1, &work.set);
+    }
+  }
+
+  inline auto wait_and_release_submission(context &ctx, VkSemaphore semaphore, VkFence fence) -> void
+  {
+    VKEXEC_TRY
+    {
+      if (fence != VK_NULL_HANDLE) {
+        if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+          VKEXEC_THROW(std::runtime_error("vkWaitForFences failed"));
+        }
+      } else {
+        if (vkQueueWaitIdle(ctx.compute_queue()) != VK_SUCCESS) {
+          VKEXEC_THROW(std::runtime_error("vkQueueWaitIdle failed"));
+        }
+      }
+    }
+    VKEXEC_CATCH_ALL
+    {
+      if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
+      if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
+      throw;
+    }
+    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
+    if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
+  }
+
+  template<typename Params, typename Fun>
+  auto record_bulk_dispatch(context &ctx, std::uint32_t shape, Params const &params, Fun &fun) -> bulk_gpu_work
+  {
+    bulk_traced_state const traced = trace_bulk_kernel<Params>(ctx, shape, fun);
+    VkDescriptorSet set = allocate_traced_set(ctx, *traced.pipe, traced.buffers);
+
+    VkCommandBuffer cmd = ctx.allocate_command_buffer();
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
+      vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
+      ctx.free_command_buffer(cmd);
+      VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
+    }
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
+    vkCmdBindDescriptorSets(
+      cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
+    if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, params); }
+
+    std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
+    vkCmdDispatch(cmd, groups, 1, 1);
+    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+      vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
+      ctx.free_command_buffer(cmd);
+      VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
+    }
+
+    return bulk_gpu_work{ .ctx = &ctx, .pipe = traced.pipe, .cmd = cmd, .set = set };
+  }
+
 }// namespace detail
 
 template<typename Params, typename Fun> struct bulk_closure
@@ -142,28 +215,17 @@ template<typename Params, typename Fun> struct bulk_sender
 
     void run()
     {
-      detail::bulk_traced_state const traced = detail::trace_bulk_kernel<Params>(*ctx, shape, fun);
-
-      VkDescriptorSet set = detail::allocate_traced_set(*ctx, *traced.pipe, traced.buffers);
-
-      VkCommandBuffer cmd = ctx->allocate_command_buffer();
-      VkCommandBufferBeginInfo begin{};
-      begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-      vkBeginCommandBuffer(cmd, &begin);
-
-      vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
-      vkCmdBindDescriptorSets(
-        cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-      if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, params); }
-
-      std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
-      vkCmdDispatch(cmd, groups, 1, 1);
-      vkEndCommandBuffer(cmd);
-
-      ctx->submit_and_wait(cmd);
-      ctx->free_command_buffer(cmd);
-      vkFreeDescriptorSets(ctx->device(), traced.pipe->descriptor_pool, 1, &set);
+      detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
+      VKEXEC_TRY
+      {
+        ctx->submit_and_wait(work.cmd);
+      }
+      VKEXEC_CATCH_ALL
+      {
+        detail::release_bulk_gpu_work(work);
+        throw;
+      }
+      detail::release_bulk_gpu_work(work);
     }
   };
 
@@ -179,34 +241,107 @@ template<typename Params, typename Fun> struct bulk_sender
   }
 };
 
+template<typename Params, typename Fun> struct bulk_async_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+
+  context *ctx{ nullptr };
+  std::uint32_t shape{};
+  Params params{};
+  Fun fun{};
+
+  bulk_async_sender(context *host, std::uint32_t work_count, Params push, Fun kernel)
+    : ctx(host), shape(work_count), params(std::move(push)), fun(std::move(kernel))
+  {}
+
+  explicit bulk_async_sender(bulk_sender<Params, Fun> snd)
+    : ctx(snd.ctx), shape(snd.shape), params(std::move(snd.params)), fun(std::move(snd.fun))
+  {}
+
+  template<class Receiver> struct op_state
+  {
+    context *ctx{ nullptr };
+    std::uint32_t shape{};
+    Params params{};
+    Fun fun{};
+    Receiver receiver;
+
+    void start() noexcept
+    {
+      std::exception_ptr error;
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
+        run();
+      }
+      VKEXEC_CATCH_ALL
+      {
+        error = std::current_exception();
+      }
+      if (error) {
+        ex::set_error(std::move(receiver), error);
+      } else {
+        ex::set_value(std::move(receiver));
+      }
+    }
+
+    void run()
+    {
+      detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
+      VkFence fence{ VK_NULL_HANDLE };
+      VkSemaphore done = ctx->submit_async(work.cmd, &fence); // NOLINT(misc-misplaced-const)
+      VKEXEC_TRY
+      {
+        detail::wait_and_release_submission(*ctx, done, fence);
+      }
+      VKEXEC_CATCH_ALL
+      {
+        detail::release_bulk_gpu_work(work);
+        throw;
+      }
+      detail::release_bulk_gpu_work(work);
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto&& self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      self.ctx,
+      self.shape,
+      std::forward_like<decltype(self)>(self.params),
+      std::forward_like<decltype(self)>(self.fun),
+      std::move(receiver),
+    };
+  }
+};
+
+/// Pipe after `bulk` to submit through the async queue/semaphore path.
+/// Completion is delivered from `start()` once the signaled semaphore is waited on.
+struct submit_async_t
+{
+  template<typename Params, typename Fun>
+  [[nodiscard]] auto operator()(bulk_sender<Params, Fun>&& snd) const -> bulk_async_sender<Params, Fun>
+  { return bulk_async_sender<Params, Fun>(std::move(snd)); }
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr submit_async_t submit_async{};
+
+template<typename Params, typename Fun>
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun>&& snd, submit_async_t tag) -> bulk_async_sender<Params, Fun>
+{ return tag(std::move(snd)); }
+
+template<typename Params, typename Fun>
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun>& snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
+{
+  return bulk_async_sender<Params, Fun>{ snd.ctx, snd.shape, snd.params, snd.fun };
+}
+
 template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
 {
   return bulk_sender<Params, Fun>(
     snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun));
-}
-
-/// Submit without blocking; returns a binary semaphore signaled on compute completion.
-template<typename Params, typename Fun> auto submit_async(bulk_sender<Params, Fun> sender) -> VkSemaphore
-{
-  detail::bulk_traced_state const traced =
-    detail::trace_bulk_kernel<Params>(*sender.ctx, sender.shape, sender.fun);
-
-  VkDescriptorSet set = detail::allocate_traced_set(*sender.ctx, *traced.pipe, traced.buffers);
-
-  VkCommandBuffer cmd = sender.ctx->allocate_command_buffer();
-  VkCommandBufferBeginInfo begin{};
-  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  vkBeginCommandBuffer(cmd, &begin);
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
-  vkCmdBindDescriptorSets(
-    cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-  if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, sender.params); }
-  std::uint32_t const groups = (sender.shape + traced.local_size_x - 1U) / traced.local_size_x;
-  vkCmdDispatch(cmd, groups, 1, 1);
-  vkEndCommandBuffer(cmd);
-
-  return sender.ctx->submit_async(cmd);
 }
 
 }// namespace vkexec

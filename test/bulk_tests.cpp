@@ -118,7 +118,7 @@ TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
   ex::sync_wait(sender);
 }
 
-TEST_CASE("submit_async runs bulk without blocking the host", "[vkexec][bulk][gpu]")
+TEST_CASE("submit_async sender completes after GPU work", "[vkexec][bulk][gpu]")
 {
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY
@@ -131,17 +131,14 @@ TEST_CASE("submit_async runs bulk without blocking the host", "[vkexec][bulk][gp
   }
   vkexec::buffer<float> values(*ctx, k_work_count, k_initial);
 
-  auto sender = ex::schedule(ctx->get_scheduler())
-                | vkexec::bulk(k_work_count,
-                  bulk_params{ .value = k_add },
-                  [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
-                    values[idx] = values[idx] + push.get<&bulk_params::value>();
-                  });
-
-  VkSemaphore done = vkexec::submit_async(sender);
-  REQUIRE(done != VK_NULL_HANDLE);
-  REQUIRE(vkQueueWaitIdle(ctx->compute_queue()) == VK_SUCCESS);
-  vkDestroySemaphore(ctx->device(), done, nullptr);
+  auto pipeline = ex::schedule(ctx->get_scheduler())
+                  | vkexec::bulk(k_work_count,
+                    bulk_params{ .value = k_add },
+                    [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
+                      values[idx] = values[idx] + push.get<&bulk_params::value>();
+                    })
+                  | vkexec::submit_async;
+  ex::sync_wait(pipeline);
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(values.data()[0] - (k_initial + k_add)) <= k_epsilon);
