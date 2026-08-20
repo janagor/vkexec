@@ -1,9 +1,9 @@
 #ifndef VKEXEC_BULK_HPP
 #define VKEXEC_BULK_HPP
 
-
 #include <vkexec/buffer.hpp>
 #include <vkexec/detail/config.hpp>
+#include <vkexec/detail/submit_scope.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
@@ -15,12 +15,8 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
-#include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <mutex>
-#include <span>
-#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -30,46 +26,6 @@ namespace vkexec {
 namespace ex = stdexec;
 
 namespace detail {
-
-  inline auto
-    write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers) -> void
-  {
-    if (buffers.empty()) { return; }
-    std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
-    std::vector<VkWriteDescriptorSet> writes(buffers.size());
-    std::size_t index = 0;
-    for (edsl::storage_trace const &buffer : buffers) {
-      buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
-      buf_infos.at(index).offset = 0;
-      buf_infos.at(index).range = buffer.byte_size;
-      writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writes.at(index).dstSet = set;
-      writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
-      writes.at(index).descriptorCount = 1;
-      writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      writes.at(index).pBufferInfo = &buf_infos.at(index);
-      ++index;
-    }
-    vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-  }
-
-  inline auto allocate_traced_set(context const &ctx,
-    pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
-  {
-    std::unique_lock const lock = ctx.lock_host();
-    VkDescriptorSetAllocateInfo dsai{};
-    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dsai.descriptorPool = pipe.descriptor_pool;
-    dsai.descriptorSetCount = 1;
-    dsai.pSetLayouts = &pipe.set_layout;
-    VkDescriptorSet set{ VK_NULL_HANDLE };
-    if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed"));
-    }
-    write_traced_descriptors(ctx.device(), set, buffers);
-    return set;
-  }
 
   struct bulk_traced_state
   {
@@ -92,59 +48,23 @@ namespace detail {
     };
   }
 
-  struct bulk_gpu_work
-  {
-    context *ctx{ nullptr };
-    pipeline_resources *pipe{ nullptr };
-    VkCommandBuffer cmd{ VK_NULL_HANDLE };
-    VkDescriptorSet set{ VK_NULL_HANDLE };
-  };
-
-  inline auto release_bulk_gpu_work(bulk_gpu_work const &work) noexcept -> void
-  {
-    if (work.ctx == nullptr) { return; }
-    work.ctx->free_command_buffer(work.cmd);
-    if (work.set != VK_NULL_HANDLE && work.pipe != nullptr) {
-      std::unique_lock const lock = work.ctx->lock_host();
-      vkFreeDescriptorSets(work.ctx->device(), work.pipe->descriptor_pool, 1, &work.set);
-    }
-  }
-
   template<typename Params, typename Fun>
-  auto record_bulk_dispatch(context &ctx, std::uint32_t shape, Params const &params, Fun &fun) -> bulk_gpu_work
+  auto record_bulk_dispatch(context &ctx, std::uint32_t shape, Params const &params, Fun &fun) -> submit_scope
   {
     bulk_traced_state const traced = trace_bulk_kernel<Params>(ctx, shape, fun);
-    VkDescriptorSet set = allocate_traced_set(ctx, *traced.pipe, traced.buffers);
+    submit_scope scope = submit_scope::open(ctx);
+    VkDescriptorSet set = allocate_compute_set(ctx, *traced.pipe, traced.buffers);
+    scope.track_set(*traced.pipe, set);
 
-    VkCommandBuffer cmd = ctx.allocate_command_buffer();
-    VkCommandBufferBeginInfo begin{};
-    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-      {
-        std::unique_lock const lock = ctx.lock_host();
-        vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
-      }
-      ctx.free_command_buffer(cmd);
-      VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
-    }
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-    if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, params); }
+    vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
+    vkCmdBindDescriptorSets(
+      scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
+    if (traced.pipe->push_bytes > 0) { upload_push_constants(scope.cmd, *traced.pipe, params); }
 
     std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
-    vkCmdDispatch(cmd, groups, 1, 1);
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
-      {
-        std::unique_lock const lock = ctx.lock_host();
-        vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
-      }
-      ctx.free_command_buffer(cmd);
-      VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
-    }
-
-    return bulk_gpu_work{ .ctx = &ctx, .pipe = traced.pipe, .cmd = cmd, .set = set };
+    vkCmdDispatch(scope.cmd, groups, 1, 1);
+    scope.end_recording();
+    return scope;
   }
 
 }// namespace detail
@@ -201,15 +121,9 @@ template<typename Params, typename Fun> struct bulk_sender
 
     void run()
     {
-      detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
-      VKEXEC_TRY { ctx->submit_and_wait(work.cmd); }
-      VKEXEC_CATCH_ALL
-      {
-        detail::release_bulk_gpu_work(work);
-        // cppcheck-suppress rethrowNoCurrentException
-        throw;
-      }
-      detail::release_bulk_gpu_work(work);
+      detail::submit_scope scope = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
+      ctx->submit_and_wait(scope.cmd);
+      scope.release();
     }
   };
 
@@ -270,20 +184,22 @@ template<typename Params, typename Fun> struct bulk_async_sender
       VKEXEC_TRY
       {
         // cppcheck-suppress throwInNoexceptFunction
-        detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
+        detail::submit_scope scope = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
         VkFence fence{ VK_NULL_HANDLE };
-        VkSemaphore done = ctx->submit_async(work.cmd, &fence);// NOLINT(misc-misplaced-const)
-        ctx->enqueue_fence_wait(done, fence, token, [work, rcvr = std::move(rcvr)](std::exception_ptr wait_error,
-                                                           bool stopped) mutable -> void {
-          detail::release_bulk_gpu_work(work);
-          if (wait_error) {
-            ex::set_error(std::move(rcvr), wait_error);
-          } else if (stopped) {
-            ex::set_stopped(std::move(rcvr));
-          } else {
-            ex::set_value(std::move(rcvr));
-          }
-        });
+        VkSemaphore done = ctx->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
+        ctx->enqueue_fence_wait(done,
+          fence,
+          token,
+          [scope = std::move(scope), rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable -> void {
+            scope.release();
+            if (wait_error) {
+              ex::set_error(std::move(rcvr), wait_error);
+            } else if (stopped) {
+              ex::set_stopped(std::move(rcvr));
+            } else {
+              ex::set_value(std::move(rcvr));
+            }
+          });
         return;
       }
       VKEXEC_CATCH_ALL { error = std::current_exception(); }

@@ -3,6 +3,7 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/detail/config.hpp>
+#include <vkexec/detail/submit_scope.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
@@ -14,17 +15,12 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>
-#include <mutex>
-#include <span>
-#include <stdexcept>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -98,106 +94,6 @@ inline auto record_pass(VkCommandBuffer cmd,
   dispatch groups) -> void
 { record_pass(cmd, bind_compute(pipe, set), push, push_bytes, groups); }
 
-namespace detail {
-
-  struct pass_cleanup
-  {
-    struct allocated_set
-    {
-      VkDescriptorPool pool{ VK_NULL_HANDLE };
-      VkDescriptorSet set{ VK_NULL_HANDLE };
-    };
-
-    struct pipeline_set_entry
-    {
-      std::vector<edsl::storage_trace> buffers;
-      VkDescriptorSet set{ VK_NULL_HANDLE };
-    };
-
-    std::unordered_map<pipeline_resources *, pipeline_set_entry> sets;
-    std::vector<allocated_set> allocated;
-
-    auto release(context const &ctx) -> void
-    {
-      std::unique_lock const lock = ctx.lock_host();
-      for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
-      allocated.clear();
-      sets.clear();
-    }
-  };
-
-  inline auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs)
-    -> bool
-  {
-    return lhs.size() == rhs.size()
-           && std::equal(lhs.begin(),
-             lhs.end(),
-             rhs.begin(),
-             [](edsl::storage_trace const &left, edsl::storage_trace const &right) -> bool {
-               return left.vk_buffer == right.vk_buffer && left.byte_size == right.byte_size
-                      && left.binding == right.binding;
-             });
-  }
-
-  inline auto write_storage_descriptors(VkDevice device,
-    VkDescriptorSet set,
-    std::span<edsl::storage_trace const> buffers) -> void
-  {
-    if (buffers.empty()) { return; }
-    std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
-    std::vector<VkWriteDescriptorSet> writes(buffers.size());
-    std::size_t index = 0;
-    for (edsl::storage_trace const &buffer : buffers) {
-      buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
-      buf_infos.at(index).offset = 0;
-      buf_infos.at(index).range = buffer.byte_size;
-      writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writes.at(index).dstSet = set;
-      writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
-      writes.at(index).descriptorCount = 1;
-      writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      writes.at(index).pBufferInfo = &buf_infos.at(index);
-      ++index;
-    }
-    vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-  }
-
-  inline auto allocate_compute_set(context const &ctx,
-    pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
-  {
-    std::unique_lock const lock = ctx.lock_host();
-    VkDescriptorSetAllocateInfo dsai{};
-    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dsai.descriptorPool = pipe.descriptor_pool;
-    dsai.descriptorSetCount = 1;
-    dsai.pSetLayouts = &pipe.set_layout;
-    VkDescriptorSet set{ VK_NULL_HANDLE };
-    if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed"));
-    }
-    write_storage_descriptors(ctx.device(), set, buffers);
-    return set;
-  }
-
-  inline auto bind_or_allocate_set(context const &ctx,
-    pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers,
-    pass_cleanup &cleanup) -> VkDescriptorSet
-  {
-    if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-      if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
-    }
-
-    VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
-    cleanup.sets.insert_or_assign(
-      &pipe, pass_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = set });
-    cleanup.allocated.push_back({ .pool = pipe.descriptor_pool, .set = set });
-    return set;
-  }
-
-}// namespace detail
-
 struct pass_step
 {
   std::function<void(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
@@ -237,29 +133,11 @@ struct pass_graph_sender
 
     auto run() -> void
     {
-      detail::pass_cleanup cleanup;
-      VkCommandBuffer cmd = ctx->allocate_command_buffer();
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        VkCommandBufferBeginInfo begin{};
-        begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-          VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
-        }
-        for (pass_step const &step : steps) { step.record(*ctx, cmd, cleanup); }
-        if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
-        ctx->submit_and_wait(cmd);
-      }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ctx->free_command_buffer(cmd);
-        cleanup.release(*ctx);
-        std::rethrow_exception(error);
-      }
-      ctx->free_command_buffer(cmd);
-      cleanup.release(*ctx);
+      detail::submit_scope scope = detail::submit_scope::open(*ctx);
+      for (pass_step const &step : steps) { step.record(*ctx, scope.cmd, scope.cleanup); }
+      scope.end_recording();
+      ctx->submit_and_wait(scope.cmd);
+      scope.release();
     }
   };
 
@@ -308,38 +186,18 @@ struct pass_graph_async_sender
       VKEXEC_TRY
       {
         // cppcheck-suppress throwInNoexceptFunction
-        detail::pass_cleanup cleanup;
-        VkCommandBuffer cmd = ctx->allocate_command_buffer();
-        VKEXEC_TRY
-        {
-          VkCommandBufferBeginInfo begin{};
-          begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-          begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-          if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-            VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
-          }
-          for (pass_step const &step : steps) { step.record(*ctx, cmd, cleanup); }
-          if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
-            VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
-          }
-        }
-        VKEXEC_CATCH_ALL
-        {
-          ctx->free_command_buffer(cmd);
-          cleanup.release(*ctx);
-          // cppcheck-suppress rethrowNoCurrentException
-          throw;
-        }
+        detail::submit_scope scope = detail::submit_scope::open(*ctx);
+        for (pass_step const &step : steps) { step.record(*ctx, scope.cmd, scope.cleanup); }
+        scope.end_recording();
 
         VkFence fence{ VK_NULL_HANDLE };
-        VkSemaphore done = ctx->submit_async(cmd, &fence);// NOLINT(misc-misplaced-const)
+        VkSemaphore done = ctx->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
         ctx->enqueue_fence_wait(done,
           fence,
           token,
-          [ctx = ctx, cmd, cleanup = std::move(cleanup), rcvr = std::move(rcvr)](
+          [scope = std::move(scope), rcvr = std::move(rcvr)](
             std::exception_ptr wait_error, bool stopped) mutable -> void {
-            ctx->free_command_buffer(cmd);
-            cleanup.release(*ctx);
+            scope.release();
             if (wait_error) {
               ex::set_error(std::move(rcvr), wait_error);
             } else if (stopped) {
