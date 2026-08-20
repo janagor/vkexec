@@ -11,6 +11,7 @@
 #include <boost/describe/class.hpp>
 
 #include <stdexec/execution.hpp>
+#include <stdexec/stop_token.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <cmath>
@@ -149,4 +150,23 @@ TEST_CASE("submit_async overlaps two GPU dispatches via when_all", "[vkexec][bul
   REQUIRE(std::fabs(left.data()[0] - (k_initial + k_add)) <= k_epsilon);
   REQUIRE(std::fabs(right.data()[0] - (k_initial + k_add)) <= k_epsilon);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+
+TEST_CASE("submit_async completes with set_stopped when stop is already requested", "[vkexec][bulk]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  ex::inplace_stop_source source;
+  source.request_stop();
+
+  auto sender =
+    ex::schedule(sched)
+    | vkexec::bulk(
+      k_work_count, bulk_params{ .value = k_add }, [](edsl::Int /*idx*/, edsl::push_constant<bulk_params> /*push*/) -> void {
+      })
+    | vkexec::submit_async;
+
+  auto const result =
+    // NOLINTNEXTLINE(misc-include-cleaner)
+    ex::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  REQUIRE_FALSE(result.has_value());
 }

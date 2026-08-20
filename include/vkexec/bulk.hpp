@@ -22,6 +22,7 @@
 #include <span>
 #include <stdexcept>
 #include <thread>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -110,29 +111,75 @@ namespace detail {
     }
   }
 
+  inline auto destroy_submission_sync(context const &ctx, VkSemaphore semaphore, VkFence fence) noexcept -> void
+  {
+    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
+    if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
+  }
+
+  inline auto wait_fence_or_queue(context const &ctx, VkFence fence) -> void
+  {
+    if (fence != VK_NULL_HANDLE) {
+      if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+        VKEXEC_THROW(std::runtime_error("vkWaitForFences failed"));
+      }
+      return;
+    }
+    if (vkQueueWaitIdle(ctx.compute_queue()) != VK_SUCCESS) {
+      VKEXEC_THROW(std::runtime_error("vkQueueWaitIdle failed"));
+    }
+  }
+
   inline auto wait_and_release_submission(context const &ctx, VkSemaphore semaphore, VkFence fence) -> void
   {
-    VKEXEC_TRY
-    {
-      if (fence != VK_NULL_HANDLE) {
-        if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
-          VKEXEC_THROW(std::runtime_error("vkWaitForFences failed"));
-        }
-      } else {
-        if (vkQueueWaitIdle(ctx.compute_queue()) != VK_SUCCESS) {
-          VKEXEC_THROW(std::runtime_error("vkQueueWaitIdle failed"));
-        }
-      }
-    }
+    VKEXEC_TRY { wait_fence_or_queue(ctx, fence); }
     VKEXEC_CATCH_ALL
     {
-      if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
-      if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
+      destroy_submission_sync(ctx, semaphore, fence);
       // cppcheck-suppress rethrowNoCurrentException
       throw;
     }
-    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
-    if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
+    destroy_submission_sync(ctx, semaphore, fence);
+  }
+
+  template<class StopToken>
+  auto poll_for_stop_or_fence(context const &ctx, VkFence fence, StopToken token) -> bool
+  {
+    constexpr std::uint64_t k_poll_timeout_ns = 1'000'000ULL;// 1 ms
+    bool stop_seen = token.stop_requested();
+    if (fence == VK_NULL_HANDLE) {
+      wait_fence_or_queue(ctx, fence);
+      return stop_seen || token.stop_requested();
+    }
+    while (true) {
+      stop_seen = stop_seen || token.stop_requested();
+      VkResult const result = vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, k_poll_timeout_ns);
+      if (result == VK_SUCCESS) { return stop_seen || token.stop_requested(); }
+      if (result != VK_TIMEOUT) { VKEXEC_THROW(std::runtime_error("vkWaitForFences failed")); }
+    }
+  }
+
+  /// Wait for submission completion, polling so a stop request can be observed.
+  /// Always waits for the GPU before destroying sync objects / returning.
+  /// Returns true when the caller should complete with `set_stopped`.
+  template<class StopToken>
+  auto wait_submission_with_stop(context const &ctx, VkSemaphore semaphore, VkFence fence, StopToken token) -> bool
+  {
+    if constexpr (ex::unstoppable_token<StopToken>) {
+      wait_and_release_submission(ctx, semaphore, fence);
+      return false;
+    } else {
+      bool stop_seen = false;
+      VKEXEC_TRY { stop_seen = poll_for_stop_or_fence(ctx, fence, token); }
+      VKEXEC_CATCH_ALL
+      {
+        destroy_submission_sync(ctx, semaphore, fence);
+        // cppcheck-suppress rethrowNoCurrentException
+        throw;
+      }
+      destroy_submission_sync(ctx, semaphore, fence);
+      return stop_seen;
+    }
   }
 
   template<typename Params, typename Fun>
@@ -253,7 +300,9 @@ template<typename Params, typename Fun> struct bulk_sender
 template<typename Params, typename Fun> struct bulk_async_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+  using completion_signatures = ex::completion_signatures<ex::set_value_t(),
+    ex::set_error_t(std::exception_ptr),
+    ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::uint32_t shape{};
@@ -281,21 +330,35 @@ template<typename Params, typename Fun> struct bulk_async_sender
 
     void start() noexcept
     {
-      std::exception_ptr error;
       Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      std::exception_ptr error;
       VKEXEC_TRY
       {
         // cppcheck-suppress throwInNoexceptFunction
         detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done = ctx->submit_async(work.cmd, &fence);// NOLINT(misc-misplaced-const)
-        waiter.emplace([work, done, fence, rcvr = std::move(rcvr)]() mutable -> void {
+        waiter.emplace([work, done, fence, token, rcvr = std::move(rcvr)]() mutable -> void {
           std::exception_ptr wait_error;
-          VKEXEC_TRY { detail::wait_and_release_submission(*work.ctx, done, fence); }
+          bool stopped = false;
+          VKEXEC_TRY
+          {
+            stopped = detail::wait_submission_with_stop(*work.ctx, done, fence, token);
+          }
           VKEXEC_CATCH_ALL { wait_error = std::current_exception(); }
           detail::release_bulk_gpu_work(work);
           if (wait_error) {
             ex::set_error(std::move(rcvr), wait_error);
+          } else if (stopped) {
+            ex::set_stopped(std::move(rcvr));
           } else {
             ex::set_value(std::move(rcvr));
           }
@@ -321,7 +384,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
 };
 
 /// Pipe after `bulk` to submit without blocking `start()`.
-/// A waiter thread completes the receiver once the GPU fence signals.
+/// A waiter thread completes the receiver once the GPU fence signals (or with `set_stopped`).
 struct submit_async_t
 {
   template<typename Params, typename Fun>
