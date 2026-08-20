@@ -39,7 +39,8 @@ auto main() -> int
 {
   try {
     vkexec::context ctx{ { .validation_layers = true } };
-    vkexec::buffer<float> values(ctx, k_element_count, k_initial);
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(ctx, k_element_count, k_initial)).value();
 
     auto graph = ex::schedule(ctx.get_scheduler())
                  | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),

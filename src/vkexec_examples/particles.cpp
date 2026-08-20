@@ -57,14 +57,18 @@ auto main() -> int
     auto &ctx = win.ctx();
 
     // SoA particle buffers (host-mapped SSBOs shared by compute + vertex stages).
-    vkexec::buffer<float> pos_x(ctx, k_particle_count);
-    vkexec::buffer<float> pos_y(ctx, k_particle_count);
-    vkexec::buffer<float> vel_x(ctx, k_particle_count);
-    vkexec::buffer<float> vel_y(ctx, k_particle_count);
-    vkexec::buffer<float> col_r(ctx, k_particle_count);
-    vkexec::buffer<float> col_g(ctx, k_particle_count);
-    vkexec::buffer<float> col_b(ctx, k_particle_count);
-    vkexec::buffer<float> col_a(ctx, k_particle_count);
+    // NOLINTBEGIN(bugprone-unchecked-optional-access)
+    auto [pos_x, pos_y, vel_x, vel_y, col_r, col_g, col_b, col_a] =
+      ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count),
+                      vkexec::buffer<float>::allocate(ctx, k_particle_count)))
+        .value();
+    // NOLINTEND(bugprone-unchecked-optional-access)
 
     {
       // Deterministic demo seed (not cryptographic).

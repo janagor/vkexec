@@ -1,55 +1,109 @@
 #ifndef VKEXEC_BUFFER_HPP
 #define VKEXEC_BUFFER_HPP
 
-
 #include <vkexec/context.hpp>
 #include <vkexec/detail/config.hpp>
+#include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
+#include <stdexec/execution.hpp>
+#include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
+
 #include <cstddef>
-#include <cstring>
+#include <cstdint>
+#include <exception>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 namespace vkexec {
+
+namespace ex = stdexec;
+
+template<typename T> class buffer;
+
+/// Sender that allocates a host-visible storage buffer and completes with ownership of it.
+template<typename T> struct buffer_allocate_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = ex::completion_signatures<ex::set_value_t(buffer<T>),
+    ex::set_error_t(std::exception_ptr),
+    ex::set_stopped_t()>;
+
+  context *ctx{ nullptr };
+  std::size_t count{ 0 };
+  T fill{};
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
+  template<class Receiver> struct op_state
+  {
+    context *ctx{ nullptr };
+    std::size_t count{ 0 };
+    T fill{};
+    Receiver receiver;
+
+    auto start() noexcept -> void
+    {
+      Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      std::exception_ptr error;
+      std::optional<buffer<T>> allocated;
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
+        allocated.emplace(buffer<T>::make_allocated(*ctx, count, fill));
+      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
+      if (error) {
+        ex::set_error(std::move(rcvr), error);
+        return;
+      }
+      ex::set_value(std::move(rcvr), std::move(*allocated));
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      self.ctx,
+      self.count,
+      std::forward_like<decltype(self)>(self.fill),
+      std::move(receiver),
+    };
+  }
+};
 
 template<typename T> class buffer
 {
 public:
-  buffer(context &ctx, std::size_t count, T fill = T{})
-    : ctx_(&ctx), count_(count), name_("buf" + std::to_string(next_name_id()))
+  /// Lazy allocate: describes buffer creation; runs in `start()` and completes with a `buffer`.
+  [[nodiscard]] static auto allocate(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
   {
-    static_assert(std::is_trivially_copyable_v<T>);
-    if (count == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::buffer count must be > 0")); }
-
-    auto bytes = static_cast<VkDeviceSize>(count * sizeof(T));
-
-    VkBufferCreateInfo bci{};
-    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.size = bytes;
-    bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo aci{};
-    aci.usage = VMA_MEMORY_USAGE_AUTO;
-    aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-    VmaAllocationInfo ainfo{};
-    if (vmaCreateBuffer(ctx_->allocator(), &bci, &aci, &buffer_, &allocation_, &ainfo) != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer failed"));
-    }
-    mapped_ = ainfo.pMappedData;
-    if (mapped_ == nullptr) { VKEXEC_THROW(std::runtime_error("vmaCreateBuffer did not map host-visible memory")); }
-
-    auto *const elems = static_cast<T *>(mapped_);
-    for (T &elem : std::span<T>{ elems, count_ }) { elem = fill; }
+    return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) };
   }
+
+  /// Alias for `allocate` (async-object `create` naming).
+  [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
+  { return allocate(ctx, count, std::move(fill)); }
+
+  /// Synchronous convenience: `sync_wait(allocate(...))`.
+  explicit buffer(context &ctx, std::size_t count, T fill = T{})
+    : buffer(take_allocated(ex::sync_wait(allocate(ctx, count, std::move(fill)))))
+  {}
 
   ~buffer()
   {
@@ -147,6 +201,69 @@ public:
   auto operator[](edsl::Int idx) -> ref { return ref{ this, idx }; }
 
 private:
+  friend struct buffer_allocate_sender<T>;
+
+  struct owned_tag
+  {
+  };
+
+  buffer(owned_tag /*tag*/,
+    context *ctx,
+    VkBuffer handle,
+    VmaAllocation allocation,
+    void *mapped,
+    std::size_t count,
+    std::string name) noexcept
+    : ctx_(ctx), buffer_(handle), allocation_(allocation), mapped_(mapped), count_(count), name_(std::move(name))
+  {}
+
+  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> buffer
+  {
+    static_assert(std::is_trivially_copyable_v<T>);
+    if (count == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::buffer count must be > 0")); }
+
+    auto const bytes = static_cast<VkDeviceSize>(count * sizeof(T));
+
+    VkBufferCreateInfo bci{};
+    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size = bytes;
+    bci.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo aci{};
+    aci.usage = VMA_MEMORY_USAGE_AUTO;
+    aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    VkBuffer handle{ VK_NULL_HANDLE };
+    VmaAllocation allocation{ VK_NULL_HANDLE };
+    VmaAllocationInfo ainfo{};
+    if (vmaCreateBuffer(ctx.allocator(), &bci, &aci, &handle, &allocation, &ainfo) != VK_SUCCESS) {
+      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer failed"));
+    }
+    if (ainfo.pMappedData == nullptr) {
+      vmaDestroyBuffer(ctx.allocator(), handle, allocation);
+      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer did not map host-visible memory"));
+    }
+
+    auto *const elems = static_cast<T *>(ainfo.pMappedData);
+    for (T &elem : std::span<T>{ elems, count }) { elem = fill; }
+
+    return buffer(owned_tag{},
+      &ctx,
+      handle,
+      allocation,
+      ainfo.pMappedData,
+      count,
+      "buf" + std::to_string(next_name_id()));
+  }
+
+  [[nodiscard]] static auto take_allocated(std::optional<std::tuple<buffer>> result) -> buffer
+  {
+    if (!result.has_value()) { VKEXEC_THROW(std::runtime_error("vkexec::buffer allocate was stopped")); }
+    return std::get<0>(std::move(*result));
+  }
+
   static auto next_name_id() -> int
   {
     static int name_id = 0;

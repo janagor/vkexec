@@ -69,7 +69,8 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  vkexec::buffer<float> values(*ctx, k_work_count, k_initial);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)).value();
 
   auto pipeline =
     ex::schedule(ctx->get_scheduler())
@@ -110,7 +111,8 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  vkexec::buffer<float> values(*ctx, k_work_count, k_initial);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)).value();
 
   auto pipeline = ex::schedule(ctx->get_scheduler())
                   | vkexec::bulk(k_work_count,
@@ -132,8 +134,12 @@ TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
 
-  vkexec::buffer<float> left(*ctx, k_work_count, k_initial);
-  vkexec::buffer<float> right(*ctx, k_work_count, k_initial);
+  // NOLINTBEGIN(bugprone-unchecked-optional-access)
+  auto [left, right] =
+    ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial),
+                    vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)))
+      .value();
+  // NOLINTEND(bugprone-unchecked-optional-access)
 
   auto make_async = [&](vkexec::buffer<float> &values) -> auto {
     return ex::schedule(ctx->get_scheduler())

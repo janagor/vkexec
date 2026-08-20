@@ -38,8 +38,11 @@ auto main() -> int
 {
   try {
     vkexec::context ctx{ { .validation_layers = true } };
-    vkexec::buffer<float> positions(ctx, k_element_count, 0.0F);
-    vkexec::buffer<float> velocities(ctx, k_element_count, k_initial_velocity);
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    auto [positions, velocities] = ex::sync_wait(ex::when_all(
+                                       vkexec::buffer<float>::allocate(ctx, k_element_count, 0.0F),
+                                       vkexec::buffer<float>::allocate(ctx, k_element_count, k_initial_velocity)))
+                                     .value();
 
     sim_params const params{ .dt = k_timestep, .damping = k_damping };
 

@@ -23,8 +23,10 @@ BOOST_DESCRIBE_STRUCT(SimParams, (), (dt, damping))
 
 int main() {
   vkexec::context ctx;
-  vkexec::buffer<float> positions(ctx, 10000, 0.0f);
-  vkexec::buffer<float> velocities(ctx, 10000, 1.5f);
+  auto [positions, velocities] = ex::sync_wait(ex::when_all(
+                                   vkexec::buffer<float>::allocate(ctx, 10000, 0.0f),
+                                   vkexec::buffer<float>::allocate(ctx, 10000, 1.5f)))
+                                 .value();
   SimParams params{ 0.016f, 0.99f };
 
   auto pipeline = ex::schedule(ctx.get_scheduler())

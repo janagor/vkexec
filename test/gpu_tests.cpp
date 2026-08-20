@@ -71,8 +71,11 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  vkexec::buffer<float> positions(*ctx, k_count, 0.0F);
-  vkexec::buffer<float> velocities(*ctx, k_count, k_initial_velocity);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [positions, velocities] = ex::sync_wait(ex::when_all(
+                                   vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F),
+                                   vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity)))
+                                 .value();
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto pipeline =
@@ -107,7 +110,8 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  vkexec::buffer<float> values(*ctx, k_count, k_initial);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial)).value();
 
   auto graph = ex::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
@@ -142,7 +146,8 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  vkexec::buffer<float> values(*ctx, k_count, k_initial);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial)).value();
 
   auto graph = ex::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
@@ -195,7 +200,8 @@ TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  vkexec::buffer<float> data(*ctx, k_count, 0.0F);
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [data] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F)).value();
 
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng{ k_rng_seed };

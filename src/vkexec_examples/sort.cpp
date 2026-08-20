@@ -43,7 +43,8 @@ auto main() -> int
 {
   try {
     vkexec::context ctx{ { .validation_layers = true } };
-    vkexec::buffer<float> data(ctx, k_element_count, 0.0F);
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    auto [data] = ex::sync_wait(vkexec::buffer<float>::allocate(ctx, k_element_count, 0.0F)).value();
 
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 rng{ k_rng_seed };

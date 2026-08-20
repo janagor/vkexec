@@ -64,8 +64,10 @@ auto main() -> int
 {
   try {
     vkexec::context ctx{ { .validation_layers = true } };
-    vkexec::buffer<float> const input(ctx, k_element_count, k_initial);
-    vkexec::buffer<float> output(ctx, k_element_count, 0.0F);
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    auto [input, output] = ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(ctx, k_element_count, k_initial),
+                                         vkexec::buffer<float>::allocate(ctx, k_element_count, 0.0F)))
+                             .value();
 
     using enum vkexec::buffer_access;
     auto pipe = vkexec::compute_pipeline::from_glsl(ctx,
