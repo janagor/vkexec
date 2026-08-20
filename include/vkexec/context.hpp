@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <vector>
 
@@ -87,6 +88,9 @@ public:
   auto allocate_command_buffer() -> VkCommandBuffer;
   auto free_command_buffer(VkCommandBuffer cmd) -> void;
 
+  /// Serializes command-pool, descriptor-pool, and queue submits across host threads.
+  [[nodiscard]] auto lock_host() const -> std::unique_lock<std::mutex>;
+
   auto submit_and_wait(VkCommandBuffer cmd) -> void;
   auto submit_async(VkCommandBuffer cmd, VkFence *out_fence = nullptr) -> VkSemaphore;
 
@@ -118,6 +122,7 @@ private:
   std::uint32_t present_family_{ 0 };
   VkCommandPool command_pool_{ VK_NULL_HANDLE };
   std::unique_ptr<pipeline_cache> pipeline_cache_;
+  mutable std::mutex host_mutex_;
   bool presentation_enabled_{ false };
   bool has_instance_{ false };
   bool has_device_{ false };

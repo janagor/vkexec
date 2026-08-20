@@ -17,8 +17,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <mutex>
+#include <optional>
 #include <span>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -53,6 +56,7 @@ namespace detail {
   inline auto allocate_traced_set(context &ctx, pipeline_resources &pipe, std::span<edsl::storage_trace const> buffers)
     -> VkDescriptorSet
   {
+    std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};
     dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     dsai.descriptorPool = pipe.descriptor_pool;
@@ -100,6 +104,7 @@ namespace detail {
     if (work.ctx == nullptr) { return; }
     work.ctx->free_command_buffer(work.cmd);
     if (work.set != VK_NULL_HANDLE && work.pipe != nullptr) {
+      std::unique_lock const lock = work.ctx->lock_host();
       vkFreeDescriptorSets(work.ctx->device(), work.pipe->descriptor_pool, 1, &work.set);
     }
   }
@@ -139,7 +144,10 @@ namespace detail {
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-      vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
+      {
+        std::unique_lock const lock = ctx.lock_host();
+        vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
+      }
       ctx.free_command_buffer(cmd);
       VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
     }
@@ -151,7 +159,10 @@ namespace detail {
     std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
     vkCmdDispatch(cmd, groups, 1, 1);
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
-      vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
+      {
+        std::unique_lock const lock = ctx.lock_host();
+        vkFreeDescriptorSets(ctx.device(), traced.pipe->descriptor_pool, 1, &set);
+      }
       ctx.free_command_buffer(cmd);
       VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
     }
@@ -259,35 +270,33 @@ template<typename Params, typename Fun> struct bulk_async_sender
     Params params{};
     Fun fun{};
     Receiver receiver;
+    std::optional<std::jthread> waiter;
 
     void start() noexcept
     {
       std::exception_ptr error;
+      Receiver rcvr = std::move(receiver);
       VKEXEC_TRY
       {
         // cppcheck-suppress throwInNoexceptFunction
-        run();
+        detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
+        VkFence fence{ VK_NULL_HANDLE };
+        VkSemaphore done = ctx->submit_async(work.cmd, &fence);// NOLINT(misc-misplaced-const)
+        waiter.emplace([work, done, fence, rcvr = std::move(rcvr)]() mutable -> void {
+          std::exception_ptr wait_error;
+          VKEXEC_TRY { detail::wait_and_release_submission(*work.ctx, done, fence); }
+          VKEXEC_CATCH_ALL { wait_error = std::current_exception(); }
+          detail::release_bulk_gpu_work(work);
+          if (wait_error) {
+            ex::set_error(std::move(rcvr), wait_error);
+          } else {
+            ex::set_value(std::move(rcvr));
+          }
+        });
+        return;
       }
       VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(receiver), error);
-      } else {
-        ex::set_value(std::move(receiver));
-      }
-    }
-
-    void run()
-    {
-      detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
-      VkFence fence{ VK_NULL_HANDLE };
-      VkSemaphore done = ctx->submit_async(work.cmd, &fence);// NOLINT(misc-misplaced-const)
-      VKEXEC_TRY { detail::wait_and_release_submission(*ctx, done, fence); }
-      VKEXEC_CATCH_ALL
-      {
-        detail::release_bulk_gpu_work(work);
-        throw;
-      }
-      detail::release_bulk_gpu_work(work);
+      if (error) { ex::set_error(std::move(rcvr), error); }
     }
   };
 
@@ -299,12 +308,13 @@ template<typename Params, typename Fun> struct bulk_async_sender
       std::forward_like<decltype(self)>(self.params),
       std::forward_like<decltype(self)>(self.fun),
       std::move(receiver),
+      std::nullopt,
     };
   }
 };
 
-/// Pipe after `bulk` to submit through the async queue/semaphore path.
-/// Completion is delivered from `start()` once the signaled semaphore is waited on.
+/// Pipe after `bulk` to submit without blocking `start()`.
+/// A waiter thread completes the receiver once the GPU fence signals.
 struct submit_async_t
 {
   template<typename Params, typename Fun>

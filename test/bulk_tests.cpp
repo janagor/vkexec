@@ -123,3 +123,30 @@ TEST_CASE("submit_async sender completes after GPU work", "[vkexec][bulk][gpu]")
   REQUIRE(std::fabs(values.data()[0] - (k_initial + k_add)) <= k_epsilon);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
+
+TEST_CASE("submit_async overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu]")
+{
+  std::optional<vkexec::context> ctx;
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+
+  vkexec::buffer<float> left(*ctx, k_work_count, k_initial);
+  vkexec::buffer<float> right(*ctx, k_work_count, k_initial);
+
+  auto make_async = [&](vkexec::buffer<float> &values) -> auto {
+    return ex::schedule(ctx->get_scheduler())
+           | vkexec::bulk(k_work_count,
+             bulk_params{ .value = k_add },
+             [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
+               values[idx] = values[idx] + push.get<&bulk_params::value>();
+             })
+           | vkexec::submit_async;
+  };
+
+  ex::sync_wait(ex::when_all(make_async(left), make_async(right)));
+
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  REQUIRE(std::fabs(left.data()[0] - (k_initial + k_add)) <= k_epsilon);
+  REQUIRE(std::fabs(right.data()[0] - (k_initial + k_add)) <= k_epsilon);
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}

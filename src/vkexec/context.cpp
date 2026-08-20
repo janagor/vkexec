@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -221,8 +222,11 @@ auto context::create_allocator() -> void
   if (vmaCreateAllocator(&allocator_info, &allocator_) != VK_SUCCESS) { fail("vmaCreateAllocator failed"); }
 }
 
+auto context::lock_host() const -> std::unique_lock<std::mutex> { return std::unique_lock{ host_mutex_ }; }
+
 auto context::allocate_command_buffer() -> VkCommandBuffer
 {
+  std::scoped_lock const lock(host_mutex_);
   VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.commandPool = command_pool_;
@@ -236,7 +240,10 @@ auto context::allocate_command_buffer() -> VkCommandBuffer
 }
 
 auto context::free_command_buffer(VkCommandBuffer cmd) -> void
-{ vkFreeCommandBuffers(device_.device, command_pool_, 1, &cmd); }
+{
+  std::scoped_lock const lock(host_mutex_);
+  vkFreeCommandBuffers(device_.device, command_pool_, 1, &cmd);
+}
 
 auto context::submit_and_wait(VkCommandBuffer cmd) -> void
 {
@@ -245,13 +252,16 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> void
   VkFence fence{ VK_NULL_HANDLE };
   if (vkCreateFence(device_.device, &fence_info, nullptr, &fence) != VK_SUCCESS) { fail("vkCreateFence failed"); }
 
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd;
-  if (vkQueueSubmit(compute_queue_, 1, &submit_info, fence) != VK_SUCCESS) {
-    vkDestroyFence(device_.device, fence, nullptr);
-    fail("vkQueueSubmit failed");
+  {
+    std::scoped_lock const lock(host_mutex_);
+    VkSubmitInfo submit_info{};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &cmd;
+    if (vkQueueSubmit(compute_queue_, 1, &submit_info, fence) != VK_SUCCESS) {
+      vkDestroyFence(device_.device, fence, nullptr);
+      fail("vkQueueSubmit failed");
+    }
   }
   if (vkWaitForFences(device_.device, 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
     vkDestroyFence(device_.device, fence, nullptr);
@@ -280,15 +290,19 @@ auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemapho
     *out_fence = fence;
   }
 
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd;
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &sem;
-  if (vkQueueSubmit(compute_queue_, 1, &submit_info, fence) != VK_SUCCESS) {
-    vkDestroySemaphore(device_.device, sem, nullptr);
-    fail("vkQueueSubmit failed");
+  {
+    std::scoped_lock const lock(host_mutex_);
+    VkSubmitInfo submit_info{};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &cmd;
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = &sem;
+    if (vkQueueSubmit(compute_queue_, 1, &submit_info, fence) != VK_SUCCESS) {
+      vkDestroySemaphore(device_.device, sem, nullptr);
+      if (fence != VK_NULL_HANDLE) { vkDestroyFence(device_.device, fence, nullptr); }
+      fail("vkQueueSubmit failed");
+    }
   }
   return sem;
 }
