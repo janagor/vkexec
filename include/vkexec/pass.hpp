@@ -148,21 +148,17 @@ struct pass_graph_sender
 struct pass_graph_async_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(),
-    ex::set_error_t(std::exception_ptr),
-    ex::set_stopped_t()>;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  explicit pass_graph_async_sender(pass_graph_sender graph)
-    : ctx(graph.ctx), steps(std::move(graph.steps))
-  {}
+  explicit pass_graph_async_sender(pass_graph_sender graph) : ctx(graph.ctx), steps(std::move(graph.steps)) {}
 
-  pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps)
-    : ctx(host), steps(std::move(graph_steps))
+  pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps) : ctx(host), steps(std::move(graph_steps))
   {}
 
   template<class Receiver> struct op_state
@@ -198,10 +194,8 @@ struct pass_graph_async_sender
           ctx->enqueue_fence_wait(done,
             fence,
             token,
-            [scope = std::move(scope), rcvr = std::move(rcvr)](
-              std::exception_ptr wait_error, bool stopped) mutable -> void {
-              detail::release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped);
-            });
+            [scope = std::move(scope), rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable
+              -> void { detail::release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
           return;
         }
         VKEXEC_CATCH_ALL

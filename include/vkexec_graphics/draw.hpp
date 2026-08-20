@@ -241,9 +241,7 @@ inline auto operator|(schedule_sender snd, draw_mesh_closure closure) -> draw_me
 }
 
 inline auto operator|(schedule_sender snd, draw_layers_closure closure) -> draw_layers_sender
-{
-  return draw_layers_sender{ .ctx = snd.ctx, .win = closure.win, .layers = std::move(closure.layers) };
-}
+{ return draw_layers_sender{ .ctx = snd.ctx, .win = closure.win, .layers = std::move(closure.layers) }; }
 
 }// namespace vkexec
 

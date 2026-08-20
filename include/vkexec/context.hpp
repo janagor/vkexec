@@ -5,8 +5,8 @@
 #include <vkexec/pipeline.hpp>
 
 #include <VkBootstrap.h>
-#include <vk_mem_alloc.h>
 #include <stdexec/execution.hpp>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
@@ -109,8 +109,7 @@ public:
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
-    ensure_completion_waiter().enqueue(
-      semaphore, fence, std::move(stop_requested), std::forward<Done>(on_done));
+    ensure_completion_waiter().enqueue(semaphore, fence, std::move(stop_requested), std::forward<Done>(on_done));
   }
 
 private:

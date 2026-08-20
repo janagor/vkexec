@@ -96,9 +96,8 @@ namespace detail {
     vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
   }
 
-  inline auto write_traced_descriptors(VkDevice device,
-    VkDescriptorSet set,
-    std::span<edsl::storage_trace const> buffers) -> void
+  inline auto
+    write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers) -> void
   { write_storage_descriptors(device, set, buffers); }
 
   inline auto allocate_compute_set(context const &ctx,
@@ -146,8 +145,7 @@ namespace detail {
     submit_scope(submit_scope const &) = delete;
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
-    submit_scope(submit_scope &&other) noexcept
-      : ctx(other.ctx), cmd(other.cmd), cleanup(std::move(other.cleanup))
+    submit_scope(submit_scope &&other) noexcept : ctx(other.ctx), cmd(other.cmd), cleanup(std::move(other.cleanup))
     {
       other.ctx = nullptr;
       other.cmd = VK_NULL_HANDLE;
@@ -207,10 +205,9 @@ namespace detail {
   };
 
   /// Wait for GPU work, destroy semaphore/fence. Safe when handles are null.
-  inline auto reclaim_submission_sync(VkDevice device,
-    VkQueue fallback_queue,
-    VkSemaphore semaphore,
-    VkFence fence) noexcept -> void
+  inline auto
+    reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+    -> void
   {
     if (fence != VK_NULL_HANDLE) {
       (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
@@ -247,9 +244,8 @@ namespace detail {
   struct enter_submit_scope_sender
   {
     using sender_concept = ex::sender_t;
-    using completion_signatures = ex::completion_signatures<ex::set_value_t(submit_scope),
-      ex::set_error_t(std::exception_ptr),
-      ex::set_stopped_t()>;
+    using completion_signatures = ex::
+      completion_signatures<ex::set_value_t(submit_scope), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
 
     context *ctx{ nullptr };
 

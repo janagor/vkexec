@@ -138,10 +138,9 @@ TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
 
   // NOLINTBEGIN(bugprone-unchecked-optional-access)
-  auto [left, right] =
-    ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial),
-                    vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)))
-      .value();
+  auto [left, right] = ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial),
+                                       vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)))
+                         .value();
   // NOLINTEND(bugprone-unchecked-optional-access)
 
   auto make_async = [&](vkexec::buffer<float> &values) -> auto {
@@ -168,12 +167,11 @@ TEST_CASE("submit completes with set_stopped when stop is already requested", "[
   ex::inplace_stop_source source;
   source.request_stop();
 
-  auto sender =
-    ex::schedule(sched)
-    | vkexec::bulk(
-      k_work_count, bulk_params{ .value = k_add }, [](edsl::Int /*idx*/, edsl::push_constant<bulk_params> /*push*/) -> void {
-      })
-    | vkexec::submit;
+  auto sender = ex::schedule(sched)
+                | vkexec::bulk(k_work_count,
+                  bulk_params{ .value = k_add },
+                  [](edsl::Int /*idx*/, edsl::push_constant<bulk_params> /*push*/) -> void {})
+                | vkexec::submit;
 
   auto const result =
     // NOLINTNEXTLINE(misc-include-cleaner)
@@ -203,9 +201,7 @@ TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vke
     // NOLINTNEXTLINE(misc-include-cleaner)
     ex::write_env(pipeline, ex::prop{ ex::get_stop_token, source.get_token() });
 
-  std::jthread const stopper{ [&source]() -> void {
-    source.request_stop();
-  } };
+  std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
 
   // May complete with value or stopped depending on timing; reclaim must not leak either way.
   (void)ex::sync_wait(std::move(env_sender));

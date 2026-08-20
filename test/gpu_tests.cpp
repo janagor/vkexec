@@ -72,10 +72,9 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
   VKEXEC_TRY { ctx.emplace(); }
   VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [positions, velocities] = ex::sync_wait(ex::when_all(
-                                   vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F),
-                                   vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity)))
-                                 .value();
+  auto [positions, velocities] = ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F),
+                                                 vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity)))
+                                   .value();
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto pipeline =

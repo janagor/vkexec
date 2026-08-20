@@ -29,9 +29,7 @@ namespace {
   }
 
   auto make_runtime_error(char const *what) -> std::exception_ptr
-  {
-    return std::make_exception_ptr(std::runtime_error(what));
-  }
+  { return std::make_exception_ptr(std::runtime_error(what)); }
 
 }// namespace
 
@@ -154,9 +152,7 @@ auto completion_waiter::run() -> void
       std::unique_lock lock(mutex_);
       cv_.wait(lock, [this, &active]() -> bool { return shutting_down_ || !pending_.empty() || !active.empty(); });
       if (!pending_.empty()) {
-        active.insert(active.end(),
-          std::make_move_iterator(pending_.begin()),
-          std::make_move_iterator(pending_.end()));
+        active.insert(active.end(), std::make_move_iterator(pending_.begin()), std::make_move_iterator(pending_.end()));
         pending_.clear();
       }
       if (shutting_down_ && active.empty()) { return; }

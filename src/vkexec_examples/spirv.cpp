@@ -66,7 +66,7 @@ auto main() -> int
     vkexec::context ctx{ { .validation_layers = true } };
     // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     auto [input, output] = ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(ctx, k_element_count, k_initial),
-                                         vkexec::buffer<float>::allocate(ctx, k_element_count, 0.0F)))
+                                           vkexec::buffer<float>::allocate(ctx, k_element_count, 0.0F)))
                              .value();
 
     using enum vkexec::buffer_access;

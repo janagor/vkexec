@@ -142,9 +142,8 @@ template<typename Params, typename Fun> struct bulk_sender
 template<typename Params, typename Fun> struct bulk_async_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(),
-    ex::set_error_t(std::exception_ptr),
-    ex::set_stopped_t()>;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::uint32_t shape{};

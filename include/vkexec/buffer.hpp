@@ -32,9 +32,8 @@ template<typename T> class buffer;
 template<typename T> struct buffer_allocate_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(buffer<T>),
-    ex::set_error_t(std::exception_ptr),
-    ex::set_stopped_t()>;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(buffer<T>), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::size_t count{ 0 };
@@ -92,9 +91,7 @@ template<typename T> class buffer
 public:
   /// Lazy allocate: describes buffer creation; runs in `start()` and completes with a `buffer`.
   [[nodiscard]] static auto allocate(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
-  {
-    return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) };
-  }
+  { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
 
   /// Alias for `allocate` (async-object `create` naming).
   [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
@@ -249,13 +246,8 @@ private:
     auto *const elems = static_cast<T *>(ainfo.pMappedData);
     for (T &elem : std::span<T>{ elems, count }) { elem = fill; }
 
-    return buffer(owned_tag{},
-      &ctx,
-      handle,
-      allocation,
-      ainfo.pMappedData,
-      count,
-      "buf" + std::to_string(next_name_id()));
+    return buffer(
+      owned_tag{}, &ctx, handle, allocation, ainfo.pMappedData, count, "buf" + std::to_string(next_name_id()));
   }
 
   [[nodiscard]] static auto take_allocated(std::optional<std::tuple<buffer>> result) -> buffer
