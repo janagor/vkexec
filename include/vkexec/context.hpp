@@ -1,16 +1,21 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
+#include <vkexec/detail/completion_waiter.hpp>
 #include <vkexec/pipeline.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
+#include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <mutex>
 #include <span>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace vkexec::edsl {
@@ -94,6 +99,19 @@ public:
   auto submit_and_wait(VkCommandBuffer cmd) -> void;
   auto submit_async(VkCommandBuffer cmd, VkFence *out_fence = nullptr) -> VkSemaphore;
 
+  /// Wait for a submitted fence on the context completion agent, then invoke `on_done`.
+  /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
+  template<class StopToken, class Done>
+  auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> void
+  {
+    detail::completion_waiter::stop_fn stop_requested;
+    if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
+      stop_requested = [token]() -> bool { return token.stop_requested(); };
+    }
+    ensure_completion_waiter().enqueue(
+      semaphore, fence, std::move(stop_requested), std::forward<Done>(on_done));
+  }
+
 private:
   friend class pipeline_cache;
   friend class window;
@@ -109,6 +127,7 @@ private:
   auto create_command_pool() -> void;
   auto create_allocator() -> void;
   auto fetch_queues(bool want_present) -> void;
+  auto ensure_completion_waiter() -> detail::completion_waiter &;
 
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};
@@ -122,6 +141,7 @@ private:
   std::uint32_t present_family_{ 0 };
   VkCommandPool command_pool_{ VK_NULL_HANDLE };
   std::unique_ptr<pipeline_cache> pipeline_cache_;
+  std::unique_ptr<detail::completion_waiter> completion_waiter_;
   mutable std::mutex host_mutex_;
   bool presentation_enabled_{ false };
   bool has_instance_{ false };

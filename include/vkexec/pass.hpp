@@ -2,7 +2,6 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/detail/fence_wait.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -22,10 +21,8 @@
 #include <exception>
 #include <functional>
 #include <mutex>
-#include <optional>
 #include <span>
 #include <stdexcept>
-#include <thread>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -295,7 +292,6 @@ struct pass_graph_async_sender
     context *ctx{};
     std::vector<pass_step> steps;
     Receiver receiver;
-    std::optional<std::jthread> waiter;
 
     auto start() noexcept -> void
     {
@@ -337,27 +333,21 @@ struct pass_graph_async_sender
 
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done = ctx->submit_async(cmd, &fence);// NOLINT(misc-misplaced-const)
-        waiter.emplace([ctx = ctx,
-                         cmd,
-                         cleanup = std::move(cleanup),
-                         done,
-                         fence,
-                         token,
-                         rcvr = std::move(rcvr)]() mutable -> void {
-          std::exception_ptr wait_error;
-          bool stopped = false;
-          VKEXEC_TRY { stopped = detail::wait_submission_with_stop(*ctx, done, fence, token); }
-          VKEXEC_CATCH_ALL { wait_error = std::current_exception(); }
-          ctx->free_command_buffer(cmd);
-          cleanup.release(*ctx);
-          if (wait_error) {
-            ex::set_error(std::move(rcvr), wait_error);
-          } else if (stopped) {
-            ex::set_stopped(std::move(rcvr));
-          } else {
-            ex::set_value(std::move(rcvr));
-          }
-        });
+        ctx->enqueue_fence_wait(done,
+          fence,
+          token,
+          [ctx = ctx, cmd, cleanup = std::move(cleanup), rcvr = std::move(rcvr)](
+            std::exception_ptr wait_error, bool stopped) mutable -> void {
+            ctx->free_command_buffer(cmd);
+            cleanup.release(*ctx);
+            if (wait_error) {
+              ex::set_error(std::move(rcvr), wait_error);
+            } else if (stopped) {
+              ex::set_stopped(std::move(rcvr));
+            } else {
+              ex::set_value(std::move(rcvr));
+            }
+          });
         return;
       }
       VKEXEC_CATCH_ALL { error = std::current_exception(); }
@@ -371,7 +361,6 @@ struct pass_graph_async_sender
       self.ctx,
       std::forward_like<decltype(self)>(self.steps),
       std::move(receiver),
-      std::nullopt,
     };
   }
 };

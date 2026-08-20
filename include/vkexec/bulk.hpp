@@ -3,7 +3,6 @@
 
 
 #include <vkexec/buffer.hpp>
-#include <vkexec/detail/fence_wait.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -20,10 +19,8 @@
 #include <cstdint>
 #include <exception>
 #include <mutex>
-#include <optional>
 #include <span>
 #include <stdexcept>
-#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -257,7 +254,6 @@ template<typename Params, typename Fun> struct bulk_async_sender
     Params params{};
     Fun fun{};
     Receiver receiver;
-    std::optional<std::jthread> waiter;
 
     void start() noexcept
     {
@@ -277,14 +273,8 @@ template<typename Params, typename Fun> struct bulk_async_sender
         detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done = ctx->submit_async(work.cmd, &fence);// NOLINT(misc-misplaced-const)
-        waiter.emplace([work, done, fence, token, rcvr = std::move(rcvr)]() mutable -> void {
-          std::exception_ptr wait_error;
-          bool stopped = false;
-          VKEXEC_TRY
-          {
-            stopped = detail::wait_submission_with_stop(*work.ctx, done, fence, token);
-          }
-          VKEXEC_CATCH_ALL { wait_error = std::current_exception(); }
+        ctx->enqueue_fence_wait(done, fence, token, [work, rcvr = std::move(rcvr)](std::exception_ptr wait_error,
+                                                           bool stopped) mutable -> void {
           detail::release_bulk_gpu_work(work);
           if (wait_error) {
             ex::set_error(std::move(rcvr), wait_error);
@@ -309,13 +299,12 @@ template<typename Params, typename Fun> struct bulk_async_sender
       std::forward_like<decltype(self)>(self.params),
       std::forward_like<decltype(self)>(self.fun),
       std::move(receiver),
-      std::nullopt,
     };
   }
 };
 
 /// Pipe after `bulk` to submit without blocking `start()`.
-/// A waiter thread completes the receiver once the GPU fence signals (or with `set_stopped`).
+/// The context completion agent delivers the receiver once the GPU fence signals (or with `set_stopped`).
 template<typename Params, typename Fun>
 [[nodiscard]] auto operator|(bulk_sender<Params, Fun> &&snd, submit_t /*tag*/) -> bulk_async_sender<Params, Fun>
 { return bulk_async_sender<Params, Fun>(std::move(snd)); }
