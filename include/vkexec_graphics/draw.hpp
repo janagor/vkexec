@@ -64,9 +64,12 @@ struct draw_sender
   using sender_concept = ex::sender_t;
   using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
 
+  context *ctx{ nullptr };
   window *win{ nullptr };
   graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
@@ -111,8 +114,11 @@ struct draw_layers_sender
   using sender_concept = ex::sender_t;
   using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
 
+  context *ctx{ nullptr };
   window *win{ nullptr };
   std::vector<draw_layer> layers;
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
@@ -164,17 +170,27 @@ struct draw_layers_sender
   { return op_state<Receiver>{ .win = win, .layers = layers, .receiver = std::move(receiver) }; }
 };
 
-inline auto operator|(schedule_sender /*snd*/, draw_closure closure) -> draw_sender
-{ return draw_sender{ .win = closure.win, .pipeline = closure.pipeline, .vertex_count = closure.vertex_count }; }
+inline auto operator|(schedule_sender snd, draw_closure closure) -> draw_sender
+{
+  return draw_sender{
+    .ctx = snd.ctx,
+    .win = closure.win,
+    .pipeline = closure.pipeline,
+    .vertex_count = closure.vertex_count,
+  };
+}
 
 struct draw_mesh_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
 
+  context *ctx{ nullptr };
   window *win{ nullptr };
   graphics_pipeline *pipeline{ nullptr };
   mesh const *drawn{ nullptr };
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
@@ -214,11 +230,20 @@ struct draw_mesh_sender
   }
 };
 
-inline auto operator|(schedule_sender /*snd*/, draw_mesh_closure closure) -> draw_mesh_sender
-{ return draw_mesh_sender{ .win = closure.win, .pipeline = closure.pipeline, .drawn = closure.drawn }; }
+inline auto operator|(schedule_sender snd, draw_mesh_closure closure) -> draw_mesh_sender
+{
+  return draw_mesh_sender{
+    .ctx = snd.ctx,
+    .win = closure.win,
+    .pipeline = closure.pipeline,
+    .drawn = closure.drawn,
+  };
+}
 
-inline auto operator|(schedule_sender /*snd*/, draw_layers_closure closure) -> draw_layers_sender
-{ return draw_layers_sender{ .win = closure.win, .layers = std::move(closure.layers) }; }
+inline auto operator|(schedule_sender snd, draw_layers_closure closure) -> draw_layers_sender
+{
+  return draw_layers_sender{ .ctx = snd.ctx, .win = closure.win, .layers = std::move(closure.layers) };
+}
 
 }// namespace vkexec
 

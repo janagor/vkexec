@@ -1,0 +1,76 @@
+#include <catch2/catch_test_macros.hpp>
+
+#include <vkexec/bulk.hpp>
+#include <vkexec/pass.hpp>
+#include <vkexec/scheduler.hpp>
+#include <vkexec_edsl/push_constant.hpp>
+#include <vkexec_edsl/types.hpp>
+
+#include <boost/describe/class.hpp>
+
+#include <stdexec/execution.hpp>
+
+namespace ex = stdexec;
+namespace edsl = vkexec::edsl;
+
+namespace {
+
+struct env_params
+{
+  float n;
+};
+// cppcheck-suppress unknownMacro
+BOOST_DESCRIBE_STRUCT(env_params, (), (n))
+
+}// namespace
+
+TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  auto const sender = sched.schedule();
+
+  // NOLINTNEXTLINE(misc-include-cleaner)
+  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
+  REQUIRE(completion == sched);
+  REQUIRE(completion.get_context() == nullptr);
+}
+
+TEST_CASE("bulk_sender advertises completion scheduler", "[vkexec][scheduler]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  auto const sender =
+    ex::schedule(sched)
+    | vkexec::bulk(
+      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {});
+
+  // NOLINTNEXTLINE(misc-include-cleaner)
+  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
+  REQUIRE(completion == sched);
+}
+
+TEST_CASE("bulk_async_sender advertises completion scheduler", "[vkexec][scheduler]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  auto const sender =
+    ex::schedule(sched)
+    | vkexec::bulk(
+      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {})
+    | vkexec::submit_async;
+
+  // NOLINTNEXTLINE(misc-include-cleaner)
+  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
+  REQUIRE(completion == sched);
+}
+
+TEST_CASE("pass_graph_sender advertises completion scheduler", "[vkexec][scheduler]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  auto const sender =
+    ex::schedule(sched)
+    | vkexec::compute_pass(
+      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {});
+
+  // NOLINTNEXTLINE(misc-include-cleaner)
+  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
+  REQUIRE(completion == sched);
+}

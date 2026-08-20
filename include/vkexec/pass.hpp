@@ -207,6 +207,8 @@ struct pass_graph_sender
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
 
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
   template<class Receiver> struct op_state
   {
     context *ctx{};

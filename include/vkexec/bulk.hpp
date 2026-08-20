@@ -53,8 +53,9 @@ namespace detail {
     vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
   }
 
-  inline auto allocate_traced_set(context &ctx, pipeline_resources &pipe, std::span<edsl::storage_trace const> buffers)
-    -> VkDescriptorSet
+  inline auto allocate_traced_set(context const &ctx,
+    pipeline_resources &pipe,
+    std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
   {
     std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};
@@ -109,7 +110,7 @@ namespace detail {
     }
   }
 
-  inline auto wait_and_release_submission(context &ctx, VkSemaphore semaphore, VkFence fence) -> void
+  inline auto wait_and_release_submission(context const &ctx, VkSemaphore semaphore, VkFence fence) -> void
   {
     VKEXEC_TRY
     {
@@ -127,6 +128,7 @@ namespace detail {
     {
       if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
       if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
+      // cppcheck-suppress rethrowNoCurrentException
       throw;
     }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
@@ -196,6 +198,8 @@ template<typename Params, typename Fun> struct bulk_sender
     : ctx(host), shape(work_count), params(std::move(push)), fun(std::move(kernel))
   {}
 
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
   template<class Receiver> struct op_state
   {
     context *ctx{ nullptr };
@@ -227,6 +231,7 @@ template<typename Params, typename Fun> struct bulk_sender
       VKEXEC_CATCH_ALL
       {
         detail::release_bulk_gpu_work(work);
+        // cppcheck-suppress rethrowNoCurrentException
         throw;
       }
       detail::release_bulk_gpu_work(work);
@@ -262,6 +267,8 @@ template<typename Params, typename Fun> struct bulk_async_sender
   explicit bulk_async_sender(bulk_sender<Params, Fun> snd)
     : ctx(snd.ctx), shape(snd.shape), params(std::move(snd.params)), fun(std::move(snd.fun))
   {}
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
