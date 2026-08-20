@@ -4,7 +4,7 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/config.hpp>
-#include <vkexec/submit_async.hpp>
+#include <vkexec/submit.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -105,7 +105,7 @@ TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
   ex::sync_wait(sender);
 }
 
-TEST_CASE("submit_async sender completes after GPU work", "[vkexec][bulk][gpu]")
+TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 {
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
@@ -118,7 +118,7 @@ TEST_CASE("submit_async sender completes after GPU work", "[vkexec][bulk][gpu]")
                     [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
                       values[idx] = values[idx] + push.get<&bulk_params::value>();
                     })
-                  | vkexec::submit_async;
+                  | vkexec::submit;
   ex::sync_wait(pipeline);
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -126,7 +126,7 @@ TEST_CASE("submit_async sender completes after GPU work", "[vkexec][bulk][gpu]")
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-TEST_CASE("submit_async overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu]")
+TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu]")
 {
   std::optional<vkexec::context> ctx;
   VKEXEC_TRY { ctx.emplace(); }
@@ -142,7 +142,7 @@ TEST_CASE("submit_async overlaps two GPU dispatches via when_all", "[vkexec][bul
              [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
                values[idx] = values[idx] + push.get<&bulk_params::value>();
              })
-           | vkexec::submit_async;
+           | vkexec::submit;
   };
 
   ex::sync_wait(ex::when_all(make_async(left), make_async(right)));
@@ -153,7 +153,7 @@ TEST_CASE("submit_async overlaps two GPU dispatches via when_all", "[vkexec][bul
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-TEST_CASE("submit_async completes with set_stopped when stop is already requested", "[vkexec][bulk]")
+TEST_CASE("submit completes with set_stopped when stop is already requested", "[vkexec][bulk]")
 {
   vkexec::scheduler const sched{ nullptr };
   ex::inplace_stop_source source;
@@ -164,7 +164,7 @@ TEST_CASE("submit_async completes with set_stopped when stop is already requeste
     | vkexec::bulk(
       k_work_count, bulk_params{ .value = k_add }, [](edsl::Int /*idx*/, edsl::push_constant<bulk_params> /*push*/) -> void {
       })
-    | vkexec::submit_async;
+    | vkexec::submit;
 
   auto const result =
     // NOLINTNEXTLINE(misc-include-cleaner)

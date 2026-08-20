@@ -8,7 +8,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/submit_async.hpp>
+#include <vkexec/submit.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -317,11 +317,11 @@ template<typename Params, typename Fun> struct bulk_async_sender
 /// Pipe after `bulk` to submit without blocking `start()`.
 /// A waiter thread completes the receiver once the GPU fence signals (or with `set_stopped`).
 template<typename Params, typename Fun>
-[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &&snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &&snd, submit_t /*tag*/) -> bulk_async_sender<Params, Fun>
 { return bulk_async_sender<Params, Fun>(std::move(snd)); }
 
 template<typename Params, typename Fun>
-[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &snd, submit_t /*tag*/) -> bulk_async_sender<Params, Fun>
 { return bulk_async_sender<Params, Fun>{ snd.ctx, snd.shape, snd.params, snd.fun }; }
 
 template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)

@@ -6,7 +6,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec/pass.hpp>
-#include <vkexec/submit_async.hpp>
+#include <vkexec/submit.hpp>
 #include <vkexec_edsl/control.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -156,7 +156,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
                  [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
                    values[idx] = values[idx] * push.get<&pass_params::value>();
                  })
-               | vkexec::submit_async;
+               | vkexec::submit;
   ex::sync_wait(graph);
 
   float const expected = (k_initial + k_add) * k_scale;
@@ -167,7 +167,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-TEST_CASE("pass graph submit_async completes with set_stopped when stop is already requested", "[vkexec][pass]")
+TEST_CASE("pass graph submit completes with set_stopped when stop is already requested", "[vkexec][pass]")
 {
   vkexec::scheduler const sched{ nullptr };
   ex::inplace_stop_source source;
@@ -177,7 +177,7 @@ TEST_CASE("pass graph submit_async completes with set_stopped when stop is alrea
     ex::schedule(sched)
     | vkexec::compute_pass(
       1U, pass_params{ .value = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<pass_params> /*push*/) -> void {})
-    | vkexec::submit_async;
+    | vkexec::submit;
 
   auto const result =
     // NOLINTNEXTLINE(misc-include-cleaner)

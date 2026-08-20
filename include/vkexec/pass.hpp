@@ -7,7 +7,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/submit_async.hpp>
+#include <vkexec/submit.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -524,10 +524,10 @@ inline auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t ta
 inline auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
 
-[[nodiscard]] inline auto operator|(pass_graph_sender &&snd, submit_async_t /*tag*/) -> pass_graph_async_sender
+[[nodiscard]] inline auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender
 { return pass_graph_async_sender{ std::move(snd) }; }
 
-[[nodiscard]] inline auto operator|(pass_graph_sender &snd, submit_async_t /*tag*/) -> pass_graph_async_sender
+[[nodiscard]] inline auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender
 { return pass_graph_async_sender{ snd.ctx, snd.steps }; }
 
 }// namespace vkexec
