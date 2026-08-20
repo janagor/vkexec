@@ -497,7 +497,7 @@ auto window::begin_frame() -> std::optional<frame>
     .image_index = image_index };
 }
 
-auto window::end_frame(frame const &drawn) -> void
+auto window::end_frame(frame const &drawn) -> VkFence
 {
   if (!frame_open_) { VKEXEC_THROW(std::logic_error("end_frame called without begin_frame")); }
   (void)drawn;
@@ -533,8 +533,10 @@ auto window::end_frame(frame const &drawn) -> void
     VKEXEC_THROW(std::runtime_error("vkQueuePresentKHR failed"));
   }
 
+  VkFence submitted = sync.in_flight;
   frame_index_ = (frame_index_ + 1) % static_cast<std::uint32_t>(k_frames);
   frame_open_ = false;
+  return submitted;
 }
 
 }// namespace vkexec

@@ -35,6 +35,9 @@ public:
   /// also reclaim cmd/descriptor loans before choosing `set_stopped` / `set_value` / `set_error`.
   auto enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> void;
 
+  /// Wait for a caller-owned fence; never destroys it. Used for window frame fences.
+  auto enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> void;
+
   /// Drain outstanding waits and join the agent thread. Safe to call once.
   auto shutdown() -> void;
 
@@ -46,6 +49,7 @@ private:
     stop_fn stop_requested;
     done_fn on_done;
     bool stop_seen{ false };
+    bool destroy_sync{ true };
   };
 
   auto run() -> void;

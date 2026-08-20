@@ -53,6 +53,24 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
       .stop_requested = std::move(stop_requested),
       .on_done = std::move(on_done),
       .stop_seen = false,
+      .destroy_sync = true,
+    });
+  }
+  cv_.notify_one();
+}
+
+auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> void
+{
+  {
+    std::scoped_lock const lock(mutex_);
+    if (shutting_down_) { VKEXEC_THROW(std::runtime_error("completion_waiter enqueue after shutdown")); }
+    pending_.push_back(job{
+      .semaphore = VK_NULL_HANDLE,
+      .fence = fence,
+      .stop_requested = std::move(stop_requested),
+      .on_done = std::move(on_done),
+      .stop_seen = false,
+      .destroy_sync = false,
     });
   }
   cv_.notify_one();
@@ -72,7 +90,11 @@ auto completion_waiter::shutdown() -> void
 
 auto completion_waiter::finish_job(job item, std::exception_ptr error) -> void
 {
-  reclaim_sync(device_, fallback_queue_, item.semaphore, item.fence);
+  if (item.destroy_sync) {
+    reclaim_sync(device_, fallback_queue_, item.semaphore, item.fence);
+  } else if (item.fence != VK_NULL_HANDLE) {
+    (void)vkWaitForFences(device_, 1, &item.fence, VK_TRUE, UINT64_MAX);
+  }
   if (item.on_done) { item.on_done(std::move(error), item.stop_seen); }
 }
 

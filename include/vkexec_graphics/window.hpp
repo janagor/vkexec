@@ -63,7 +63,8 @@ public:
   [[nodiscard]] auto begin_frame() -> std::optional<frame>;
 
   /// Submit the recorded command buffer and present. The command buffer must already be ended.
-  auto end_frame(frame const &drawn) -> void;
+  /// Returns the per-frame `in_flight` fence signaled by the submit (owned by the window).
+  [[nodiscard]] auto end_frame(frame const &drawn) -> VkFence;
 
 private:
   struct frame_sync

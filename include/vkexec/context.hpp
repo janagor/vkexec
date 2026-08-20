@@ -114,6 +114,17 @@ public:
     ensure_completion_waiter().enqueue(semaphore, fence, std::move(stop_requested), std::forward<Done>(on_done));
   }
 
+  /// Wait for a caller-owned fence on the completion agent (does not destroy the fence).
+  template<class StopToken, class Done>
+  auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> void
+  {
+    detail::completion_waiter::stop_fn stop_requested;
+    if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
+      stop_requested = [token]() -> bool { return token.stop_requested(); };
+    }
+    ensure_completion_waiter().enqueue_borrowed(fence, std::move(stop_requested), std::forward<Done>(on_done));
+  }
+
   /// Run `task` on the context host agent (schedule completions land here).
   template<class Task> auto enqueue_host(Task &&task) -> void
   { ensure_host_agent().enqueue(detail::host_agent::task_fn{ std::forward<Task>(task) }); }
