@@ -16,8 +16,14 @@ namespace {
 
   constexpr std::uint64_t k_poll_timeout_ns = 1'000'000ULL;// 1 ms
 
-  auto destroy_sync(VkDevice device, VkSemaphore semaphore, VkFence fence) noexcept -> void
+  /// Always wait for the GPU (or queue idle), then destroy semaphore/fence.
+  auto reclaim_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept -> void
   {
+    if (fence != VK_NULL_HANDLE) {
+      (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    } else if (fallback_queue != VK_NULL_HANDLE) {
+      (void)vkQueueWaitIdle(fallback_queue);
+    }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
   }
@@ -40,7 +46,7 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
   {
     std::scoped_lock const lock(mutex_);
     if (shutting_down_) {
-      destroy_sync(device_, semaphore, fence);
+      reclaim_sync(device_, fallback_queue_, semaphore, fence);
       VKEXEC_THROW(std::runtime_error("completion_waiter enqueue after shutdown"));
     }
     pending_.push_back(job{
@@ -68,7 +74,7 @@ auto completion_waiter::shutdown() -> void
 
 auto completion_waiter::finish_job(job item, std::exception_ptr error) -> void
 {
-  destroy_sync(device_, item.semaphore, item.fence);
+  reclaim_sync(device_, fallback_queue_, item.semaphore, item.fence);
   if (item.on_done) { item.on_done(std::move(error), item.stop_seen); }
 }
 

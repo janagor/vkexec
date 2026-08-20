@@ -22,6 +22,8 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <thread>
+#include <utility>
 
 namespace ex = stdexec;
 namespace edsl = vkexec::edsl;
@@ -177,4 +179,34 @@ TEST_CASE("submit completes with set_stopped when stop is already requested", "[
     // NOLINTNEXTLINE(misc-include-cleaner)
     ex::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
   REQUIRE_FALSE(result.has_value());
+}
+
+TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vkexec][bulk][gpu]")
+{
+  std::optional<vkexec::context> ctx;
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)).value();
+
+  ex::inplace_stop_source source;
+  auto pipeline = ex::schedule(ctx->get_scheduler())
+                  | vkexec::bulk(k_work_count,
+                    bulk_params{ .value = k_add },
+                    [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
+                      values[idx] = values[idx] + push.get<&bulk_params::value>();
+                    })
+                  | vkexec::submit;
+
+  auto env_sender =
+    // NOLINTNEXTLINE(misc-include-cleaner)
+    ex::write_env(pipeline, ex::prop{ ex::get_stop_token, source.get_token() });
+
+  std::jthread const stopper{ [&source]() -> void {
+    source.request_stop();
+  } };
+
+  // May complete with value or stopped depending on timing; reclaim must not leak either way.
+  (void)ex::sync_wait(std::move(env_sender));
 }

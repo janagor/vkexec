@@ -31,6 +31,8 @@ public:
   auto operator=(completion_waiter &&) -> completion_waiter & = delete;
 
   /// Always waits for the GPU and destroys `semaphore`/`fence` before invoking `on_done`.
+  /// `on_done(error, stopped)` runs only after those sync objects are gone; callers must
+  /// also reclaim cmd/descriptor loans before choosing `set_stopped` / `set_value` / `set_error`.
   auto enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> void;
 
   /// Drain outstanding waits and join the agent thread. Safe to call once.

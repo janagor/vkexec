@@ -101,6 +101,7 @@ public:
 
   /// Wait for a submitted fence on the context completion agent, then invoke `on_done`.
   /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
+  /// Choose `set_stopped` / `set_value` / `set_error` only after reclaiming cmd/descriptor loans too.
   template<class StopToken, class Done>
   auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> void
   {

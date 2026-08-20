@@ -186,21 +186,27 @@ template<typename Params, typename Fun> struct bulk_async_sender
         // cppcheck-suppress throwInNoexceptFunction
         detail::submit_scope scope = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
         VkFence fence{ VK_NULL_HANDLE };
-        VkSemaphore done = ctx->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
-        ctx->enqueue_fence_wait(done,
-          fence,
-          token,
-          [scope = std::move(scope), rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable -> void {
-            scope.release();
-            if (wait_error) {
-              ex::set_error(std::move(rcvr), wait_error);
-            } else if (stopped) {
-              ex::set_stopped(std::move(rcvr));
-            } else {
-              ex::set_value(std::move(rcvr));
-            }
-          });
-        return;
+        VkSemaphore done{ VK_NULL_HANDLE };
+        VKEXEC_TRY
+        {
+          done = ctx->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
+          ctx->enqueue_fence_wait(done,
+            fence,
+            token,
+            [scope = std::move(scope), rcvr = std::move(rcvr)](
+              std::exception_ptr wait_error, bool stopped) mutable -> void {
+              // Sync objects are already reclaimed by the completion agent.
+              detail::release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped);
+            });
+          return;
+        }
+        VKEXEC_CATCH_ALL
+        {
+          detail::reclaim_submission_sync(ctx->device(), ctx->compute_queue(), done, fence);
+          scope.release();
+          // cppcheck-suppress rethrowNoCurrentException
+          throw;
+        }
       }
       VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) { ex::set_error(std::move(rcvr), error); }

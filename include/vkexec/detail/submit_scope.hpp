@@ -206,6 +206,43 @@ namespace detail {
     }
   };
 
+  /// Wait for GPU work, destroy semaphore/fence. Safe when handles are null.
+  inline auto reclaim_submission_sync(VkDevice device,
+    VkQueue fallback_queue,
+    VkSemaphore semaphore,
+    VkFence fence) noexcept -> void
+  {
+    if (fence != VK_NULL_HANDLE) {
+      (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    } else if (fallback_queue != VK_NULL_HANDLE) {
+      (void)vkQueueWaitIdle(fallback_queue);
+    }
+    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
+    if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+  }
+
+  /// Release cmd/descriptors, then deliver exactly one completion signal.
+  /// Call only after GPU/host sync objects for this submit have already been reclaimed.
+  template<class Receiver>
+  auto complete_after_reclaim(Receiver &&receiver, std::exception_ptr error, bool stopped) -> void
+  {
+    if (error) {
+      ex::set_error(std::forward<Receiver>(receiver), std::move(error));
+    } else if (stopped) {
+      ex::set_stopped(std::forward<Receiver>(receiver));
+    } else {
+      ex::set_value(std::forward<Receiver>(receiver));
+    }
+  }
+
+  template<class Receiver>
+  auto release_scope_and_complete(submit_scope &scope, Receiver &&receiver, std::exception_ptr error, bool stopped)
+    -> void
+  {
+    scope.release();
+    complete_after_reclaim(std::forward<Receiver>(receiver), std::move(error), stopped);
+  }
+
   /// Sender factory: completes with an open `submit_scope` (cmd begun, ready to record).
   struct enter_submit_scope_sender
   {
