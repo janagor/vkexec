@@ -118,8 +118,7 @@ context::context(context_adopt_info const &info)
 }
 
 context::context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions)
-  : instance_(build_instance_with_extensions(instance_extensions, opts.validation_layers)),
-    has_instance_(true),
+  : instance_(build_instance_with_extensions(instance_extensions, opts.validation_layers)), has_instance_(true),
     owns_instance_(true)
 { (void)tag; }
 

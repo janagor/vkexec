@@ -233,7 +233,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   begin_pass(cmd, render_pass, framebuffer, extent);
   record_draw(cmd, extent, drawn);
   vkCmdEndRenderPass(cmd);
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
+  if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
 }
 
 }// namespace vkexec

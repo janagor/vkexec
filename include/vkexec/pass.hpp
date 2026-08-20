@@ -123,8 +123,8 @@ namespace detail {
     }
   };
 
-  inline auto storage_traces_equal(std::span<edsl::storage_trace const> lhs,
-    std::span<edsl::storage_trace const> rhs) -> bool
+  inline auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs)
+    -> bool
   {
     return lhs.size() == rhs.size()
            && std::equal(lhs.begin(),
@@ -186,8 +186,8 @@ namespace detail {
     }
 
     VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
-    cleanup.sets.insert_or_assign(&pipe,
-      pass_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = set });
+    cleanup.sets.insert_or_assign(
+      &pipe, pass_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = set });
     cleanup.allocated.push_back({ .pool = pipe.descriptor_pool, .set = set });
     return set;
   }
@@ -221,10 +221,7 @@ struct pass_graph_sender
         // cppcheck-suppress throwInNoexceptFunction
         run();
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ex::set_error(std::move(receiver), error);
       } else {
@@ -249,10 +246,7 @@ struct pass_graph_sender
         if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
         ctx->submit_and_wait(cmd);
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ctx->free_command_buffer(cmd);
         cleanup.release(*ctx);
@@ -336,8 +330,7 @@ auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &p
 
 namespace detail {
 
-  template<typename Params, typename Fun>
-  auto make_traced_step(compute_pass_closure<Params, Fun> closure) -> pass_step
+  template<typename Params, typename Fun> auto make_traced_step(compute_pass_closure<Params, Fun> closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
                                   context &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
@@ -393,9 +386,7 @@ auto operator|(schedule_sender snd, compute_pass_closure<Params, Fun> closure) -
 
 template<typename Params, typename Fun>
 auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
-{
-  return detail::append_step(std::move(graph), detail::make_traced_step(std::move(closure)));
-}
+{ return detail::append_step(std::move(graph), detail::make_traced_step(std::move(closure))); }
 
 inline auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender
 { return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } }; }

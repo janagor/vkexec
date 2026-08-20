@@ -1,7 +1,7 @@
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
-#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/ast.hpp>
 #include <vkexec_edsl/glsl_emit.hpp>
 #include <vkexec_edsl/spirv.hpp>

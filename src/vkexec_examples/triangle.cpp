@@ -22,10 +22,8 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 auto main() -> int
 {
   try {
-    vkexec::window win({ .width = k_window_width,
-      .height = k_window_height,
-      .title = "vkexec triangle",
-      .validation_layers = true });
+    vkexec::window win(
+      { .width = k_window_width, .height = k_window_height, .title = "vkexec triangle", .validation_layers = true });
 
     // Vertex + fragment shaders traced from C++ (AST -> GLSL -> SPIR-V).
     vkexec::graphics_pipeline pipeline(

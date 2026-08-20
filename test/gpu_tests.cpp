@@ -67,29 +67,23 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
   constexpr float k_epsilon = 1.0E-4F;
 
   std::optional<vkexec::context> ctx;
-  VKEXEC_TRY
-  {
-    ctx.emplace();
-  }
-  VKEXEC_CATCH(std::exception const &error)
-  {
-    skip_if_no_vulkan(error);
-  }
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
   vkexec::buffer<float> positions(*ctx, k_count, 0.0F);
   vkexec::buffer<float> velocities(*ctx, k_count, k_initial_velocity);
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
-  auto pipeline = ex::schedule(ctx->get_scheduler())
-                  | vkexec::bulk(static_cast<std::uint32_t>(k_count),
-                    params,
-                    [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
-                      edsl::Float position = positions[idx];
-                      edsl::Float velocity = velocities[idx];
-                      velocity = velocity * push.get<&sim_params::damping>();
-                      position = position + (velocity * push.get<&sim_params::dt>());
-                      positions[idx] = position;
-                      velocities[idx] = velocity;
-                    });
+  auto pipeline =
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::bulk(
+      static_cast<std::uint32_t>(k_count), params, [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
+        edsl::Float position = positions[idx];
+        edsl::Float velocity = velocities[idx];
+        velocity = velocity * push.get<&sim_params::damping>();
+        position = position + (velocity * push.get<&sim_params::dt>());
+        positions[idx] = position;
+        velocities[idx] = velocity;
+      });
   ex::sync_wait(pipeline);
 
   float const expected_v = k_initial_velocity * k_damping;
@@ -109,14 +103,8 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   std::optional<vkexec::context> ctx;
-  VKEXEC_TRY
-  {
-    ctx.emplace();
-  }
-  VKEXEC_CATCH(std::exception const &error)
-  {
-    skip_if_no_vulkan(error);
-  }
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
   vkexec::buffer<float> values(*ctx, k_count, k_initial);
 
   auto graph = ex::schedule(ctx->get_scheduler())
@@ -149,14 +137,8 @@ TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
   constexpr float k_epsilon = 1.0E-4F;
 
   std::optional<vkexec::context> ctx;
-  VKEXEC_TRY
-  {
-    ctx.emplace();
-  }
-  VKEXEC_CATCH(std::exception const &error)
-  {
-    skip_if_no_vulkan(error);
-  }
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
   vkexec::buffer<float> data(*ctx, k_count, 0.0F);
 
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)

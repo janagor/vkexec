@@ -47,10 +47,10 @@ TEST_CASE("trace_scope records bound storage buffers", "[vkexec]")
   int binding_left = -1;
   int binding_right = -1;
 
-  static_cast<void>(edsl::bind_storage_buffer(
-    &buffer_left, binding_left, "left", k_left_byte_size, "float", k_left_elem_count));
-  static_cast<void>(edsl::bind_storage_buffer(
-    &buffer_right, binding_right, "right", k_right_byte_size, "int", k_right_elem_count));
+  static_cast<void>(
+    edsl::bind_storage_buffer(&buffer_left, binding_left, "left", k_left_byte_size, "float", k_left_elem_count));
+  static_cast<void>(
+    edsl::bind_storage_buffer(&buffer_right, binding_right, "right", k_right_byte_size, "int", k_right_elem_count));
 
   std::vector<edsl::storage_trace> const traces = scope.buffers();
   REQUIRE(traces.size() == 2);
@@ -61,8 +61,8 @@ TEST_CASE("trace_scope records bound storage buffers", "[vkexec]")
   REQUIRE(traces.at(1).byte_size == k_right_byte_size);
   REQUIRE(traces.at(1).binding == 1);
 
-  static_cast<void>(edsl::bind_storage_buffer(
-    &buffer_left, binding_left, "left", k_updated_byte_size, "float", k_updated_elem_count));
+  static_cast<void>(
+    edsl::bind_storage_buffer(&buffer_left, binding_left, "left", k_updated_byte_size, "float", k_updated_elem_count));
   std::vector<edsl::storage_trace> const updated = scope.buffers();
   REQUIRE(updated.size() == 2);
   REQUIRE(updated.at(0).byte_size == k_updated_byte_size);

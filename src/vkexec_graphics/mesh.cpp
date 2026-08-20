@@ -79,10 +79,7 @@ mesh::mesh(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::u
     index_allocation_ = index.allocation;
     std::memcpy(index.mapped, indices.data(), indices.size_bytes());
   }
-  VKEXEC_CATCH_ALL
-  {
-    error = std::current_exception();
-  }
+  VKEXEC_CATCH_ALL { error = std::current_exception(); }
   if (error) {
     vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
     vertex_buffer_ = VK_NULL_HANDLE;

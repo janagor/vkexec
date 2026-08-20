@@ -67,8 +67,8 @@ TEST_CASE("emit_glsl includes compute layout from traced kernel", "[vkexec][edsl
 
   char storage{};
   int binding = -1;
-  static_cast<void>(edsl::bind_storage_buffer(
-    &storage, binding, "data", k_buffer_byte_size, "float", k_buffer_elem_count));
+  static_cast<void>(
+    edsl::bind_storage_buffer(&storage, binding, "data", k_buffer_byte_size, "float", k_buffer_elem_count));
 
   edsl::Int const idx = edsl::Int::param_index();
   edsl::Float const value = edsl::Float::constant(2.0);

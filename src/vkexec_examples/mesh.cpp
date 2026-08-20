@@ -30,10 +30,8 @@ constexpr char const *k_gltf_path = VKEXEC_MESH_GLTF_PATH;
 auto main() -> int
 {
   try {
-    vkexec::window win({ .width = k_window_width,
-      .height = k_window_height,
-      .title = "vkexec mesh",
-      .validation_layers = true });
+    vkexec::window win(
+      { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true });
 
     auto mesh_data = vkexec::examples::load_gltf_mesh(k_gltf_path);
     if (!mesh_data) {

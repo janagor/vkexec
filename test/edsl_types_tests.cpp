@@ -21,9 +21,7 @@ constexpr double k_float_three = 3.0;
 constexpr double k_float_four = 4.0;
 
 [[nodiscard]] auto node_at(edsl::trace_scope const &scope, int node_id) -> edsl::ExprNode const &
-{
-  return edsl::detail::trace_ast_access::get(scope).nodes.at(static_cast<std::size_t>(node_id));
-}
+{ return edsl::detail::trace_ast_access::get(scope).nodes.at(static_cast<std::size_t>(node_id)); }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] auto make_vec4(double coord_x, double coord_y, double coord_z, double coord_w) -> edsl::Float4

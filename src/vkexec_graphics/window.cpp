@@ -73,8 +73,8 @@ namespace {
   template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
   {
     if (!result) {
-      VKEXEC_THROW(std::runtime_error(std::string(what) + ": " + result.error().message() + " ("
-        + std::to_string(result.vk_result()) + ")"));
+      VKEXEC_THROW(std::runtime_error(
+        std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")"));
     }
     return result.value();
   }
@@ -98,7 +98,8 @@ window::window(config cfg) : cfg_(std::move(cfg))
   g_glfw_error.clear();
   glfwSetErrorCallback(glfw_error_callback);
   if (glfwInit() != GLFW_TRUE) {
-    VKEXEC_THROW(std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")")));
+    VKEXEC_THROW(
+      std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")")));
   }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
@@ -123,9 +124,8 @@ window::window(config cfg) : cfg_(std::move(cfg))
     instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   }
 
-  ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
-    scheduler_options{ .validation_layers = cfg_.validation_layers },
-    instance_exts));
+  ctx_ = std::unique_ptr<context>(new context(
+    context::instance_only_tag{}, scheduler_options{ .validation_layers = cfg_.validation_layers }, instance_exts));
   create_surface();
   ctx_->complete_for_surface(surface_);
 

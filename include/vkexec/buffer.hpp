@@ -2,8 +2,8 @@
 #define VKEXEC_BUFFER_HPP
 
 
-#include <vkexec/detail/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 

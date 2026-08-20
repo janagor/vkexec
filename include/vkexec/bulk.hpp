@@ -2,8 +2,8 @@
 #define VKEXEC_BULK_HPP
 
 
-#include <vkexec/detail/config.hpp>
 #include <vkexec/buffer.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
@@ -145,8 +145,7 @@ namespace detail {
     }
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
-    vkCmdBindDescriptorSets(
-      cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
     if (traced.pipe->push_bytes > 0) { upload_push_constants(cmd, *traced.pipe, params); }
 
     std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
@@ -202,10 +201,7 @@ template<typename Params, typename Fun> struct bulk_sender
         // cppcheck-suppress throwInNoexceptFunction
         run();
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ex::set_error(std::move(receiver), error);
       } else {
@@ -216,10 +212,7 @@ template<typename Params, typename Fun> struct bulk_sender
     void run()
     {
       detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
-      VKEXEC_TRY
-      {
-        ctx->submit_and_wait(work.cmd);
-      }
+      VKEXEC_TRY { ctx->submit_and_wait(work.cmd); }
       VKEXEC_CATCH_ALL
       {
         detail::release_bulk_gpu_work(work);
@@ -229,7 +222,7 @@ template<typename Params, typename Fun> struct bulk_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto&& self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
   {
     return op_state<Receiver>{
       self.ctx,
@@ -275,10 +268,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
         // cppcheck-suppress throwInNoexceptFunction
         run();
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ex::set_error(std::move(receiver), error);
       } else {
@@ -290,11 +280,8 @@ template<typename Params, typename Fun> struct bulk_async_sender
     {
       detail::bulk_gpu_work const work = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
       VkFence fence{ VK_NULL_HANDLE };
-      VkSemaphore done = ctx->submit_async(work.cmd, &fence); // NOLINT(misc-misplaced-const)
-      VKEXEC_TRY
-      {
-        detail::wait_and_release_submission(*ctx, done, fence);
-      }
+      VkSemaphore done = ctx->submit_async(work.cmd, &fence);// NOLINT(misc-misplaced-const)
+      VKEXEC_TRY { detail::wait_and_release_submission(*ctx, done, fence); }
       VKEXEC_CATCH_ALL
       {
         detail::release_bulk_gpu_work(work);
@@ -304,7 +291,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto&& self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
   {
     return op_state<Receiver>{
       self.ctx,
@@ -321,7 +308,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
 struct submit_async_t
 {
   template<typename Params, typename Fun>
-  [[nodiscard]] auto operator()(bulk_sender<Params, Fun>&& snd) const -> bulk_async_sender<Params, Fun>
+  [[nodiscard]] auto operator()(bulk_sender<Params, Fun> &&snd) const -> bulk_async_sender<Params, Fun>
   { return bulk_async_sender<Params, Fun>(std::move(snd)); }
 };
 
@@ -329,20 +316,15 @@ struct submit_async_t
 inline constexpr submit_async_t submit_async{};
 
 template<typename Params, typename Fun>
-[[nodiscard]] auto operator|(bulk_sender<Params, Fun>&& snd, submit_async_t tag) -> bulk_async_sender<Params, Fun>
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &&snd, submit_async_t tag) -> bulk_async_sender<Params, Fun>
 { return tag(std::move(snd)); }
 
 template<typename Params, typename Fun>
-[[nodiscard]] auto operator|(bulk_sender<Params, Fun>& snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
-{
-  return bulk_async_sender<Params, Fun>{ snd.ctx, snd.shape, snd.params, snd.fun };
-}
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
+{ return bulk_async_sender<Params, Fun>{ snd.ctx, snd.shape, snd.params, snd.fun }; }
 
 template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
-{
-  return bulk_sender<Params, Fun>(
-    snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun));
-}
+{ return bulk_sender<Params, Fun>(snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun)); }
 
 }// namespace vkexec
 

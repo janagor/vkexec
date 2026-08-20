@@ -52,10 +52,8 @@ BOOST_DESCRIBE_STRUCT(particle_params, (), (delta_time))
 auto main() -> int
 {
   try {
-    vkexec::window win({ .width = k_window_width,
-      .height = k_window_height,
-      .title = "vkexec particles",
-      .validation_layers = true });
+    vkexec::window win(
+      { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true });
     auto &ctx = win.ctx();
 
     // SoA particle buffers (host-mapped SSBOs shared by compute + vertex stages).

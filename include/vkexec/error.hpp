@@ -12,8 +12,7 @@
 namespace vkexec {
 
 // NOLINTNEXTLINE(performance-enum-size)
-enum class errc
-{
+enum class errc {
   invalid_argument = 1,
   io_error,
   parse_error,
@@ -26,7 +25,7 @@ class vkexec_error_category final : public cx::ErrorCategory
 {
 public:
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto Name() const noexcept -> const char * override { return "vkexec"; }
+  [[nodiscard]] constexpr auto Name() const noexcept -> char const * override { return "vkexec"; }
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
   [[nodiscard]] constexpr auto Message(int error_value) const noexcept -> std::string_view override
@@ -58,9 +57,7 @@ public:
 
 // NOLINTNEXTLINE(readability-identifier-naming)
 [[nodiscard]] inline auto MakeErrorCode(errc error) noexcept -> cx::ErrorCode
-{
-  return cx::ErrorCode{ static_cast<int>(error), category() };
-}
+{ return cx::ErrorCode{ static_cast<int>(error), category() }; }
 
 struct error
 {
@@ -68,9 +65,7 @@ struct error
   std::string detail;
 
   [[nodiscard]] auto message() const noexcept -> std::string_view
-  {
-    return detail.empty() ? code.Message() : std::string_view(detail);
-  }
+  { return detail.empty() ? code.Message() : std::string_view(detail); }
 };
 
 template<typename T> using result = std::expected<T, error>;

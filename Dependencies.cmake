@@ -180,17 +180,12 @@ function(vkexec_setup_dependencies)
     target_compile_definitions(tinygltf PRIVATE TINYGLTF3_ENABLE_FS)
     set_target_properties(
       tinygltf
-      PROPERTIES C_STANDARD
-                 11
-                 C_STANDARD_REQUIRED
-                 ON
-                 C_CLANG_TIDY
-                 ""
-                 C_CPPCHECK
-                 "")
-    set_source_files_properties(
-      ${tinygltf_SOURCE_DIR}/tiny_gltf_v3.c
-      PROPERTIES SKIP_LINTING ON COMPILE_OPTIONS "-Wno-everything")
+      PROPERTIES C_STANDARD 11
+                 C_STANDARD_REQUIRED ON
+                 C_CLANG_TIDY ""
+                 C_CPPCHECK "")
+    set_source_files_properties(${tinygltf_SOURCE_DIR}/tiny_gltf_v3.c PROPERTIES SKIP_LINTING ON COMPILE_OPTIONS
+                                                                                                 "-Wno-everything")
   endif()
 
 endfunction()

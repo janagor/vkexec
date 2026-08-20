@@ -1,8 +1,8 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/spirv.hpp>
 
 #include <vulkan/vulkan_core.h>

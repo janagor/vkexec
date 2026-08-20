@@ -1,10 +1,10 @@
+#include <vkexec/detail/config.hpp>
 #include <vkexec_edsl/ast.hpp>
 #include <vkexec_edsl/glsl_emit.hpp>
 #include <vkexec_edsl/spirv.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/trace_access.hpp>
 #include <vkexec_edsl/types.hpp>
-#include <vkexec/detail/config.hpp>
 
 #include <algorithm>
 #include <cstddef>

@@ -86,10 +86,7 @@ struct draw_sender
           win->end_frame(*frame);
         }
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ex::set_error(std::move(receiver), error);
       } else {
@@ -154,10 +151,7 @@ struct draw_layers_sender
           win->end_frame(*frame);
         }
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ex::set_error(std::move(receiver), error);
       } else {
@@ -200,10 +194,7 @@ struct draw_mesh_sender
           win->end_frame(*frame);
         }
       }
-      VKEXEC_CATCH_ALL
-      {
-        error = std::current_exception();
-      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
       if (error) {
         ex::set_error(std::move(receiver), error);
       } else {
