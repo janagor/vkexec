@@ -16,8 +16,6 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <exception>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -49,11 +47,10 @@ namespace detail {
   }
 
   template<typename Params, typename Fun>
-  auto record_bulk_dispatch(context &ctx, std::uint32_t shape, Params const &params, Fun &fun) -> submit_scope
+  auto record_bulk_into(submit_scope &scope, std::uint32_t shape, Params const &params, Fun &fun) -> void
   {
-    bulk_traced_state const traced = trace_bulk_kernel<Params>(ctx, shape, fun);
-    submit_scope scope = submit_scope::open(ctx);
-    VkDescriptorSet set = allocate_compute_set(ctx, *traced.pipe, traced.buffers);
+    bulk_traced_state const traced = trace_bulk_kernel<Params>(*scope.ctx, shape, fun);
+    VkDescriptorSet set = allocate_compute_set(*scope.ctx, *traced.pipe, traced.buffers);
     scope.track_set(*traced.pipe, set);
 
     vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
@@ -63,8 +60,18 @@ namespace detail {
 
     std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
     vkCmdDispatch(scope.cmd, groups, 1, 1);
-    scope.end_recording();
-    return scope;
+  }
+
+  template<typename Params, typename Fun, class SubmitFactory>
+  [[nodiscard]] auto make_bulk_pipeline(context *ctx, std::uint32_t shape, Params params, Fun fun, SubmitFactory submit)
+  {
+    return ex::let_value(enter_submit_scope(ctx),
+      [shape, params = std::move(params), fun = std::move(fun), submit = std::move(submit)](
+        submit_scope &scope) mutable -> decltype(auto) {
+        record_bulk_into<Params>(scope, shape, params, fun);
+        scope.end_recording();
+        return submit(std::move(scope));
+      });
   }
 
 }// namespace detail
@@ -82,7 +89,8 @@ template<typename Params, typename Fun> auto bulk(std::uint32_t shape, Params pa
 template<typename Params, typename Fun> struct bulk_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::uint32_t shape{};
@@ -95,47 +103,16 @@ template<typename Params, typename Fun> struct bulk_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver> struct op_state
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
   {
-    context *ctx{ nullptr };
-    std::uint32_t shape{};
-    Params params{};
-    Fun fun{};
-    Receiver receiver;
-
-    void start() noexcept
-    {
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        run();
-      }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(receiver), error);
-      } else {
-        ex::set_value(std::move(receiver));
-      }
-    }
-
-    void run()
-    {
-      detail::submit_scope scope = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
-      ctx->submit_and_wait(scope.cmd);
-      scope.release();
-    }
-  };
-
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
-  {
-    return op_state<Receiver>{
-      self.ctx,
-      self.shape,
-      std::forward_like<decltype(self)>(self.params),
-      std::forward_like<decltype(self)>(self.fun),
-      std::move(receiver),
-    };
+    return ex::connect(detail::make_bulk_pipeline<Params>(self.ctx,
+                         self.shape,
+                         std::forward_like<decltype(self)>(self.params),
+                         std::forward_like<decltype(self)>(self.fun),
+                         [](detail::submit_scope scope) -> detail::submit_and_wait_sender {
+                           return detail::submit_and_wait(std::move(scope));
+                         }),
+      std::move(receiver));
   }
 };
 
@@ -160,67 +137,16 @@ template<typename Params, typename Fun> struct bulk_async_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver> struct op_state
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
   {
-    context *ctx{ nullptr };
-    std::uint32_t shape{};
-    Params params{};
-    Fun fun{};
-    Receiver receiver;
-
-    void start() noexcept
-    {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
-      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-        if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
-          return;
-        }
-      }
-
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        detail::submit_scope scope = detail::record_bulk_dispatch<Params>(*ctx, shape, params, fun);
-        VkFence fence{ VK_NULL_HANDLE };
-        VkSemaphore done{ VK_NULL_HANDLE };
-        VKEXEC_TRY
-        {
-          done = ctx->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
-          ctx->enqueue_fence_wait(done,
-            fence,
-            token,
-            [scope = std::move(scope), rcvr = std::move(rcvr)](
-              std::exception_ptr wait_error, bool stopped) mutable -> void {
-              // Sync objects are already reclaimed by the completion agent.
-              detail::release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped);
-            });
-          return;
-        }
-        VKEXEC_CATCH_ALL
-        {
-          detail::reclaim_submission_sync(ctx->device(), ctx->compute_queue(), done, fence);
-          scope.release();
-          // cppcheck-suppress rethrowNoCurrentException
-          throw;
-        }
-      }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) { ex::set_error(std::move(rcvr), error); }
-    }
-  };
-
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
-  {
-    return op_state<Receiver>{
-      self.ctx,
-      self.shape,
-      std::forward_like<decltype(self)>(self.params),
-      std::forward_like<decltype(self)>(self.fun),
-      std::move(receiver),
-    };
+    return ex::connect(detail::make_bulk_pipeline<Params>(self.ctx,
+                         self.shape,
+                         std::forward_like<decltype(self)>(self.params),
+                         std::forward_like<decltype(self)>(self.fun),
+                         [](detail::submit_scope scope) -> detail::submit_fence_sender {
+                           return detail::submit_fence(std::move(scope));
+                         }),
+      std::move(receiver));
   }
 };
 

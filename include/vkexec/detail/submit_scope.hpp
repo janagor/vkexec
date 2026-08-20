@@ -10,9 +10,11 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -288,8 +290,128 @@ namespace detail {
     { return op_state<Receiver>{ self.ctx, std::move(receiver) }; }
   };
 
+  [[nodiscard]] inline auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender
+  { return enter_submit_scope_sender{ .ctx = ctx }; }
+
   [[nodiscard]] inline auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender
-  { return enter_submit_scope_sender{ .ctx = &ctx }; }
+  { return enter_submit_scope(&ctx); }
+
+  /// Submit a fully recorded scope and block until the GPU finishes, then release loans.
+  struct submit_and_wait_sender
+  {
+    using sender_concept = ex::sender_t;
+    using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+
+    submit_scope scope;
+
+    [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = scope.ctx }; }
+
+    template<class Receiver> struct op_state
+    {
+      submit_scope scope;
+      Receiver receiver;
+
+      auto start() noexcept -> void
+      {
+        std::exception_ptr error;
+        VKEXEC_TRY
+        {
+          // cppcheck-suppress throwInNoexceptFunction
+          context *const host = scope.ctx;
+          host->submit_and_wait(scope.cmd);
+          scope.release();
+        }
+        VKEXEC_CATCH_ALL
+        {
+          scope.release();
+          error = std::current_exception();
+        }
+        if (error) {
+          ex::set_error(std::move(receiver), error);
+        } else {
+          ex::set_value(std::move(receiver));
+        }
+      }
+    };
+
+    // cppcheck-suppress functionStatic
+    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+    {
+      return op_state<Receiver>{
+        std::forward_like<decltype(self)>(self.scope),
+        std::move(receiver),
+      };
+    }
+  };
+
+  [[nodiscard]] inline auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
+  { return submit_and_wait_sender{ .scope = std::move(scope) }; }
+
+  /// Submit a recorded scope without blocking `start()`; reclaim then complete on the fence agent.
+  struct submit_fence_sender
+  {
+    using sender_concept = ex::sender_t;
+    using completion_signatures =
+      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+
+    submit_scope scope;
+
+    [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = scope.ctx }; }
+
+    template<class Receiver> struct op_state
+    {
+      submit_scope scope;
+      Receiver receiver;
+
+      auto start() noexcept -> void
+      {
+        Receiver rcvr = std::move(receiver);
+        auto const token = ex::get_stop_token(ex::get_env(rcvr));
+        if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+          if (token.stop_requested()) {
+            scope.release();
+            ex::set_stopped(std::move(rcvr));
+            return;
+          }
+        }
+
+        context *const host = scope.ctx;
+        VkFence fence{ VK_NULL_HANDLE };
+        VkSemaphore done{ VK_NULL_HANDLE };
+        std::exception_ptr error;
+        VKEXEC_TRY
+        {
+          // cppcheck-suppress throwInNoexceptFunction
+          done = host->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
+          host->enqueue_fence_wait(done,
+            fence,
+            token,
+            [scope = std::move(scope), rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable
+              -> void { release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
+          return;
+        }
+        VKEXEC_CATCH_ALL
+        {
+          reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
+          scope.release();
+          error = std::current_exception();
+        }
+        if (error) { ex::set_error(std::move(rcvr), error); }
+      }
+    };
+
+    // cppcheck-suppress functionStatic
+    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+    {
+      return op_state<Receiver>{
+        std::forward_like<decltype(self)>(self.scope),
+        std::move(receiver),
+      };
+    }
+  };
+
+  [[nodiscard]] inline auto submit_fence(submit_scope scope) -> submit_fence_sender
+  { return submit_fence_sender{ .scope = std::move(scope) }; }
 
 }// namespace detail
 

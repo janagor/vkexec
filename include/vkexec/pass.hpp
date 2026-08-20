@@ -20,7 +20,6 @@
 #include <cstring>
 #include <exception>
 #include <functional>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -102,47 +101,25 @@ struct pass_step
 struct pass_graph_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver> struct op_state
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
   {
-    context *ctx{};
-    std::vector<pass_step> steps;
-    Receiver receiver;
-
-    auto start() noexcept -> void
-    {
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        run();
-      }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(receiver), error);
-      } else {
-        ex::set_value(std::move(receiver));
-      }
-    }
-
-    auto run() -> void
-    {
-      detail::submit_scope scope = detail::submit_scope::open(*ctx);
-      for (pass_step const &step : steps) { step.record(*ctx, scope.cmd, scope.cleanup); }
-      scope.end_recording();
-      ctx->submit_and_wait(scope.cmd);
-      scope.release();
-    }
-  };
-
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
-  { return op_state<Receiver>{ ctx, steps, std::move(receiver) }; }
+    return ex::connect(ex::let_value(detail::enter_submit_scope(self.ctx),
+                         [steps = std::forward_like<decltype(self)>(self.steps)](
+                           detail::submit_scope &scope) mutable -> detail::submit_and_wait_sender {
+                           for (pass_step const &step : steps) { step.record(*scope.ctx, scope.cmd, scope.cleanup); }
+                           scope.end_recording();
+                           return detail::submit_and_wait(std::move(scope));
+                         }),
+      std::move(receiver));
+  }
 };
 
 struct pass_graph_async_sender
@@ -161,63 +138,16 @@ struct pass_graph_async_sender
   pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps) : ctx(host), steps(std::move(graph_steps))
   {}
 
-  template<class Receiver> struct op_state
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
   {
-    context *ctx{};
-    std::vector<pass_step> steps;
-    Receiver receiver;
-
-    auto start() noexcept -> void
-    {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
-      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-        if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
-          return;
-        }
-      }
-
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        detail::submit_scope scope = detail::submit_scope::open(*ctx);
-        for (pass_step const &step : steps) { step.record(*ctx, scope.cmd, scope.cleanup); }
-        scope.end_recording();
-
-        VkFence fence{ VK_NULL_HANDLE };
-        VkSemaphore done{ VK_NULL_HANDLE };
-        VKEXEC_TRY
-        {
-          done = ctx->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
-          ctx->enqueue_fence_wait(done,
-            fence,
-            token,
-            [scope = std::move(scope), rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable
-              -> void { detail::release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
-          return;
-        }
-        VKEXEC_CATCH_ALL
-        {
-          detail::reclaim_submission_sync(ctx->device(), ctx->compute_queue(), done, fence);
-          scope.release();
-          // cppcheck-suppress rethrowNoCurrentException
-          throw;
-        }
-      }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) { ex::set_error(std::move(rcvr), error); }
-    }
-  };
-
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
-  {
-    return op_state<Receiver>{
-      self.ctx,
-      std::forward_like<decltype(self)>(self.steps),
-      std::move(receiver),
-    };
+    return ex::connect(ex::let_value(detail::enter_submit_scope(self.ctx),
+                         [steps = std::forward_like<decltype(self)>(self.steps)](
+                           detail::submit_scope &scope) mutable -> detail::submit_fence_sender {
+                           for (pass_step const &step : steps) { step.record(*scope.ctx, scope.cmd, scope.cleanup); }
+                           scope.end_recording();
+                           return detail::submit_fence(std::move(scope));
+                         }),
+      std::move(receiver));
   }
 };
 
