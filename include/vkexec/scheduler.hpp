@@ -2,9 +2,11 @@
 #define VKEXEC_SCHEDULER_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/config.hpp>
 
 #include <stdexec/execution.hpp>
 
+#include <exception>
 #include <utility>
 
 namespace vkexec {
@@ -32,13 +34,29 @@ struct schedule_sender
 
   template<class Receiver> struct op_state
   {
+    context *ctx{ nullptr };
     Receiver receiver;
-    auto start() noexcept -> void { ex::set_value(std::move(receiver)); }
+
+    auto start() noexcept -> void
+    {
+      if (ctx == nullptr) {
+        ex::set_value(std::move(receiver));
+        return;
+      }
+
+      Receiver rcvr = std::move(receiver);
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
+        ctx->enqueue_host([rcvr = std::move(rcvr)]() mutable -> void { ex::set_value(std::move(rcvr)); });
+      }
+      VKEXEC_CATCH_ALL { ex::set_error(std::move(rcvr), std::current_exception()); }
+    }
   };
 
   // cppcheck-suppress functionStatic
-  template<class Receiver> auto connect(Receiver receiver) const noexcept
-  { return op_state<Receiver>{ std::move(receiver) }; }
+  template<class Receiver> auto connect(this auto &&self, Receiver receiver) noexcept -> op_state<Receiver>
+  { return op_state<Receiver>{ self.ctx, std::move(receiver) }; }
 };
 
 class scheduler

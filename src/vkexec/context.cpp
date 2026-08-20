@@ -1,6 +1,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/completion_waiter.hpp>
 #include <vkexec/detail/config.hpp>
+#include <vkexec/detail/host_agent.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -71,6 +72,7 @@ context::context(scheduler_options opts)
   create_allocator();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+  host_agent_ = std::make_unique<detail::host_agent>();
 }
 
 auto context::adopt(context_adopt_info const &info) -> std::unique_ptr<context>
@@ -119,6 +121,7 @@ context::context(context_adopt_info const &info)
   create_command_pool();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+  host_agent_ = std::make_unique<detail::host_agent>();
 }
 
 context::context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions)
@@ -142,6 +145,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> void
   create_allocator();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+  host_agent_ = std::make_unique<detail::host_agent>();
   presentation_enabled_ = true;
 }
 
@@ -181,7 +185,8 @@ auto context::fetch_queues(bool want_present) -> void
 
 context::~context()
 {
-  // Drain fence waits before tearing down the device.
+  // Drain host schedule completions and fence waits before tearing down the device.
+  host_agent_.reset();
   completion_waiter_.reset();
   pipeline_cache_.reset();
 
@@ -237,6 +242,12 @@ auto context::ensure_completion_waiter() -> detail::completion_waiter &
     completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   }
   return *completion_waiter_;
+}
+
+auto context::ensure_host_agent() -> detail::host_agent &
+{
+  if (!host_agent_) { host_agent_ = std::make_unique<detail::host_agent>(); }
+  return *host_agent_;
 }
 
 auto context::allocate_command_buffer() -> VkCommandBuffer

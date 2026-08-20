@@ -2,6 +2,7 @@
 #define VKEXEC_CONTEXT_HPP
 
 #include <vkexec/detail/completion_waiter.hpp>
+#include <vkexec/detail/host_agent.hpp>
 #include <vkexec/pipeline.hpp>
 
 #include <VkBootstrap.h>
@@ -14,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <span>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -112,6 +114,12 @@ public:
     ensure_completion_waiter().enqueue(semaphore, fence, std::move(stop_requested), std::forward<Done>(on_done));
   }
 
+  /// Run `task` on the context host agent (schedule completions land here).
+  template<class Task> auto enqueue_host(Task &&task) -> void
+  { ensure_host_agent().enqueue(detail::host_agent::task_fn{ std::forward<Task>(task) }); }
+
+  [[nodiscard]] auto host_agent_thread_id() -> std::thread::id { return ensure_host_agent().thread_id(); }
+
 private:
   friend class pipeline_cache;
   friend class window;
@@ -128,6 +136,7 @@ private:
   auto create_allocator() -> void;
   auto fetch_queues(bool want_present) -> void;
   auto ensure_completion_waiter() -> detail::completion_waiter &;
+  auto ensure_host_agent() -> detail::host_agent &;
 
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};
@@ -142,6 +151,7 @@ private:
   VkCommandPool command_pool_{ VK_NULL_HANDLE };
   std::unique_ptr<pipeline_cache> pipeline_cache_;
   std::unique_ptr<detail::completion_waiter> completion_waiter_;
+  std::unique_ptr<detail::host_agent> host_agent_;
   mutable std::mutex host_mutex_;
   bool presentation_enabled_{ false };
   bool has_instance_{ false };
