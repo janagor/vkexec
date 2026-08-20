@@ -12,6 +12,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/submit_async.hpp>
 #include <vkexec_edsl/edsl.hpp>
 
 namespace vkexec {

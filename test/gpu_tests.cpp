@@ -6,6 +6,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec/pass.hpp>
+#include <vkexec/submit_async.hpp>
 #include <vkexec_edsl/control.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -13,6 +14,7 @@
 #include <boost/describe/class.hpp>
 
 #include <stdexec/execution.hpp>
+#include <stdexec/stop_token.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -127,6 +129,60 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
     REQUIRE(std::fabs(values.data()[index] - expected) <= k_epsilon);
   }
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+
+TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]")
+{
+  constexpr std::size_t k_count = 64;
+  constexpr float k_initial = 1.0F;
+  constexpr float k_add = 3.0F;
+  constexpr float k_scale = 2.0F;
+  constexpr float k_epsilon = 1.0E-4F;
+
+  std::optional<vkexec::context> ctx;
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+  vkexec::buffer<float> values(*ctx, k_count, k_initial);
+
+  auto graph = ex::schedule(ctx->get_scheduler())
+               | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
+                 pass_params{ .value = k_add },
+                 [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
+                   values[idx] = values[idx] + push.get<&pass_params::value>();
+                 })
+               | vkexec::barrier::compute_to_compute()
+               | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
+                 pass_params{ .value = k_scale },
+                 [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
+                   values[idx] = values[idx] * push.get<&pass_params::value>();
+                 })
+               | vkexec::submit_async;
+  ex::sync_wait(graph);
+
+  float const expected = (k_initial + k_add) * k_scale;
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  for (std::size_t index = 0; index < k_count; ++index) {
+    REQUIRE(std::fabs(values.data()[index] - expected) <= k_epsilon);
+  }
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+
+TEST_CASE("pass graph submit_async completes with set_stopped when stop is already requested", "[vkexec][pass]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  ex::inplace_stop_source source;
+  source.request_stop();
+
+  auto sender =
+    ex::schedule(sched)
+    | vkexec::compute_pass(
+      1U, pass_params{ .value = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<pass_params> /*push*/) -> void {})
+    | vkexec::submit_async;
+
+  auto const result =
+    // NOLINTNEXTLINE(misc-include-cleaner)
+    ex::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  REQUIRE_FALSE(result.has_value());
 }
 
 TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")

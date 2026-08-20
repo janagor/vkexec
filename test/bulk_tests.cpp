@@ -4,6 +4,7 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/config.hpp>
+#include <vkexec/submit_async.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>

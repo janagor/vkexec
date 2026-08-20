@@ -2,10 +2,12 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
+#include <vkexec/detail/fence_wait.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/submit_async.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -19,8 +21,11 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <mutex>
+#include <optional>
 #include <span>
 #include <stdexcept>
+#include <thread>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -117,6 +122,7 @@ namespace detail {
 
     auto release(context const &ctx) -> void
     {
+      std::unique_lock const lock = ctx.lock_host();
       for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
       allocated.clear();
       sets.clear();
@@ -163,6 +169,7 @@ namespace detail {
     pipeline_resources &pipe,
     std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
   {
+    std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};
     dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     dsai.descriptorPool = pipe.descriptor_pool;
@@ -261,6 +268,112 @@ struct pass_graph_sender
 
   template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
   { return op_state<Receiver>{ ctx, steps, std::move(receiver) }; }
+};
+
+struct pass_graph_async_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = ex::completion_signatures<ex::set_value_t(),
+    ex::set_error_t(std::exception_ptr),
+    ex::set_stopped_t()>;
+
+  context *ctx{ nullptr };
+  std::vector<pass_step> steps;
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
+  explicit pass_graph_async_sender(pass_graph_sender graph)
+    : ctx(graph.ctx), steps(std::move(graph.steps))
+  {}
+
+  pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps)
+    : ctx(host), steps(std::move(graph_steps))
+  {}
+
+  template<class Receiver> struct op_state
+  {
+    context *ctx{};
+    std::vector<pass_step> steps;
+    Receiver receiver;
+    std::optional<std::jthread> waiter;
+
+    auto start() noexcept -> void
+    {
+      Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      std::exception_ptr error;
+      VKEXEC_TRY
+      {
+        // cppcheck-suppress throwInNoexceptFunction
+        detail::pass_cleanup cleanup;
+        VkCommandBuffer cmd = ctx->allocate_command_buffer();
+        VKEXEC_TRY
+        {
+          VkCommandBufferBeginInfo begin{};
+          begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+          begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+          if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
+            VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
+          }
+          for (pass_step const &step : steps) { step.record(*ctx, cmd, cleanup); }
+          if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+            VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
+          }
+        }
+        VKEXEC_CATCH_ALL
+        {
+          ctx->free_command_buffer(cmd);
+          cleanup.release(*ctx);
+          // cppcheck-suppress rethrowNoCurrentException
+          throw;
+        }
+
+        VkFence fence{ VK_NULL_HANDLE };
+        VkSemaphore done = ctx->submit_async(cmd, &fence);// NOLINT(misc-misplaced-const)
+        waiter.emplace([ctx = ctx,
+                         cmd,
+                         cleanup = std::move(cleanup),
+                         done,
+                         fence,
+                         token,
+                         rcvr = std::move(rcvr)]() mutable -> void {
+          std::exception_ptr wait_error;
+          bool stopped = false;
+          VKEXEC_TRY { stopped = detail::wait_submission_with_stop(*ctx, done, fence, token); }
+          VKEXEC_CATCH_ALL { wait_error = std::current_exception(); }
+          ctx->free_command_buffer(cmd);
+          cleanup.release(*ctx);
+          if (wait_error) {
+            ex::set_error(std::move(rcvr), wait_error);
+          } else if (stopped) {
+            ex::set_stopped(std::move(rcvr));
+          } else {
+            ex::set_value(std::move(rcvr));
+          }
+        });
+        return;
+      }
+      VKEXEC_CATCH_ALL { error = std::current_exception(); }
+      if (error) { ex::set_error(std::move(rcvr), error); }
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      self.ctx,
+      std::forward_like<decltype(self)>(self.steps),
+      std::move(receiver),
+      std::nullopt,
+    };
+  }
 };
 
 template<typename Params, typename Fun> struct compute_pass_closure
@@ -410,6 +523,12 @@ inline auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t ta
 
 inline auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
+
+[[nodiscard]] inline auto operator|(pass_graph_sender &&snd, submit_async_t /*tag*/) -> pass_graph_async_sender
+{ return pass_graph_async_sender{ std::move(snd) }; }
+
+[[nodiscard]] inline auto operator|(pass_graph_sender &snd, submit_async_t /*tag*/) -> pass_graph_async_sender
+{ return pass_graph_async_sender{ snd.ctx, snd.steps }; }
 
 }// namespace vkexec
 

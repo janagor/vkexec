@@ -3,10 +3,12 @@
 
 
 #include <vkexec/buffer.hpp>
+#include <vkexec/detail/fence_wait.hpp>
 #include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/submit_async.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -108,77 +110,6 @@ namespace detail {
     if (work.set != VK_NULL_HANDLE && work.pipe != nullptr) {
       std::unique_lock const lock = work.ctx->lock_host();
       vkFreeDescriptorSets(work.ctx->device(), work.pipe->descriptor_pool, 1, &work.set);
-    }
-  }
-
-  inline auto destroy_submission_sync(context const &ctx, VkSemaphore semaphore, VkFence fence) noexcept -> void
-  {
-    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
-    if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
-  }
-
-  inline auto wait_fence_or_queue(context const &ctx, VkFence fence) -> void
-  {
-    if (fence != VK_NULL_HANDLE) {
-      if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
-        VKEXEC_THROW(std::runtime_error("vkWaitForFences failed"));
-      }
-      return;
-    }
-    if (vkQueueWaitIdle(ctx.compute_queue()) != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vkQueueWaitIdle failed"));
-    }
-  }
-
-  inline auto wait_and_release_submission(context const &ctx, VkSemaphore semaphore, VkFence fence) -> void
-  {
-    VKEXEC_TRY { wait_fence_or_queue(ctx, fence); }
-    VKEXEC_CATCH_ALL
-    {
-      destroy_submission_sync(ctx, semaphore, fence);
-      // cppcheck-suppress rethrowNoCurrentException
-      throw;
-    }
-    destroy_submission_sync(ctx, semaphore, fence);
-  }
-
-  template<class StopToken>
-  auto poll_for_stop_or_fence(context const &ctx, VkFence fence, StopToken token) -> bool
-  {
-    constexpr std::uint64_t k_poll_timeout_ns = 1'000'000ULL;// 1 ms
-    bool stop_seen = token.stop_requested();
-    if (fence == VK_NULL_HANDLE) {
-      wait_fence_or_queue(ctx, fence);
-      return stop_seen || token.stop_requested();
-    }
-    while (true) {
-      stop_seen = stop_seen || token.stop_requested();
-      VkResult const result = vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, k_poll_timeout_ns);
-      if (result == VK_SUCCESS) { return stop_seen || token.stop_requested(); }
-      if (result != VK_TIMEOUT) { VKEXEC_THROW(std::runtime_error("vkWaitForFences failed")); }
-    }
-  }
-
-  /// Wait for submission completion, polling so a stop request can be observed.
-  /// Always waits for the GPU before destroying sync objects / returning.
-  /// Returns true when the caller should complete with `set_stopped`.
-  template<class StopToken>
-  auto wait_submission_with_stop(context const &ctx, VkSemaphore semaphore, VkFence fence, StopToken token) -> bool
-  {
-    if constexpr (ex::unstoppable_token<StopToken>) {
-      wait_and_release_submission(ctx, semaphore, fence);
-      return false;
-    } else {
-      bool stop_seen = false;
-      VKEXEC_TRY { stop_seen = poll_for_stop_or_fence(ctx, fence, token); }
-      VKEXEC_CATCH_ALL
-      {
-        destroy_submission_sync(ctx, semaphore, fence);
-        // cppcheck-suppress rethrowNoCurrentException
-        throw;
-      }
-      destroy_submission_sync(ctx, semaphore, fence);
-      return stop_seen;
     }
   }
 
@@ -385,19 +316,9 @@ template<typename Params, typename Fun> struct bulk_async_sender
 
 /// Pipe after `bulk` to submit without blocking `start()`.
 /// A waiter thread completes the receiver once the GPU fence signals (or with `set_stopped`).
-struct submit_async_t
-{
-  template<typename Params, typename Fun>
-  [[nodiscard]] auto operator()(bulk_sender<Params, Fun> &&snd) const -> bulk_async_sender<Params, Fun>
-  { return bulk_async_sender<Params, Fun>(std::move(snd)); }
-};
-
-// NOLINTNEXTLINE(readability-identifier-naming)
-inline constexpr submit_async_t submit_async{};
-
 template<typename Params, typename Fun>
-[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &&snd, submit_async_t tag) -> bulk_async_sender<Params, Fun>
-{ return tag(std::move(snd)); }
+[[nodiscard]] auto operator|(bulk_sender<Params, Fun> &&snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
+{ return bulk_async_sender<Params, Fun>(std::move(snd)); }
 
 template<typename Params, typename Fun>
 [[nodiscard]] auto operator|(bulk_sender<Params, Fun> &snd, submit_async_t /*tag*/) -> bulk_async_sender<Params, Fun>
