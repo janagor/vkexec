@@ -20,6 +20,8 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <concepts>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -270,6 +272,66 @@ namespace detail {
 
 }// namespace detail
 
+template<class Pred, class Closure> struct pass_adaptor_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = pass_graph_sender::completion_signatures;
+
+  Pred pred;
+  Closure closure;
+
+  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+};
+
+template<class Pred, class Closure, class Env>
+[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
+  pass_adaptor_sender<Pred, Closure> sndr,
+  Env const & /*env*/)
+{
+  scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
+  // NOLINTNEXTLINE(misc-const-correctness)
+  context *const ctx = sched.get_context();
+  return ex::let_value(std::move(sndr.pred),
+    [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
+      if constexpr (std::is_same_v<std::remove_cvref_t<Closure>, prebuilt_compute_pass_closure>) {
+        return pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
+      } else {
+        return pass_graph_sender{ .ctx = ctx, .steps = { detail::make_traced_step(std::move(closure)) } };
+      }
+    });
+}
+
+template<class Pred, class Closure> struct pass_async_adaptor_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = pass_graph_async_sender::completion_signatures;
+
+  Pred pred;
+  Closure closure;
+
+  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+};
+
+template<class Pred, class Closure, class Env>
+[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
+  pass_async_adaptor_sender<Pred, Closure> sndr,
+  Env const & /*env*/)
+{
+  scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
+  // NOLINTNEXTLINE(misc-const-correctness)
+  context *const ctx = sched.get_context();
+  return ex::let_value(std::move(sndr.pred),
+    [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_async_sender {
+      pass_graph_sender graph;
+      if constexpr (std::is_same_v<std::remove_cvref_t<Closure>, prebuilt_compute_pass_closure>) {
+        graph = pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
+      } else {
+        graph = pass_graph_sender{ .ctx = ctx, .steps = { detail::make_traced_step(std::move(closure)) } };
+      }
+      return pass_graph_async_sender{ std::move(graph) };
+    });
+}
+
 template<typename Params, typename Fun>
 auto operator|(schedule_sender snd, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
 { return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_traced_step(std::move(closure)) } }; }
@@ -283,6 +345,31 @@ inline auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure
 
 inline auto operator|(pass_graph_sender graph, prebuilt_compute_pass_closure closure) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_prebuilt_step(std::move(closure))); }
+
+template<vkexec_predecessor Pred, typename Params, typename Fun>
+  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>
+           && !std::same_as<std::remove_cvref_t<Pred>, pass_graph_sender>)
+[[nodiscard]] auto operator|(Pred &&pred, compute_pass_closure<Params, Fun> closure)
+  -> pass_adaptor_sender<std::remove_cvref_t<Pred>, compute_pass_closure<Params, Fun>>
+{
+  return pass_adaptor_sender<std::remove_cvref_t<Pred>, compute_pass_closure<Params, Fun>>{
+    .pred = std::forward<Pred>(pred),
+    .closure = std::move(closure),
+  };
+}
+
+template<vkexec_predecessor Pred>
+  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>
+           && !std::same_as<std::remove_cvref_t<Pred>, pass_graph_sender>)
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+[[nodiscard]] auto operator|(Pred &&pred, prebuilt_compute_pass_closure closure)
+  -> pass_adaptor_sender<std::remove_cvref_t<Pred>, prebuilt_compute_pass_closure>
+{
+  return pass_adaptor_sender<std::remove_cvref_t<Pred>, prebuilt_compute_pass_closure>{
+    .pred = std::forward<Pred>(pred),
+    .closure = std::move(closure),
+  };
+}
 
 inline auto operator|(pass_graph_sender graph, barrier::transfer_to_compute_t tag) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
@@ -304,6 +391,27 @@ inline auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> p
 
 [[nodiscard]] inline auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender
 { return pass_graph_async_sender{ snd.ctx, snd.steps }; }
+
+template<class Pred, class Closure>
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+[[nodiscard]] auto operator|(pass_adaptor_sender<Pred, Closure> &&snd, submit_t /*tag*/)
+  -> pass_async_adaptor_sender<Pred, Closure>
+{
+  return pass_async_adaptor_sender<Pred, Closure>{
+    .pred = std::move(snd.pred),
+    .closure = std::move(snd.closure),
+  };
+}
+
+template<class Pred, class Closure>
+[[nodiscard]] auto operator|(pass_adaptor_sender<Pred, Closure> &snd, submit_t /*tag*/)
+  -> pass_async_adaptor_sender<Pred, Closure>
+{
+  return pass_async_adaptor_sender<Pred, Closure>{
+    .pred = snd.pred,
+    .closure = snd.closure,
+  };
+}
 
 }// namespace vkexec
 

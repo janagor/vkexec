@@ -16,6 +16,8 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <concepts>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -116,6 +118,33 @@ template<typename Params, typename Fun> struct bulk_sender
   }
 };
 
+template<class Pred, typename Params, typename Fun> struct bulk_adaptor_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = bulk_sender<Params, Fun>::completion_signatures;
+
+  Pred pred;
+  bulk_closure<Params, Fun> closure;
+
+  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+};
+
+template<class Pred, typename Params, typename Fun, class Env>
+[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
+  bulk_adaptor_sender<Pred, Params, Fun> sndr,
+  Env const & /*env*/)
+{
+  scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
+  context *const ctx = sched.get_context();
+  return ex::let_value(std::move(sndr.pred),
+    [ctx,
+      shape = sndr.closure.shape,
+      params = std::move(sndr.closure.params),
+      fun = std::move(sndr.closure.fun)](auto &&...) mutable -> bulk_sender<Params, Fun> {
+      return bulk_sender<Params, Fun>(ctx, shape, std::move(params), std::move(fun));
+    });
+}
+
 template<typename Params, typename Fun> struct bulk_async_sender
 {
   using sender_concept = ex::sender_t;
@@ -150,6 +179,33 @@ template<typename Params, typename Fun> struct bulk_async_sender
   }
 };
 
+template<class Pred, typename Params, typename Fun> struct bulk_async_adaptor_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures = bulk_async_sender<Params, Fun>::completion_signatures;
+
+  Pred pred;
+  bulk_closure<Params, Fun> closure;
+
+  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+};
+
+template<class Pred, typename Params, typename Fun, class Env>
+[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
+  bulk_async_adaptor_sender<Pred, Params, Fun> sndr,
+  Env const & /*env*/)
+{
+  scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
+  context *const ctx = sched.get_context();
+  return ex::let_value(std::move(sndr.pred),
+    [ctx,
+      shape = sndr.closure.shape,
+      params = std::move(sndr.closure.params),
+      fun = std::move(sndr.closure.fun)](auto &&...) mutable -> bulk_async_sender<Params, Fun> {
+      return bulk_async_sender<Params, Fun>(ctx, shape, std::move(params), std::move(fun));
+    });
+}
+
 /// Pipe after `bulk` to submit without blocking `start()`.
 /// The context completion agent delivers the receiver once the GPU fence signals (or with `set_stopped`).
 template<typename Params, typename Fun>
@@ -160,8 +216,41 @@ template<typename Params, typename Fun>
 [[nodiscard]] auto operator|(bulk_sender<Params, Fun> &snd, submit_t /*tag*/) -> bulk_async_sender<Params, Fun>
 { return bulk_async_sender<Params, Fun>{ snd.ctx, snd.shape, snd.params, snd.fun }; }
 
-template<typename Params, typename Fun> auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure)
+template<class Pred, typename Params, typename Fun>
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+[[nodiscard]] auto operator|(bulk_adaptor_sender<Pred, Params, Fun> &&snd, submit_t /*tag*/)
+  -> bulk_async_adaptor_sender<Pred, Params, Fun>
+{
+  return bulk_async_adaptor_sender<Pred, Params, Fun>{
+    .pred = std::move(snd.pred),
+    .closure = std::move(snd.closure),
+  };
+}
+
+template<class Pred, typename Params, typename Fun>
+[[nodiscard]] auto operator|(bulk_adaptor_sender<Pred, Params, Fun> &snd, submit_t /*tag*/)
+  -> bulk_async_adaptor_sender<Pred, Params, Fun>
+{
+  return bulk_async_adaptor_sender<Pred, Params, Fun>{
+    .pred = snd.pred,
+    .closure = snd.closure,
+  };
+}
+
+template<typename Params, typename Fun>
+[[nodiscard]] auto operator|(schedule_sender snd, bulk_closure<Params, Fun> closure) -> bulk_sender<Params, Fun>
 { return bulk_sender<Params, Fun>(snd.ctx, closure.shape, std::move(closure.params), std::move(closure.fun)); }
+
+template<vkexec_predecessor Pred, typename Params, typename Fun>
+  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>)
+[[nodiscard]] auto operator|(Pred &&pred, bulk_closure<Params, Fun> closure)
+  -> bulk_adaptor_sender<std::remove_cvref_t<Pred>, Params, Fun>
+{
+  return bulk_adaptor_sender<std::remove_cvref_t<Pred>, Params, Fun>{
+    .pred = std::forward<Pred>(pred),
+    .closure = std::move(closure),
+  };
+}
 
 }// namespace vkexec
 

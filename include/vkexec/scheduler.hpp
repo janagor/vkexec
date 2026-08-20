@@ -3,10 +3,13 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/config.hpp>
+#include <vkexec/domain.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <exception>
+#include <concepts>
+#include <type_traits>
 #include <utility>
 
 namespace vkexec {
@@ -21,6 +24,15 @@ struct scheduler_env
   context *ctx{ nullptr };
 
   [[nodiscard]] auto query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler;
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+  { return {}; }
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
 };
 
 struct schedule_sender
@@ -67,6 +79,15 @@ public:
   [[nodiscard]] auto schedule() const noexcept -> schedule_sender { return schedule_sender{ .ctx = ctx_ }; }
   [[nodiscard]] auto get_context() const noexcept -> context * { return ctx_; }
 
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+  { return {}; }
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
+
   friend auto operator==(scheduler const &lhs, scheduler const &rhs) noexcept -> bool { return lhs.ctx_ == rhs.ctx_; }
 
 private:
@@ -77,6 +98,13 @@ inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t>
 { return scheduler{ ctx }; }
 
 inline auto context::get_scheduler() noexcept -> scheduler { return scheduler{ this }; }
+
+template<class Pred>
+concept vkexec_predecessor = ex::sender<Pred> && requires(Pred const &pred) {
+  {
+    ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred))
+  } -> std::same_as<scheduler>;
+};
 
 }// namespace vkexec
 
