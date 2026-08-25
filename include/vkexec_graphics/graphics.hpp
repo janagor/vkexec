@@ -170,7 +170,7 @@ private:
       edsl::Int const vertex_id = edsl::Int::vertex_index();
       edsl::VertexWriter const vertex_out;
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
-      vs_spv = edsl::compile_vertex_spirv(vertex_trace);
+      vs_spv = edsl::compile_vertex_spirv(vertex_trace, ctx.api_version());
       vs_buffers = vertex_trace.buffers();
     }
     std::vector<std::uint32_t> fs_spv;
@@ -179,7 +179,7 @@ private:
       edsl::FragmentReader const fragment_in;
       edsl::FragmentWriter const fragment_out;
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
-      fs_spv = edsl::compile_fragment_spirv(fragment_trace);
+      fs_spv = edsl::compile_fragment_spirv(fragment_trace, ctx.api_version());
     }
     complete(ctx, render_pass, vs_spv, fs_spv, vs_buffers);
   }

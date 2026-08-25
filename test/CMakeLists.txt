@@ -40,6 +40,7 @@ add_executable(
   dispatch_tests.cpp
   edsl_emit_tests.cpp
   edsl_types_tests.cpp
+  edsl_spirv_tests.cpp
   error_tests.cpp
   push_constant_tests.cpp
   bulk_tests.cpp

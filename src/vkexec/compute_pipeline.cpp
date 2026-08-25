@@ -30,7 +30,8 @@ auto compute_pipeline::from_glsl(context &ctx, std::string_view glsl, layout_des
   if (glsl.empty()) {
     return std::unexpected(make_error(errc::invalid_argument, "compute_pipeline::from_glsl requires non-empty GLSL"));
   }
-  result<std::vector<std::uint32_t>> const spirv = edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute);
+  result<std::vector<std::uint32_t>> const spirv =
+    edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute, ctx.api_version());
   if (!spirv) { return std::unexpected(spirv.error()); }
   return from_spirv(ctx, *spirv, desc);
 }

@@ -189,7 +189,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   }
 
   std::string const glsl = edsl::emit_glsl(ast, work_count);
-  auto const spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk");
+  auto const spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version());
   if (!spirv) { VKEXEC_THROW(std::runtime_error(std::string(spirv.error().message()))); }
 
   auto resources = std::make_unique<pipeline_resources>();
