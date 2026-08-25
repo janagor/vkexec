@@ -2,6 +2,7 @@
 
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/vulkan_requirements.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -104,10 +105,10 @@ auto window::headless(config cfg) -> window
 window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
 {
   if (headless_) {
-    std::vector<char const *> const instance_exts{ VK_KHR_SURFACE_EXTENSION_NAME,
-      VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME };
-    ctx_ = std::unique_ptr<context>(new context(
-      context::instance_only_tag{}, scheduler_options{ .validation_layers = cfg_.validation_layers }, instance_exts));
+    auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
+    ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
+      scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
+      std::vector<char const *>{ surface_exts.begin(), surface_exts.end() }));
     create_headless_surface();
   } else {
     g_glfw_error.clear();
@@ -139,8 +140,9 @@ window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
       instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
-    ctx_ = std::unique_ptr<context>(new context(
-      context::instance_only_tag{}, scheduler_options{ .validation_layers = cfg_.validation_layers }, instance_exts));
+    ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
+      scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
+      instance_exts));
     create_surface();
   }
 

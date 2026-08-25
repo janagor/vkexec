@@ -38,6 +38,7 @@ public:
     std::string title{ "vkexec" };
     bool validation_layers{ false };
     bool headless{ false };
+    vulkan_requirements requirements{};
   };
 
   explicit window(config cfg);

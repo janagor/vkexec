@@ -1,7 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/error.hpp>
+#include <vkexec/vulkan_requirements.hpp>
 
+#include <algorithm>
+#include <cstring>
 #include <string_view>
 
 TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
@@ -23,4 +26,31 @@ TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
 
   vkexec::error const without_detail = vkexec::make_error(vkexec::errc::parse_error);
   REQUIRE(without_detail.message() == "parse error");
+}
+
+TEST_CASE("vulkan library floors document instance and device requests", "[vkexec][vulkan]")
+{
+  using namespace vkexec::vulkan_library;
+
+  auto const headless_instance = required_headless_surface_instance_extensions();
+  REQUIRE(headless_instance.size() == 2);
+  REQUIRE(std::ranges::any_of(headless_instance, [](char const *name) -> bool {
+    return std::strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
+  }));
+  REQUIRE(std::ranges::any_of(headless_instance, [](char const *name) -> bool {
+    return std::strcmp(name, VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME) == 0;
+  }));
+
+  auto const present_device = required_presentation_device_extensions();
+  REQUIRE(present_device.size() == 1);
+  REQUIRE(std::strcmp(present_device.front(), VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0);
+
+  REQUIRE(required_instance_extensions().empty());
+  REQUIRE(required_device_extensions().empty());
+
+  vkexec::vulkan_requirements const defaults{};
+  REQUIRE(defaults.api_version_major == 1);
+  REQUIRE(defaults.api_version_minor == 0);
+  REQUIRE(defaults.instance_extensions.empty());
+  REQUIRE(defaults.device_extensions.empty());
 }

@@ -2,6 +2,7 @@
 #define VKEXEC_CONTEXT_HPP
 
 #include <vkexec/pipeline.hpp>
+#include <vkexec/vulkan_requirements.hpp>
 
 #include <VkBootstrap.h>
 #include <stdexec/execution.hpp>
@@ -34,10 +35,11 @@ namespace detail {
   class host_agent;
 }// namespace detail
 
-/// Options passed when creating a `context` (affects the scheduler from `get_scheduler()`).
+/// Options passed when creating a `context`.
 struct scheduler_options
 {
   bool validation_layers{ false };
+  vulkan_requirements requirements{};
 };
 
 /// Handles borrowed from an embedder. vkexec never destroys these.
@@ -91,6 +93,8 @@ public:
   [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool { return command_pool_; }
   [[nodiscard]] auto allocator() const noexcept -> VmaAllocator { return allocator_; }
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
+  [[nodiscard]] auto requirements() const noexcept -> vulkan_requirements const & { return requirements_; }
+  [[nodiscard]] auto api_version() const noexcept -> std::uint32_t { return api_version_; }
 
   [[nodiscard]] auto get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &;
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
@@ -166,6 +170,8 @@ private:
     std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void;
   auto do_enqueue_host(std::move_only_function<void()> task) -> void;
 
+  vulkan_requirements requirements_{};
+  std::uint32_t api_version_{ VK_API_VERSION_1_0 };
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};
   vkb::Device device_{};

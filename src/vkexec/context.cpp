@@ -1,6 +1,7 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_edsl/trace.hpp>
 
 #include "detail/completion_waiter.hpp"
@@ -13,7 +14,9 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -38,36 +41,119 @@ namespace {
     return result.value();
   }
 
-  auto configure_instance_builder(vkb::InstanceBuilder &builder, bool validation_layers) -> void
+  auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
   {
-    builder.set_app_name("vkexec").set_engine_name("vkexec").require_api_version(1, 2);
-    if (validation_layers) { builder.enable_validation_layers().use_default_debug_messenger(); }
+    std::uint32_t major = requirements.api_version_major;
+    std::uint32_t minor = requirements.api_version_minor;
+    if (major < vulkan_library::k_min_api_version_major
+        || (major == vulkan_library::k_min_api_version_major && minor < vulkan_library::k_min_api_version_minor)) {
+      major = vulkan_library::k_min_api_version_major;
+      minor = vulkan_library::k_min_api_version_minor;
+    }
+    return VK_MAKE_API_VERSION(0, major, minor, 0);
   }
 
-  auto build_headless_instance(bool validation_layers) -> vkb::Instance
+  auto append_unique(std::vector<char const *> &dst, std::span<char const * const> src) -> void
+  {
+    for (char const *extension : src) {
+      if (extension == nullptr) { continue; }
+      bool const exists = std::ranges::any_of(dst, [extension](char const *item) -> bool {
+        return item != nullptr && std::strcmp(item, extension) == 0;
+      });
+      if (!exists) { dst.push_back(extension); }
+    }
+  }
+
+  auto merge_instance_extensions(vulkan_requirements const &requirements,
+    std::span<char const * const> extra_instance_extensions) -> std::vector<char const *>
+  {
+    std::vector<char const *> merged;
+    append_unique(merged, vulkan_library::required_instance_extensions());
+    append_unique(merged, requirements.instance_extensions);
+    append_unique(merged, extra_instance_extensions);
+    return merged;
+  }
+
+  auto merge_device_extensions(vulkan_requirements const &requirements, bool want_present) -> std::vector<char const *>
+  {
+    std::vector<char const *> merged;
+    append_unique(merged, vulkan_library::required_device_extensions());
+    if (want_present) { append_unique(merged, vulkan_library::required_presentation_device_extensions()); }
+    append_unique(merged, requirements.device_extensions);
+    return merged;
+  }
+
+  auto merge_features(vulkan_requirements const &requirements) -> VkPhysicalDeviceFeatures
+  {
+    // Library baseline is currently empty; user bits are required as requested.
+    (void)vulkan_library::required_features();
+    return requirements.features;
+  }
+
+  auto configure_instance_builder(vkb::InstanceBuilder &builder,
+    scheduler_options const &opts,
+    std::uint32_t api_version,
+    std::span<char const * const> extra_instance_extensions) -> void
+  {
+    builder.set_app_name("vkexec")
+      .set_engine_name("vkexec")
+      .require_api_version(VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version));
+    if (opts.validation_layers) { builder.enable_validation_layers().use_default_debug_messenger(); }
+
+    auto const instance_exts = merge_instance_extensions(opts.requirements, extra_instance_extensions);
+    if (!instance_exts.empty()) { builder.enable_extensions(instance_exts.size(), instance_exts.data()); }
+  }
+
+  auto configure_device_selector(vkb::PhysicalDeviceSelector &selector,
+    vulkan_requirements const &requirements,
+    std::uint32_t api_version,
+    bool want_present) -> void
+  {
+    selector.set_minimum_version(VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version))
+      .require_present(want_present);
+
+    auto const device_exts = merge_device_extensions(requirements, want_present);
+    if (!device_exts.empty()) { selector.add_required_extensions(device_exts.size(), device_exts.data()); }
+
+    selector.set_required_features(merge_features(requirements));
+  }
+
+  auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> vkb::Instance
   {
     vkb::InstanceBuilder builder{};
-    configure_instance_builder(builder, validation_layers);
+    configure_instance_builder(builder, opts, api_version, {});
     builder.set_headless();
     return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
   }
 
-  auto build_instance_with_extensions(std::vector<char const *> const &instance_extensions, bool validation_layers)
-    -> vkb::Instance
+  auto build_instance_with_extensions(scheduler_options const &opts,
+    std::uint32_t api_version,
+    std::vector<char const *> const &extra_instance_extensions) -> vkb::Instance
   {
     vkb::InstanceBuilder builder{};
-    configure_instance_builder(builder, validation_layers);
-    builder.set_headless().enable_extensions(instance_extensions.size(), instance_extensions.data());
+    configure_instance_builder(builder, opts, api_version, extra_instance_extensions);
+    builder.set_headless();
     return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
+  }
+
+  auto select_physical_device(vkb::Instance const &instance,
+    vulkan_requirements const &requirements,
+    std::uint32_t api_version,
+    VkSurfaceKHR surface,
+    bool want_present) -> vkb::PhysicalDevice
+  {
+    vkb::PhysicalDeviceSelector selector{ instance };
+    configure_device_selector(selector, requirements, api_version, want_present);
+    if (surface != VK_NULL_HANDLE) { selector.set_surface(surface); }
+    return unwrap(selector.select(), "vk-bootstrap PhysicalDeviceSelector");
   }
 
 }// namespace
 
 context::context(scheduler_options opts)
-  : instance_(build_headless_instance(opts.validation_layers)),
-    physical_device_(
-      unwrap(vkb::PhysicalDeviceSelector{ instance_ }.set_minimum_version(1, 2).require_present(false).select(),
-        "vk-bootstrap PhysicalDeviceSelector")),
+  : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_)),
+    instance_(build_headless_instance(opts, api_version_)),
+    physical_device_(select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false)),
     device_(unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder")), has_instance_(true),
     has_device_(true), owns_instance_(true), owns_device_(true), owns_allocator_(true)
 {
@@ -129,7 +215,8 @@ context::context(context_adopt_info const &info)
 }
 
 context::context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions)
-  : instance_(build_instance_with_extensions(instance_extensions, opts.validation_layers)), has_instance_(true),
+  : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_)),
+    instance_(build_instance_with_extensions(opts, api_version_, instance_extensions)), has_instance_(true),
     owns_instance_(true)
 { (void)tag; }
 
@@ -137,9 +224,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> void
 {
   if (surface == VK_NULL_HANDLE) { VKEXEC_THROW(std::invalid_argument("complete_for_surface requires a surface")); }
 
-  physical_device_ =
-    unwrap(vkb::PhysicalDeviceSelector{ instance_ }.set_surface(surface).set_minimum_version(1, 2).select(),
-      "vk-bootstrap PhysicalDeviceSelector");
+  physical_device_ = select_physical_device(instance_, requirements_, api_version_, surface, true);
   device_ = unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder");
   has_device_ = true;
   owns_device_ = true;
@@ -233,7 +318,7 @@ auto context::create_allocator() -> void
   allocator_info.physicalDevice = physical_device_.physical_device;
   allocator_info.device = device_.device;
   allocator_info.instance = instance_.instance;
-  allocator_info.vulkanApiVersion = VK_API_VERSION_1_2;
+  allocator_info.vulkanApiVersion = api_version_;
   if (vmaCreateAllocator(&allocator_info, &allocator_) != VK_SUCCESS) { fail("vmaCreateAllocator failed"); }
 }
 
