@@ -24,6 +24,37 @@ inline auto memory_barrier(VkCommandBuffer cmd, memory_barrier_params params) ->
   vkCmdPipelineBarrier(cmd, params.src_stage, params.dst_stage, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
+struct image_barrier_params
+{
+  VkImage image{ VK_NULL_HANDLE };
+  VkImageAspectFlags aspect{ VK_IMAGE_ASPECT_COLOR_BIT };
+  VkImageLayout old_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
+  VkImageLayout new_layout{ VK_IMAGE_LAYOUT_GENERAL };
+  VkPipelineStageFlags src_stage{ VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT };
+  VkPipelineStageFlags dst_stage{ VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
+  VkAccessFlags src_access{ 0 };
+  VkAccessFlags dst_access{ 0 };
+};
+
+inline auto image_barrier(VkCommandBuffer cmd, image_barrier_params params) -> void
+{
+  VkImageMemoryBarrier barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.srcAccessMask = params.src_access;
+  barrier.dstAccessMask = params.dst_access;
+  barrier.oldLayout = params.old_layout;
+  barrier.newLayout = params.new_layout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = params.image;
+  barrier.subresourceRange.aspectMask = params.aspect;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+  vkCmdPipelineBarrier(cmd, params.src_stage, params.dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
 namespace barrier {
 
   [[nodiscard]] inline auto flags(std::uint32_t bits) -> VkFlags { return static_cast<VkFlags>(bits); }
