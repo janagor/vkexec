@@ -15,15 +15,18 @@ namespace {
 
   [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
 
-  auto usage_for(gpu_buffer_memory memory) -> VkBufferUsageFlags
+  auto usage_for(gpu_buffer_memory memory, bool shader_device_address) -> VkBufferUsageFlags
   {
     switch (memory) {
     case gpu_buffer_memory::host_visible:
-    case gpu_buffer_memory::device_local:
+    case gpu_buffer_memory::device_local: {
       // NOLINTBEGIN(hicpp-signed-bitwise)
-      return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-             | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+      VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                                 | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+      if (shader_device_address) { usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT; }
+      return usage;
       // NOLINTEND(hicpp-signed-bitwise)
+    }
     case gpu_buffer_memory::staging:
       return VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     case gpu_buffer_memory::descriptor_heap:
@@ -75,23 +78,29 @@ namespace {
 
 }// namespace
 
-auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> gpu_buffer
+auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> gpu_buffer
 {
-  if (size == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::gpu_buffer size must be > 0")); }
+  if (info.size == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::gpu_buffer size must be > 0")); }
   if (ctx.allocator() == VK_NULL_HANDLE) { fail("vkexec::gpu_buffer requires a VMA allocator"); }
+
+  bool const want_device_address =
+    info.shader_device_address || info.memory == gpu_buffer_memory::descriptor_heap;
+  if (want_device_address && ctx.procs().get_buffer_device_address == nullptr) {
+    fail("vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
+  }
 
   VkBufferCreateInfo bci{};
   bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  bci.size = size;
-  bci.usage = usage_for(memory);
+  bci.size = info.size;
+  bci.usage = usage_for(info.memory, want_device_address);
   bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  VmaAllocationCreateInfo const aci = allocation_info_for(memory);
+  VmaAllocationCreateInfo const aci = allocation_info_for(info.memory);
 
   VkBuffer buffer_handle{ VK_NULL_HANDLE };
   VmaAllocation allocation{ VK_NULL_HANDLE };
   VmaAllocationInfo ainfo{};
-  VkResult const create_result = memory == gpu_buffer_memory::descriptor_heap
+  VkResult const create_result = info.memory == gpu_buffer_memory::descriptor_heap
                                    ? vmaCreateBufferWithAlignment(ctx.allocator(),
                                        &bci,
                                        &aci,
@@ -103,8 +112,8 @@ auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memor
   if (create_result != VK_SUCCESS) { fail("vmaCreateBuffer failed"); }
 
   void *mapped_ptr = nullptr;
-  if (memory == gpu_buffer_memory::host_visible || memory == gpu_buffer_memory::staging
-      || memory == gpu_buffer_memory::descriptor_heap) {
+  if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging
+      || info.memory == gpu_buffer_memory::descriptor_heap) {
     mapped_ptr = ainfo.pMappedData;
     if (mapped_ptr == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);
@@ -112,7 +121,7 @@ auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memor
     }
   }
 
-  return gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, size, memory };
+  return gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
 }
 
 gpu_buffer::gpu_buffer(context *ctx,
@@ -120,21 +129,24 @@ gpu_buffer::gpu_buffer(context *ctx,
   VmaAllocation allocation,
   void *mapped,
   VkDeviceSize size,
-  gpu_buffer_memory memory) noexcept
-  : ctx_(ctx), buffer_(buffer), allocation_(allocation), mapped_(mapped), size_(size), memory_(memory)
+  gpu_buffer_memory memory,
+  bool shader_device_address) noexcept
+  : ctx_(ctx), buffer_(buffer), allocation_(allocation), mapped_(mapped), size_(size), memory_(memory),
+    shader_device_address_(shader_device_address)
 {}
 
 gpu_buffer::~gpu_buffer() { destroy(); }
 
 gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
   : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
-    size_(other.size_), memory_(other.memory_)
+    size_(other.size_), memory_(other.memory_), shader_device_address_(other.shader_device_address_)
 {
   other.ctx_ = nullptr;
   other.buffer_ = VK_NULL_HANDLE;
   other.allocation_ = VK_NULL_HANDLE;
   other.mapped_ = nullptr;
   other.size_ = 0;
+  other.shader_device_address_ = false;
 }
 
 auto gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
@@ -147,11 +159,13 @@ auto gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
   mapped_ = other.mapped_;
   size_ = other.size_;
   memory_ = other.memory_;
+  shader_device_address_ = other.shader_device_address_;
   other.ctx_ = nullptr;
   other.buffer_ = VK_NULL_HANDLE;
   other.allocation_ = VK_NULL_HANDLE;
   other.mapped_ = nullptr;
   other.size_ = 0;
+  other.shader_device_address_ = false;
   return *this;
 }
 
@@ -159,6 +173,20 @@ auto gpu_buffer::mapped() const noexcept -> std::span<std::byte>
 {
   if (mapped_ == nullptr) { return {}; }
   return { static_cast<std::byte *>(mapped_), static_cast<std::size_t>(size_) };
+}
+
+auto gpu_buffer::device_address() const -> VkDeviceAddress
+{
+  if (!shader_device_address_) {
+    fail("vkexec::gpu_buffer was not created with shader_device_address");
+  }
+  if (ctx_ == nullptr || ctx_->procs().get_buffer_device_address == nullptr) {
+    fail("vkGetBufferDeviceAddress is unavailable");
+  }
+  VkBufferDeviceAddressInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+  info.buffer = buffer_;
+  return ctx_->procs().get_buffer_device_address(ctx_->device(), &info);
 }
 
 auto gpu_buffer::destroy() noexcept -> void
@@ -171,6 +199,7 @@ auto gpu_buffer::destroy() noexcept -> void
   allocation_ = VK_NULL_HANDLE;
   mapped_ = nullptr;
   size_ = 0;
+  shader_device_address_ = false;
 }
 
 }// namespace vkexec

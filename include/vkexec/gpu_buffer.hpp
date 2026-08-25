@@ -25,11 +25,21 @@ enum class gpu_buffer_memory : std::uint8_t {
   descriptor_heap,
 };
 
+struct gpu_buffer_create_info
+{
+  VkDeviceSize size{ 0 };
+  gpu_buffer_memory memory{ gpu_buffer_memory::host_visible };
+  /// Requires bufferDeviceAddress enabled on the device.
+  bool shader_device_address{ false };
+};
+
 /// Untyped VMA buffer for hybrid / embedders (e.g. vkgsplat). Distinct from eDSL `buffer<T>`.
 class gpu_buffer
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> gpu_buffer;
+  [[nodiscard]] static auto create(context &ctx, gpu_buffer_create_info info) -> gpu_buffer;
+  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> gpu_buffer
+  { return create(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
   ~gpu_buffer();
 
@@ -43,6 +53,7 @@ public:
   [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
   [[nodiscard]] auto memory() const noexcept -> gpu_buffer_memory { return memory_; }
   [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
+  [[nodiscard]] auto device_address() const -> VkDeviceAddress;
 
 private:
   gpu_buffer(context *ctx,
@@ -50,7 +61,8 @@ private:
     VmaAllocation allocation,
     void *mapped,
     VkDeviceSize size,
-    gpu_buffer_memory memory) noexcept;
+    gpu_buffer_memory memory,
+    bool shader_device_address) noexcept;
 
   auto destroy() noexcept -> void;
 
@@ -60,6 +72,7 @@ private:
   void *mapped_{ nullptr };
   VkDeviceSize size_{ 0 };
   gpu_buffer_memory memory_{ gpu_buffer_memory::host_visible };
+  bool shader_device_address_{ false };
 };
 
 }// namespace vkexec

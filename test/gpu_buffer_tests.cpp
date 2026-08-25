@@ -86,4 +86,29 @@ TEST_CASE("gpu_buffer descriptor_heap allocates when extension is available", "[
   auto buffer = vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::descriptor_heap);
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
+  REQUIRE(buffer.device_address() != 0);
+}
+
+TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[vkexec][gpu_buffer][gpu]")
+{
+  VkPhysicalDeviceVulkan12Features features_12{};
+  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+  features_12.bufferDeviceAddress = VK_TRUE;
+
+  vkexec::vulkan_requirements requirements{};
+  requirements.api_version_major = 1;
+  requirements.api_version_minor = 2;
+  requirements.require_extension_feature(features_12);
+
+  std::optional<vkexec::context> ctx;
+  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+
+  auto buffer = vkexec::gpu_buffer::create(*ctx,
+    vkexec::gpu_buffer_create_info{
+      .size = k_bytes,
+      .memory = vkexec::gpu_buffer_memory::device_local,
+      .shader_device_address = true,
+    });
+  REQUIRE(buffer.device_address() != 0);
 }
