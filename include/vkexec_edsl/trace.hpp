@@ -45,9 +45,9 @@ private:
 };
 
 [[nodiscard]] auto compile_vertex_spirv(trace_scope const &scope, std::uint32_t vulkan_api_version = VK_API_VERSION_1_0)
-  -> std::vector<std::uint32_t>;
+  -> vkexec::result<std::vector<std::uint32_t>>;
 [[nodiscard]] auto compile_fragment_spirv(trace_scope const &scope,
-  std::uint32_t vulkan_api_version = VK_API_VERSION_1_0) -> std::vector<std::uint32_t>;
+  std::uint32_t vulkan_api_version = VK_API_VERSION_1_0) -> vkexec::result<std::vector<std::uint32_t>>;
 
 [[nodiscard]] auto append_push_field(char const *name, std::int64_t offset) -> int;
 auto set_push_block(std::string glsl, std::size_t bytes) -> void;

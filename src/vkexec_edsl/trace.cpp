@@ -1,4 +1,5 @@
 #include <vkexec/config.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec_edsl/spirv.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -47,20 +48,17 @@ auto trace_scope::local_size_x() const -> std::uint32_t { return static_cast<std
 
 auto detail::trace_ast_access::get(trace_scope const &scope) -> ASTContext const & { return scope.impl_->ast; }
 
-auto compile_vertex_spirv(trace_scope const &scope, std::uint32_t vulkan_api_version) -> std::vector<std::uint32_t>
+auto compile_vertex_spirv(trace_scope const &scope, std::uint32_t vulkan_api_version) -> vkexec::result<std::vector<std::uint32_t>>
 {
   std::string const glsl = emit_vertex_glsl(detail::trace_ast_access::get(scope));
-  auto spirv = compile_glsl_to_spirv(glsl, "vkexec.vert", shader_kind::vertex, vulkan_api_version);
-  if (!spirv) { VKEXEC_THROW(std::runtime_error(std::string(spirv.error().message()))); }
-  return *spirv;
+  return compile_glsl_to_spirv(glsl, "vkexec.vert", shader_kind::vertex, vulkan_api_version);
 }
 
-auto compile_fragment_spirv(trace_scope const &scope, std::uint32_t vulkan_api_version) -> std::vector<std::uint32_t>
+auto compile_fragment_spirv(trace_scope const &scope, std::uint32_t vulkan_api_version)
+  -> vkexec::result<std::vector<std::uint32_t>>
 {
   std::string const glsl = emit_fragment_glsl(detail::trace_ast_access::get(scope));
-  auto spirv = compile_glsl_to_spirv(glsl, "vkexec.frag", shader_kind::fragment, vulkan_api_version);
-  if (!spirv) { VKEXEC_THROW(std::runtime_error(std::string(spirv.error().message()))); }
-  return *spirv;
+  return compile_glsl_to_spirv(glsl, "vkexec.frag", shader_kind::fragment, vulkan_api_version);
 }
 
 auto append_push_field(char const *name, std::int64_t offset) -> int

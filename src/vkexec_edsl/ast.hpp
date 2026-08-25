@@ -153,7 +153,7 @@ public:
 inline auto ast() -> ASTContext &
 {
   ASTContext *ctx = current_ast();
-  if (ctx == nullptr) { VKEXEC_THROW(std::runtime_error("vkexec::edsl AST used outside of a tracing scope")); }
+  if (ctx == nullptr) { vkexec::detail::contract_violation("vkexec::edsl AST used outside of a tracing scope"); }
   return *ctx;
 }
 
