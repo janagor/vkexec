@@ -1,14 +1,14 @@
 #ifndef VKEXEC_SCHEDULER_HPP
 #define VKEXEC_SCHEDULER_HPP
 
-#include <vkexec/context.hpp>
 #include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
 
 #include <stdexec/execution.hpp>
 
-#include <exception>
 #include <concepts>
+#include <exception>
 #include <type_traits>
 #include <utility>
 
@@ -101,9 +101,7 @@ inline auto context::get_scheduler() noexcept -> scheduler { return scheduler{ t
 
 template<class Pred>
 concept vkexec_predecessor = ex::sender<Pred> && requires(Pred const &pred) {
-  {
-    ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred))
-  } -> std::same_as<scheduler>;
+  { ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred)) } -> std::same_as<scheduler>;
 };
 
 }// namespace vkexec

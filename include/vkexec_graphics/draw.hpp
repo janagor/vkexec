@@ -2,9 +2,9 @@
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
 #include <vkexec/config.hpp>
-#include <vkexec/submit_scope.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/window.hpp>
@@ -27,8 +27,7 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  template<class Receiver>
-  auto complete_draw(Receiver &&receiver, std::exception_ptr error, bool stopped) -> void
+  template<class Receiver> auto complete_draw(Receiver &&receiver, std::exception_ptr error, bool stopped) -> void
   { complete_after_reclaim(std::forward<Receiver>(receiver), std::move(error), stopped); }
 
   template<class WindowOp, class Receiver>
@@ -50,17 +49,17 @@ namespace detail {
       if (auto frame = win->begin_frame()) {
         // NOLINTNEXTLINE(misc-misplaced-const)
         VkFence fence = std::forward<WindowOp>(record_and_end)(*frame);
-        ctx->enqueue_borrowed_fence_wait(fence,
-          token,
-          [rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable -> void {
+        ctx->enqueue_borrowed_fence_wait(
+          fence, token, [rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable -> void {
             complete_draw(std::move(rcvr), std::move(wait_error), stopped);
           });
         return;
       }
     }
     VKEXEC_CATCH_ALL { error = std::current_exception(); }
-    if (error) { ex::set_error(std::move(rcvr), error); }
-    else {
+    if (error) {
+      ex::set_error(std::move(rcvr), error);
+    } else {
       ex::set_value(std::move(rcvr));
     }
   }
@@ -182,7 +181,8 @@ struct draw_async_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_async(ctx,
+      detail::start_draw_async(
+        ctx,
         win,
         [this](frame &drawn) -> VkFence {
           pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
@@ -278,8 +278,7 @@ struct draw_layers_async_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  explicit draw_layers_async_sender(draw_layers_sender snd)
-    : ctx(snd.ctx), win(snd.win), layers(std::move(snd.layers))
+  explicit draw_layers_async_sender(draw_layers_sender snd) : ctx(snd.ctx), win(snd.win), layers(std::move(snd.layers))
   {}
 
   template<class Receiver> struct op_state
@@ -291,7 +290,8 @@ struct draw_layers_async_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_async(ctx,
+      detail::start_draw_async(
+        ctx,
         win,
         [this](frame &drawn_frame) -> VkFence {
           if (layers.empty()) { VKEXEC_THROW(std::invalid_argument("draw_layers requires at least one layer")); }
@@ -420,7 +420,8 @@ struct draw_mesh_async_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_async(ctx,
+      detail::start_draw_async(
+        ctx,
         win,
         [this](frame &drawn_frame) -> VkFence {
           pipeline->draw(

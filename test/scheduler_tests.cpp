@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/bulk.hpp>
 #include <vkexec/buffer.hpp>
+#include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/pass.hpp>
@@ -14,8 +14,8 @@
 
 #include <stdexec/execution.hpp>
 
-#include <concepts>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <thread>
 
@@ -66,8 +66,8 @@ TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][schedu
   auto const agent = ctx.host_agent_thread_id();
 
   std::thread::id ran_on{};
-  ex::sync_wait(ex::starts_on(
-    ctx.get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
+  ex::sync_wait(
+    ex::starts_on(ctx.get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
 
   REQUIRE(ran_on == agent);
   REQUIRE(ran_on != caller);
@@ -95,12 +95,12 @@ TEST_CASE("starts_on then bulk lowers via vkexec domain", "[vkexec][scheduler][d
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(ctx, k_count, k_initial)).value();
 
-  ex::sync_wait(ex::starts_on(ctx.get_scheduler(), ex::just())
-                | vkexec::bulk(k_count,
-                  env_params{ .n = k_factor },
-                  [&](edsl::Int idx, edsl::push_constant<env_params> push) -> void {
-                    values[idx] = values[idx] * push.get<&env_params::n>();
-                  }));
+  ex::sync_wait(
+    ex::starts_on(ctx.get_scheduler(), ex::just())
+    | vkexec::bulk(
+      k_count, env_params{ .n = k_factor }, [&](edsl::Int idx, edsl::push_constant<env_params> push) -> void {
+        values[idx] = values[idx] * push.get<&env_params::n>();
+      }));
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(values.data()[0] - (k_initial * k_factor)) < k_epsilon);

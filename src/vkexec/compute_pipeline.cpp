@@ -1,6 +1,6 @@
 #include <vkexec/compute_pipeline.hpp>
-#include <vkexec/context.hpp>
 #include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec_edsl/spirv.hpp>

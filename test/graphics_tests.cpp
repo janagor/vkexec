@@ -70,7 +70,6 @@ TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][sc
   REQUIRE(completion == sched);
 
   using signatures = vkexec::draw_async_sender::completion_signatures;
-  STATIC_REQUIRE(
-    std::same_as<signatures,
-      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>>);
+  STATIC_REQUIRE(std::same_as<signatures,
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>>);
 }

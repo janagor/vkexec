@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/buffer.hpp>
-#include <vkexec/context.hpp>
 #include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/scheduler.hpp>
 
 #include <stdexec/execution.hpp>

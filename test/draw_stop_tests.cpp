@@ -48,7 +48,8 @@ struct headless_fixture
 
   headless_fixture()
     : win(make_headless_window()),
-      pipeline(win.ctx(),
+      pipeline(
+        win.ctx(),
         win.render_pass(),
         [](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
           edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),

@@ -3,11 +3,11 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/config.hpp>
-#include <vkexec/submit_scope.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -15,8 +15,8 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
-#include <cstdint>
 #include <concepts>
+#include <cstdint>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -130,17 +130,14 @@ template<class Pred, typename Params, typename Fun> struct bulk_adaptor_sender
 };
 
 template<class Pred, typename Params, typename Fun, class Env>
-[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
-  bulk_adaptor_sender<Pred, Params, Fun> sndr,
-  Env const & /*env*/)
+[[nodiscard]] auto
+  lower_vkexec_sender(ex::set_value_t /*tag*/, bulk_adaptor_sender<Pred, Params, Fun> sndr, Env const & /*env*/)
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
   return ex::let_value(std::move(sndr.pred),
-    [ctx,
-      shape = sndr.closure.shape,
-      params = std::move(sndr.closure.params),
-      fun = std::move(sndr.closure.fun)](auto &&...) mutable -> bulk_sender<Params, Fun> {
+    [ctx, shape = sndr.closure.shape, params = std::move(sndr.closure.params), fun = std::move(sndr.closure.fun)](
+      auto &&...) mutable -> bulk_sender<Params, Fun> {
       return bulk_sender<Params, Fun>(ctx, shape, std::move(params), std::move(fun));
     });
 }
@@ -191,17 +188,14 @@ template<class Pred, typename Params, typename Fun> struct bulk_async_adaptor_se
 };
 
 template<class Pred, typename Params, typename Fun, class Env>
-[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
-  bulk_async_adaptor_sender<Pred, Params, Fun> sndr,
-  Env const & /*env*/)
+[[nodiscard]] auto
+  lower_vkexec_sender(ex::set_value_t /*tag*/, bulk_async_adaptor_sender<Pred, Params, Fun> sndr, Env const & /*env*/)
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
   return ex::let_value(std::move(sndr.pred),
-    [ctx,
-      shape = sndr.closure.shape,
-      params = std::move(sndr.closure.params),
-      fun = std::move(sndr.closure.fun)](auto &&...) mutable -> bulk_async_sender<Params, Fun> {
+    [ctx, shape = sndr.closure.shape, params = std::move(sndr.closure.params), fun = std::move(sndr.closure.fun)](
+      auto &&...) mutable -> bulk_async_sender<Params, Fun> {
       return bulk_async_sender<Params, Fun>(ctx, shape, std::move(params), std::move(fun));
     });
 }

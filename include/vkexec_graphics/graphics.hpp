@@ -2,8 +2,8 @@
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
 
-#include <vkexec/context.hpp>
 #include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 

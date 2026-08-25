@@ -30,9 +30,9 @@ class window;
 class pipeline_cache;
 
 namespace detail {
-class completion_waiter;
-class host_agent;
-}
+  class completion_waiter;
+  class host_agent;
+}// namespace detail
 
 /// Options passed when creating a `context` (affects the scheduler from `get_scheduler()`).
 struct scheduler_options

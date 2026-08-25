@@ -3,11 +3,11 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/config.hpp>
-#include <vkexec/submit_scope.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -15,12 +15,12 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>
-#include <concepts>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -284,15 +284,14 @@ template<class Pred, class Closure> struct pass_adaptor_sender
 };
 
 template<class Pred, class Closure, class Env>
-[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
-  pass_adaptor_sender<Pred, Closure> sndr,
-  Env const & /*env*/)
+[[nodiscard]] auto
+  lower_vkexec_sender(ex::set_value_t /*tag*/, pass_adaptor_sender<Pred, Closure> sndr, Env const & /*env*/)
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   // NOLINTNEXTLINE(misc-const-correctness)
   context *const ctx = sched.get_context();
-  return ex::let_value(std::move(sndr.pred),
-    [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
+  return ex::let_value(
+    std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
       if constexpr (std::is_same_v<std::remove_cvref_t<Closure>, prebuilt_compute_pass_closure>) {
         return pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
       } else {
@@ -313,15 +312,14 @@ template<class Pred, class Closure> struct pass_async_adaptor_sender
 };
 
 template<class Pred, class Closure, class Env>
-[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
-  pass_async_adaptor_sender<Pred, Closure> sndr,
-  Env const & /*env*/)
+[[nodiscard]] auto
+  lower_vkexec_sender(ex::set_value_t /*tag*/, pass_async_adaptor_sender<Pred, Closure> sndr, Env const & /*env*/)
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   // NOLINTNEXTLINE(misc-const-correctness)
   context *const ctx = sched.get_context();
-  return ex::let_value(std::move(sndr.pred),
-    [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_async_sender {
+  return ex::let_value(
+    std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_async_sender {
       pass_graph_sender graph;
       if constexpr (std::is_same_v<std::remove_cvref_t<Closure>, prebuilt_compute_pass_closure>) {
         graph = pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
