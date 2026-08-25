@@ -1,4 +1,5 @@
 #include <vkexec_edsl/types.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/window.hpp>
@@ -6,7 +7,7 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
-#include <exception>
+#include <memory>
 #include <print>
 
 namespace ex = stdexec;
@@ -53,43 +54,54 @@ auto tinted_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out)
 { out.color(edsl::vec4(fragment_in.color(), edsl::Float::constant(static_cast<double>(k_foreground_alpha)))); }
 }// namespace
 
-// NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
 {
-  try {
-    vkexec::window win(
-      { .width = k_window_width, .height = k_window_height, .title = "vkexec layers", .validation_layers = true });
-
-    vkexec::graphics_pipeline_config background_cfg{};
-    background_cfg.clear_r = k_clear_r;
-    background_cfg.clear_g = k_clear_g;
-    background_cfg.clear_b = k_clear_b;
-
-    vkexec::graphics_pipeline background(
-      win.ctx(), win.render_pass(), background_cfg, fullscreen_vertex, gradient_fragment);
-
-    vkexec::graphics_pipeline_config foreground_cfg{};
-    foreground_cfg.alpha_blend = true;
-
-    vkexec::graphics_pipeline foreground(
-      win.ctx(), win.render_pass(), foreground_cfg, foreground_vertex, tinted_fragment);
-
-    std::println("vkexec layers (two graphics pipelines, four traced shaders) - close the window to exit");
-
-    while (!win.should_close()) {
-      win.poll_events();
-      (void)ex::sync_wait(ex::schedule(win.ctx().get_scheduler())
-                          | vkexec::draw_layers(win,
-                            {
-                              { .pipeline = &background, .vertex_count = k_fullscreen_vertices },
-                              { .pipeline = &foreground, .vertex_count = k_foreground_vertices },
-                            }));
-    }
-
-    win.wait_idle();
-    return 0;
-  } catch (std::exception const &ex) {
-    std::println(stderr, "vkexec layers example failed: {}", ex.what());
+  auto win_result = vkexec::window::create({ .width = k_window_width,
+    .height = k_window_height,
+    .title = "vkexec layers",
+    .validation_layers = true });
+  if (!win_result) {
+    std::println(stderr, "vkexec layers example failed: {}", win_result.error().message());
     return 1;
   }
+  auto win = std::move(*win_result);
+
+  vkexec::graphics_pipeline_config background_cfg{};
+  background_cfg.clear_r = k_clear_r;
+  background_cfg.clear_g = k_clear_g;
+  background_cfg.clear_b = k_clear_b;
+
+  auto background_result =
+    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), background_cfg, fullscreen_vertex, gradient_fragment);
+  if (!background_result) {
+    std::println(stderr, "vkexec layers example failed: {}", background_result.error().message());
+    return 1;
+  }
+  auto &background = *background_result;
+
+  vkexec::graphics_pipeline_config foreground_cfg{};
+  foreground_cfg.alpha_blend = true;
+
+  auto foreground_result =
+    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), foreground_cfg, foreground_vertex, tinted_fragment);
+  if (!foreground_result) {
+    std::println(stderr, "vkexec layers example failed: {}", foreground_result.error().message());
+    return 1;
+  }
+  auto &foreground = *foreground_result;
+
+  std::println("vkexec layers (two graphics pipelines, four traced shaders) - close the window to exit");
+
+  while (!win.should_close()) {
+    win.poll_events();
+    (void)vkexec::sync_wait(ex::schedule(win.ctx().get_scheduler())
+                            | vkexec::draw_layers(win,
+                              {
+                                { .pipeline = &background, .vertex_count = k_fullscreen_vertices },
+                                { .pipeline = &foreground, .vertex_count = k_foreground_vertices },
+                              }));
+  }
+
+  win.wait_idle();
+  return 0;
 }
