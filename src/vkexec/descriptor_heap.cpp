@@ -1,18 +1,15 @@
 #include <vkexec/descriptor_heap.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <cstddef>
-#include <stdexcept>
 
 namespace vkexec {
 namespace {
-
-  [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
 
   [[nodiscard]] auto align_up(VkDeviceSize value, VkDeviceSize alignment) noexcept -> VkDeviceSize
   {
@@ -22,9 +19,11 @@ namespace {
 
 }// namespace
 
-auto query_descriptor_heap_layout(context const &ctx) -> descriptor_heap_layout
+auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_layout>
 {
-  if (ctx.physical_device() == VK_NULL_HANDLE) { fail("query_descriptor_heap_layout requires a physical device"); }
+  if (ctx.physical_device() == VK_NULL_HANDLE) {
+    return std::unexpected(make_error(errc::invalid_argument, "query_descriptor_heap_layout requires a physical device"));
+  }
 
   VkPhysicalDeviceDescriptorHeapPropertiesEXT heap_props{};
   heap_props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_PROPERTIES_EXT;
@@ -42,11 +41,15 @@ auto query_descriptor_heap_layout(context const &ctx) -> descriptor_heap_layout
   layout.resource_heap_alignment = heap_props.resourceHeapAlignment;
   layout.min_resource_heap_reserved_range = heap_props.minResourceHeapReservedRange;
 
-  if (layout.descriptor_stride == 0) { fail("descriptor heap properties reported a zero descriptor stride"); }
+  if (layout.descriptor_stride == 0) {
+    return std::unexpected(
+      make_error(errc::unsupported, "descriptor heap properties reported a zero descriptor stride"));
+  }
   auto const descriptor_alignment =
     std::max(heap_props.bufferDescriptorAlignment, heap_props.imageDescriptorAlignment);
   if (descriptor_alignment != 0 && layout.descriptor_stride % descriptor_alignment != 0) {
-    fail("descriptor heap stride is not aligned for buffer/image descriptors");
+    return std::unexpected(
+      make_error(errc::unsupported, "descriptor heap stride is not aligned for buffer/image descriptors"));
   }
   return layout;
 }
@@ -62,12 +65,14 @@ auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t
 auto write_storage_buffer_descriptor(context const &ctx,
   VkDeviceAddress buffer_address,
   VkDeviceSize buffer_size,
-  std::span<std::byte> destination) -> void
+  std::span<std::byte> destination) -> status
 {
   if (ctx.procs().write_resource_descriptors == nullptr) {
-    fail("vkWriteResourceDescriptorsEXT is unavailable");
+    return make_error(errc::unsupported, "vkWriteResourceDescriptorsEXT is unavailable");
   }
-  if (destination.empty()) { fail("write_storage_buffer_descriptor destination is empty"); }
+  if (destination.empty()) {
+    return make_error(errc::invalid_argument, "write_storage_buffer_descriptor destination is empty");
+  }
 
   VkDeviceAddressRangeEXT address_range{};
   address_range.address = buffer_address;
@@ -82,9 +87,12 @@ auto write_storage_buffer_descriptor(context const &ctx,
   host_range.address = destination.data();
   host_range.size = destination.size();
 
-  if (ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range) != VK_SUCCESS) {
-    fail("vkWriteResourceDescriptorsEXT failed");
+  VkResult const write_result =
+    ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
+  if (write_result != VK_SUCCESS) {
+    return make_vk_error(write_result, "vkWriteResourceDescriptorsEXT failed");
   }
+  return {};
 }
 
 auto cmd_bind_resource_heap(context const &ctx,
@@ -92,9 +100,11 @@ auto cmd_bind_resource_heap(context const &ctx,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
-  VkDeviceSize reserved_range_size) -> void
+  VkDeviceSize reserved_range_size) -> status
 {
-  if (ctx.procs().cmd_bind_resource_heap == nullptr) { fail("vkCmdBindResourceHeapEXT is unavailable"); }
+  if (ctx.procs().cmd_bind_resource_heap == nullptr) {
+    return make_error(errc::unsupported, "vkCmdBindResourceHeapEXT is unavailable");
+  }
 
   VkBindHeapInfoEXT bind_info{};
   bind_info.sType = VK_STRUCTURE_TYPE_BIND_HEAP_INFO_EXT;
@@ -103,6 +113,7 @@ auto cmd_bind_resource_heap(context const &ctx,
   bind_info.reservedRangeOffset = reserved_range_offset;
   bind_info.reservedRangeSize = reserved_range_size;
   ctx.procs().cmd_bind_resource_heap(cmd, &bind_info);
+  return {};
 }
 
 }// namespace vkexec

@@ -1,31 +1,31 @@
 #include <vkexec/rendering.hpp>
 
-#include <vkexec/config.hpp>
+#include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
 
-#include <stdexcept>
 #include <vector>
 
 namespace vkexec {
-namespace {
 
-  [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
-
-}// namespace
-
-auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> void
+auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> status
 {
-  if (cmd == VK_NULL_HANDLE) { fail("cmd_begin_rendering requires a command buffer"); }
-  if (info.extent.width == 0 || info.extent.height == 0) {
-    fail("cmd_begin_rendering requires a non-zero extent");
+  if (cmd == VK_NULL_HANDLE) {
+    return make_error(errc::invalid_argument, "cmd_begin_rendering requires a command buffer");
   }
-  if (info.color.empty() && info.depth == nullptr) { fail("cmd_begin_rendering requires at least one attachment"); }
+  if (info.extent.width == 0 || info.extent.height == 0) {
+    return make_error(errc::invalid_argument, "cmd_begin_rendering requires a non-zero extent");
+  }
+  if (info.color.empty() && info.depth == nullptr) {
+    return make_error(errc::invalid_argument, "cmd_begin_rendering requires at least one attachment");
+  }
 
   std::vector<VkRenderingAttachmentInfo> color_infos;
   color_infos.reserve(info.color.size());
   for (color_attachment const &attachment : info.color) {
-    if (attachment.view == VK_NULL_HANDLE) { fail("color attachment view is null"); }
+    if (attachment.view == VK_NULL_HANDLE) {
+      return make_error(errc::invalid_argument, "color attachment view is null");
+    }
     VkRenderingAttachmentInfo color{};
     color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     color.imageView = attachment.view;
@@ -39,7 +39,9 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> voi
   VkRenderingAttachmentInfo depth_info{};
   depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
   if (info.depth != nullptr) {
-    if (info.depth->view == VK_NULL_HANDLE) { fail("depth attachment view is null"); }
+    if (info.depth->view == VK_NULL_HANDLE) {
+      return make_error(errc::invalid_argument, "depth attachment view is null");
+    }
     depth_info.imageView = info.depth->view;
     depth_info.imageLayout = info.depth->layout;
     depth_info.loadOp = info.depth->load_op;
@@ -57,12 +59,16 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> voi
   rendering.pDepthAttachment = info.depth != nullptr ? &depth_info : nullptr;
 
   vkCmdBeginRendering(cmd, &rendering);
+  return {};
 }
 
-auto cmd_end_rendering(VkCommandBuffer cmd) -> void
+auto cmd_end_rendering(VkCommandBuffer cmd) -> status
 {
-  if (cmd == VK_NULL_HANDLE) { fail("cmd_end_rendering requires a command buffer"); }
+  if (cmd == VK_NULL_HANDLE) {
+    return make_error(errc::invalid_argument, "cmd_end_rendering requires a command buffer");
+  }
   vkCmdEndRendering(cmd);
+  return {};
 }
 
 }// namespace vkexec

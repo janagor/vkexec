@@ -1,8 +1,8 @@
 #ifndef VKEXEC_TIMELINE_SEMAPHORE_HPP
 #define VKEXEC_TIMELINE_SEMAPHORE_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -14,7 +14,7 @@ namespace vkexec {
 class timeline_semaphore
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0) -> timeline_semaphore;
+  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0) -> result<timeline_semaphore>;
 
   ~timeline_semaphore();
 
@@ -27,7 +27,7 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkSemaphore { return semaphore_; }
 
   /// Host wait until the semaphore reaches at least `value` (no-op when value == 0).
-  auto wait(std::uint64_t value) const -> void;
+  [[nodiscard]] auto wait(std::uint64_t value) const -> status;
 
 private:
   timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;

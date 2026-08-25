@@ -1,27 +1,27 @@
 #include <vkexec/image_view.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/image.hpp>
 
 #include <vulkan/vulkan_core.h>
 
-#include <stdexcept>
-
 namespace vkexec {
 namespace {
-
-  [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
 
   auto aspect_for(image_usage usage) -> VkImageAspectFlags
   { return usage == image_usage::depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT; }
 
 }// namespace
 
-auto image_view::create(context &ctx, image const &img) -> image_view
+auto image_view::create(context &ctx, image const &img) -> result<image_view>
 {
-  if (ctx.device() == VK_NULL_HANDLE) { fail("image_view requires a VkDevice"); }
-  if (img.handle() == VK_NULL_HANDLE) { fail("image_view requires a valid image"); }
+  if (ctx.device() == VK_NULL_HANDLE) {
+    return std::unexpected(make_error(errc::invalid_argument, "image_view requires a VkDevice"));
+  }
+  if (img.handle() == VK_NULL_HANDLE) {
+    return std::unexpected(make_error(errc::invalid_argument, "image_view requires a valid image"));
+  }
 
   VkImageViewCreateInfo view_info{};
   view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -35,8 +35,9 @@ auto image_view::create(context &ctx, image const &img) -> image_view
   view_info.subresourceRange.layerCount = 1;
 
   VkImageView view{ VK_NULL_HANDLE };
-  if (vkCreateImageView(ctx.device(), &view_info, nullptr, &view) != VK_SUCCESS) {
-    fail("vkCreateImageView failed");
+  VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
+  if (create_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(create_result, "vkCreateImageView failed"));
   }
   return image_view{ &ctx, view };
 }

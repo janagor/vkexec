@@ -1,8 +1,8 @@
 #ifndef VKEXEC_SAMPLER_HPP
 #define VKEXEC_SAMPLER_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -23,7 +23,7 @@ struct sampler_create_info
 class sampler
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> sampler;
+  [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> result<sampler>;
 
   ~sampler();
 

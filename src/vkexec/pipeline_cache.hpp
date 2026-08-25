@@ -1,10 +1,12 @@
 #ifndef VKEXEC_PIPELINE_CACHE_HPP
 #define VKEXEC_PIPELINE_CACHE_HPP
 
+#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -29,8 +31,10 @@ public:
   pipeline_cache(pipeline_cache &&) = delete;
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
-  auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count) -> pipeline_resources &;
-  auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc) -> pipeline_resources &;
+  [[nodiscard]] auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count)
+    -> result<std::reference_wrapper<pipeline_resources>>;
+  [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
+    -> result<std::reference_wrapper<pipeline_resources>>;
 
 private:
   context *ctx_;

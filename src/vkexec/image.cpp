@@ -1,19 +1,15 @@
 #include <vkexec/image.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
-#include <stdexcept>
-
 namespace vkexec {
 namespace {
 
-  [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
-
-  auto resolve_format(image_create_info const &info) -> VkFormat
+  auto resolve_format(image_create_info const &info) -> result<VkFormat>
   {
     if (info.format != VK_FORMAT_UNDEFINED) { return info.format; }
     switch (info.usage) {
@@ -22,10 +18,10 @@ namespace {
     case image_usage::depth:
       return VK_FORMAT_D32_SFLOAT;
     }
-    fail("unknown image_usage");
+    return std::unexpected(make_error(errc::invalid_argument, "unknown image_usage"));
   }
 
-  auto usage_flags(image_usage usage) -> VkImageUsageFlags
+  auto usage_flags(image_usage usage) -> result<VkImageUsageFlags>
   {
     switch (usage) {
     case image_usage::color_storage:
@@ -36,17 +32,25 @@ namespace {
     case image_usage::depth:
       return VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     }
-    fail("unknown image_usage");
+    return std::unexpected(make_error(errc::invalid_argument, "unknown image_usage"));
   }
 
 }// namespace
 
-auto image::create(context &ctx, image_create_info info) -> image
+auto image::create(context &ctx, image_create_info info) -> result<image>
 {
-  if (info.width == 0 || info.height == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::image extent must be > 0")); }
-  if (ctx.allocator() == VK_NULL_HANDLE) { fail("vkexec::image requires a VMA allocator"); }
+  if (info.width == 0 || info.height == 0) {
+    return std::unexpected(make_error(errc::invalid_argument, "vkexec::image extent must be > 0"));
+  }
+  if (ctx.allocator() == VK_NULL_HANDLE) {
+    return std::unexpected(make_error(errc::invalid_argument, "vkexec::image requires a VMA allocator"));
+  }
 
-  VkFormat const format = resolve_format(info);
+  auto const format_result = resolve_format(info);
+  if (!format_result) { return std::unexpected(format_result.error()); }
+
+  auto const usage_result = usage_flags(info.usage);
+  if (!usage_result) { return std::unexpected(usage_result.error()); }
 
   VkImageCreateInfo image_info{};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -54,10 +58,10 @@ auto image::create(context &ctx, image_create_info info) -> image
   image_info.extent = { info.width, info.height, 1 };
   image_info.mipLevels = 1;
   image_info.arrayLayers = 1;
-  image_info.format = format;
+  image_info.format = *format_result;
   image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
   image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = usage_flags(info.usage);
+  image_info.usage = *usage_result;
   image_info.samples = VK_SAMPLE_COUNT_1_BIT;
   image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -66,11 +70,13 @@ auto image::create(context &ctx, image_create_info info) -> image
 
   VkImage image_handle{ VK_NULL_HANDLE };
   VmaAllocation allocation{ VK_NULL_HANDLE };
-  if (vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr) != VK_SUCCESS) {
-    fail("vmaCreateImage failed");
+  VkResult const create_result =
+    vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
+  if (create_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(create_result, "vmaCreateImage failed"));
   }
 
-  return image{ &ctx, image_handle, allocation, format, VkExtent2D{ info.width, info.height }, info.usage };
+  return image{ &ctx, image_handle, allocation, *format_result, VkExtent2D{ info.width, info.height }, info.usage };
 }
 
 image::image(context *ctx,

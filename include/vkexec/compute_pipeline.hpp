@@ -25,10 +25,10 @@ struct storage_binding
 class compute_pipeline
 {
 public:
-  [[nodiscard]] static auto from_spirv(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> compute_pipeline;
+  [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+    -> result<compute_pipeline>;
   [[nodiscard]] static auto
-    from_glsl(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
+    create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
       -> result<compute_pipeline>;
 
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
@@ -47,8 +47,8 @@ public:
   [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
   { return dispatch_groups_for(work_count, resources_->local_size.at(0)); }
 
-  [[nodiscard]] auto allocate_set() -> VkDescriptorSet;
-  auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> void;
+  [[nodiscard]] auto allocate_set() -> result<VkDescriptorSet>;
+  [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> status;
 
 private:
   compute_pipeline(context *ctx, pipeline_resources *pipe) noexcept : ctx_(ctx), resources_(pipe) {}

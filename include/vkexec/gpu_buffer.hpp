@@ -1,8 +1,8 @@
 #ifndef VKEXEC_GPU_BUFFER_HPP
 #define VKEXEC_GPU_BUFFER_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -37,8 +37,8 @@ struct gpu_buffer_create_info
 class gpu_buffer
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, gpu_buffer_create_info info) -> gpu_buffer;
-  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> gpu_buffer
+  [[nodiscard]] static auto create(context &ctx, gpu_buffer_create_info info) -> result<gpu_buffer>;
+  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> result<gpu_buffer>
   { return create(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
   ~gpu_buffer();
@@ -53,7 +53,7 @@ public:
   [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
   [[nodiscard]] auto memory() const noexcept -> gpu_buffer_memory { return memory_; }
   [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
-  [[nodiscard]] auto device_address() const -> VkDeviceAddress;
+  [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
 private:
   gpu_buffer(context *ctx,

@@ -1,8 +1,8 @@
 #ifndef VKEXEC_IMAGE_VIEW_HPP
 #define VKEXEC_IMAGE_VIEW_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/image.hpp>
 
 #include <vulkan/vulkan.h>
@@ -13,7 +13,7 @@ namespace vkexec {
 class image_view
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, image const &img) -> image_view;
+  [[nodiscard]] static auto create(context &ctx, image const &img) -> result<image_view>;
 
   ~image_view();
 

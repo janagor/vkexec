@@ -1,8 +1,8 @@
 #ifndef VKEXEC_IMAGE_HPP
 #define VKEXEC_IMAGE_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -30,7 +30,7 @@ struct image_create_info
 class image
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> image;
+  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> result<image>;
 
   ~image();
 

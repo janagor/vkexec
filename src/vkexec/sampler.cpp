@@ -1,22 +1,17 @@
 #include <vkexec/sampler.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
 
-#include <stdexcept>
-
 namespace vkexec {
-namespace {
 
-  [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
-
-}// namespace
-
-auto sampler::create(context &ctx, sampler_create_info info) -> sampler
+auto sampler::create(context &ctx, sampler_create_info info) -> result<sampler>
 {
-  if (ctx.device() == VK_NULL_HANDLE) { fail("sampler requires a VkDevice"); }
+  if (ctx.device() == VK_NULL_HANDLE) {
+    return std::unexpected(make_error(errc::invalid_argument, "sampler requires a VkDevice"));
+  }
 
   VkSamplerCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -37,8 +32,9 @@ auto sampler::create(context &ctx, sampler_create_info info) -> sampler
   create_info.maxLod = 0.0F;
 
   VkSampler sampler_handle{ VK_NULL_HANDLE };
-  if (vkCreateSampler(ctx.device(), &create_info, nullptr, &sampler_handle) != VK_SUCCESS) {
-    fail("vkCreateSampler failed");
+  VkResult const create_result = vkCreateSampler(ctx.device(), &create_info, nullptr, &sampler_handle);
+  if (create_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(create_result, "vkCreateSampler failed"));
   }
   return sampler{ &ctx, sampler_handle };
 }
