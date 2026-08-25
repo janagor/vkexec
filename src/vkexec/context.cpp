@@ -213,6 +213,8 @@ context::context(context_adopt_info const &info)
     present_family_ = graphics_family_;
   }
 
+  load_device_procs();
+
   if (info.allocator != VK_NULL_HANDLE) {
     allocator_ = info.allocator;
   } else {
@@ -224,7 +226,6 @@ context::context(context_adopt_info const &info)
   }
 
   create_command_pool();
-  load_device_procs();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   host_agent_ = std::make_unique<detail::host_agent>();
@@ -364,6 +365,9 @@ auto context::create_allocator() -> void
   allocator_info.device = device_.device;
   allocator_info.instance = instance_.instance;
   allocator_info.vulkanApiVersion = api_version_;
+  if (procs_.get_buffer_device_address != nullptr) {
+    allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+  }
   if (vmaCreateAllocator(&allocator_info, &allocator_) != VK_SUCCESS) { fail("vmaCreateAllocator failed"); }
 }
 
