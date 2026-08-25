@@ -6,15 +6,14 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 #include <utility>
 
 namespace {
 
-auto skip_if_unavailable(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + error.what()); }
+auto skip_if_unavailable(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -46,25 +45,16 @@ TEST_CASE("context can require Vulkan 1.4 features and extension feature structs
     .require_extension_feature(features_heap)
     .enable_extension_feature_if_present(features_present_timing);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY
-  {
-    ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) });
-  }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
 
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(ctx->device() != VK_NULL_HANDLE);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(VK_API_VERSION_MAJOR(ctx->api_version()) == 1);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(VK_API_VERSION_MINOR(ctx->api_version()) == 4);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(ctx->procs().write_resource_descriptors != nullptr);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(ctx->procs().cmd_bind_resource_heap != nullptr);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(ctx->procs().cmd_push_data != nullptr);
+  auto &ctx = **ctx_result;
+  REQUIRE(ctx.device() != VK_NULL_HANDLE);
+  REQUIRE(VK_API_VERSION_MAJOR(ctx.api_version()) == 1);
+  REQUIRE(VK_API_VERSION_MINOR(ctx.api_version()) == 4);
+  REQUIRE(ctx.procs().write_resource_descriptors != nullptr);
+  REQUIRE(ctx.procs().cmd_bind_resource_heap != nullptr);
+  REQUIRE(ctx.procs().cmd_push_data != nullptr);
 }
 
 TEST_CASE("context can require bufferDeviceAddress and dynamicRendering", "[vkexec][vulkan][gpu]")
@@ -82,17 +72,11 @@ TEST_CASE("context can require bufferDeviceAddress and dynamicRendering", "[vkex
   requirements.api_version_minor = 3;
   requirements.require_extension_feature(features_12).require_extension_feature(features_13);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY
-  {
-    ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) });
-  }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
 
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(ctx->device() != VK_NULL_HANDLE);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(VK_API_VERSION_MINOR(ctx->api_version()) >= 3);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  REQUIRE(ctx->procs().get_buffer_device_address != nullptr);
+  auto &ctx = **ctx_result;
+  REQUIRE(ctx.device() != VK_NULL_HANDLE);
+  REQUIRE(VK_API_VERSION_MINOR(ctx.api_version()) >= 3);
+  REQUIRE(ctx.procs().get_buffer_device_address != nullptr);
 }

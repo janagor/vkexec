@@ -2,6 +2,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -33,6 +34,26 @@ TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
   REQUIRE(without_detail.message() == "parse error");
 }
 
+TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]")
+{
+  REQUIRE(std::string_view(vkexec::vulkan_category().Name()) == "vkexec.vulkan");
+  REQUIRE(vkexec::MakeVkErrorCode(VK_SUCCESS).Message() == "success");
+  REQUIRE(vkexec::MakeVkErrorCode(VK_ERROR_DEVICE_LOST).Message() == "device lost");
+  REQUIRE(vkexec::MakeVkErrorCode(VK_ERROR_OUT_OF_DEVICE_MEMORY).Message() == "out of device memory");
+  REQUIRE(vkexec::MakeVkErrorCode(VK_ERROR_VALIDATION_FAILED_EXT).Message() == "validation failed");
+  REQUIRE(vkexec::MakeVkErrorCode(static_cast<int>(999)).Message() == "vulkan error");
+}
+
+TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vulkan]")
+{
+  vkexec::error const with_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, "submit failed");
+  REQUIRE(with_context.code == vkexec::MakeVkErrorCode(VK_ERROR_DEVICE_LOST));
+  REQUIRE(with_context.message() == "submit failed");
+
+  vkexec::error const without_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, {});
+  REQUIRE(without_context.message() == "device lost");
+}
+
 TEST_CASE("vulkan library floors document instance and device requests", "[vkexec][vulkan]")
 {
   auto const headless_instance = vkexec::vulkan_library::required_headless_surface_instance_extensions();
@@ -61,20 +82,20 @@ TEST_CASE("vulkan library floors document instance and device requests", "[vkexe
   REQUIRE(defaults.optional_extension_features.empty());
 }
 
-TEST_CASE("context::try_create returns unsupported when requirements cannot be met", "[vkexec][error][gpu]")
+TEST_CASE("context::create returns unsupported when requirements cannot be met", "[vkexec][error][gpu]")
 {
   vkexec::vulkan_requirements requirements{};
   requirements.device_extensions = { "VK_VKEXEC_does_not_exist_EXT" };
 
-  auto created = vkexec::context::try_create({ .requirements = std::move(requirements) });
+  auto created = vkexec::context::create({ .requirements = std::move(requirements) });
   REQUIRE_FALSE(created.has_value());
   REQUIRE(created.error().code == vkexec::MakeErrorCode(vkexec::errc::unsupported));
   REQUIRE_FALSE(created.error().message().empty());
 }
 
-TEST_CASE("context::try_create succeeds for default requirements", "[vkexec][error][gpu]")
+TEST_CASE("context::create succeeds for default requirements", "[vkexec][error][gpu]")
 {
-  auto created = vkexec::context::try_create();
+  auto created = vkexec::context::create();
   if (!created.has_value()) { SKIP(std::string("Vulkan unavailable: ") + std::string(created.error().message())); }
   REQUIRE((*created)->device() != VK_NULL_HANDLE);
 }

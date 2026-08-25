@@ -7,6 +7,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
 
@@ -17,6 +18,8 @@
 #include <cmath>
 #include <concepts>
 #include <cstdint>
+#include <memory>
+#include <string>
 #include <thread>
 
 namespace ex = stdexec;
@@ -30,6 +33,9 @@ struct env_params
 };
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(env_params, (), (n))
+
+auto skip_if_no_vulkan(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -46,14 +52,19 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
 
 TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][gpu]")
 {
-  vkexec::context ctx;
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
+
   auto const caller = std::this_thread::get_id();
   auto const agent = ctx.host_agent_thread_id();
   REQUIRE(agent != caller);
 
   std::thread::id completed_on{};
-  ex::sync_wait(
+  auto waited = vkexec::sync_wait(
     ex::schedule(ctx.get_scheduler()) | ex::then([&]() -> void { completed_on = std::this_thread::get_id(); }));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   REQUIRE(completed_on == agent);
   REQUIRE(completed_on != caller);
@@ -61,13 +72,18 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
 
 TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][scheduler][gpu]")
 {
-  vkexec::context ctx;
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
+
   auto const caller = std::this_thread::get_id();
   auto const agent = ctx.host_agent_thread_id();
 
   std::thread::id ran_on{};
-  ex::sync_wait(
-    ex::starts_on(ctx.get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
+  auto waited = vkexec::sync_wait(ex::starts_on(ctx.get_scheduler(),
+    ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   REQUIRE(ran_on == agent);
   REQUIRE(ran_on != caller);
@@ -91,16 +107,22 @@ TEST_CASE("starts_on then bulk lowers via vkexec domain", "[vkexec][scheduler][d
   constexpr float k_factor = 2.0F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  vkexec::context ctx;
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(ctx, k_count, k_initial)).value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  ex::sync_wait(
+  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
+  REQUIRE(values_result.has_value());
+  auto &values = *values_result;
+
+  auto waited = vkexec::sync_wait(
     ex::starts_on(ctx.get_scheduler(), ex::just())
     | vkexec::bulk(
       k_count, env_params{ .n = k_factor }, [&](edsl::Int idx, edsl::push_constant<env_params> push) -> void {
         values[idx] = values[idx] * push.get<&env_params::n>();
       }));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(values.data()[0] - (k_initial * k_factor)) < k_epsilon);

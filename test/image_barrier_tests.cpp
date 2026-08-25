@@ -9,31 +9,34 @@
 #include <vulkan/vulkan_core.h>
 
 #include <array>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 
 namespace {
 
-auto skip_if_no_vulkan(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + error.what()); }
+auto skip_if_no_vulkan(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
 TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto img = vkexec::image::create(*ctx,
+  auto img_result = vkexec::image::create(ctx,
     vkexec::image_create_info{
       .width = 32,
       .height = 32,
       .usage = vkexec::image_usage::color_storage,
     });
+  REQUIRE(img_result.has_value());
+  auto &img = *img_result;
 
-  VkCommandBuffer cmd = ctx->allocate_command_buffer();
+  auto cmd_result = ctx.allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  VkCommandBuffer cmd = *cmd_result;
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -53,6 +56,6 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
-  ctx->submit(vkexec::queue_submit{ .command_buffers = cmds });
-  ctx->free_command_buffer(cmd);
+  REQUIRE(ctx.submit(vkexec::queue_submit{ .command_buffers = cmds }).has_value());
+  ctx.free_command_buffer(cmd);
 }

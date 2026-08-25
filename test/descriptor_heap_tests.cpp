@@ -11,8 +11,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,8 +21,8 @@ namespace {
 constexpr std::size_t k_slot_count = 2;
 constexpr VkDeviceSize k_storage_bytes = 256;
 
-auto skip_if_unavailable(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + error.what()); }
+auto skip_if_unavailable(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -43,32 +42,38 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto const layout = vkexec::query_descriptor_heap_layout(*ctx);
+  auto const layout = vkexec::query_descriptor_heap_layout(ctx);
   REQUIRE(layout.descriptor_stride > 0);
   REQUIRE(layout.buffer_descriptor_size > 0);
 
   auto const heap_bytes = vkexec::descriptor_heap_byte_size(layout, k_slot_count);
   REQUIRE(heap_bytes >= static_cast<VkDeviceSize>(layout.descriptor_stride * k_slot_count));
 
-  auto storage = vkexec::gpu_buffer::create(*ctx,
+  auto storage_result = vkexec::gpu_buffer::create(ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     });
-  auto heap = vkexec::gpu_buffer::create(*ctx, heap_bytes, vkexec::gpu_buffer_memory::descriptor_heap);
+  REQUIRE(storage_result.has_value());
+  auto heap_result = vkexec::gpu_buffer::create(ctx, heap_bytes, vkexec::gpu_buffer_memory::descriptor_heap);
+  REQUIRE(heap_result.has_value());
 
   std::vector<std::byte> slot(layout.buffer_descriptor_size);
-  vkexec::write_storage_buffer_descriptor(*ctx, storage.device_address(), storage.size(), slot);
-  auto mapped = heap.mapped();
+  auto const storage_addr = storage_result->device_address();
+  REQUIRE(storage_addr.has_value());
+  vkexec::write_storage_buffer_descriptor(ctx, *storage_addr, storage_result->size(), slot);
+  auto mapped = heap_result->mapped();
   REQUIRE(mapped.size() >= slot.size());
   std::ranges::copy(slot, mapped.begin());
 
-  VkCommandBuffer cmd = ctx->allocate_command_buffer();
+  auto cmd_result = ctx.allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  VkCommandBuffer cmd = *cmd_result;
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -80,9 +85,11 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
       ? reserved_offset
       : ((reserved_offset + layout.resource_heap_alignment - 1) / layout.resource_heap_alignment)
           * layout.resource_heap_alignment;
+  auto const heap_addr = heap_result->device_address();
+  REQUIRE(heap_addr.has_value());
   vkexec::cmd_bind_resource_heap(
-    *ctx, cmd, heap.device_address(), heap.size(), aligned_offset, layout.min_resource_heap_reserved_range);
+    ctx, cmd, *heap_addr, heap_result->size(), aligned_offset, layout.min_resource_heap_reserved_range);
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
-  ctx->free_command_buffer(cmd);
+  ctx.free_command_buffer(cmd);
 }

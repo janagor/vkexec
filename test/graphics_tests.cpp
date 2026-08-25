@@ -9,7 +9,6 @@
 #include <stdexec/execution.hpp>
 
 #include <concepts>
-#include <exception>
 #include <type_traits>
 
 namespace ex = stdexec;
@@ -71,5 +70,5 @@ TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][sc
 
   using signatures = vkexec::draw_async_sender::completion_signatures;
   STATIC_REQUIRE(std::same_as<signatures,
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>>);
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
 }

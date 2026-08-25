@@ -8,8 +8,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -21,8 +20,8 @@ struct push_payload
   std::uint32_t y;
 };
 
-auto skip_if_unavailable(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + error.what()); }
+auto skip_if_unavailable(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -38,21 +37,23 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  REQUIRE(ctx->procs().cmd_push_data != nullptr);
+  REQUIRE(ctx.procs().cmd_push_data != nullptr);
 
-  VkCommandBuffer cmd = ctx->allocate_command_buffer();
+  auto cmd_result = ctx.allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  VkCommandBuffer cmd = *cmd_result;
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
   push_payload const payload{ .x = 1.5F, .y = 9U };
-  vkexec::cmd_push_data(*ctx, cmd, payload);
+  vkexec::cmd_push_data(ctx, cmd, payload);
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
-  ctx->free_command_buffer(cmd);
+  ctx.free_command_buffer(cmd);
 }

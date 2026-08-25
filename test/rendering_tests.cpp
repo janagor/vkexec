@@ -13,8 +13,7 @@
 
 #include <array>
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -23,8 +22,8 @@ namespace {
 constexpr std::uint32_t k_width = 32;
 constexpr std::uint32_t k_height = 32;
 
-auto skip_if_unavailable(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + error.what()); }
+auto skip_if_unavailable(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -39,19 +38,23 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   requirements.api_version_minor = 3;
   requirements.require_extension_feature(features_13);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto img = vkexec::image::create(*ctx,
+  auto img_result = vkexec::image::create(ctx,
     vkexec::image_create_info{
       .width = k_width,
       .height = k_height,
       .usage = vkexec::image_usage::color_storage,
     });
-  auto view = vkexec::image_view::create(*ctx, img);
+  REQUIRE(img_result.has_value());
+  auto view_result = vkexec::image_view::create(ctx, *img_result);
+  REQUIRE(view_result.has_value());
 
-  VkCommandBuffer cmd = ctx->allocate_command_buffer();
+  auto cmd_result = ctx.allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  VkCommandBuffer cmd = *cmd_result;
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -59,7 +62,7 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
 
   vkexec::image_barrier(cmd,
     {
-      .image = img.handle(),
+      .image = img_result->handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -70,19 +73,19 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
     });
 
   vkexec::color_attachment color{};
-  color.view = view.handle();
+  color.view = view_result->handle();
   color.clear.color = { { 0.1F, 0.2F, 0.3F, 1.0F } };
   std::array<vkexec::color_attachment, 1> const colors{ color };
 
   vkexec::cmd_begin_rendering(cmd,
     vkexec::rendering_info{
-      .extent = img.extent(),
+      .extent = img_result->extent(),
       .color = colors,
     });
   vkexec::cmd_end_rendering(cmd);
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
-  ctx->submit(vkexec::queue_submit{ .command_buffers = cmds });
-  ctx->free_command_buffer(cmd);
+  REQUIRE(ctx.submit(vkexec::queue_submit{ .command_buffers = cmds }).has_value());
+  ctx.free_command_buffer(cmd);
 }

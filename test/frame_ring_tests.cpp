@@ -4,9 +4,9 @@
 
 #include <array>
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
+#include <utility>
 
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
@@ -16,10 +16,10 @@
 
 namespace {
 
-auto skip_if_unavailable(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + error.what()); }
+auto skip_if_unavailable(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
-auto open_timeline_context(std::optional<vkexec::context> &ctx) -> void
+auto open_timeline_context() -> std::unique_ptr<vkexec::context>
 {
   VkPhysicalDeviceVulkan12Features features_12{};
   features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -30,13 +30,16 @@ auto open_timeline_context(std::optional<vkexec::context> &ctx) -> void
   requirements.api_version_minor = 2;
   requirements.require_extension_feature(features_12);
 
-  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  return std::move(*ctx_result);
 }
 
 auto record_empty(vkexec::context &ctx) -> VkCommandBuffer
 {
-  VkCommandBuffer cmd = ctx.allocate_command_buffer();
+  auto cmd_result = ctx.allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  VkCommandBuffer cmd = *cmd_result;
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -49,11 +52,12 @@ auto record_empty(vkexec::context &ctx) -> VkCommandBuffer
 
 TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  open_timeline_context(ctx);
+  auto ctx = open_timeline_context();
 
-  auto ring = vkexec::frame_ring::create(*ctx,
+  auto ring_result = vkexec::frame_ring::create(*ctx,
     vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 3 });
+  REQUIRE(ring_result.has_value());
+  auto &ring = *ring_result;
   REQUIRE(ring.slot_count() == 2);
   REQUIRE(ring.image_count() == 3);
   REQUIRE(ring.acquire_semaphore(0) != VK_NULL_HANDLE);
@@ -67,11 +71,12 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
 
 TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  open_timeline_context(ctx);
+  auto ctx = open_timeline_context();
 
-  auto ring = vkexec::frame_ring::create(*ctx,
+  auto ring_result = vkexec::frame_ring::create(*ctx,
     vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
+  REQUIRE(ring_result.has_value());
+  auto &ring = *ring_result;
 
   // Prime the acquire semaphore so the wait is satisfied without a real swapchain acquire.
   {
@@ -91,11 +96,11 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
   auto const sync = ring.make_submit_sync(0, 0, signal_value);
   std::array<VkCommandBuffer, 1> const cmds{ record_empty(*ctx) };
 
-  ctx->submit(vkexec::queue_submit{
+  REQUIRE(ctx->submit(vkexec::queue_submit{
     .command_buffers = cmds,
     .waits = sync.waits,
     .signals = sync.signals,
-  });
+  }).has_value());
   ring.mark_submitted(0, 0, signal_value);
 
   ring.wait_slot(0);
@@ -104,11 +109,12 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
 
 TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][frame_ring][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  open_timeline_context(ctx);
+  auto ctx = open_timeline_context();
 
-  auto ring = vkexec::frame_ring::create(*ctx,
+  auto ring_result = vkexec::frame_ring::create(*ctx,
     vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
+  REQUIRE(ring_result.has_value());
+  auto &ring = *ring_result;
   VkSemaphore const old_finished = ring.render_finished_semaphore(0);
 
   ring.resize_images(4);

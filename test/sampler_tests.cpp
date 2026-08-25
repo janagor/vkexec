@@ -6,23 +6,23 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 
 namespace {
 
-auto skip_if_no_vulkan(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + error.what()); }
+auto skip_if_no_vulkan(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
 TEST_CASE("sampler creates a linear clamp sampler", "[vkexec][sampler][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto samp = vkexec::sampler::create(*ctx);
-  REQUIRE(samp.handle() != VK_NULL_HANDLE);
+  auto samp_result = vkexec::sampler::create(ctx);
+  REQUIRE(samp_result.has_value());
+  REQUIRE(samp_result->handle() != VK_NULL_HANDLE);
 }

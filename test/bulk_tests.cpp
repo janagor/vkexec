@@ -6,6 +6,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -18,8 +19,7 @@
 
 #include <cmath>
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <span>
 #include <string>
 #include <thread>
@@ -49,8 +49,8 @@ struct nop_params
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(nop_params, (), (n))
 
-auto skip_if_no_vulkan(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + error.what()); }
+auto skip_if_no_vulkan(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -69,19 +69,23 @@ TEST_CASE("bulk factory stores shape and params", "[vkexec][bulk]")
 
 TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)).value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
+
+  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
+  REQUIRE(values_result.has_value());
+  auto &values = *values_result;
 
   auto pipeline =
-    ex::schedule(ctx->get_scheduler())
+    ex::schedule(ctx.get_scheduler())
     | vkexec::bulk(
       k_work_count, bulk_params{ .value = k_add }, [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
         values[idx] = values[idx] + push.get<&bulk_params::value>();
       });
-  ex::sync_wait(pipeline);
+  auto waited = vkexec::sync_wait(pipeline);
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::uint32_t index = 0; index < k_work_count; ++index) {
@@ -92,12 +96,12 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 
 TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
   auto sender =
-    ex::schedule(ctx->get_scheduler())
+    ex::schedule(ctx.get_scheduler())
     | vkexec::bulk(
       k_work_count, nop_params{ .n = k_add }, [](edsl::Int idx, edsl::push_constant<nop_params> push) -> void {
         edsl::Float const unused = edsl::Float::constant(0.0) * push.get<&nop_params::n>();
@@ -106,25 +110,31 @@ TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
       });
 
   REQUIRE(sender.shape == k_work_count);
-  ex::sync_wait(sender);
+  auto waited = vkexec::sync_wait(sender);
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 }
 
 TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)).value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto pipeline = ex::schedule(ctx->get_scheduler())
+  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
+  REQUIRE(values_result.has_value());
+  auto &values = *values_result;
+
+  auto pipeline = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(k_work_count,
                     bulk_params{ .value = k_add },
                     [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
                       values[idx] = values[idx] + push.get<&bulk_params::value>();
                     })
                   | vkexec::submit;
-  ex::sync_wait(pipeline);
+  auto waited = vkexec::sync_wait(pipeline);
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(values.data()[0] - (k_initial + k_add)) <= k_epsilon);
@@ -133,18 +143,19 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 
 TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  // NOLINTBEGIN(bugprone-unchecked-optional-access)
-  auto [left, right] = ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial),
-                                       vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)))
-                         .value();
-  // NOLINTEND(bugprone-unchecked-optional-access)
+  auto left_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
+  REQUIRE(left_result.has_value());
+  auto right_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
+  REQUIRE(right_result.has_value());
+  auto &left = *left_result;
+  auto &right = *right_result;
 
   auto make_async = [&](vkexec::buffer<float> &values) -> auto {
-    return ex::schedule(ctx->get_scheduler())
+    return ex::schedule(ctx.get_scheduler())
            | vkexec::bulk(k_work_count,
              bulk_params{ .value = k_add },
              [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
@@ -153,7 +164,9 @@ TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu
            | vkexec::submit;
   };
 
-  ex::sync_wait(ex::when_all(make_async(left), make_async(right)));
+  auto waited = vkexec::sync_wait(ex::when_all(make_async(left), make_async(right)));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(left.data()[0] - (k_initial + k_add)) <= k_epsilon);
@@ -173,23 +186,25 @@ TEST_CASE("submit completes with set_stopped when stop is already requested", "[
                   [](edsl::Int /*idx*/, edsl::push_constant<bulk_params> /*push*/) -> void {})
                 | vkexec::submit;
 
-  auto const result =
+  auto const waited =
     // NOLINTNEXTLINE(misc-include-cleaner)
-    ex::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
-  REQUIRE_FALSE(result.has_value());
+    vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  REQUIRE(waited.has_value());
+  REQUIRE_FALSE(waited->has_value());
 }
 
 TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vkexec][bulk][gpu]")
 {
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_work_count, k_initial)).value();
+  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
+  REQUIRE(values_result.has_value());
+  auto &values = *values_result;
 
   ex::inplace_stop_source source;
-  auto pipeline = ex::schedule(ctx->get_scheduler())
+  auto pipeline = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(k_work_count,
                     bulk_params{ .value = k_add },
                     [&](edsl::Int idx, edsl::push_constant<bulk_params> push) -> void {
@@ -204,5 +219,5 @@ TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vke
   std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
 
   // May complete with value or stopped depending on timing; reclaim must not leak either way.
-  (void)ex::sync_wait(std::move(env_sender));
+  (void)vkexec::sync_wait(std::move(env_sender));
 }

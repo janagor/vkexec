@@ -7,6 +7,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/submit.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/control.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -20,8 +21,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <random>
 #include <string>
 #include <utility>
@@ -55,8 +55,8 @@ struct sort_params
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(sort_params, (), (offset, n))
 
-auto skip_if_no_vulkan(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + error.what()); }
+auto skip_if_no_vulkan(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -68,17 +68,20 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
   constexpr float k_damping = 0.99F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [positions, velocities] = ex::sync_wait(ex::when_all(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F),
-                                                 vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity)))
-                                   .value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
+
+  auto positions_result = vkexec::buffer<float>::create_sync(ctx, k_count, 0.0F);
+  REQUIRE(positions_result.has_value());
+  auto velocities_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial_velocity);
+  REQUIRE(velocities_result.has_value());
+  auto &positions = *positions_result;
+  auto &velocities = *velocities_result;
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto pipeline =
-    ex::schedule(ctx->get_scheduler())
+    ex::schedule(ctx.get_scheduler())
     | vkexec::bulk(
       static_cast<std::uint32_t>(k_count), params, [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
         edsl::Float position = positions[idx];
@@ -88,7 +91,9 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
         positions[idx] = position;
         velocities[idx] = velocity;
       });
-  ex::sync_wait(pipeline);
+  auto waited = vkexec::sync_wait(pipeline);
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;
@@ -106,13 +111,15 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   constexpr float k_scale = 2.0F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial)).value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto graph = ex::schedule(ctx->get_scheduler())
+  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
+  REQUIRE(values_result.has_value());
+  auto &values = *values_result;
+
+  auto graph = ex::schedule(ctx.get_scheduler())
                | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
                  pass_params{ .value = k_add },
                  [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
@@ -124,7 +131,9 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
                  [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
                    values[idx] = values[idx] * push.get<&pass_params::value>();
                  });
-  ex::sync_wait(std::move(graph));
+  auto waited = vkexec::sync_wait(std::move(graph));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   float const expected = (k_initial + k_add) * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -142,13 +151,15 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   constexpr float k_scale = 2.0F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial)).value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto graph = ex::schedule(ctx->get_scheduler())
+  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
+  REQUIRE(values_result.has_value());
+  auto &values = *values_result;
+
+  auto graph = ex::schedule(ctx.get_scheduler())
                | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
                  pass_params{ .value = k_add },
                  [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
@@ -161,7 +172,9 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
                    values[idx] = values[idx] * push.get<&pass_params::value>();
                  })
                | vkexec::submit;
-  ex::sync_wait(graph);
+  auto waited = vkexec::sync_wait(graph);
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   float const expected = (k_initial + k_add) * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -183,10 +196,11 @@ TEST_CASE("pass graph submit completes with set_stopped when stop is already req
       1U, pass_params{ .value = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<pass_params> /*push*/) -> void {})
     | vkexec::submit;
 
-  auto const result =
+  auto const waited =
     // NOLINTNEXTLINE(misc-include-cleaner)
-    ex::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
-  REQUIRE_FALSE(result.has_value());
+    vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  REQUIRE(waited.has_value());
+  REQUIRE_FALSE(waited->has_value());
 }
 
 TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
@@ -196,11 +210,13 @@ TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
   constexpr float k_value_max = 1000.0F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [data] = ex::sync_wait(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F)).value();
+  auto ctx_result = vkexec::context::create();
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = **ctx_result;
+
+  auto data_result = vkexec::buffer<float>::create_sync(ctx, k_count, 0.0F);
+  REQUIRE(data_result.has_value());
+  auto &data = *data_result;
 
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng{ k_rng_seed };
@@ -232,11 +248,13 @@ TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
       });
   };
 
-  auto graph = ex::schedule(ctx->get_scheduler()) | make_phase(0);
+  auto graph = ex::schedule(ctx.get_scheduler()) | make_phase(0);
   for (std::size_t phase = 1; phase < k_count; ++phase) {
     graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
   }
-  ex::sync_wait(std::move(graph));
+  auto waited = vkexec::sync_wait(std::move(graph));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::size_t index = 0; index < k_count; ++index) {

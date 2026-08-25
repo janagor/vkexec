@@ -5,14 +5,14 @@
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
-#include <exception>
-#include <optional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -31,8 +31,8 @@ struct heap_push
   std::uint32_t count;
 };
 
-auto skip_if_unavailable(std::exception const &error) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + error.what()); }
+auto skip_if_unavailable(vkexec::error const &err) -> void
+{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -48,11 +48,11 @@ TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec]
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto pipe = vkexec::compute_pipeline::from_glsl(*ctx,
+  auto pipe = vkexec::compute_pipeline::create(ctx,
     k_heap_compute_glsl,
     vkexec::layout_desc{
       .bindings = {},
@@ -63,13 +63,9 @@ TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec]
     },
     "heap.comp");
   REQUIRE(pipe.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE(pipe->resources().pipeline != VK_NULL_HANDLE);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE(pipe->resources().pipeline_layout == VK_NULL_HANDLE);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE(pipe->resources().set_layout == VK_NULL_HANDLE);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   REQUIRE(pipe->resources().descriptor_pool == VK_NULL_HANDLE);
 }
 
@@ -85,11 +81,11 @@ TEST_CASE("compute_pass records bindless push data for heap pipelines", "[vkexec
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  std::optional<vkexec::context> ctx;
-  VKEXEC_TRY { ctx.emplace(vkexec::scheduler_options{ .requirements = std::move(requirements) }); }
-  VKEXEC_CATCH(std::exception const &error) { skip_if_unavailable(error); }
+  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  auto &ctx = **ctx_result;
 
-  auto pipe = vkexec::compute_pipeline::from_glsl(*ctx,
+  auto pipe = vkexec::compute_pipeline::create(ctx,
     k_heap_compute_glsl,
     vkexec::layout_desc{
       .bindings = {},
@@ -102,7 +98,7 @@ TEST_CASE("compute_pass records bindless push data for heap pipelines", "[vkexec
   REQUIRE(pipe.has_value());
 
   heap_push const params{ .count = 64 };
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto result = ex::sync_wait(ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*pipe, params, 64U));
-  REQUIRE(result.has_value());
+  auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, 64U));
+  REQUIRE(waited.has_value());
+  REQUIRE(waited->has_value());
 }
