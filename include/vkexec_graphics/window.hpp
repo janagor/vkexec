@@ -56,6 +56,7 @@ public:
 
   [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
   [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
+  [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
   [[nodiscard]] auto should_close() const noexcept -> bool;
   auto poll_events() const -> void;
