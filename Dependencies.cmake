@@ -8,6 +8,31 @@ function(vkexec_setup_dependencies)
   # For each dependency, see if it's
   # already been provided to us by a parent project
 
+  if(NOT TARGET Vulkan::Vulkan)
+    find_package(Vulkan QUIET)
+    if(NOT Vulkan_FOUND)
+      find_package(PkgConfig REQUIRED)
+      pkg_check_modules(
+        Vulkan
+        REQUIRED
+        IMPORTED_TARGET
+        vulkan)
+      add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
+    endif()
+  endif()
+
+  if(NOT TARGET Vulkan::Headers)
+    cpmaddpackage(
+      NAME
+      Vulkan-Headers
+      GITHUB_REPOSITORY
+      KhronosGroup/Vulkan-Headers
+      GIT_TAG
+      "v1.4.352"
+      SYSTEM
+      YES)
+  endif()
+
   if(NOT TARGET fmtlib::fmtlib)
     cpmaddpackage(
       NAME
@@ -133,8 +158,6 @@ function(vkexec_setup_dependencies)
       "GLFW_BUILD_WAYLAND ON"
       "GLFW_BUILD_X11 ON")
   endif()
-
-  find_package(Vulkan REQUIRED)
 
   if(NOT TARGET vk-bootstrap::vk-bootstrap)
     cpmaddpackage(
