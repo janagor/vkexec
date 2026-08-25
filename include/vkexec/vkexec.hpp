@@ -14,6 +14,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/push_data.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
