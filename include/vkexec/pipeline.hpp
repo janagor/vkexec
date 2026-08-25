@@ -22,6 +22,9 @@ struct layout_desc
   std::size_t push_constant_size{ 0 };
   std::vector<std::uint32_t> specialization;
   std::array<std::uint32_t, 3> local_size{ k_default_local_size };
+  /// When true, create a null-layout compute pipeline with
+  /// `VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT` (no descriptor sets/pools).
+  bool descriptor_heap{ false };
 };
 
 struct pipeline_resources

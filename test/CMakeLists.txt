@@ -48,6 +48,7 @@ add_executable(
   timeline_semaphore_tests.cpp
   push_data_tests.cpp
   descriptor_heap_tests.cpp
+  descriptor_heap_pipeline_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
   draw_stop_tests.cpp

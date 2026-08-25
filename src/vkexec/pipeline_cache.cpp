@@ -54,6 +54,7 @@ namespace {
     hash = hash_combine(hash, desc.local_size.at(0));
     hash = hash_combine(hash, desc.local_size.at(1));
     hash = hash_combine(hash, desc.local_size.at(2));
+    hash = hash_combine(hash, desc.descriptor_heap ? 1U : 0U);
     return hash;
   }
 
@@ -126,11 +127,17 @@ namespace {
   auto create_compute_pipeline(VkDevice device,
     VkShaderModule shader,
     VkPipelineLayout layout,
-    VkSpecializationInfo const *specialization) -> VkPipeline
+    VkSpecializationInfo const *specialization,
+    bool descriptor_heap) -> VkPipeline
   {
+    VkPipelineCreateFlags2CreateInfo flags2{};
+    flags2.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
+    flags2.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
+
     // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
     VkComputePipelineCreateInfo compute_info{};
     compute_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    compute_info.pNext = descriptor_heap ? &flags2 : nullptr;
     compute_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     compute_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
     compute_info.stage.module = shader;
@@ -194,7 +201,8 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   resources->shader = create_shader_module(device, *spirv);
   resources->set_layout = create_set_layout(device, resources->binding_count);
   resources->pipeline_layout = create_pipeline_layout(device, resources->set_layout, ast.push_bytes);
-  resources->pipeline = create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr);
+  resources->pipeline =
+    create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr, false);
   resources->descriptor_pool = create_descriptor_pool(device, resources->binding_count);
 
   std::scoped_lock const lock(mutex_);
@@ -240,10 +248,21 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
 
   VkDevice device = ctx_->device();
   resources->shader = create_shader_module(device, spirv);
-  resources->set_layout = create_set_layout(device, resources->binding_count);
-  resources->pipeline_layout = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
-  resources->pipeline = create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr);
-  resources->descriptor_pool = create_descriptor_pool(device, resources->binding_count);
+  if (desc.descriptor_heap) {
+    if (!desc.bindings.empty()) {
+      VKEXEC_THROW(std::invalid_argument("descriptor_heap pipelines must not declare descriptor-set bindings"));
+    }
+    if (desc.push_constant_size != 0) {
+      VKEXEC_THROW(std::invalid_argument("descriptor_heap pipelines use push data, not push constants"));
+    }
+    resources->pipeline = create_compute_pipeline(device, resources->shader, VK_NULL_HANDLE, spec_ptr, true);
+  } else {
+    resources->set_layout = create_set_layout(device, resources->binding_count);
+    resources->pipeline_layout = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
+    resources->pipeline =
+      create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr, false);
+    resources->descriptor_pool = create_descriptor_pool(device, resources->binding_count);
+  }
 
   std::scoped_lock const lock(mutex_);
   if (auto cached = cache_.find(key); cached != cache_.end()) {
