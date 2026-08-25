@@ -6,7 +6,7 @@
 
 ## About
 
-`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with a tracing eDSL:
+`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with a tracing eDSL, plus bindless (descriptor-heap) and optional GLFW graphics helpers suitable for embedding:
 
 1. Trace C++ operators on `vkexec::Float` / `vkexec::Int` into an AST
 2. Emit GLSL, compile to SPIR-V via glslang, and cache `VkPipeline`s
@@ -70,6 +70,54 @@ ex::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(pipe, set
 // or, with your own command buffer:
 vkexec::upload_push_constants(cmd, pipe, push);
 ```
+
+### Device requirements and adopt
+
+`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Failures that mean “this GPU cannot run” throw during `context` construction.
+
+Embedders that already own a Vulkan device (for example a Filament-like driver) can wrap it without transferring ownership:
+
+```cpp
+auto ctx = vkexec::context::adopt({
+  .instance = instance,
+  .physical_device = phys,
+  .device = device,
+  .allocator = vma,              // or null → vkexec creates one
+  .compute_queue = compute_q,
+  .compute_queue_family = compute_family,
+  .graphics_queue = graphics_q,  // optional; defaults to compute
+  .present_queue = present_q,    // optional; defaults to graphics
+});
+```
+
+When extensions such as `VK_EXT_descriptor_heap` / `VK_EXT_shader_object` push-data are enabled, `context::procs()` caches the device PFNs (null when unavailable).
+
+### Bindless (descriptor heap)
+
+Hybrid apps can skip classic descriptor sets. Create a null-layout pipeline with `layout_desc.descriptor_heap = true`, allocate a `gpu_buffer` with `gpu_buffer_memory::descriptor_heap` (optionally `shader_device_address`), write storage descriptors into host-mapped heap memory, then bind + push data on the command buffer:
+
+```cpp
+auto layout = vkexec::query_descriptor_heap_layout(ctx);
+auto heap = vkexec::gpu_buffer::create(ctx, {
+  .size = vkexec::descriptor_heap_byte_size(layout, slot_count),
+  .memory = vkexec::gpu_buffer_memory::descriptor_heap,
+  .shader_device_address = true,
+});
+vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
+
+auto pipe = vkexec::compute_pipeline::from_glsl(ctx, glsl, vkexec::layout_desc{
+  .descriptor_heap = true,
+  .push_constant_size = sizeof(Push),
+  .local_size = { 64, 1, 1 },
+});
+
+// In a recorded command buffer (or via bindless compute_pass):
+vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
+  /* reserved_offset */, layout.min_resource_heap_reserved_range);
+vkexec::cmd_push_data(ctx, cmd, push);
+```
+
+Supporting RAII: `gpu_buffer`, `image` / `image_view` / `sampler`, `timeline_semaphore`, `frame_ring` (WSI slot/image gating), plus `vkexec_graphics::swapchain` for borrowed surfaces. Dynamic rendering helpers live in `rendering.hpp`.
 
 Build and run the sample:
 
