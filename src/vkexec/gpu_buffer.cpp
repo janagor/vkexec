@@ -17,11 +17,21 @@ namespace {
 
   auto usage_for(gpu_buffer_memory memory) -> VkBufferUsageFlags
   {
-    (void)memory;
-    // NOLINTBEGIN(hicpp-signed-bitwise)
-    return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-           | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-    // NOLINTEND(hicpp-signed-bitwise)
+    switch (memory) {
+    case gpu_buffer_memory::host_visible:
+    case gpu_buffer_memory::device_local:
+      // NOLINTBEGIN(hicpp-signed-bitwise)
+      return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+             | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+      // NOLINTEND(hicpp-signed-bitwise)
+    case gpu_buffer_memory::staging:
+      return VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    case gpu_buffer_memory::descriptor_heap:
+      // NOLINTBEGIN(hicpp-signed-bitwise)
+      return VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+      // NOLINTEND(hicpp-signed-bitwise)
+    }
+    fail("unknown gpu_buffer_memory");
   }
 
   auto allocation_info_for(gpu_buffer_memory memory) -> VmaAllocationCreateInfo
@@ -38,9 +48,30 @@ namespace {
     case gpu_buffer_memory::device_local:
       aci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
       break;
+    case gpu_buffer_memory::staging:
+      aci.usage = VMA_MEMORY_USAGE_AUTO;
+      // NOLINTBEGIN(hicpp-signed-bitwise)
+      aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+      // NOLINTEND(hicpp-signed-bitwise)
+      aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+      aci.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      break;
+    case gpu_buffer_memory::descriptor_heap:
+      aci.usage = VMA_MEMORY_USAGE_AUTO;
+      // NOLINTBEGIN(hicpp-signed-bitwise)
+      // Persistently mapped heaps are written at arbitrary slot offsets; dedicated +
+      // 4 KiB alignment matches ANV bindless heap addressing.
+      aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+                  | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+      // NOLINTEND(hicpp-signed-bitwise)
+      aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+      aci.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      break;
     }
     return aci;
   }
+
+  constexpr VkDeviceSize k_heap_device_address_alignment = 4096;
 
 }// namespace
 
@@ -60,12 +91,20 @@ auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memor
   VkBuffer buffer_handle{ VK_NULL_HANDLE };
   VmaAllocation allocation{ VK_NULL_HANDLE };
   VmaAllocationInfo ainfo{};
-  if (vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo) != VK_SUCCESS) {
-    fail("vmaCreateBuffer failed");
-  }
+  VkResult const create_result = memory == gpu_buffer_memory::descriptor_heap
+                                   ? vmaCreateBufferWithAlignment(ctx.allocator(),
+                                       &bci,
+                                       &aci,
+                                       k_heap_device_address_alignment,
+                                       &buffer_handle,
+                                       &allocation,
+                                       &ainfo)
+                                   : vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
+  if (create_result != VK_SUCCESS) { fail("vmaCreateBuffer failed"); }
 
   void *mapped_ptr = nullptr;
-  if (memory == gpu_buffer_memory::host_visible) {
+  if (memory == gpu_buffer_memory::host_visible || memory == gpu_buffer_memory::staging
+      || memory == gpu_buffer_memory::descriptor_heap) {
     mapped_ptr = ainfo.pMappedData;
     if (mapped_ptr == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);

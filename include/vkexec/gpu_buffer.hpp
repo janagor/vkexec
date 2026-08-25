@@ -17,8 +17,12 @@ namespace vkexec {
 enum class gpu_buffer_memory : std::uint8_t {
   /// Host-visible storage; persistently mapped for sequential host writes.
   host_visible,
-  /// Device-local storage with transfer + indirect + optional BDA usage.
+  /// Device-local storage with transfer + indirect usage.
   device_local,
+  /// Host-visible transfer destination for GPU→CPU readback.
+  staging,
+  /// Host-visible descriptor-heap buffer (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
+  descriptor_heap,
 };
 
 /// Untyped VMA buffer for hybrid / embedders (e.g. vkgsplat). Distinct from eDSL `buffer<T>`.
