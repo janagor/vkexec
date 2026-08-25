@@ -3,6 +3,7 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/image.hpp>
+#include <vkexec/image_view.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -53,4 +54,20 @@ TEST_CASE("image depth allocates a depth attachment", "[vkexec][image][gpu]")
     });
   REQUIRE(img.handle() != VK_NULL_HANDLE);
   REQUIRE(img.format() == VK_FORMAT_D32_SFLOAT);
+}
+
+TEST_CASE("image_view wraps a color image", "[vkexec][image][gpu]")
+{
+  std::optional<vkexec::context> ctx;
+  VKEXEC_TRY { ctx.emplace(); }
+  VKEXEC_CATCH(std::exception const &error) { skip_if_no_vulkan(error); }
+
+  auto img = vkexec::image::create(*ctx,
+    vkexec::image_create_info{
+      .width = k_width,
+      .height = k_height,
+      .usage = vkexec::image_usage::color_storage,
+    });
+  auto view = vkexec::image_view::create(*ctx, img);
+  REQUIRE(view.handle() != VK_NULL_HANDLE);
 }

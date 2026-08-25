@@ -9,6 +9,7 @@ add_library(
   timeline_semaphore.cpp
   descriptor_heap.cpp
   image.cpp
+  image_view.cpp
   vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)

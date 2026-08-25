@@ -13,6 +13,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
+#include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
