@@ -261,7 +261,7 @@ jobs:
 
       - name: Publish to codecov
         if: matrix.build_type == 'Debug'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           # Upload when CODECOV_TOKEN is configured; do not fail forks without a token.
           fail_ci_if_error: false
