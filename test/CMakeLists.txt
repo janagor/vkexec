@@ -44,6 +44,7 @@ add_executable(
   push_constant_tests.cpp
   bulk_tests.cpp
   buffer_tests.cpp
+  gpu_buffer_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
   draw_stop_tests.cpp

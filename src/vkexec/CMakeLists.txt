@@ -5,6 +5,7 @@ add_library(
   host_agent.cpp
   pipeline_cache.cpp
   compute_pipeline.cpp
+  gpu_buffer.cpp
   vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)

@@ -10,6 +10,7 @@
 #include <vkexec/device_procs.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
