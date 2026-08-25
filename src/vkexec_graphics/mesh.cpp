@@ -1,7 +1,7 @@
-#include <vkexec/config.hpp>
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -9,10 +9,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <limits>
 #include <span>
-#include <stdexcept>
 
 namespace vkexec {
 namespace {
@@ -25,7 +23,7 @@ namespace {
   };
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto create_host_buffer(context const &ctx, VkDeviceSize bytes, VkBufferUsageFlags usage) -> mapped_buffer
+  auto create_host_buffer(context const &ctx, VkDeviceSize bytes, VkBufferUsageFlags usage) -> result<mapped_buffer>
   {
     VkBufferCreateInfo buffer_info{};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -40,52 +38,70 @@ namespace {
 
     mapped_buffer created{};
     VmaAllocationInfo mapped_info{};
-    if (vmaCreateBuffer(ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info)
-        != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer failed (mesh)"));
+    if (VkResult const result =
+          vmaCreateBuffer(ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info);
+      result != VK_SUCCESS) {
+      return std::unexpected(make_vk_error(result, "vmaCreateBuffer failed (mesh)"));
     }
     created.mapped = mapped_info.pMappedData;
     if (created.mapped == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), created.buffer, created.allocation);
-      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer did not map host-visible memory"));
+      return std::unexpected(make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory"));
     }
     return created;
   }
 
-  auto count_as_uint32(std::size_t count, char const *what) -> std::uint32_t
+  auto count_as_uint32(std::size_t count, char const *what) -> result<std::uint32_t>
   {
-    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) { VKEXEC_THROW(std::invalid_argument(what)); }
+    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) {
+      return std::unexpected(make_error(errc::invalid_argument, what));
+    }
     return static_cast<std::uint32_t>(count);
   }
 
 }// namespace
 
-mesh::mesh(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-  : ctx_(&ctx), vertex_count_(count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]")),
-    index_count_(count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]"))
+auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+  -> result<mesh>
 {
-  mapped_buffer const vertex =
-    create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-  vertex_buffer_ = vertex.buffer;
-  vertex_allocation_ = vertex.allocation;
-  std::memcpy(vertex.mapped, vertices.data(), vertices.size_bytes());
-
-  std::exception_ptr error;
-  VKEXEC_TRY
-  {
-    mapped_buffer const index =
-      create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    index_buffer_ = index.buffer;
-    index_allocation_ = index.allocation;
-    std::memcpy(index.mapped, indices.data(), indices.size_bytes());
+  mesh created;
+  if (auto const initialized = created.init(ctx, vertices, indices); !initialized) {
+    return std::unexpected(initialized.error());
   }
-  VKEXEC_CATCH_ALL { error = std::current_exception(); }
-  if (error) {
+  return created;
+}
+
+auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
+{
+  auto const vertices_count = count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]");
+  if (!vertices_count) { return std::unexpected(vertices_count.error()); }
+  auto const indices_count = count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]");
+  if (!indices_count) { return std::unexpected(indices_count.error()); }
+
+  ctx_ = &ctx;
+  vertex_count_ = *vertices_count;
+  index_count_ = *indices_count;
+
+  auto const vertex = create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  if (!vertex) { return std::unexpected(vertex.error()); }
+  vertex_buffer_ = vertex->buffer;
+  vertex_allocation_ = vertex->allocation;
+  std::memcpy(vertex->mapped, vertices.data(), vertices.size_bytes());
+
+  auto const index = create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+  if (!index) {
     vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
     vertex_buffer_ = VK_NULL_HANDLE;
     vertex_allocation_ = VK_NULL_HANDLE;
-    std::rethrow_exception(error);
+    ctx_ = nullptr;
+    vertex_count_ = 0;
+    index_count_ = 0;
+    return std::unexpected(index.error());
   }
+  index_buffer_ = index->buffer;
+  index_allocation_ = index->allocation;
+  std::memcpy(index->mapped, indices.data(), indices.size_bytes());
+  return {};
 }
 
 mesh::~mesh() { destroy(); }

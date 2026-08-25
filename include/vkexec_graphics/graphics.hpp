@@ -1,9 +1,8 @@
 #ifndef VKEXEC_GRAPHICS_GRAPHICS_HPP
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
-
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
@@ -13,7 +12,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -56,22 +54,34 @@ class graphics_pipeline
 {
 public:
   template<typename VertexFn, typename FragmentFn>
-  graphics_pipeline(context &ctx,
+  [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
     VertexFn &&vertex_fn,
-    FragmentFn &&fragment_fn)
-    : device_(ctx.device()), cfg_(cfg)
-  { build(ctx, render_pass, std::forward<VertexFn>(vertex_fn), std::forward<FragmentFn>(fragment_fn)); }
+    FragmentFn &&fragment_fn) -> result<graphics_pipeline>
+  {
+    graphics_pipeline pipe;
+    pipe.device_ = ctx.device();
+    pipe.cfg_ = cfg;
+    if (auto const built =
+          pipe.build(ctx, render_pass, std::forward<VertexFn>(vertex_fn), std::forward<FragmentFn>(fragment_fn));
+      !built) {
+      pipe.destroy();
+      return std::unexpected(built.error());
+    }
+    return pipe;
+  }
 
   template<typename VertexFn, typename FragmentFn>
-  graphics_pipeline(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn)
-    : graphics_pipeline(ctx,
-        render_pass,
-        graphics_pipeline_config{},
-        std::forward<VertexFn>(vertex_fn),
-        std::forward<FragmentFn>(fragment_fn))
-  {}
+  [[nodiscard]] static auto create(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn)
+    -> result<graphics_pipeline>
+  {
+    return create(ctx,
+      render_pass,
+      graphics_pipeline_config{},
+      std::forward<VertexFn>(vertex_fn),
+      std::forward<FragmentFn>(fragment_fn));
+  }
 
   ~graphics_pipeline() { destroy(); }
 
@@ -118,20 +128,14 @@ public:
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    std::uint32_t vertex_count) const -> void
-  {
-    begin_pass(cmd, render_pass, framebuffer, extent);
-    record_draw(cmd, extent, vertex_count);
-    vkCmdEndRenderPass(cmd);
-    if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
-  }
+    std::uint32_t vertex_count) const -> status;
 
   /// Begin the render pass, bind this pipeline, draw an indexed mesh, end the pass, and end the cmd buffer.
   auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    mesh const &drawn) const -> void;
+    mesh const &drawn) const -> status;
 
 private:
   struct bound_buffer
@@ -140,6 +144,8 @@ private:
     VkBuffer buffer{ VK_NULL_HANDLE };
     VkDeviceSize byte_size{ 0 };
   };
+
+  graphics_pipeline() = default;
 
   auto destroy() noexcept -> void
   {
@@ -161,7 +167,7 @@ private:
   }
 
   template<typename VertexFn, typename FragmentFn>
-  auto build(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn) -> void
+  auto build(context &ctx, VkRenderPass render_pass, VertexFn &&vertex_fn, FragmentFn &&fragment_fn) -> status
   {
     std::vector<std::uint32_t> vs_spv;
     std::vector<edsl::storage_trace> vs_buffers;
@@ -170,7 +176,9 @@ private:
       edsl::Int const vertex_id = edsl::Int::vertex_index();
       edsl::VertexWriter const vertex_out;
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
-      vs_spv = edsl::compile_vertex_spirv(vertex_trace, ctx.api_version());
+      auto vs = edsl::compile_vertex_spirv(vertex_trace, ctx.api_version());
+      if (!vs) { return std::unexpected(vs.error()); }
+      vs_spv = std::move(*vs);
       vs_buffers = vertex_trace.buffers();
     }
     std::vector<std::uint32_t> fs_spv;
@@ -179,18 +187,20 @@ private:
       edsl::FragmentReader const fragment_in;
       edsl::FragmentWriter const fragment_out;
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
-      fs_spv = edsl::compile_fragment_spirv(fragment_trace, ctx.api_version());
+      auto fs = edsl::compile_fragment_spirv(fragment_trace, ctx.api_version());
+      if (!fs) { return std::unexpected(fs.error()); }
+      fs_spv = std::move(*fs);
     }
-    complete(ctx, render_pass, vs_spv, fs_spv, vs_buffers);
+    return complete(ctx, render_pass, vs_spv, fs_spv, vs_buffers);
   }
 
   auto complete(context &ctx,
     VkRenderPass render_pass,
     std::vector<std::uint32_t> const &vs_spv,
     std::vector<std::uint32_t> const &fs_spv,
-    std::span<edsl::storage_trace const> buffers) -> void;
+    std::span<edsl::storage_trace const> buffers) -> status;
 
-  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> VkShaderModule;
+  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> result<VkShaderModule>;
 
   auto bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void
   {

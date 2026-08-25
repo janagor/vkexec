@@ -1,7 +1,7 @@
 #include <vkexec_graphics/window.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <VkBootstrap.h>
@@ -17,7 +17,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,12 +38,7 @@ namespace {
   constexpr std::uint32_t k_depth_mip_levels = 1;
   constexpr std::uint32_t k_depth_array_layers = 1;
 
-  auto check(VkResult result, char const *what) -> void
-  {
-    if (result != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error(what)); }
-  }
-
-  auto pick_depth_format(VkPhysicalDevice phys) -> VkFormat
+  auto pick_depth_format(VkPhysicalDevice phys) -> result<VkFormat>
   {
     static constexpr std::array k_candidates{
       VK_FORMAT_D32_SFLOAT,
@@ -56,7 +50,7 @@ namespace {
       vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
       if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) { return format; }
     }
-    VKEXEC_THROW(std::runtime_error("no supported depth format"));
+    return std::unexpected(make_error(errc::unsupported, "no supported depth format"));
   }
 
   auto format_has_stencil(VkFormat format) -> bool
@@ -71,15 +65,6 @@ namespace {
     return VK_IMAGE_ASPECT_DEPTH_BIT;
   }
 
-  template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
-  {
-    if (!result) {
-      VKEXEC_THROW(std::runtime_error(
-        std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")"));
-    }
-    return result.value();
-  }
-
 }// namespace
 
 // GLFW callback signature is fixed (two adjacent int parameters).
@@ -92,30 +77,40 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
   if (self != nullptr) { self->framebuffer_resized_ = true; }
 }
 
-window::window() : window(config{}) {}
-
-auto window::headless() -> window { return headless(config{}); }
-
-auto window::headless(config cfg) -> window
+auto window::create(config cfg) -> result<window>
 {
-  cfg.headless = true;
-  return window(std::move(cfg));
+  window created;
+  if (auto const initialized = created.init(std::move(cfg)); !initialized) {
+    return std::unexpected(initialized.error());
+  }
+  return created;
 }
 
-window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
+auto window::headless() -> result<window> { return headless(config{}); }
+
+auto window::headless(config cfg) -> result<window>
 {
+  cfg.headless = true;
+  return create(std::move(cfg));
+}
+
+auto window::init(config cfg) -> status
+{
+  cfg_ = std::move(cfg);
+  headless_ = cfg_.headless;
+
   if (headless_) {
     auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       std::vector<char const *>{ surface_exts.begin(), surface_exts.end() }));
-    create_headless_surface();
+    if (auto const surface = create_headless_surface(); !surface) { return surface; }
   } else {
     g_glfw_error.clear();
     glfwSetErrorCallback(glfw_error_callback);
     if (glfwInit() != GLFW_TRUE) {
-      VKEXEC_THROW(
-        std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")")));
+      return make_error(errc::io_error,
+        g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
@@ -124,7 +119,7 @@ window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
       static_cast<int>(cfg_.width), static_cast<int>(cfg_.height), cfg_.title.c_str(), nullptr, nullptr);
     if (glfw_ == nullptr) {
       glfwTerminate();
-      VKEXEC_THROW(std::runtime_error("glfwCreateWindow failed"));
+      return make_error(errc::io_error, "glfwCreateWindow failed");
     }
     glfwSetWindowUserPointer(glfw_, this);
     glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
@@ -132,7 +127,7 @@ window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
     std::uint32_t ext_count = 0;
     char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
     if (glfw_exts == nullptr || ext_count == 0) {
-      VKEXEC_THROW(std::runtime_error("glfwGetRequiredInstanceExtensions failed (no presentation support?)"));
+      return make_error(errc::unsupported, "glfwGetRequiredInstanceExtensions failed (no presentation support?)");
     }
     std::vector<char const *> instance_exts;
     instance_exts.reserve(ext_count);
@@ -143,16 +138,16 @@ window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       instance_exts));
-    create_surface();
+    if (auto const surface = create_surface(); !surface) { return surface; }
   }
 
-  ctx_->complete_for_surface(surface_);
-
-  create_swapchain();
-  create_render_pass();
-  create_depth_resources();
-  create_framebuffers();
-  create_frame_resources();
+  if (auto const completed = ctx_->complete_for_surface(surface_); !completed) { return completed; }
+  if (auto const swapchain = create_swapchain(); !swapchain) { return swapchain; }
+  if (auto const render_pass = create_render_pass(); !render_pass) { return render_pass; }
+  if (auto const depth = create_depth_resources(); !depth) { return depth; }
+  if (auto const framebuffers = create_framebuffers(); !framebuffers) { return framebuffers; }
+  if (auto const frame_resources = create_frame_resources(); !frame_resources) { return frame_resources; }
+  return {};
 }
 
 window::~window()
@@ -203,19 +198,30 @@ auto window::wait_idle() -> void
   if (ctx_ && ctx_->device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_->device()); }
 }
 
-auto window::create_surface() -> void
-{ check(glfwCreateWindowSurface(ctx_->instance(), glfw_, nullptr, &surface_), "glfwCreateWindowSurface failed"); }
+auto window::create_surface() -> status
+{
+  if (VkResult const result = glfwCreateWindowSurface(ctx_->instance(), glfw_, nullptr, &surface_);
+    result != VK_SUCCESS) {
+    return make_vk_error(result, "glfwCreateWindowSurface failed");
+  }
+  return {};
+}
 
-auto window::create_headless_surface() -> void
+auto window::create_headless_surface() -> status
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
     vkGetInstanceProcAddr(ctx_->instance(), "vkCreateHeadlessSurfaceEXT"));
-  if (create_fn == nullptr) { VKEXEC_THROW(std::runtime_error("vkCreateHeadlessSurfaceEXT not available")); }
+  if (create_fn == nullptr) {
+    return make_error(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available");
+  }
 
   VkHeadlessSurfaceCreateInfoEXT create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
-  check(create_fn(ctx_->instance(), &create_info, nullptr, &surface_), "vkCreateHeadlessSurfaceEXT failed");
+  if (VkResult const result = create_fn(ctx_->instance(), &create_info, nullptr, &surface_); result != VK_SUCCESS) {
+    return make_vk_error(result, "vkCreateHeadlessSurfaceEXT failed");
+  }
+  return {};
 }
 
 auto window::framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>
@@ -227,25 +233,31 @@ auto window::framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>
   return { static_cast<std::uint32_t>(framebuffer_width), static_cast<std::uint32_t>(framebuffer_height) };
 }
 
-auto window::create_swapchain() -> void
+auto window::create_swapchain() -> status
 {
   auto const [framebuffer_width, framebuffer_height] = framebuffer_size();
   if (!swapchain_.has_value()) {
-    swapchain_ = swapchain::create(*ctx_,
+    auto const created = swapchain::create(*ctx_,
       swapchain_create_info{
         .surface = surface_,
         .width = framebuffer_width,
         .height = framebuffer_height,
       });
-  } else {
-    swapchain_->recreate(framebuffer_width, framebuffer_height);
+    if (!created) { return std::unexpected(created.error()); }
+    swapchain_ = std::move(*created);
+  } else if (auto const recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
+    return recreated;
   }
-  create_swapchain_sync();
+  return create_swapchain_sync();
 }
 
-auto window::create_render_pass() -> void
+auto window::create_render_pass() -> status
 {
-  if (depth_format_ == VK_FORMAT_UNDEFINED) { depth_format_ = pick_depth_format(ctx_->physical_device()); }
+  if (depth_format_ == VK_FORMAT_UNDEFINED) {
+    auto const format = pick_depth_format(ctx_->physical_device());
+    if (!format) { return std::unexpected(format.error()); }
+    depth_format_ = *format;
+  }
 
   VkAttachmentDescription const color{
     .flags = 0,
@@ -325,10 +337,14 @@ auto window::create_render_pass() -> void
     .dependencyCount = 1,
     .pDependencies = &dependency,
   };
-  check(vkCreateRenderPass(ctx_->device(), &render_pass_info, nullptr, &render_pass_), "vkCreateRenderPass failed");
+  if (VkResult const result = vkCreateRenderPass(ctx_->device(), &render_pass_info, nullptr, &render_pass_);
+    result != VK_SUCCESS) {
+    return make_vk_error(result, "vkCreateRenderPass failed");
+  }
+  return {};
 }
 
-auto window::create_depth_resources() -> void
+auto window::create_depth_resources() -> status
 {
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   VkImageCreateInfo image_info{};
@@ -347,8 +363,11 @@ auto window::create_depth_resources() -> void
   VmaAllocationCreateInfo alloc_info{};
   alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-  check(vmaCreateImage(ctx_->allocator(), &image_info, &alloc_info, &depth_image_, &depth_allocation_, nullptr),
-    "vmaCreateImage failed (depth)");
+  if (VkResult const result =
+        vmaCreateImage(ctx_->allocator(), &image_info, &alloc_info, &depth_image_, &depth_allocation_, nullptr);
+    result != VK_SUCCESS) {
+    return make_vk_error(result, "vmaCreateImage failed (depth)");
+  }
 
   VkImageViewCreateInfo view_info{};
   view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -360,7 +379,11 @@ auto window::create_depth_resources() -> void
   view_info.subresourceRange.levelCount = k_depth_mip_levels;
   view_info.subresourceRange.baseArrayLayer = 0;
   view_info.subresourceRange.layerCount = k_depth_array_layers;
-  check(vkCreateImageView(ctx_->device(), &view_info, nullptr, &depth_view_), "vkCreateImageView failed (depth)");
+  if (VkResult const result = vkCreateImageView(ctx_->device(), &view_info, nullptr, &depth_view_);
+    result != VK_SUCCESS) {
+    return make_vk_error(result, "vkCreateImageView failed (depth)");
+  }
+  return {};
 }
 
 auto window::destroy_depth_resources() noexcept -> void
@@ -377,7 +400,7 @@ auto window::destroy_depth_resources() noexcept -> void
   }
 }
 
-auto window::create_framebuffers() -> void
+auto window::create_framebuffers() -> status
 {
   auto const views = swapchain_->image_views();
   framebuffers_.resize(views.size());
@@ -391,12 +414,16 @@ auto window::create_framebuffers() -> void
     framebuffer_info.width = extent().width;
     framebuffer_info.height = extent().height;
     framebuffer_info.layers = 1;
-    check(vkCreateFramebuffer(ctx_->device(), &framebuffer_info, nullptr, &framebuffers_.at(index)),
-      "vkCreateFramebuffer failed");
+    if (VkResult const result =
+          vkCreateFramebuffer(ctx_->device(), &framebuffer_info, nullptr, &framebuffers_.at(index));
+      result != VK_SUCCESS) {
+      return make_vk_error(result, "vkCreateFramebuffer failed");
+    }
   }
+  return {};
 }
 
-auto window::create_frame_resources() -> void
+auto window::create_frame_resources() -> status
 {
   frames_.resize(static_cast<std::size_t>(k_frames));
   command_buffers_.resize(static_cast<std::size_t>(k_frames));
@@ -404,20 +431,29 @@ auto window::create_frame_resources() -> void
     auto const frame_index = static_cast<std::size_t>(index);
     VkSemaphoreCreateInfo semaphore_info{};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    check(vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &frames_.at(frame_index).image_available),
-      "vkCreateSemaphore failed");
+    if (VkResult const result =
+          vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &frames_.at(frame_index).image_available);
+      result != VK_SUCCESS) {
+      return make_vk_error(result, "vkCreateSemaphore failed");
+    }
 
     VkFenceCreateInfo fence_info{};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    check(
-      vkCreateFence(ctx_->device(), &fence_info, nullptr, &frames_.at(frame_index).in_flight), "vkCreateFence failed");
+    if (VkResult const result =
+          vkCreateFence(ctx_->device(), &fence_info, nullptr, &frames_.at(frame_index).in_flight);
+      result != VK_SUCCESS) {
+      return make_vk_error(result, "vkCreateFence failed");
+    }
 
-    command_buffers_.at(frame_index) = ctx_->allocate_command_buffer();
+    auto const cmd = ctx_->allocate_command_buffer();
+    if (!cmd) { return std::unexpected(cmd.error()); }
+    command_buffers_.at(frame_index) = *cmd;
   }
+  return {};
 }
 
-auto window::create_swapchain_sync() -> void
+auto window::create_swapchain_sync() -> status
 {
   destroy_swapchain_sync();
 
@@ -428,9 +464,12 @@ auto window::create_swapchain_sync() -> void
   VkSemaphoreCreateInfo semaphore_info{};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
   for (VkSemaphore &render_finished : render_finished_) {
-    check(vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &render_finished),
-      "vkCreateSemaphore failed (render_finished)");
+    if (VkResult const result = vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &render_finished);
+      result != VK_SUCCESS) {
+      return make_vk_error(result, "vkCreateSemaphore failed (render_finished)");
+    }
   }
+  return {};
 }
 
 auto window::destroy_swapchain_sync() noexcept -> void
@@ -458,7 +497,7 @@ auto window::cleanup_swapchain() -> void
   swapchain_.reset();
 }
 
-auto window::recreate_swapchain() -> void
+auto window::recreate_swapchain() -> status
 {
   if (!headless_) {
     int width = 0;
@@ -478,38 +517,54 @@ auto window::recreate_swapchain() -> void
   framebuffers_.clear();
   destroy_depth_resources();
 
-  create_swapchain();
-  create_depth_resources();
-  create_framebuffers();
+  if (auto const swapchain = create_swapchain(); !swapchain) { return swapchain; }
+  if (auto const depth = create_depth_resources(); !depth) { return depth; }
+  if (auto const framebuffers = create_framebuffers(); !framebuffers) { return framebuffers; }
+  return {};
 }
 
-auto window::begin_frame() -> std::optional<frame>
+auto window::begin_frame() -> result<std::optional<frame>>
 {
-  if (frame_open_) { VKEXEC_THROW(std::logic_error("begin_frame called while a frame is already open")); }
+  if (frame_open_) {
+    return std::unexpected(make_error(errc::invalid_argument, "begin_frame called while a frame is already open"));
+  }
 
   auto &sync = frames_.at(frame_index_);
-  check(vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX), "vkWaitForFences failed");
+  if (VkResult const wait_result = vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX);
+    wait_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(wait_result, "vkWaitForFences failed"));
+  }
 
   auto const acquired = swapchain_->acquire_next_image(sync.image_available);
-  if (!acquired.has_value()) {
-    recreate_swapchain();
-    return std::nullopt;
+  if (!acquired) { return std::unexpected(acquired.error()); }
+  if (!acquired->has_value()) {
+    if (auto const recreated = recreate_swapchain(); !recreated) {
+      return std::unexpected(recreated.error());
+    }
+    return std::optional<frame>{};
   }
-  std::uint32_t const image_index = *acquired;
+  std::uint32_t const image_index = **acquired;
 
   if (images_in_flight_.at(image_index) != VK_NULL_HANDLE) {
-    check(vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX),
-      "vkWaitForFences failed (swapchain image in flight)");
+    if (VkResult const wait_result =
+          vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX);
+      wait_result != VK_SUCCESS) {
+      return std::unexpected(make_vk_error(wait_result, "vkWaitForFences failed (swapchain image in flight)"));
+    }
   }
   images_in_flight_.at(image_index) = sync.in_flight;
 
-  check(vkResetFences(ctx_->device(), 1, &sync.in_flight), "vkResetFences failed");
+  if (VkResult const reset_result = vkResetFences(ctx_->device(), 1, &sync.in_flight); reset_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(reset_result, "vkResetFences failed"));
+  }
 
   VkCommandBuffer cmd = command_buffers_.at(frame_index_);
   vkResetCommandBuffer(cmd, 0);
   VkCommandBufferBeginInfo begin_info{};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  check(vkBeginCommandBuffer(cmd, &begin_info), "vkBeginCommandBuffer failed");
+  if (VkResult const begin_result = vkBeginCommandBuffer(cmd, &begin_info); begin_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(begin_result, "vkBeginCommandBuffer failed"));
+  }
 
   current_image_index_ = image_index;
   frame_open_ = true;
@@ -519,9 +574,11 @@ auto window::begin_frame() -> std::optional<frame>
     .image_index = image_index };
 }
 
-auto window::end_frame(frame const &drawn) -> VkFence
+auto window::end_frame(frame const &drawn) -> result<VkFence>
 {
-  if (!frame_open_) { VKEXEC_THROW(std::logic_error("end_frame called without begin_frame")); }
+  if (!frame_open_) {
+    return std::unexpected(make_error(errc::invalid_argument, "end_frame called without begin_frame"));
+  }
   (void)drawn;
 
   auto &sync = frames_.at(frame_index_);
@@ -537,13 +594,20 @@ auto window::end_frame(frame const &drawn) -> VkFence
   submit_info.pCommandBuffers = &cmd;
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = &render_finished_.at(current_image_index_);
-  check(vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight), "vkQueueSubmit failed");
+  if (VkResult const submit_result = vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight);
+    submit_result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(submit_result, "vkQueueSubmit failed"));
+  }
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
-  bool const needs_recreate = !swapchain_->present(current_image_index_, wait_semaphores) || framebuffer_resized_;
+  auto const present_result = swapchain_->present(current_image_index_, wait_semaphores);
+  if (!present_result) { return std::unexpected(present_result.error()); }
+  bool const needs_recreate = !*present_result || framebuffer_resized_;
   if (needs_recreate) {
     framebuffer_resized_ = false;
-    recreate_swapchain();
+    if (auto const recreated = recreate_swapchain(); !recreated) {
+      return std::unexpected(recreated.error());
+    }
   }
 
   VkFence submitted = sync.in_flight;

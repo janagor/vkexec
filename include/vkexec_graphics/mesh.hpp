@@ -2,6 +2,7 @@
 #define VKEXEC_GRAPHICS_MESH_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 
 #include <array>
 #include <cstddef>
@@ -22,7 +23,10 @@ struct mesh_vertex
 class mesh
 {
 public:
-  mesh(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices);
+  [[nodiscard]] static auto create(context &ctx,
+    std::span<mesh_vertex const> vertices,
+    std::span<std::uint32_t const> indices) -> result<mesh>;
+
   ~mesh();
 
   mesh(mesh const &) = delete;
@@ -37,6 +41,9 @@ public:
   [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return index_buffer_; }
 
 private:
+  mesh() = default;
+
+  auto init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status;
   auto destroy() noexcept -> void;
 
   context *ctx_{ nullptr };

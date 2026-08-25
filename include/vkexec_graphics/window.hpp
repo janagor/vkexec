@@ -2,6 +2,7 @@
 #define VKEXEC_GRAPHICS_WINDOW_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>
@@ -42,13 +43,13 @@ public:
     vulkan_requirements requirements{};
   };
 
-  explicit window(config cfg);
-  window();
-  ~window();
+  [[nodiscard]] static auto create(config cfg) -> result<window>;
 
   /// Swapchain without GLFW or a display (`VK_EXT_headless_surface`). For CI/tests.
-  [[nodiscard]] static auto headless() -> window;
-  [[nodiscard]] static auto headless(config cfg) -> window;
+  [[nodiscard]] static auto headless() -> result<window>;
+  [[nodiscard]] static auto headless(config cfg) -> result<window>;
+
+  ~window();
 
   window(window const &) = delete;
   auto operator=(window const &) -> window & = delete;
@@ -70,12 +71,12 @@ public:
   { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 
   /// Acquire the next swapchain image and begin a primary command buffer.
-  /// Returns nullopt if the swapchain was recreated (caller should retry next loop).
-  [[nodiscard]] auto begin_frame() -> std::optional<frame>;
+  /// Disengaged optional means the swapchain was recreated (caller should retry next loop).
+  [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
 
   /// Submit the recorded command buffer and present. The command buffer must already be ended.
   /// Returns the per-frame `in_flight` fence signaled by the submit (owned by the window).
-  [[nodiscard]] auto end_frame(frame const &drawn) -> VkFence;
+  [[nodiscard]] auto end_frame(frame const &drawn) -> result<VkFence>;
 
 private:
   struct frame_sync
@@ -84,19 +85,22 @@ private:
     VkFence in_flight{ VK_NULL_HANDLE };
   };
 
-  auto create_surface() -> void;
-  auto create_headless_surface() -> void;
+  window() = default;
+
+  auto init(config cfg) -> status;
+  auto create_surface() -> status;
+  auto create_headless_surface() -> status;
   [[nodiscard]] auto framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>;
-  auto create_swapchain() -> void;
-  auto create_render_pass() -> void;
-  auto create_depth_resources() -> void;
+  auto create_swapchain() -> status;
+  auto create_render_pass() -> status;
+  auto create_depth_resources() -> status;
   auto destroy_depth_resources() noexcept -> void;
-  auto create_framebuffers() -> void;
-  auto create_frame_resources() -> void;
-  auto create_swapchain_sync() -> void;
+  auto create_framebuffers() -> status;
+  auto create_frame_resources() -> status;
+  auto create_swapchain_sync() -> status;
   auto destroy_swapchain_sync() noexcept -> void;
   auto cleanup_swapchain() -> void;
-  auto recreate_swapchain() -> void;
+  auto recreate_swapchain() -> status;
 
   config cfg_;
   bool headless_{ false };
