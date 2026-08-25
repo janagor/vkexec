@@ -2,8 +2,8 @@
 #define VKEXEC_BULK_HPP
 
 #include <vkexec/buffer.hpp>
-#include <vkexec/detail/config.hpp>
-#include <vkexec/detail/submit_scope.hpp>
+#include <vkexec/config.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>

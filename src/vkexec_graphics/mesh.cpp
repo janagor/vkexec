@@ -1,4 +1,4 @@
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>

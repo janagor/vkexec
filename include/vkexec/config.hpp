@@ -1,5 +1,5 @@
-#ifndef VKEXEC_DETAIL_CONFIG_HPP
-#define VKEXEC_DETAIL_CONFIG_HPP
+#ifndef VKEXEC_CONFIG_HPP
+#define VKEXEC_CONFIG_HPP
 
 #include <exception>
 
@@ -48,4 +48,4 @@ inline constexpr catch_any_lvalue_t k_catch_any_lvalue{};
 #endif
 // NOLINTEND(cppcoreguidelines-macro-usage)
 
-#endif// VKEXEC_DETAIL_CONFIG_HPP
+#endif// VKEXEC_CONFIG_HPP

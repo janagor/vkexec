@@ -4,7 +4,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_edsl/control.hpp>

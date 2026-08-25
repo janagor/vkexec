@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>

@@ -2,7 +2,7 @@
 #define VKEXEC_SCHEDULER_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/domain.hpp>
 
 #include <stdexec/execution.hpp>

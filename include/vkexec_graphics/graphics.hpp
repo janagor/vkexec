@@ -3,7 +3,7 @@
 
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 

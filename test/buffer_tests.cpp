@@ -2,7 +2,7 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/scheduler.hpp>
 
 #include <stdexec/execution.hpp>

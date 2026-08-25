@@ -2,8 +2,8 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/detail/config.hpp>
-#include <vkexec/detail/submit_scope.hpp>
+#include <vkexec/config.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>

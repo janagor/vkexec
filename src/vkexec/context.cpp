@@ -1,6 +1,6 @@
 #include <vkexec/context.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/detail/completion_waiter.hpp>
-#include <vkexec/detail/config.hpp>
 #include <vkexec/detail/host_agent.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
@@ -249,6 +249,22 @@ auto context::ensure_host_agent() -> detail::host_agent &
   if (!host_agent_) { host_agent_ = std::make_unique<detail::host_agent>(); }
   return *host_agent_;
 }
+
+auto context::host_agent_thread_id() -> std::thread::id { return ensure_host_agent().thread_id(); }
+
+auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
+  VkFence fence,
+  std::move_only_function<bool()> stop_requested,
+  std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void
+{ ensure_completion_waiter().enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done)); }
+
+auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
+  std::move_only_function<bool()> stop_requested,
+  std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void
+{ ensure_completion_waiter().enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done)); }
+
+auto context::do_enqueue_host(std::move_only_function<void()> task) -> void
+{ ensure_host_agent().enqueue(std::move(task)); }
 
 auto context::allocate_command_buffer() -> VkCommandBuffer
 {

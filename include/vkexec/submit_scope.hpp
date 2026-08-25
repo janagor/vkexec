@@ -1,8 +1,8 @@
-#ifndef VKEXEC_DETAIL_SUBMIT_SCOPE_HPP
-#define VKEXEC_DETAIL_SUBMIT_SCOPE_HPP
+#ifndef VKEXEC_SUBMIT_SCOPE_HPP
+#define VKEXEC_SUBMIT_SCOPE_HPP
 
+#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -417,4 +417,4 @@ namespace detail {
 
 }// namespace vkexec
 
-#endif// VKEXEC_DETAIL_SUBMIT_SCOPE_HPP
+#endif// VKEXEC_SUBMIT_SCOPE_HPP

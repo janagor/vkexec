@@ -1,5 +1,5 @@
+#include <vkexec/config.hpp>
 #include <vkexec/detail/completion_waiter.hpp>
-#include <vkexec/detail/config.hpp>
 
 #include <vulkan/vulkan_core.h>
 

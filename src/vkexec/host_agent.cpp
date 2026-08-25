@@ -1,4 +1,4 @@
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/detail/host_agent.hpp>
 
 #include <future>

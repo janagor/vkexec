@@ -1,5 +1,5 @@
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/pipeline_cache.hpp>
 #include <vkexec_edsl/ast.hpp>

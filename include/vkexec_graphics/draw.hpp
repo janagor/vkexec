@@ -1,8 +1,8 @@
 #ifndef VKEXEC_GRAPHICS_DRAW_HPP
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
-#include <vkexec/detail/config.hpp>
-#include <vkexec/detail/submit_scope.hpp>
+#include <vkexec/config.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_graphics/graphics.hpp>

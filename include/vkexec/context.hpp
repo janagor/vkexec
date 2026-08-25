@@ -1,8 +1,6 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
-#include <vkexec/detail/completion_waiter.hpp>
-#include <vkexec/detail/host_agent.hpp>
 #include <vkexec/pipeline.hpp>
 
 #include <VkBootstrap.h>
@@ -12,6 +10,7 @@
 
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -29,6 +28,11 @@ namespace vkexec {
 class scheduler;
 class window;
 class pipeline_cache;
+
+namespace detail {
+class completion_waiter;
+class host_agent;
+}
 
 /// Options passed when creating a `context` (affects the scheduler from `get_scheduler()`).
 struct scheduler_options
@@ -107,29 +111,34 @@ public:
   template<class StopToken, class Done>
   auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> void
   {
-    detail::completion_waiter::stop_fn stop_requested;
+    std::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
-    ensure_completion_waiter().enqueue(semaphore, fence, std::move(stop_requested), std::forward<Done>(on_done));
+    do_enqueue_fence_wait(semaphore,
+      fence,
+      std::move(stop_requested),
+      std::move_only_function<void(std::exception_ptr, bool)>{ std::forward<Done>(on_done) });
   }
 
   /// Wait for a caller-owned fence on the completion agent (does not destroy the fence).
   template<class StopToken, class Done>
   auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> void
   {
-    detail::completion_waiter::stop_fn stop_requested;
+    std::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
-    ensure_completion_waiter().enqueue_borrowed(fence, std::move(stop_requested), std::forward<Done>(on_done));
+    do_enqueue_borrowed_fence_wait(fence,
+      std::move(stop_requested),
+      std::move_only_function<void(std::exception_ptr, bool)>{ std::forward<Done>(on_done) });
   }
 
   /// Run `task` on the context host agent (schedule completions land here).
   template<class Task> auto enqueue_host(Task &&task) -> void
-  { ensure_host_agent().enqueue(detail::host_agent::task_fn{ std::forward<Task>(task) }); }
+  { do_enqueue_host(std::move_only_function<void()>{ std::forward<Task>(task) }); }
 
-  [[nodiscard]] auto host_agent_thread_id() -> std::thread::id { return ensure_host_agent().thread_id(); }
+  [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:
   friend class pipeline_cache;
@@ -148,6 +157,14 @@ private:
   auto fetch_queues(bool want_present) -> void;
   auto ensure_completion_waiter() -> detail::completion_waiter &;
   auto ensure_host_agent() -> detail::host_agent &;
+  auto do_enqueue_fence_wait(VkSemaphore semaphore,
+    VkFence fence,
+    std::move_only_function<bool()> stop_requested,
+    std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void;
+  auto do_enqueue_borrowed_fence_wait(VkFence fence,
+    std::move_only_function<bool()> stop_requested,
+    std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void;
+  auto do_enqueue_host(std::move_only_function<void()> task) -> void;
 
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};

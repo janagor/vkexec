@@ -1,7 +1,7 @@
 #ifndef VKEXEC_EDSL_AST_HPP
 #define VKEXEC_EDSL_AST_HPP
 
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 
 #include <cstdint>
 #include <stdexcept>

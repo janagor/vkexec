@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/detail/submit_scope.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec_edsl/trace.hpp>
 
 #include <array>

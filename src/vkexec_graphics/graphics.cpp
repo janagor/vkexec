@@ -2,7 +2,7 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec_edsl/trace.hpp>
 
 #include <vulkan/vulkan_core.h>

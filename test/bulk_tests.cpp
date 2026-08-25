@@ -3,8 +3,8 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/config.hpp>
-#include <vkexec/detail/submit_scope.hpp>
+#include <vkexec/config.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/trace.hpp>
