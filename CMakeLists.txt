@@ -20,8 +20,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the project name and language
 project(
   vkexec
-  VERSION 0.0.2
-  DESCRIPTION ""
+  VERSION 0.1.0
+  DESCRIPTION "stdexec Vulkan compute backend with bindless and graphics helpers"
   HOMEPAGE_URL "https://github.com/janagor/vkexec"
   LANGUAGES CXX C)
 
