@@ -1,13 +1,44 @@
 #ifndef VKEXEC_VULKAN_REQUIREMENTS_HPP
 #define VKEXEC_VULKAN_REQUIREMENTS_HPP
 
+#include <VkBootstrap.h>
 #include <vulkan/vulkan.h>
 
+#include <array>
 #include <cstdint>
+#include <functional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
+
+/// Type-erased Vulkan feature struct for `PhysicalDeviceSelector` / `PhysicalDevice`.
+/// Construct from any `VkPhysicalDevice*Features*` aggregate with an `sType` field.
+class extension_feature
+{
+public:
+  template<typename Feature>
+  // cppcheck-suppress noExplicitConstructor
+  // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
+  extension_feature(Feature feature)
+    : require_([feature](vkb::PhysicalDeviceSelector &selector) -> void {
+        selector.add_required_extension_features(feature);
+      }),
+      enable_if_present_([feature](vkb::PhysicalDevice &device) -> bool {
+        return device.enable_extension_features_if_present(feature);
+      })
+  {}
+
+  auto require(vkb::PhysicalDeviceSelector &selector) const -> void { require_(selector); }
+
+  [[nodiscard]] auto enable_if_present(vkb::PhysicalDevice &device) const -> bool
+  { return enable_if_present_(device); }
+
+private:
+  std::function<void(vkb::PhysicalDeviceSelector &)> require_;
+  std::function<bool(vkb::PhysicalDevice &)> enable_if_present_;
+};
 
 /// User-requested Vulkan instance/device configuration for `context` / `window` creation.
 /// Library baselines are merged in (never removed) when the context is built.
@@ -20,11 +51,32 @@ struct vulkan_requirements
   /// Extra instance extensions (in addition to library baselines / surface extras).
   std::vector<char const *> instance_extensions;
 
-  /// Extra device extensions (in addition to library baselines; presentation adds swapchain).
+  /// Extra device extensions that must be present (device select fails otherwise).
   std::vector<char const *> device_extensions;
 
-  /// Extra required `VkPhysicalDeviceFeatures` bits (OR'd with library baselines).
+  /// Device extensions enabled when available (ignored when missing).
+  std::vector<char const *> optional_device_extensions;
+
+  /// Extra required `VkPhysicalDeviceFeatures` bits.
   VkPhysicalDeviceFeatures features{};
+
+  /// Feature structs that must be supported (`add_required_extension_features`).
+  std::vector<extension_feature> required_extension_features;
+
+  /// Feature structs enabled when present (`enable_extension_features_if_present`).
+  std::vector<extension_feature> optional_extension_features;
+
+  template<typename Feature> auto require_extension_feature(Feature feature) -> vulkan_requirements &
+  {
+    required_extension_features.emplace_back(std::move(feature));
+    return *this;
+  }
+
+  template<typename Feature> auto enable_extension_feature_if_present(Feature feature) -> vulkan_requirements &
+  {
+    optional_extension_features.emplace_back(std::move(feature));
+    return *this;
+  }
 };
 
 /// Library floors and extension lists always applied when vkexec creates Vulkan objects.
@@ -41,11 +93,11 @@ namespace vulkan_library {
   [[nodiscard]] inline auto required_headless_surface_instance_extensions() noexcept
     -> std::span<char const * const>
   {
-    static constexpr char const *exts[] = {
+    static constexpr std::array k_exts{
       VK_KHR_SURFACE_EXTENSION_NAME,
       VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME,
     };
-    return exts;
+    return k_exts;
   }
 
   /// Device extensions always requested for compute-only contexts.
@@ -54,13 +106,13 @@ namespace vulkan_library {
   /// Device extensions required when presentation / swapchain is enabled.
   [[nodiscard]] inline auto required_presentation_device_extensions() noexcept -> std::span<char const * const>
   {
-    static constexpr char const *exts[] = {
+    static constexpr std::array k_exts{
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
-    return exts;
+    return k_exts;
   }
 
-  /// Core features vkexec itself requires (OR'd into the user request).
+  /// Core features vkexec itself requires.
   [[nodiscard]] inline auto required_features() noexcept -> VkPhysicalDeviceFeatures { return {}; }
 
 }// namespace vulkan_library

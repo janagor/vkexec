@@ -43,14 +43,11 @@ namespace {
 
   auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
   {
-    std::uint32_t major = requirements.api_version_major;
-    std::uint32_t minor = requirements.api_version_minor;
-    if (major < vulkan_library::k_min_api_version_major
-        || (major == vulkan_library::k_min_api_version_major && minor < vulkan_library::k_min_api_version_minor)) {
-      major = vulkan_library::k_min_api_version_major;
-      minor = vulkan_library::k_min_api_version_minor;
-    }
-    return VK_MAKE_API_VERSION(0, major, minor, 0);
+    auto const requested =
+      VK_MAKE_API_VERSION(0, requirements.api_version_major, requirements.api_version_minor, 0);
+    auto const minimum =
+      VK_MAKE_API_VERSION(0, vulkan_library::k_min_api_version_major, vulkan_library::k_min_api_version_minor, 0);
+    return requested < minimum ? minimum : requested;
   }
 
   auto append_unique(std::vector<char const *> &dst, std::span<char const * const> src) -> void
@@ -116,6 +113,21 @@ namespace {
     if (!device_exts.empty()) { selector.add_required_extensions(device_exts.size(), device_exts.data()); }
 
     selector.set_required_features(merge_features(requirements));
+
+    for (extension_feature const &feature : requirements.required_extension_features) {
+      feature.require(selector);
+    }
+  }
+
+  auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device,
+    vulkan_requirements const &requirements) -> void
+  {
+    for (char const *extension : requirements.optional_device_extensions) {
+      if (extension != nullptr) { (void)physical_device.enable_extension_if_present(extension); }
+    }
+    for (extension_feature const &feature : requirements.optional_extension_features) {
+      (void)feature.enable_if_present(physical_device);
+    }
   }
 
   auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> vkb::Instance
@@ -145,12 +157,14 @@ namespace {
     vkb::PhysicalDeviceSelector selector{ instance };
     configure_device_selector(selector, requirements, api_version, want_present);
     if (surface != VK_NULL_HANDLE) { selector.set_surface(surface); }
-    return unwrap(selector.select(), "vk-bootstrap PhysicalDeviceSelector");
+    vkb::PhysicalDevice physical_device = unwrap(selector.select(), "vk-bootstrap PhysicalDeviceSelector");
+    apply_optional_device_requests(physical_device, requirements);
+    return physical_device;
   }
 
 }// namespace
 
-context::context(scheduler_options opts)
+context::context(scheduler_options const &opts)
   : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_)),
     instance_(build_headless_instance(opts, api_version_)),
     physical_device_(select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false)),
@@ -214,7 +228,9 @@ context::context(context_adopt_info const &info)
   host_agent_ = std::make_unique<detail::host_agent>();
 }
 
-context::context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions)
+context::context(instance_only_tag tag,
+  scheduler_options const &opts,
+  std::vector<char const *> const &instance_extensions)
   : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_)),
     instance_(build_instance_with_extensions(opts, api_version_, instance_extensions)), has_instance_(true),
     owns_instance_(true)

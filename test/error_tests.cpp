@@ -3,6 +3,8 @@
 #include <vkexec/error.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
+#include <vulkan/vulkan_core.h>
+
 #include <algorithm>
 #include <cstring>
 #include <string_view>
@@ -30,9 +32,7 @@ TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
 
 TEST_CASE("vulkan library floors document instance and device requests", "[vkexec][vulkan]")
 {
-  using namespace vkexec::vulkan_library;
-
-  auto const headless_instance = required_headless_surface_instance_extensions();
+  auto const headless_instance = vkexec::vulkan_library::required_headless_surface_instance_extensions();
   REQUIRE(headless_instance.size() == 2);
   REQUIRE(std::ranges::any_of(headless_instance, [](char const *name) -> bool {
     return std::strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
@@ -41,16 +41,19 @@ TEST_CASE("vulkan library floors document instance and device requests", "[vkexe
     return std::strcmp(name, VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME) == 0;
   }));
 
-  auto const present_device = required_presentation_device_extensions();
+  auto const present_device = vkexec::vulkan_library::required_presentation_device_extensions();
   REQUIRE(present_device.size() == 1);
   REQUIRE(std::strcmp(present_device.front(), VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0);
 
-  REQUIRE(required_instance_extensions().empty());
-  REQUIRE(required_device_extensions().empty());
+  REQUIRE(vkexec::vulkan_library::required_instance_extensions().empty());
+  REQUIRE(vkexec::vulkan_library::required_device_extensions().empty());
 
   vkexec::vulkan_requirements const defaults{};
   REQUIRE(defaults.api_version_major == 1);
   REQUIRE(defaults.api_version_minor == 0);
   REQUIRE(defaults.instance_extensions.empty());
   REQUIRE(defaults.device_extensions.empty());
+  REQUIRE(defaults.optional_device_extensions.empty());
+  REQUIRE(defaults.required_extension_features.empty());
+  REQUIRE(defaults.optional_extension_features.empty());
 }

@@ -64,7 +64,7 @@ class context
 {
 public:
   /// Compute-only context (no window / swapchain).
-  explicit context(scheduler_options opts = {});
+  explicit context(scheduler_options const &opts = {});
   ~context();
 
   /// Wrap an existing Vulkan device/queues. Returns a context that does not destroy the
@@ -152,7 +152,9 @@ private:
   struct instance_only_tag
   {
   };
-  explicit context(instance_only_tag tag, scheduler_options opts, std::vector<char const *> const &instance_extensions);
+  explicit context(instance_only_tag tag,
+    scheduler_options const &opts,
+    std::vector<char const *> const &instance_extensions);
   explicit context(context_adopt_info const &info);
   auto complete_for_surface(VkSurfaceKHR surface) -> void;
 
