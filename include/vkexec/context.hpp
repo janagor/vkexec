@@ -1,6 +1,7 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
+#include <vkexec/device_procs.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
@@ -95,6 +96,7 @@ public:
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
   [[nodiscard]] auto requirements() const noexcept -> vulkan_requirements const & { return requirements_; }
   [[nodiscard]] auto api_version() const noexcept -> std::uint32_t { return api_version_; }
+  [[nodiscard]] auto procs() const noexcept -> device_procs const & { return procs_; }
 
   [[nodiscard]] auto get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &;
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
@@ -161,6 +163,7 @@ private:
   auto create_command_pool() -> void;
   auto create_allocator() -> void;
   auto fetch_queues(bool want_present) -> void;
+  auto load_device_procs() -> void;
   auto ensure_completion_waiter() -> detail::completion_waiter &;
   auto ensure_host_agent() -> detail::host_agent &;
   auto do_enqueue_fence_wait(VkSemaphore semaphore,
@@ -174,6 +177,7 @@ private:
 
   vulkan_requirements requirements_{};
   std::uint32_t api_version_{ VK_API_VERSION_1_0 };
+  device_procs procs_{};
   vkb::Instance instance_{};
   vkb::PhysicalDevice physical_device_{};
   vkb::Device device_{};

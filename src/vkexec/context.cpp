@@ -172,6 +172,7 @@ context::context(scheduler_options const &opts)
     has_device_(true), owns_instance_(true), owns_device_(true), owns_allocator_(true)
 {
   fetch_queues(false);
+  load_device_procs();
   create_command_pool();
   create_allocator();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
@@ -223,6 +224,7 @@ context::context(context_adopt_info const &info)
   }
 
   create_command_pool();
+  load_device_procs();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   host_agent_ = std::make_unique<detail::host_agent>();
@@ -246,6 +248,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> void
   owns_device_ = true;
   owns_allocator_ = true;
   fetch_queues(true);
+  load_device_procs();
   create_command_pool();
   create_allocator();
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
@@ -286,6 +289,32 @@ auto context::fetch_queues(bool want_present) -> void
     present_queue_ = graphics_queue_;
     present_family_ = graphics_family_;
   }
+}
+
+auto context::load_device_procs() -> void
+{
+  procs_ = {};
+  if (device_.device == VK_NULL_HANDLE) { return; }
+
+  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+  procs_.get_buffer_device_address = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(
+    vkGetDeviceProcAddr(device_.device, "vkGetBufferDeviceAddress"));
+  if (procs_.get_buffer_device_address == nullptr) {
+    procs_.get_buffer_device_address = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(
+      vkGetDeviceProcAddr(device_.device, "vkGetBufferDeviceAddressKHR"));
+  }
+
+  procs_.write_resource_descriptors = reinterpret_cast<PFN_vkWriteResourceDescriptorsEXT>(
+    vkGetDeviceProcAddr(device_.device, "vkWriteResourceDescriptorsEXT"));
+  procs_.write_sampler_descriptors = reinterpret_cast<PFN_vkWriteSamplerDescriptorsEXT>(
+    vkGetDeviceProcAddr(device_.device, "vkWriteSamplerDescriptorsEXT"));
+  procs_.cmd_bind_resource_heap = reinterpret_cast<PFN_vkCmdBindResourceHeapEXT>(
+    vkGetDeviceProcAddr(device_.device, "vkCmdBindResourceHeapEXT"));
+  procs_.cmd_bind_sampler_heap = reinterpret_cast<PFN_vkCmdBindSamplerHeapEXT>(
+    vkGetDeviceProcAddr(device_.device, "vkCmdBindSamplerHeapEXT"));
+  procs_.cmd_push_data =
+    reinterpret_cast<PFN_vkCmdPushDataEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdPushDataEXT"));
+  // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 
 context::~context()

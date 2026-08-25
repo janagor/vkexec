@@ -7,6 +7,7 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/device_procs.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
