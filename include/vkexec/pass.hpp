@@ -5,6 +5,7 @@
 #include <vkexec/config.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/push_data.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -21,6 +22,7 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -69,7 +71,7 @@ inline auto
   if (bind.set != VK_NULL_HANDLE) {
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
   }
-  upload_push_constants(cmd, bind.layout, push, push_bytes);
+  if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
 }
 
@@ -83,7 +85,29 @@ inline auto record_pass(VkCommandBuffer cmd,
   if (bind.set != VK_NULL_HANDLE) {
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
   }
-  upload_push_constants(cmd, bind.layout, push, push_bytes);
+  if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
+  vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
+}
+
+inline auto record_heap_pass(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  std::span<std::byte const> push,
+  dispatch groups) -> void
+{
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
+  if (!push.empty()) { cmd_push_data(ctx, cmd, push); }
+  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
+}
+
+inline auto record_heap_pass(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  std::span<std::byte const> push,
+  indirect_dispatch groups) -> void
+{
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
+  if (!push.empty()) { cmd_push_data(ctx, cmd, push); }
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
 }
 
@@ -246,13 +270,24 @@ namespace detail {
   inline auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
-                                  context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
+                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
+      std::span<std::byte const> const push_bytes{ closure.push };
+      bool const use_push_data = closure.bind.layout == VK_NULL_HANDLE;
+      if (use_push_data) {
+        if (closure.is_indirect) {
+          record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
+        } else {
+          record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
+        }
+        return;
+      }
+
       void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
-      auto const push_bytes = static_cast<std::uint32_t>(closure.push.size());
+      auto const push_size = static_cast<std::uint32_t>(closure.push.size());
       if (closure.is_indirect) {
-        record_pass(cmd, closure.bind, push_ptr, push_bytes, closure.indirect);
+        record_pass(cmd, closure.bind, push_ptr, push_size, closure.indirect);
       } else {
-        record_pass(cmd, closure.bind, push_ptr, push_bytes, closure.groups);
+        record_pass(cmd, closure.bind, push_ptr, push_size, closure.groups);
       }
     } };
   }
