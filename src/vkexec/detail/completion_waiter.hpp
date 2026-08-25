@@ -1,13 +1,15 @@
 #ifndef VKEXEC_DETAIL_COMPLETION_WAITER_HPP
 #define VKEXEC_DETAIL_COMPLETION_WAITER_HPP
 
+#include <vkexec/error.hpp>
+
 #include <vulkan/vulkan.h>
 
 #include <condition_variable>
 #include <cstdint>
-#include <exception>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -19,7 +21,7 @@ namespace vkexec::detail {
 class completion_waiter
 {
 public:
-  using done_fn = std::move_only_function<void(std::exception_ptr error, bool stopped)>;
+  using done_fn = std::move_only_function<void(std::optional<error> failure, bool stopped)>;
   using stop_fn = std::move_only_function<bool()>;
 
   completion_waiter(VkDevice device, VkQueue fallback_queue);
@@ -31,12 +33,10 @@ public:
   auto operator=(completion_waiter &&) -> completion_waiter & = delete;
 
   /// Always waits for the GPU and destroys `semaphore`/`fence` before invoking `on_done`.
-  /// `on_done(error, stopped)` runs only after those sync objects are gone; callers must
-  /// also reclaim cmd/descriptor loans before choosing `set_stopped` / `set_value` / `set_error`.
-  auto enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> void;
+  auto enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> status;
 
   /// Wait for a caller-owned fence; never destroys it. Used for window frame fences.
-  auto enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> void;
+  auto enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> status;
 
   /// Drain outstanding waits and join the agent thread. Safe to call once.
   auto shutdown() -> void;
@@ -53,9 +53,9 @@ private:
   };
 
   auto run() -> void;
-  auto finish_job(job item, std::exception_ptr error) -> void;
-  auto finish_all(std::vector<job> &jobs, std::exception_ptr const &error) -> void;
-  [[nodiscard]] auto wait_any_fence(std::vector<VkFence> const &fences) -> std::exception_ptr;
+  auto finish_job(job item, std::optional<error> failure) -> void;
+  auto finish_all(std::vector<job> &jobs, std::optional<error> failure) -> void;
+  [[nodiscard]] auto wait_any_fence(std::vector<VkFence> const &fences) -> std::optional<error>;
   auto complete_without_fences(std::vector<job> &jobs) -> void;
   auto reap_ready_jobs(std::vector<job> &jobs) -> void;
 

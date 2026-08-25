@@ -1,10 +1,9 @@
 #include "detail/host_agent.hpp"
 
-#include <vkexec/config.hpp>
+#include <vkexec/error.hpp>
 
 #include <future>
 #include <mutex>
-#include <stdexcept>
 #include <stop_token>
 #include <thread>
 #include <utility>
@@ -53,21 +52,22 @@ auto host_agent::on_agent_thread() const noexcept -> bool { return std::this_thr
 
 auto host_agent::thread_id() const noexcept -> std::thread::id { return thread_id_; }
 
-auto host_agent::enqueue(task_fn task) -> void
+auto host_agent::enqueue(task_fn task) -> status
 {
-  if (!task) { return; }
+  if (!task) { return {}; }
   if (on_agent_thread()) {
     current_agent_guard const guard{ this };
-    task();
-    return;
+    std::move(task)();
+    return {};
   }
 
   {
     std::scoped_lock const lock(mutex_);
-    if (shutting_down_) { VKEXEC_THROW(std::runtime_error("host_agent enqueue after shutdown")); }
+    if (shutting_down_) { return make_error(errc::invalid_argument, "host_agent enqueue after shutdown"); }
     pending_.push_back(std::move(task));
   }
   cv_.notify_one();
+  return {};
 }
 
 auto host_agent::shutdown() -> void

@@ -1,14 +1,12 @@
 #include "detail/completion_waiter.hpp"
 
-#include <vkexec/config.hpp>
+#include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
-#include <exception>
 #include <iterator>
 #include <mutex>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -29,9 +27,6 @@ namespace {
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
   }
 
-  auto make_runtime_error(char const *what) -> std::exception_ptr
-  { return std::make_exception_ptr(std::runtime_error(what)); }
-
 }// namespace
 
 completion_waiter::completion_waiter(VkDevice device, VkQueue fallback_queue)
@@ -40,13 +35,13 @@ completion_waiter::completion_waiter(VkDevice device, VkQueue fallback_queue)
 
 completion_waiter::~completion_waiter() { shutdown(); }
 
-auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> void
+auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
 {
   {
     std::scoped_lock const lock(mutex_);
     if (shutting_down_) {
       reclaim_sync(device_, fallback_queue_, semaphore, fence);
-      VKEXEC_THROW(std::runtime_error("completion_waiter enqueue after shutdown"));
+      return make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
     }
     pending_.push_back(job{
       .semaphore = semaphore,
@@ -58,13 +53,14 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
     });
   }
   cv_.notify_one();
+  return {};
 }
 
-auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> void
+auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
 {
   {
     std::scoped_lock const lock(mutex_);
-    if (shutting_down_) { VKEXEC_THROW(std::runtime_error("completion_waiter enqueue after shutdown")); }
+    if (shutting_down_) { return make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"); }
     pending_.push_back(job{
       .semaphore = VK_NULL_HANDLE,
       .fence = fence,
@@ -75,6 +71,7 @@ auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, 
     });
   }
   cv_.notify_one();
+  return {};
 }
 
 auto completion_waiter::shutdown() -> void
@@ -85,23 +82,22 @@ auto completion_waiter::shutdown() -> void
     shutting_down_ = true;
   }
   cv_.notify_all();
-  // jthread joins on destruction; reset so drain finishes before device teardown.
   thread_ = std::jthread{};
 }
 
-auto completion_waiter::finish_job(job item, std::exception_ptr error) -> void
+auto completion_waiter::finish_job(job item, std::optional<error> failure) -> void
 {
   if (item.destroy_sync) {
     reclaim_sync(device_, fallback_queue_, item.semaphore, item.fence);
   } else if (item.fence != VK_NULL_HANDLE) {
     (void)vkWaitForFences(device_, 1, &item.fence, VK_TRUE, UINT64_MAX);
   }
-  if (item.on_done) { item.on_done(std::move(error), item.stop_seen); }
+  if (item.on_done) { item.on_done(std::move(failure), item.stop_seen); }
 }
 
-auto completion_waiter::finish_all(std::vector<job> &jobs, std::exception_ptr const &error) -> void
+auto completion_waiter::finish_all(std::vector<job> &jobs, std::optional<error> failure) -> void
 {
-  for (job &item : jobs) { finish_job(std::move(item), error); }
+  for (job &item : jobs) { finish_job(std::move(item), failure); }
   jobs.clear();
 }
 
@@ -121,22 +117,22 @@ auto completion_waiter::collect_fences(std::vector<job> const &jobs, std::vector
   }
 }
 
-auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> std::exception_ptr
+auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> std::optional<error>
 {
-  if (fences.empty()) { return nullptr; }
+  if (fences.empty()) { return std::nullopt; }
   VkResult const wait_result =
     vkWaitForFences(device_, static_cast<std::uint32_t>(fences.size()), fences.data(), VK_FALSE, k_poll_timeout_ns);
-  if (wait_result == VK_SUCCESS || wait_result == VK_TIMEOUT) { return nullptr; }
-  return make_runtime_error("vkWaitForFences failed");
+  if (wait_result == VK_SUCCESS || wait_result == VK_TIMEOUT) { return std::nullopt; }
+  return make_vk_error(wait_result, "vkWaitForFences failed");
 }
 
 auto completion_waiter::complete_without_fences(std::vector<job> &jobs) -> void
 {
   if (vkQueueWaitIdle(fallback_queue_) != VK_SUCCESS) {
-    finish_all(jobs, make_runtime_error("vkQueueWaitIdle failed"));
+    finish_all(jobs, make_vk_error(VK_ERROR_UNKNOWN, "vkQueueWaitIdle failed"));
     return;
   }
-  finish_all(jobs, nullptr);
+  finish_all(jobs, std::nullopt);
 }
 
 auto completion_waiter::reap_ready_jobs(std::vector<job> &jobs) -> void
@@ -146,20 +142,20 @@ auto completion_waiter::reap_ready_jobs(std::vector<job> &jobs) -> void
 
   for (job &item : jobs) {
     if (item.fence == VK_NULL_HANDLE) {
-      finish_job(std::move(item), nullptr);
+      finish_job(std::move(item), std::nullopt);
       continue;
     }
 
     VkResult const status = vkGetFenceStatus(device_, item.fence);
     if (status == VK_SUCCESS) {
-      finish_job(std::move(item), nullptr);
+      finish_job(std::move(item), std::nullopt);
       continue;
     }
     if (status == VK_NOT_READY) {
       still_waiting.push_back(std::move(item));
       continue;
     }
-    finish_job(std::move(item), make_runtime_error("vkGetFenceStatus failed"));
+    finish_job(std::move(item), make_vk_error(status, "vkGetFenceStatus failed"));
   }
 
   jobs = std::move(still_waiting);
@@ -189,7 +185,7 @@ auto completion_waiter::run() -> void
       continue;
     }
 
-    if (std::exception_ptr const wait_error = wait_any_fence(fences)) {
+    if (std::optional<error> const wait_error = wait_any_fence(fences)) {
       finish_all(active, wait_error);
       continue;
     }

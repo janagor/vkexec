@@ -1,6 +1,8 @@
 #ifndef VKEXEC_DETAIL_HOST_AGENT_HPP
 #define VKEXEC_DETAIL_HOST_AGENT_HPP
 
+#include <vkexec/error.hpp>
+
 #include <condition_variable>
 #include <functional>
 #include <mutex>
@@ -25,7 +27,7 @@ public:
   auto operator=(host_agent &&) -> host_agent & = delete;
 
   /// Run `task` on the agent thread. Runs inline if already on that thread.
-  auto enqueue(task_fn task) -> void;
+  auto enqueue(task_fn task) -> status;
 
   /// Drain remaining tasks and join the agent thread. Safe to call once.
   auto shutdown() -> void;
