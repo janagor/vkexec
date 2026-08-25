@@ -159,7 +159,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     k_heap_glsl,
     vkexec::layout_desc{
       .bindings = {},
-      .push_constant_size = sizeof(heap_push),
+      .push_constant_size = 0,
       .specialization = {},
       .local_size = { 64, 1, 1 },
       .descriptor_heap = true,

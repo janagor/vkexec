@@ -247,7 +247,6 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   }
 
   VkDevice device = ctx_->device();
-  resources->shader = create_shader_module(device, spirv);
   if (desc.descriptor_heap) {
     if (!desc.bindings.empty()) {
       VKEXEC_THROW(std::invalid_argument("descriptor_heap pipelines must not declare descriptor-set bindings"));
@@ -255,6 +254,10 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
     if (desc.push_constant_size != 0) {
       VKEXEC_THROW(std::invalid_argument("descriptor_heap pipelines use push data, not push constants"));
     }
+  }
+
+  resources->shader = create_shader_module(device, spirv);
+  if (desc.descriptor_heap) {
     resources->pipeline = create_compute_pipeline(device, resources->shader, VK_NULL_HANDLE, spec_ptr, true);
   } else {
     resources->set_layout = create_set_layout(device, resources->binding_count);

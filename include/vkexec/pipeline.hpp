@@ -19,6 +19,8 @@ struct layout_desc
 {
   /// Binding index is the position in this list (0, 1, ...).
   std::vector<buffer_access> bindings;
+  /// Classic push-constant range size. Must be 0 when `descriptor_heap` is true
+  /// (bindless payloads use `cmd_push_data` / `compute_pass` push bytes instead).
   std::size_t push_constant_size{ 0 };
   std::vector<std::uint32_t> specialization;
   std::array<std::uint32_t, 3> local_size{ k_default_local_size };
