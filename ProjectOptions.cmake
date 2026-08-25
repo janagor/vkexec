@@ -56,6 +56,7 @@ macro(vkexec_supports_sanitizers)
 endmacro()
 
 macro(vkexec_setup_options)
+  option(VKEXEC_ENABLE_EXCEPTIONS "Enable C++ exceptions for vkexec targets" OFF)
   option(vkexec_ENABLE_HARDENING "Enable hardening" ON)
   option(vkexec_ENABLE_COVERAGE "Enable coverage reporting" OFF)
   cmake_dependent_option(
@@ -232,6 +233,14 @@ macro(vkexec_local_options)
       set(ENABLE_UBSAN_MINIMAL_RUNTIME TRUE)
     endif()
     vkexec_enable_hardening(vkexec_options OFF ${ENABLE_UBSAN_MINIMAL_RUNTIME})
+  endif()
+
+  if(NOT VKEXEC_ENABLE_EXCEPTIONS)
+    if(MSVC)
+      target_compile_options(vkexec_options INTERFACE /EHsc- /D_HAS_EXCEPTIONS=0)
+    else()
+      target_compile_options(vkexec_options INTERFACE -fno-exceptions)
+    endif()
   endif()
 
 endmacro()

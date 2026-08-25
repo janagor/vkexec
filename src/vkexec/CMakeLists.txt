@@ -1,5 +1,6 @@
 add_library(
   vkexec
+  error.cpp
   context.cpp
   completion_waiter.cpp
   host_agent.cpp

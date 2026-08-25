@@ -7,6 +7,7 @@ target_link_libraries(
   PUBLIC vkexec_options
          vkexec_warnings
          vkexec::vkexec
+         cx_system_error::cx_system_error
          glfw
   PRIVATE vk-bootstrap::vk-bootstrap)
 

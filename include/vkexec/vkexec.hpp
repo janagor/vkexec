@@ -11,6 +11,8 @@
 #include <vkexec/device_procs.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec/frame_ring.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>

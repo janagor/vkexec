@@ -19,6 +19,8 @@ enum class errc {
   unsupported,
   out_of_range,
   empty_result,
+  cancelled,
+  vulkan,
 };
 
 class vkexec_error_category final : public cx::ErrorCategory
@@ -43,10 +45,24 @@ public:
       return "out of range";
     case errc::empty_result:
       return "empty result";
+    case errc::cancelled:
+      return "cancelled";
+    case errc::vulkan:
+      return "vulkan error";
     default:
       return "unknown vkexec error";
     }
   }
+};
+
+class vulkan_error_category final : public cx::ErrorCategory
+{
+public:
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto Name() const noexcept -> char const * override { return "vkexec.vulkan"; }
+
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] auto Message(int error_value) const noexcept -> std::string_view override;
 };
 
 [[nodiscard]] inline auto category() noexcept -> cx::ErrorCategory const &
@@ -55,9 +71,19 @@ public:
   return k_instance;
 }
 
+[[nodiscard]] inline auto vulkan_category() noexcept -> cx::ErrorCategory const &
+{
+  static vulkan_error_category const k_instance{};
+  return k_instance;
+}
+
 // NOLINTNEXTLINE(readability-identifier-naming)
 [[nodiscard]] inline auto MakeErrorCode(errc error) noexcept -> cx::ErrorCode
 { return cx::ErrorCode{ static_cast<int>(error), category() }; }
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+[[nodiscard]] inline auto MakeVkErrorCode(int vk_result) noexcept -> cx::ErrorCode
+{ return cx::ErrorCode{ vk_result, vulkan_category() }; }
 
 struct error
 {
@@ -77,6 +103,12 @@ using status = std::expected<void, error>;
     .code = MakeErrorCode(code),
     .detail = detail,
   };
+}
+
+[[nodiscard]] inline auto to_string(error const &err) -> std::string
+{
+  if (err.detail.empty()) { return std::string(err.code.Message()); }
+  return err.detail;
 }
 
 }// namespace vkexec
