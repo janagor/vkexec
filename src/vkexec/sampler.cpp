@@ -1,0 +1,76 @@
+#include <vkexec/sampler.hpp>
+
+#include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
+
+#include <vulkan/vulkan_core.h>
+
+#include <stdexcept>
+
+namespace vkexec {
+namespace {
+
+  [[noreturn]] auto fail(char const *what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
+
+}// namespace
+
+auto sampler::create(context &ctx, sampler_create_info info) -> sampler
+{
+  if (ctx.device() == VK_NULL_HANDLE) { fail("sampler requires a VkDevice"); }
+
+  VkSamplerCreateInfo create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  create_info.magFilter = info.mag_filter;
+  create_info.minFilter = info.min_filter;
+  create_info.addressModeU = info.address_mode_u;
+  create_info.addressModeV = info.address_mode_v;
+  create_info.addressModeW = info.address_mode_w;
+  create_info.anisotropyEnable = info.anisotropy_enable;
+  create_info.maxAnisotropy = info.max_anisotropy;
+  create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  create_info.unnormalizedCoordinates = VK_FALSE;
+  create_info.compareEnable = VK_FALSE;
+  create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+  create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  create_info.mipLodBias = 0.0F;
+  create_info.minLod = 0.0F;
+  create_info.maxLod = 0.0F;
+
+  VkSampler sampler_handle{ VK_NULL_HANDLE };
+  if (vkCreateSampler(ctx.device(), &create_info, nullptr, &sampler_handle) != VK_SUCCESS) {
+    fail("vkCreateSampler failed");
+  }
+  return sampler{ &ctx, sampler_handle };
+}
+
+sampler::sampler(context *ctx, VkSampler handle) noexcept : ctx_(ctx), sampler_(handle) {}
+
+sampler::~sampler() { destroy(); }
+
+sampler::sampler(sampler &&other) noexcept : ctx_(other.ctx_), sampler_(other.sampler_)
+{
+  other.ctx_ = nullptr;
+  other.sampler_ = VK_NULL_HANDLE;
+}
+
+auto sampler::operator=(sampler &&other) noexcept -> sampler &
+{
+  if (this == &other) { return *this; }
+  destroy();
+  ctx_ = other.ctx_;
+  sampler_ = other.sampler_;
+  other.ctx_ = nullptr;
+  other.sampler_ = VK_NULL_HANDLE;
+  return *this;
+}
+
+auto sampler::destroy() noexcept -> void
+{
+  if (ctx_ != nullptr && ctx_->device() != VK_NULL_HANDLE && sampler_ != VK_NULL_HANDLE) {
+    vkDestroySampler(ctx_->device(), sampler_, nullptr);
+  }
+  ctx_ = nullptr;
+  sampler_ = VK_NULL_HANDLE;
+}
+
+}// namespace vkexec

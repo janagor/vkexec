@@ -52,6 +52,7 @@ add_executable(
   image_tests.cpp
   image_barrier_tests.cpp
   rendering_tests.cpp
+  sampler_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
   draw_stop_tests.cpp

@@ -11,6 +11,7 @@ add_library(
   image.cpp
   image_view.cpp
   rendering.cpp
+  sampler.cpp
   vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
