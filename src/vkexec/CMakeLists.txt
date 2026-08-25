@@ -7,6 +7,7 @@ add_library(
   compute_pipeline.cpp
   gpu_buffer.cpp
   timeline_semaphore.cpp
+  frame_ring.cpp
   descriptor_heap.cpp
   image.cpp
   image_view.cpp

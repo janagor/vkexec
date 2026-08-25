@@ -46,6 +46,7 @@ add_executable(
   buffer_tests.cpp
   gpu_buffer_tests.cpp
   timeline_semaphore_tests.cpp
+  frame_ring_tests.cpp
   push_data_tests.cpp
   descriptor_heap_tests.cpp
   descriptor_heap_pipeline_tests.cpp
