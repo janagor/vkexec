@@ -106,13 +106,20 @@ endif()
 
 include(cmake/PackageProject.cmake)
 
-# Add other targets that you want installed here, by default we just package the one executable
-# we know we want to ship
-vkexec_package_project(
-  TARGETS vkexec_options vkexec_warnings
-  # FIXME: this does not work! CK
-  # PRIVATE_DEPENDENCIES_CONFIGURED project_options project_warnings
-)
+# Interface option/warning targets remain package-exportable.
+vkexec_package_project(TARGETS vkexec_options vkexec_warnings)
+
+# Static libraries pull CPM targets that are not themselves exported. Install the
+# archives and public headers so consumers can still stage a prefix; prefer
+# add_subdirectory / CPM for full target propagation until deps are packaged.
+include(GNUInstallDirs)
+install(
+  TARGETS vkexec_edsl vkexec vkexec_graphics
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you
