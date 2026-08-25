@@ -31,6 +31,7 @@ include(ProjectOptions.cmake)
 vkexec_setup_options()
 
 vkexec_global_options()
+option(VKEXEC_BUILD_EXAMPLES "Build vkexec example executables (pulls extra dependencies like tinygltf)" ON)
 include(Dependencies.cmake)
 vkexec_setup_dependencies()
 
@@ -58,8 +59,6 @@ add_library(vkexec::vkexec_warnings ALIAS vkexec_warnings)
 
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
-
-option(VKEXEC_BUILD_EXAMPLES "Build vkexec example executables (pulls extra dependencies like tinygltf)" ON)
 
 # Adding the src:
 add_subdirectory(src)
