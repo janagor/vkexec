@@ -14,6 +14,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/timeline_semaphore.hpp>

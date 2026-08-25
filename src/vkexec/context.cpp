@@ -487,6 +487,64 @@ auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemapho
   return sem;
 }
 
+auto context::submit(queue_submit const &info) -> void
+{
+  if (info.command_buffers.empty()) { fail("queue_submit requires at least one command buffer"); }
+
+  VkQueue const queue = info.queue != VK_NULL_HANDLE ? info.queue : compute_queue_;
+  if (queue == VK_NULL_HANDLE) { fail("queue_submit requires a VkQueue"); }
+
+  std::vector<VkSemaphore> wait_semaphores;
+  std::vector<VkPipelineStageFlags> wait_stages;
+  std::vector<std::uint64_t> wait_values;
+  wait_semaphores.reserve(info.waits.size());
+  wait_stages.reserve(info.waits.size());
+  wait_values.reserve(info.waits.size());
+  for (semaphore_submit const &wait : info.waits) {
+    if (wait.semaphore == VK_NULL_HANDLE) { fail("queue_submit wait semaphore is null"); }
+    wait_semaphores.push_back(wait.semaphore);
+    wait_stages.push_back(wait.stage);
+    wait_values.push_back(wait.value);
+  }
+
+  std::vector<VkSemaphore> signal_semaphores;
+  std::vector<std::uint64_t> signal_values;
+  signal_semaphores.reserve(info.signals.size());
+  signal_values.reserve(info.signals.size());
+  for (semaphore_submit const &signal : info.signals) {
+    if (signal.semaphore == VK_NULL_HANDLE) { fail("queue_submit signal semaphore is null"); }
+    signal_semaphores.push_back(signal.semaphore);
+    signal_values.push_back(signal.value);
+  }
+
+  bool const use_timeline = std::ranges::any_of(info.waits, [](semaphore_submit const &entry) -> bool {
+    return entry.value != 0;
+  }) || std::ranges::any_of(info.signals, [](semaphore_submit const &entry) -> bool { return entry.value != 0; });
+
+  VkTimelineSemaphoreSubmitInfo timeline_info{};
+  timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+  if (use_timeline) {
+    timeline_info.waitSemaphoreValueCount = static_cast<std::uint32_t>(wait_values.size());
+    timeline_info.pWaitSemaphoreValues = wait_values.empty() ? nullptr : wait_values.data();
+    timeline_info.signalSemaphoreValueCount = static_cast<std::uint32_t>(signal_values.size());
+    timeline_info.pSignalSemaphoreValues = signal_values.empty() ? nullptr : signal_values.data();
+  }
+
+  VkSubmitInfo submit_info{};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.pNext = use_timeline ? &timeline_info : nullptr;
+  submit_info.waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size());
+  submit_info.pWaitSemaphores = wait_semaphores.empty() ? nullptr : wait_semaphores.data();
+  submit_info.pWaitDstStageMask = wait_stages.empty() ? nullptr : wait_stages.data();
+  submit_info.commandBufferCount = static_cast<std::uint32_t>(info.command_buffers.size());
+  submit_info.pCommandBuffers = info.command_buffers.data();
+  submit_info.signalSemaphoreCount = static_cast<std::uint32_t>(signal_semaphores.size());
+  submit_info.pSignalSemaphores = signal_semaphores.empty() ? nullptr : signal_semaphores.data();
+
+  std::scoped_lock const lock(host_mutex_);
+  if (vkQueueSubmit(queue, 1, &submit_info, info.fence) != VK_SUCCESS) { fail("vkQueueSubmit failed"); }
+}
+
 auto context::get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &
 { return pipeline_cache_->get_or_compile(edsl::detail::trace_ast_access::get(trace), work_count); }
 

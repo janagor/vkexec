@@ -3,6 +3,7 @@
 
 #include <vkexec/device_procs.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <VkBootstrap.h>
@@ -110,6 +111,8 @@ public:
 
   auto submit_and_wait(VkCommandBuffer cmd) -> void;
   auto submit_async(VkCommandBuffer cmd, VkFence *out_fence = nullptr) -> VkSemaphore;
+  /// Submit with optional binary/timeline wait and signal semaphores.
+  auto submit(queue_submit const &info) -> void;
 
   /// Wait for a submitted fence on the context completion agent, then invoke `on_done`.
   /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
