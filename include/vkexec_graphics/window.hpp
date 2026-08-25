@@ -2,6 +2,7 @@
 #define VKEXEC_GRAPHICS_WINDOW_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -63,8 +64,10 @@ public:
   auto wait_idle() -> void;
 
   [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
-  [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return swapchain_extent_; }
-  [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat { return swapchain_format_; }
+  [[nodiscard]] auto extent() const noexcept -> VkExtent2D
+  { return swapchain_ ? swapchain_->extent() : VkExtent2D{}; }
+  [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
+  { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 
   /// Acquire the next swapchain image and begin a primary command buffer.
   /// Returns nullopt if the swapchain was recreated (caller should retry next loop).
@@ -85,7 +88,6 @@ private:
   auto create_headless_surface() -> void;
   [[nodiscard]] auto framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>;
   auto create_swapchain() -> void;
-  auto create_image_views() -> void;
   auto create_render_pass() -> void;
   auto create_depth_resources() -> void;
   auto destroy_depth_resources() noexcept -> void;
@@ -102,12 +104,8 @@ private:
   std::unique_ptr<context> ctx_;
   VkSurfaceKHR surface_{ VK_NULL_HANDLE };
 
-  vkb::Swapchain swapchain_{};
-  VkFormat swapchain_format_{ VK_FORMAT_B8G8R8A8_SRGB };
+  std::optional<swapchain> swapchain_;
   VkFormat depth_format_{ VK_FORMAT_UNDEFINED };
-  VkExtent2D swapchain_extent_{};
-  std::vector<VkImage> swapchain_images_;
-  std::vector<VkImageView> swapchain_views_;
   std::vector<VkFramebuffer> framebuffers_;
 
   VkImage depth_image_{ VK_NULL_HANDLE };

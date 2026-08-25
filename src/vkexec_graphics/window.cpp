@@ -149,7 +149,6 @@ window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
   ctx_->complete_for_surface(surface_);
 
   create_swapchain();
-  create_image_views();
   create_render_pass();
   create_depth_resources();
   create_framebuffers();
@@ -231,26 +230,18 @@ auto window::framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>
 auto window::create_swapchain() -> void
 {
   auto const [framebuffer_width, framebuffer_height] = framebuffer_size();
-
-  vkb::Swapchain const old_swapchain = swapchain_;
-  auto builder =
-    vkb::SwapchainBuilder{ ctx_->vkb_device(), surface_ }
-      .set_desired_format({ .format = VK_FORMAT_B8G8R8A8_SRGB, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
-      .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-      .set_desired_extent(framebuffer_width, framebuffer_height)
-      .set_old_swapchain(old_swapchain);
-
-  swapchain_ = unwrap(builder.build(), "vk-bootstrap SwapchainBuilder");
-  if (old_swapchain.swapchain != VK_NULL_HANDLE) { vkb::destroy_swapchain(old_swapchain); }
-
-  swapchain_format_ = swapchain_.image_format;
-  swapchain_extent_ = swapchain_.extent;
-  swapchain_images_ = unwrap(swapchain_.get_images(), "vk-bootstrap Swapchain::get_images");
+  if (!swapchain_.has_value()) {
+    swapchain_ = swapchain::create(*ctx_,
+      swapchain_create_info{
+        .surface = surface_,
+        .width = framebuffer_width,
+        .height = framebuffer_height,
+      });
+  } else {
+    swapchain_->recreate(framebuffer_width, framebuffer_height);
+  }
   create_swapchain_sync();
 }
-
-auto window::create_image_views() -> void
-{ swapchain_views_ = unwrap(swapchain_.get_image_views(), "vk-bootstrap Swapchain::get_image_views"); }
 
 auto window::create_render_pass() -> void
 {
@@ -258,7 +249,7 @@ auto window::create_render_pass() -> void
 
   VkAttachmentDescription const color{
     .flags = 0,
-    .format = swapchain_format_,
+    .format = swapchain_format(),
     .samples = VK_SAMPLE_COUNT_1_BIT,
     .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
     .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -344,7 +335,7 @@ auto window::create_depth_resources() -> void
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.imageType = VK_IMAGE_TYPE_2D;
   image_info.format = depth_format_;
-  image_info.extent = { .width = swapchain_extent_.width, .height = swapchain_extent_.height, .depth = 1 };
+  image_info.extent = { .width = extent().width, .height = extent().height, .depth = 1 };
   image_info.mipLevels = k_depth_mip_levels;
   image_info.arrayLayers = k_depth_array_layers;
   image_info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -388,16 +379,17 @@ auto window::destroy_depth_resources() noexcept -> void
 
 auto window::create_framebuffers() -> void
 {
-  framebuffers_.resize(swapchain_views_.size());
-  for (std::size_t index = 0; index < swapchain_views_.size(); ++index) {
-    std::array const views{ swapchain_views_.at(index), depth_view_ };
+  auto const views = swapchain_->image_views();
+  framebuffers_.resize(views.size());
+  for (std::size_t index = 0; index < views.size(); ++index) {
+    std::array const attachments{ views[index], depth_view_ };
     VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_info.renderPass = render_pass_;
     framebuffer_info.attachmentCount = k_framebuffer_attachment_count;
-    framebuffer_info.pAttachments = views.data();
-    framebuffer_info.width = swapchain_extent_.width;
-    framebuffer_info.height = swapchain_extent_.height;
+    framebuffer_info.pAttachments = attachments.data();
+    framebuffer_info.width = extent().width;
+    framebuffer_info.height = extent().height;
     framebuffer_info.layers = 1;
     check(vkCreateFramebuffer(ctx_->device(), &framebuffer_info, nullptr, &framebuffers_.at(index)),
       "vkCreateFramebuffer failed");
@@ -429,8 +421,9 @@ auto window::create_swapchain_sync() -> void
 {
   destroy_swapchain_sync();
 
-  render_finished_.resize(swapchain_images_.size());
-  images_in_flight_.assign(swapchain_images_.size(), VK_NULL_HANDLE);
+  auto const image_count = swapchain_->images().size();
+  render_finished_.resize(image_count);
+  images_in_flight_.assign(image_count, VK_NULL_HANDLE);
 
   VkSemaphoreCreateInfo semaphore_info{};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -462,15 +455,7 @@ auto window::cleanup_swapchain() -> void
   }
   framebuffers_.clear();
   destroy_depth_resources();
-  if (!swapchain_views_.empty()) {
-    swapchain_.destroy_image_views(swapchain_views_);
-    swapchain_views_.clear();
-  }
-  swapchain_images_.clear();
-  if (swapchain_.swapchain != VK_NULL_HANDLE) {
-    vkb::destroy_swapchain(swapchain_);
-    swapchain_ = {};
-  }
+  swapchain_.reset();
 }
 
 auto window::recreate_swapchain() -> void
@@ -492,14 +477,8 @@ auto window::recreate_swapchain() -> void
   }
   framebuffers_.clear();
   destroy_depth_resources();
-  if (!swapchain_views_.empty()) {
-    swapchain_.destroy_image_views(swapchain_views_);
-    swapchain_views_.clear();
-  }
-  swapchain_images_.clear();
 
   create_swapchain();
-  create_image_views();
   create_depth_resources();
   create_framebuffers();
 }
@@ -511,16 +490,12 @@ auto window::begin_frame() -> std::optional<frame>
   auto &sync = frames_.at(frame_index_);
   check(vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX), "vkWaitForFences failed");
 
-  std::uint32_t image_index = 0;
-  VkResult const acquire =
-    vkAcquireNextImageKHR(ctx_->device(), swapchain_, UINT64_MAX, sync.image_available, VK_NULL_HANDLE, &image_index);
-  if (acquire == VK_ERROR_OUT_OF_DATE_KHR) {
+  auto const acquired = swapchain_->acquire_next_image(sync.image_available);
+  if (!acquired.has_value()) {
     recreate_swapchain();
     return std::nullopt;
   }
-  if (acquire != VK_SUCCESS && acquire != VK_SUBOPTIMAL_KHR) {
-    VKEXEC_THROW(std::runtime_error("vkAcquireNextImageKHR failed"));
-  }
+  std::uint32_t const image_index = *acquired;
 
   if (images_in_flight_.at(image_index) != VK_NULL_HANDLE) {
     check(vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX),
@@ -540,7 +515,7 @@ auto window::begin_frame() -> std::optional<frame>
   frame_open_ = true;
   return frame{ .command_buffer = cmd,
     .framebuffer = framebuffers_.at(image_index),
-    .extent = swapchain_extent_,
+    .extent = extent(),
     .image_index = image_index };
 }
 
@@ -564,20 +539,11 @@ auto window::end_frame(frame const &drawn) -> VkFence
   submit_info.pSignalSemaphores = &render_finished_.at(current_image_index_);
   check(vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight), "vkQueueSubmit failed");
 
-  VkPresentInfoKHR present_info{};
-  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &render_finished_.at(current_image_index_);
-  present_info.swapchainCount = 1;
-  present_info.pSwapchains = &swapchain_.swapchain;
-  present_info.pImageIndices = &current_image_index_;
-
-  VkResult const presented = vkQueuePresentKHR(ctx_->present_queue(), &present_info);
-  if (presented == VK_ERROR_OUT_OF_DATE_KHR || presented == VK_SUBOPTIMAL_KHR || framebuffer_resized_) {
+  std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
+  bool const needs_recreate = !swapchain_->present(current_image_index_, wait_semaphores) || framebuffer_resized_;
+  if (needs_recreate) {
     framebuffer_resized_ = false;
     recreate_swapchain();
-  } else if (presented != VK_SUCCESS) {
-    VKEXEC_THROW(std::runtime_error("vkQueuePresentKHR failed"));
   }
 
   VkFence submitted = sync.in_flight;
