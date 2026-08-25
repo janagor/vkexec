@@ -1,10 +1,10 @@
 #ifndef VKEXEC_GRAPHICS_DRAW_HPP
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
-#include <vkexec/config.hpp>
+#include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
-#include <vkexec/submit_scope.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/window.hpp>
@@ -14,9 +14,8 @@
 
 #include <array>
 #include <cstdint>
-#include <exception>
 #include <initializer_list>
-#include <stdexcept>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -27,8 +26,21 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  template<class Receiver> auto complete_draw(Receiver &&receiver, std::exception_ptr error, bool stopped) -> void
-  { complete_after_reclaim(std::forward<Receiver>(receiver), std::move(error), stopped); }
+  [[nodiscard]] inline auto try_begin_frame(window &win) -> result<std::optional<frame>> { return win.begin_frame(); }
+
+  [[nodiscard]] inline auto try_end_frame(window &win, frame const &drawn) -> result<VkFence> { return win.end_frame(drawn); }
+
+  template<class Receiver>
+  auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
+  {
+    if (failure) {
+      ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
+    } else if (stopped) {
+      ex::set_stopped(std::forward<Receiver>(receiver));
+    } else {
+      ex::set_value(std::forward<Receiver>(receiver));
+    }
+  }
 
   template<class WindowOp, class Receiver>
   auto start_draw_async(context *ctx, window *win, WindowOp &&record_and_end, Receiver receiver) -> void
@@ -42,26 +54,28 @@ namespace detail {
       }
     }
 
-    std::exception_ptr error;
-    VKEXEC_TRY
-    {
-      // cppcheck-suppress throwInNoexceptFunction
-      if (auto frame = win->begin_frame()) {
-        // NOLINTNEXTLINE(misc-misplaced-const)
-        VkFence fence = std::forward<WindowOp>(record_and_end)(*frame);
-        ctx->enqueue_borrowed_fence_wait(
-          fence, token, [rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable -> void {
-            complete_draw(std::move(rcvr), std::move(wait_error), stopped);
-          });
-        return;
-      }
+    auto const frame_result = try_begin_frame(*win);
+    if (!frame_result) {
+      ex::set_error(std::move(rcvr), frame_result.error());
+      return;
     }
-    VKEXEC_CATCH_ALL { error = std::current_exception(); }
-    if (error) {
-      ex::set_error(std::move(rcvr), error);
-    } else {
+    if (!frame_result->has_value()) {
       ex::set_value(std::move(rcvr));
+      return;
     }
+
+    auto const fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
+    if (!fence_result) {
+      ex::set_error(std::move(rcvr), fence_result.error());
+      return;
+    }
+
+    (void)ctx->enqueue_borrowed_fence_wait(
+      *fence_result,
+      token,
+      [rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable -> void {
+        complete_draw(std::move(rcvr), std::move(wait_error), stopped);
+      });
   }
 
 }// namespace detail
@@ -107,7 +121,7 @@ struct draw_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   window *win{ nullptr };
@@ -125,21 +139,28 @@ struct draw_sender
 
     auto start() noexcept -> void
     {
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        if (auto frame = win->begin_frame()) {
-          pipeline->draw(frame->command_buffer, win->render_pass(), frame->framebuffer, frame->extent, vertex_count);
-          (void)win->end_frame(*frame);
-        }
+      auto const frame_result = detail::try_begin_frame(*win);
+      if (!frame_result) {
+        ex::set_error(std::move(receiver), frame_result.error());
+        return;
       }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(receiver), error);
-      } else {
+      if (!frame_result->has_value()) {
         ex::set_value(std::move(receiver));
+        return;
       }
+
+      frame const &drawn = **frame_result;
+      if (auto const draw_status =
+            pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
+        !draw_status) {
+        ex::set_error(std::move(receiver), draw_status.error());
+        return;
+      }
+      if (auto const fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+        ex::set_error(std::move(receiver), fence_result.error());
+        return;
+      }
+      ex::set_value(std::move(receiver));
     }
   };
 
@@ -158,7 +179,7 @@ struct draw_async_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   window *win{ nullptr };
@@ -184,9 +205,13 @@ struct draw_async_sender
       detail::start_draw_async(
         ctx,
         win,
-        [this](frame &drawn) -> VkFence {
-          pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
-          return win->end_frame(drawn);
+        [this](frame &drawn) -> result<VkFence> {
+          if (auto const draw_status = pipeline->draw(
+                drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
+            !draw_status) {
+            return std::unexpected(draw_status.error());
+          }
+          return detail::try_end_frame(*win, drawn);
         },
         std::move(receiver));
     }
@@ -208,7 +233,7 @@ struct draw_layers_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   window *win{ nullptr };
@@ -224,41 +249,48 @@ struct draw_layers_sender
 
     auto start() noexcept -> void
     {
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        if (layers.empty()) { VKEXEC_THROW(std::invalid_argument("draw_layers requires at least one layer")); }
-        if (auto frame = win->begin_frame()) {
-          graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
-          std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
-
-          VkRenderPassBeginInfo rp_begin{};
-          rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-          rp_begin.renderPass = win->render_pass();
-          rp_begin.framebuffer = frame->framebuffer;
-          rp_begin.renderArea.offset = { .x = 0, .y = 0 };
-          rp_begin.renderArea.extent = frame->extent;
-          rp_begin.clearValueCount = k_graphics_clear_count;
-          rp_begin.pClearValues = clears.data();
-
-          vkCmdBeginRenderPass(frame->command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-          for (draw_layer const &layer : layers) {
-            layer.pipeline->record_draw(frame->command_buffer, frame->extent, layer.vertex_count);
-          }
-          vkCmdEndRenderPass(frame->command_buffer);
-          if (vkEndCommandBuffer(frame->command_buffer) != VK_SUCCESS) {
-            VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
-          }
-          (void)win->end_frame(*frame);
-        }
+      if (layers.empty()) {
+        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
+        return;
       }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(receiver), error);
-      } else {
+
+      auto const frame_result = detail::try_begin_frame(*win);
+      if (!frame_result) {
+        ex::set_error(std::move(receiver), frame_result.error());
+        return;
+      }
+      if (!frame_result->has_value()) {
         ex::set_value(std::move(receiver));
+        return;
       }
+
+      frame const &drawn = **frame_result;
+      graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
+      std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
+
+      VkRenderPassBeginInfo rp_begin{};
+      rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      rp_begin.renderPass = win->render_pass();
+      rp_begin.framebuffer = drawn.framebuffer;
+      rp_begin.renderArea.offset = { .x = 0, .y = 0 };
+      rp_begin.renderArea.extent = drawn.extent;
+      rp_begin.clearValueCount = k_graphics_clear_count;
+      rp_begin.pClearValues = clears.data();
+
+      vkCmdBeginRenderPass(drawn.command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+      for (draw_layer const &layer : layers) {
+        layer.pipeline->record_draw(drawn.command_buffer, drawn.extent, layer.vertex_count);
+      }
+      vkCmdEndRenderPass(drawn.command_buffer);
+      if (VkResult const end_result = vkEndCommandBuffer(drawn.command_buffer); end_result != VK_SUCCESS) {
+        ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed"));
+        return;
+      }
+      if (auto const fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+        ex::set_error(std::move(receiver), fence_result.error());
+        return;
+      }
+      ex::set_value(std::move(receiver));
     }
   };
 
@@ -270,7 +302,7 @@ struct draw_layers_async_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   window *win{ nullptr };
@@ -293,8 +325,10 @@ struct draw_layers_async_sender
       detail::start_draw_async(
         ctx,
         win,
-        [this](frame &drawn_frame) -> VkFence {
-          if (layers.empty()) { VKEXEC_THROW(std::invalid_argument("draw_layers requires at least one layer")); }
+        [this](frame &drawn_frame) -> result<VkFence> {
+          if (layers.empty()) {
+            return std::unexpected(make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
+          }
           graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
           std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
 
@@ -312,10 +346,10 @@ struct draw_layers_async_sender
             layer.pipeline->record_draw(drawn_frame.command_buffer, drawn_frame.extent, layer.vertex_count);
           }
           vkCmdEndRenderPass(drawn_frame.command_buffer);
-          if (vkEndCommandBuffer(drawn_frame.command_buffer) != VK_SUCCESS) {
-            VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed"));
+          if (VkResult const end_result = vkEndCommandBuffer(drawn_frame.command_buffer); end_result != VK_SUCCESS) {
+            return std::unexpected(make_vk_error(end_result, "vkEndCommandBuffer failed"));
           }
-          return win->end_frame(drawn_frame);
+          return detail::try_end_frame(*win, drawn_frame);
         },
         std::move(receiver));
     }
@@ -346,7 +380,7 @@ struct draw_mesh_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   window *win{ nullptr };
@@ -364,21 +398,28 @@ struct draw_mesh_sender
 
     auto start() noexcept -> void
     {
-      std::exception_ptr error;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        if (auto frame = win->begin_frame()) {
-          pipeline->draw(frame->command_buffer, win->render_pass(), frame->framebuffer, frame->extent, *drawn);
-          (void)win->end_frame(*frame);
-        }
+      auto const frame_result = detail::try_begin_frame(*win);
+      if (!frame_result) {
+        ex::set_error(std::move(receiver), frame_result.error());
+        return;
       }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(receiver), error);
-      } else {
+      if (!frame_result->has_value()) {
         ex::set_value(std::move(receiver));
+        return;
       }
+
+      frame const &drawn_frame = **frame_result;
+      if (auto const draw_status = pipeline->draw(
+            drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
+        !draw_status) {
+        ex::set_error(std::move(receiver), draw_status.error());
+        return;
+      }
+      if (auto const fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
+        ex::set_error(std::move(receiver), fence_result.error());
+        return;
+      }
+      ex::set_value(std::move(receiver));
     }
   };
 
@@ -397,7 +438,7 @@ struct draw_mesh_async_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   window *win{ nullptr };
@@ -423,10 +464,13 @@ struct draw_mesh_async_sender
       detail::start_draw_async(
         ctx,
         win,
-        [this](frame &drawn_frame) -> VkFence {
-          pipeline->draw(
-            drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
-          return win->end_frame(drawn_frame);
+        [this](frame &drawn_frame) -> result<VkFence> {
+          if (auto const draw_status = pipeline->draw(
+                drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
+            !draw_status) {
+            return std::unexpected(draw_status.error());
+          }
+          return detail::try_end_frame(*win, drawn_frame);
         },
         std::move(receiver));
     }

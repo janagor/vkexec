@@ -1,14 +1,14 @@
 #ifndef VKEXEC_SCHEDULER_HPP
 #define VKEXEC_SCHEDULER_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
+#include <vkexec/error.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <concepts>
-#include <exception>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -38,7 +38,7 @@ struct scheduler_env
 struct schedule_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error)>;
 
   context *ctx{ nullptr };
 
@@ -56,13 +56,18 @@ struct schedule_sender
         return;
       }
 
-      Receiver rcvr = std::move(receiver);
-      VKEXEC_TRY
+      struct shared_state
       {
-        // cppcheck-suppress throwInNoexceptFunction
-        ctx->enqueue_host([rcvr = std::move(rcvr)]() mutable -> void { ex::set_value(std::move(rcvr)); });
+        Receiver receiver;
+      };
+
+      auto state = std::make_shared<shared_state>(std::move(receiver));
+      if (status const enqueued = ctx->enqueue_host([state]() mutable -> void {
+            ex::set_value(std::move(state->receiver));
+          });
+          !enqueued) {
+        ex::set_error(std::move(state->receiver), enqueued.error());
       }
-      VKEXEC_CATCH_ALL { ex::set_error(std::move(rcvr), std::current_exception()); }
     }
   };
 

@@ -1,6 +1,7 @@
 #ifndef VKEXEC_BULK_HPP
 #define VKEXEC_BULK_HPP
 
+#include <vkexec/error.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/config.hpp>
 #include <vkexec/pipeline.hpp>
@@ -35,33 +36,38 @@ namespace detail {
   };
 
   template<typename Params, typename Fun>
-  auto trace_bulk_kernel(context &ctx, std::uint32_t shape, Fun &fun) -> bulk_traced_state
+  auto trace_bulk_kernel(context &ctx, std::uint32_t shape, Fun &fun) -> result<bulk_traced_state>
   {
     edsl::trace_scope const scope;
     edsl::Int const idx = edsl::Int::param_index();
     auto push_proxy = edsl::push_constant<Params>::bind();
     fun(idx, push_proxy);
+    auto const pipe = ctx.get_or_compile(scope, shape);
+    if (!pipe) { return std::unexpected(pipe.error()); }
     return bulk_traced_state{
-      .pipe = &ctx.get_or_compile(scope, shape),
+      .pipe = &pipe->get(),
       .buffers = scope.buffers(),
       .local_size_x = scope.local_size_x(),
     };
   }
 
   template<typename Params, typename Fun>
-  auto record_bulk_into(submit_scope &scope, std::uint32_t shape, Params const &params, Fun &fun) -> void
+  auto record_bulk_into(submit_scope &scope, std::uint32_t shape, Params const &params, Fun &fun) -> status
   {
-    bulk_traced_state const traced = trace_bulk_kernel<Params>(*scope.ctx, shape, fun);
-    VkDescriptorSet set = allocate_compute_set(*scope.ctx, *traced.pipe, traced.buffers);
-    scope.track_set(*traced.pipe, set);
+    auto const traced = trace_bulk_kernel<Params>(*scope.ctx, shape, fun);
+    if (!traced) { return std::unexpected(traced.error()); }
+    auto const set = allocate_compute_set(*scope.ctx, *traced->pipe, traced->buffers);
+    if (!set) { return std::unexpected(set.error()); }
+    scope.track_set(*traced->pipe, *set);
 
-    vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
+    vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced->pipe->pipeline);
     vkCmdBindDescriptorSets(
-      scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-    if (traced.pipe->push_bytes > 0) { upload_push_constants(scope.cmd, *traced.pipe, params); }
+      scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced->pipe->pipeline_layout, 0, 1, &*set, 0, nullptr);
+    if (traced->pipe->push_bytes > 0) { upload_push_constants(scope.cmd, *traced->pipe, params); }
 
-    std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
+    std::uint32_t const groups = (shape + traced->local_size_x - 1U) / traced->local_size_x;
     vkCmdDispatch(scope.cmd, groups, 1, 1);
+    return {};
   }
 
   template<typename Params, typename Fun, class SubmitFactory>
@@ -70,8 +76,14 @@ namespace detail {
     return ex::let_value(enter_submit_scope(ctx),
       [shape, params = std::move(params), fun = std::move(fun), submit = std::move(submit)](
         submit_scope &scope) mutable -> decltype(auto) {
-        record_bulk_into<Params>(scope, shape, params, fun);
-        scope.end_recording();
+        if (auto const recorded = record_bulk_into<Params>(scope, shape, params, fun); !recorded) {
+          scope.release();
+          return fail_with(recorded.error());
+        }
+        if (auto const ended = scope.end_recording(); !ended) {
+          scope.release();
+          return fail_with(ended.error());
+        }
         return submit(std::move(scope));
       });
   }
@@ -92,7 +104,7 @@ template<typename Params, typename Fun> struct bulk_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::uint32_t shape{};
@@ -146,7 +158,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::uint32_t shape{};

@@ -1,9 +1,11 @@
 #ifndef VKEXEC_BUFFER_HPP
 #define VKEXEC_BUFFER_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/trace.hpp>
 #include <vkexec_edsl/types.hpp>
 
@@ -13,10 +15,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -33,7 +33,7 @@ template<typename T> struct buffer_allocate_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(buffer<T>), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(buffer<T>), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::size_t count{ 0 };
@@ -59,19 +59,11 @@ template<typename T> struct buffer_allocate_sender
         }
       }
 
-      std::exception_ptr error;
-      std::optional<buffer<T>> allocated;
-      VKEXEC_TRY
-      {
-        // cppcheck-suppress throwInNoexceptFunction
-        allocated.emplace(buffer<T>::make_allocated(*ctx, count, fill));
+      if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
+        ex::set_value(std::move(rcvr), std::move(*allocated));
+      } else {
+        ex::set_error(std::move(rcvr), std::move(allocated.error()));
       }
-      VKEXEC_CATCH_ALL { error = std::current_exception(); }
-      if (error) {
-        ex::set_error(std::move(rcvr), error);
-        return;
-      }
-      ex::set_value(std::move(rcvr), std::move(*allocated));
     }
   };
 
@@ -93,14 +85,19 @@ public:
   [[nodiscard]] static auto allocate(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
   { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
 
-  /// Alias for `allocate` (async-object `create` naming).
+  /// Async-object factory sender (same as `allocate`).
   [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
   { return allocate(ctx, count, std::move(fill)); }
 
-  /// Synchronous convenience: `sync_wait(allocate(...))`.
-  explicit buffer(context &ctx, std::size_t count, T fill = T{})
-    : buffer(take_allocated(ex::sync_wait(allocate(ctx, count, std::move(fill)))))
-  {}
+  /// Synchronous allocate: `sync_wait(allocate(...))`.
+  [[nodiscard]] static auto create_sync(context &ctx, std::size_t count, T fill = T{}) -> result<buffer<T>>
+  {
+    if (result const waited = sync_wait(allocate(ctx, count, std::move(fill))); !waited) {
+      return std::unexpected(waited.error());
+    }
+    if (!waited->has_value()) { return std::unexpected(make_error(errc::cancelled, "buffer allocate was stopped")); }
+    return std::get<0>(std::move(**waited));
+  }
 
   ~buffer()
   {
@@ -214,10 +211,10 @@ private:
     : ctx_(ctx), buffer_(handle), allocation_(allocation), mapped_(mapped), count_(count), name_(std::move(name))
   {}
 
-  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> buffer
+  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> result<buffer>
   {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (count == 0) { VKEXEC_THROW(std::invalid_argument("vkexec::buffer count must be > 0")); }
+    if (count == 0) { return std::unexpected(make_error(errc::invalid_argument, "vkexec::buffer count must be > 0")); }
 
     auto const bytes = static_cast<VkDeviceSize>(count * sizeof(T));
 
@@ -235,12 +232,13 @@ private:
     VkBuffer handle{ VK_NULL_HANDLE };
     VmaAllocation allocation{ VK_NULL_HANDLE };
     VmaAllocationInfo ainfo{};
-    if (vmaCreateBuffer(ctx.allocator(), &bci, &aci, &handle, &allocation, &ainfo) != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer failed"));
+    if (VkResult const created = vmaCreateBuffer(ctx.allocator(), &bci, &aci, &handle, &allocation, &ainfo);
+        created != VK_SUCCESS) {
+      return std::unexpected(make_vk_error(created, "vmaCreateBuffer failed"));
     }
     if (ainfo.pMappedData == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), handle, allocation);
-      VKEXEC_THROW(std::runtime_error("vmaCreateBuffer did not map host-visible memory"));
+      return std::unexpected(make_error(errc::io_error, "vmaCreateBuffer did not map host-visible memory"));
     }
 
     auto *const elems = static_cast<T *>(ainfo.pMappedData);
@@ -248,12 +246,6 @@ private:
 
     return buffer(
       owned_tag{}, &ctx, handle, allocation, ainfo.pMappedData, count, "buf" + std::to_string(next_name_id()));
-  }
-
-  [[nodiscard]] static auto take_allocated(std::optional<std::tuple<buffer>> result) -> buffer
-  {
-    if (!result.has_value()) { VKEXEC_THROW(std::runtime_error("vkexec::buffer allocate was stopped")); }
-    return std::get<0>(std::move(*result));
   }
 
   static auto next_name_id() -> int

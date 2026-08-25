@@ -2,7 +2,7 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/config.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/push_data.hpp>
@@ -89,26 +89,32 @@ inline auto record_pass(VkCommandBuffer cmd,
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
 }
 
-inline auto record_heap_pass(context const &ctx,
+[[nodiscard]] inline auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  dispatch groups) -> void
+  dispatch groups) -> status
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) { cmd_push_data(ctx, cmd, push); }
+  if (!push.empty()) {
+    if (auto const pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed; }
+  }
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
+  return {};
 }
 
-inline auto record_heap_pass(context const &ctx,
+[[nodiscard]] inline auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  indirect_dispatch groups) -> void
+  indirect_dispatch groups) -> status
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) { cmd_push_data(ctx, cmd, push); }
+  if (!push.empty()) {
+    if (auto const pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed; }
+  }
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
+  return {};
 }
 
 inline auto record_pass(VkCommandBuffer cmd,
@@ -121,14 +127,14 @@ inline auto record_pass(VkCommandBuffer cmd,
 
 struct pass_step
 {
-  std::function<void(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
+  std::function<status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
 };
 
 struct pass_graph_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
@@ -139,9 +145,17 @@ struct pass_graph_sender
   {
     return ex::connect(ex::let_value(detail::enter_submit_scope(self.ctx),
                          [steps = std::forward_like<decltype(self)>(self.steps)](
-                           detail::submit_scope &scope) mutable -> detail::submit_and_wait_sender {
-                           for (pass_step const &step : steps) { step.record(*scope.ctx, scope.cmd, scope.cleanup); }
-                           scope.end_recording();
+                           detail::submit_scope &scope) mutable -> decltype(auto) {
+                           for (pass_step const &step : steps) {
+                             if (auto const recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
+                               scope.release();
+                               return detail::fail_with(recorded.error());
+                             }
+                           }
+                           if (auto const ended = scope.end_recording(); !ended) {
+                             scope.release();
+                             return detail::fail_with(ended.error());
+                           }
                            return detail::submit_and_wait(std::move(scope));
                          }),
       std::move(receiver));
@@ -152,7 +166,7 @@ struct pass_graph_async_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
@@ -168,9 +182,17 @@ struct pass_graph_async_sender
   {
     return ex::connect(ex::let_value(detail::enter_submit_scope(self.ctx),
                          [steps = std::forward_like<decltype(self)>(self.steps)](
-                           detail::submit_scope &scope) mutable -> detail::submit_fence_sender {
-                           for (pass_step const &step : steps) { step.record(*scope.ctx, scope.cmd, scope.cleanup); }
-                           scope.end_recording();
+                           detail::submit_scope &scope) mutable -> decltype(auto) {
+                           for (pass_step const &step : steps) {
+                             if (auto const recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
+                               scope.release();
+                               return detail::fail_with(recorded.error());
+                             }
+                           }
+                           if (auto const ended = scope.end_recording(); !ended) {
+                             scope.release();
+                             return detail::fail_with(ended.error());
+                           }
                            return detail::submit_fence(std::move(scope));
                          }),
       std::move(receiver));
@@ -249,37 +271,38 @@ namespace detail {
   template<typename Params, typename Fun> auto make_traced_step(compute_pass_closure<Params, Fun> closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> void {
+                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status {
       edsl::trace_scope const scope;
       edsl::Int const idx = edsl::Int::param_index();
       auto push = edsl::push_constant<Params>::bind();
       closure.fun(idx, push);
 
-      pipeline_resources &pipe = record_ctx.get_or_compile(scope, closure.shape);
+      auto const pipe = record_ctx.get_or_compile(scope, closure.shape);
+      if (!pipe) { return std::unexpected(pipe.error()); }
       std::vector<edsl::storage_trace> const buffers = scope.buffers();
       auto const local = scope.local_size_x();
 
-      VkDescriptorSet set = bind_or_allocate_set(record_ctx, pipe, buffers, cleanup);
+      auto const set = bind_or_allocate_set(record_ctx, *pipe, buffers, cleanup);
+      if (!set) { return std::unexpected(set.error()); }
       std::uint32_t const groups = (closure.shape + local - 1U) / local;
-      void const *push_ptr = pipe.push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
-      auto const push_bytes = static_cast<std::uint32_t>(pipe.push_bytes > 0 ? sizeof(Params) : 0);
-      record_pass(cmd, pipe, set, push_ptr, push_bytes, dispatch{ .x = groups });
+      void const *push_ptr = pipe->get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
+      auto const push_bytes = static_cast<std::uint32_t>(pipe->get().push_bytes > 0 ? sizeof(Params) : 0);
+      record_pass(cmd, pipe->get(), *set, push_ptr, push_bytes, dispatch{ .x = groups });
+      return {};
     } };
   }
 
   inline auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
+                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       std::span<std::byte const> const push_bytes{ closure.push };
       bool const use_push_data = closure.bind.layout == VK_NULL_HANDLE;
       if (use_push_data) {
         if (closure.is_indirect) {
-          record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
-        } else {
-          record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
+          return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
         }
-        return;
+        return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
       }
 
       void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
@@ -289,13 +312,15 @@ namespace detail {
       } else {
         record_pass(cmd, closure.bind, push_ptr, push_size, closure.groups);
       }
+      return {};
     } };
   }
 
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
   {
-    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> void {
+    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       tag(cmd);
+      return {};
     } };
   }
 

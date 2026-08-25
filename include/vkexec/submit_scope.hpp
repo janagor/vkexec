@@ -1,8 +1,9 @@
 #ifndef VKEXEC_SUBMIT_SCOPE_HPP
 #define VKEXEC_SUBMIT_SCOPE_HPP
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -13,11 +14,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <mutex>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -104,7 +103,7 @@ namespace detail {
 
   inline auto allocate_compute_set(context const &ctx,
     pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers) -> VkDescriptorSet
+    std::span<edsl::storage_trace const> buffers) -> result<VkDescriptorSet>
   {
     std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};
@@ -113,8 +112,8 @@ namespace detail {
     dsai.descriptorSetCount = 1;
     dsai.pSetLayouts = &pipe.set_layout;
     VkDescriptorSet set{ VK_NULL_HANDLE };
-    if (vkAllocateDescriptorSets(ctx.device(), &dsai, &set) != VK_SUCCESS) {
-      VKEXEC_THROW(std::runtime_error("vkAllocateDescriptorSets failed"));
+    if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
+      return std::unexpected(make_vk_error(result, "vkAllocateDescriptorSets failed"));
     }
     write_storage_descriptors(ctx.device(), set, buffers);
     return set;
@@ -123,17 +122,18 @@ namespace detail {
   inline auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
     std::span<edsl::storage_trace const> buffers,
-    descriptor_cleanup &cleanup) -> VkDescriptorSet
+    descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
   {
     if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
       if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
     }
 
-    VkDescriptorSet set = allocate_compute_set(ctx, pipe, buffers);
+    auto const set = allocate_compute_set(ctx, pipe, buffers);
+    if (!set) { return std::unexpected(set.error()); }
     cleanup.sets.insert_or_assign(
-      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = set });
-    cleanup.track(pipe.descriptor_pool, set);
-    return set;
+      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = *set });
+    cleanup.track(pipe.descriptor_pool, *set);
+    return *set;
   }
 
   /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.
@@ -167,28 +167,35 @@ namespace detail {
 
     ~submit_scope() { release(); }
 
-    [[nodiscard]] static auto open(context &host) -> submit_scope
+    [[nodiscard]] static auto open(context &host) -> result<submit_scope>
     {
       submit_scope scope;
       scope.ctx = &host;
-      scope.cmd = host.allocate_command_buffer();
+
+      auto const cmd = host.allocate_command_buffer();
+      if (!cmd) { return std::unexpected(cmd.error()); }
+      scope.cmd = *cmd;
+
       VkCommandBufferBeginInfo begin{};
       begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
       begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-      if (vkBeginCommandBuffer(scope.cmd, &begin) != VK_SUCCESS) {
+      if (VkResult const result = vkBeginCommandBuffer(scope.cmd, &begin); result != VK_SUCCESS) {
         host.free_command_buffer(scope.cmd);
         scope.cmd = VK_NULL_HANDLE;
         scope.ctx = nullptr;
-        VKEXEC_THROW(std::runtime_error("vkBeginCommandBuffer failed"));
+        return std::unexpected(make_vk_error(result, "vkBeginCommandBuffer failed"));
       }
       return scope;
     }
 
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-    auto end_recording() -> void
+    [[nodiscard]] auto end_recording() -> status
     {
-      if (cmd == VK_NULL_HANDLE) { VKEXEC_THROW(std::runtime_error("submit_scope has no command buffer")); }
-      if (vkEndCommandBuffer(cmd) != VK_SUCCESS) { VKEXEC_THROW(std::runtime_error("vkEndCommandBuffer failed")); }
+      if (cmd == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "submit_scope has no command buffer"); }
+      if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
+        return make_vk_error(result, "vkEndCommandBuffer failed");
+      }
+      return {};
     }
 
     auto track_set(pipeline_resources const &pipe, VkDescriptorSet set) -> void
@@ -223,10 +230,10 @@ namespace detail {
   /// Release cmd/descriptors, then deliver exactly one completion signal.
   /// Call only after GPU/host sync objects for this submit have already been reclaimed.
   template<class Receiver>
-  auto complete_after_reclaim(Receiver &&receiver, std::exception_ptr error, bool stopped) -> void
+  auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
   {
-    if (error) {
-      ex::set_error(std::forward<Receiver>(receiver), std::move(error));
+    if (failure) {
+      ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
     } else if (stopped) {
       ex::set_stopped(std::forward<Receiver>(receiver));
     } else {
@@ -235,19 +242,40 @@ namespace detail {
   }
 
   template<class Receiver>
-  auto release_scope_and_complete(submit_scope &scope, Receiver &&receiver, std::exception_ptr error, bool stopped)
+  auto release_scope_and_complete(submit_scope &scope, Receiver &&receiver, std::optional<error> failure, bool stopped)
     -> void
   {
     scope.release();
-    complete_after_reclaim(std::forward<Receiver>(receiver), std::move(error), stopped);
+    complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
   }
+
+  struct fail_sender
+  {
+    using sender_concept = ex::sender_t;
+    using completion_signatures = ex::completion_signatures<ex::set_error_t(error)>;
+
+    error err;
+
+    template<class Receiver> struct op_state
+    {
+      error err;
+      Receiver receiver;
+
+      auto start() noexcept -> void { ex::set_error(std::move(receiver), std::move(err)); }
+    };
+
+    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+    { return op_state<Receiver>{ std::forward_like<decltype(self)>(self.err), std::move(receiver) }; }
+  };
+
+  [[nodiscard]] inline auto fail_with(error err) -> fail_sender { return fail_sender{ .err = std::move(err) }; }
 
   /// Sender factory: completes with an open `submit_scope` (cmd begun, ready to record).
   struct enter_submit_scope_sender
   {
     using sender_concept = ex::sender_t;
-    using completion_signatures = ex::
-      completion_signatures<ex::set_value_t(submit_scope), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+    using completion_signatures =
+      ex::completion_signatures<ex::set_value_t(submit_scope), ex::set_error_t(error), ex::set_stopped_t()>;
 
     context *ctx{ nullptr };
 
@@ -269,19 +297,12 @@ namespace detail {
           }
         }
 
-        std::exception_ptr error;
-        std::optional<submit_scope> scope;
-        VKEXEC_TRY
-        {
-          // cppcheck-suppress throwInNoexceptFunction
-          scope.emplace(submit_scope::open(*ctx));
-        }
-        VKEXEC_CATCH_ALL { error = std::current_exception(); }
-        if (error) {
-          ex::set_error(std::move(rcvr), error);
+        auto const opened = submit_scope::open(*ctx);
+        if (!opened) {
+          ex::set_error(std::move(rcvr), opened.error());
           return;
         }
-        ex::set_value(std::move(rcvr), std::move(*scope));
+        ex::set_value(std::move(rcvr), std::move(*opened));
       }
     };
 
@@ -300,7 +321,7 @@ namespace detail {
   struct submit_and_wait_sender
   {
     using sender_concept = ex::sender_t;
-    using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr)>;
+    using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error)>;
 
     submit_scope scope;
 
@@ -313,24 +334,14 @@ namespace detail {
 
       auto start() noexcept -> void
       {
-        std::exception_ptr error;
-        VKEXEC_TRY
-        {
-          // cppcheck-suppress throwInNoexceptFunction
-          context *const host = scope.ctx;
-          host->submit_and_wait(scope.cmd);
+        context *const host = scope.ctx;
+        if (auto const submitted = host->submit_and_wait(scope.cmd); !submitted) {
           scope.release();
+          ex::set_error(std::move(receiver), submitted.error());
+          return;
         }
-        VKEXEC_CATCH_ALL
-        {
-          scope.release();
-          error = std::current_exception();
-        }
-        if (error) {
-          ex::set_error(std::move(receiver), error);
-        } else {
-          ex::set_value(std::move(receiver));
-        }
+        scope.release();
+        ex::set_value(std::move(receiver));
       }
     };
 
@@ -352,7 +363,7 @@ namespace detail {
   {
     using sender_concept = ex::sender_t;
     using completion_signatures =
-      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(std::exception_ptr), ex::set_stopped_t()>;
+      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
     submit_scope scope;
 
@@ -378,25 +389,23 @@ namespace detail {
         context *const host = scope.ctx;
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done{ VK_NULL_HANDLE };
-        std::exception_ptr error;
-        VKEXEC_TRY
-        {
-          // cppcheck-suppress throwInNoexceptFunction
-          done = host->submit_async(scope.cmd, &fence);// NOLINT(misc-misplaced-const)
-          host->enqueue_fence_wait(done,
-            fence,
-            token,
-            [scope = std::move(scope), rcvr = std::move(rcvr)](std::exception_ptr wait_error, bool stopped) mutable
-              -> void { release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
-          return;
-        }
-        VKEXEC_CATCH_ALL
-        {
+        if (auto const submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
           reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
           scope.release();
-          error = std::current_exception();
+          ex::set_error(std::move(rcvr), submitted.error());
+          return;
         }
-        if (error) { ex::set_error(std::move(rcvr), error); }
+
+        if (auto const enqueued = host->enqueue_fence_wait(done,
+              fence,
+              token,
+              [scope = std::move(scope), rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable
+                -> void { release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
+          !enqueued) {
+          reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
+          scope.release();
+          ex::set_error(std::move(rcvr), enqueued.error());
+        }
       }
     };
 
