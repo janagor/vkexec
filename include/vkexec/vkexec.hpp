@@ -16,6 +16,7 @@
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
+#include <vkexec/timeline_semaphore.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_edsl/edsl.hpp>
 

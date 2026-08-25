@@ -6,6 +6,7 @@ add_library(
   pipeline_cache.cpp
   compute_pipeline.cpp
   gpu_buffer.cpp
+  timeline_semaphore.cpp
   vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)

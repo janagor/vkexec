@@ -45,6 +45,7 @@ add_executable(
   bulk_tests.cpp
   buffer_tests.cpp
   gpu_buffer_tests.cpp
+  timeline_semaphore_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
   draw_stop_tests.cpp
