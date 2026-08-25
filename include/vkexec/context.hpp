@@ -13,10 +13,10 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <exception>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <thread>
 #include <type_traits>
@@ -66,19 +66,16 @@ struct context_adopt_info
 class context
 {
 public:
-  /// Compute-only context (no window / swapchain). Throws when the device cannot satisfy
-  /// `requirements` (programmer / hard failure path).
-  explicit context(scheduler_options const &opts = {});
   ~context();
 
-  /// Same as the throwing constructor, but returns `errc::unsupported` when device selection
-  /// or feature negotiation fails — preferred for apps that probe optional GPU capabilities.
-  [[nodiscard]] static auto try_create(scheduler_options const &opts = {}) -> result<std::unique_ptr<context>>;
+  /// Compute-only context (no window / swapchain). Returns `errc::unsupported` when device
+  /// selection or feature negotiation fails.
+  [[nodiscard]] static auto create(scheduler_options const &opts = {}) -> result<std::unique_ptr<context>>;
 
   /// Wrap an existing Vulkan device/queues. Returns a context that does not destroy the
   /// instance, device, or an externally supplied VMA allocator. vkexec still owns its
   /// command pool and pipeline cache; create a VMA allocator when `allocator` is null.
-  [[nodiscard]] static auto adopt(context_adopt_info const &info) -> std::unique_ptr<context>;
+  [[nodiscard]] static auto adopt(context_adopt_info const &info) -> result<std::unique_ptr<context>>;
 
   context(context const &) = delete;
   auto operator=(context const &) -> context & = delete;
@@ -105,53 +102,55 @@ public:
   [[nodiscard]] auto api_version() const noexcept -> std::uint32_t { return api_version_; }
   [[nodiscard]] auto procs() const noexcept -> device_procs const & { return procs_; }
 
-  [[nodiscard]] auto get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &;
+  [[nodiscard]] auto get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count)
+    -> result<std::reference_wrapper<pipeline_resources>>;
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> pipeline_resources &;
+    -> result<std::reference_wrapper<pipeline_resources>>;
 
-  auto allocate_command_buffer() -> VkCommandBuffer;
+  [[nodiscard]] auto allocate_command_buffer() -> result<VkCommandBuffer>;
   auto free_command_buffer(VkCommandBuffer cmd) -> void;
 
   /// Serializes command-pool, descriptor-pool, and queue submits across host threads.
   [[nodiscard]] auto lock_host() const -> std::unique_lock<std::mutex>;
 
-  auto submit_and_wait(VkCommandBuffer cmd) -> void;
-  auto submit_async(VkCommandBuffer cmd, VkFence *out_fence = nullptr) -> VkSemaphore;
+  [[nodiscard]] auto submit_and_wait(VkCommandBuffer cmd) -> status;
+  [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence = nullptr)
+    -> status;
   /// Submit with optional binary/timeline wait and signal semaphores.
-  auto submit(queue_submit const &info) -> void;
+  [[nodiscard]] auto submit(queue_submit const &info) -> status;
 
   /// Wait for a submitted fence on the context completion agent, then invoke `on_done`.
   /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
   /// Choose `set_stopped` / `set_value` / `set_error` only after reclaiming cmd/descriptor loans too.
   template<class StopToken, class Done>
-  auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> void
+  [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
     std::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
-    do_enqueue_fence_wait(semaphore,
+    return do_enqueue_fence_wait(semaphore,
       fence,
       std::move(stop_requested),
-      std::move_only_function<void(std::exception_ptr, bool)>{ std::forward<Done>(on_done) });
+      std::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
   }
 
   /// Wait for a caller-owned fence on the completion agent (does not destroy the fence).
   template<class StopToken, class Done>
-  auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> void
+  [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
     std::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
-    do_enqueue_borrowed_fence_wait(fence,
+    return do_enqueue_borrowed_fence_wait(fence,
       std::move(stop_requested),
-      std::move_only_function<void(std::exception_ptr, bool)>{ std::forward<Done>(on_done) });
+      std::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
   }
 
   /// Run `task` on the context host agent (schedule completions land here).
-  template<class Task> auto enqueue_host(Task &&task) -> void
-  { do_enqueue_host(std::move_only_function<void()>{ std::forward<Task>(task) }); }
+  template<class Task> [[nodiscard]] auto enqueue_host(Task &&task) -> status
+  { return do_enqueue_host(std::move_only_function<void()>{ std::forward<Task>(task) }); }
 
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
@@ -160,29 +159,36 @@ private:
   friend class window;
   template<typename T> friend class buffer;
 
+  struct uninitialized_tag
+  {
+  };
   struct instance_only_tag
   {
   };
+
+  explicit context(uninitialized_tag) noexcept = default;
   explicit context(instance_only_tag tag,
     scheduler_options const &opts,
     std::vector<char const *> const &instance_extensions);
-  explicit context(context_adopt_info const &info);
-  auto complete_for_surface(VkSurfaceKHR surface) -> void;
 
-  auto create_command_pool() -> void;
-  auto create_allocator() -> void;
-  auto fetch_queues(bool want_present) -> void;
+  auto init_headless(scheduler_options const &opts) -> status;
+  auto init_adopted(context_adopt_info const &info) -> status;
+  auto complete_for_surface(VkSurfaceKHR surface) -> status;
+
+  auto create_command_pool() -> status;
+  auto create_allocator() -> status;
+  auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> void;
-  auto ensure_completion_waiter() -> detail::completion_waiter &;
-  auto ensure_host_agent() -> detail::host_agent &;
-  auto do_enqueue_fence_wait(VkSemaphore semaphore,
+  auto ensure_completion_waiter() -> result<detail::completion_waiter &>;
+  auto ensure_host_agent() -> result<detail::host_agent &>;
+  [[nodiscard]] auto do_enqueue_fence_wait(VkSemaphore semaphore,
     VkFence fence,
     std::move_only_function<bool()> stop_requested,
-    std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void;
-  auto do_enqueue_borrowed_fence_wait(VkFence fence,
+    std::move_only_function<void(std::optional<error>, bool)> on_done) -> status;
+  [[nodiscard]] auto do_enqueue_borrowed_fence_wait(VkFence fence,
     std::move_only_function<bool()> stop_requested,
-    std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void;
-  auto do_enqueue_host(std::move_only_function<void()> task) -> void;
+    std::move_only_function<void(std::optional<error>, bool)> on_done) -> status;
+  [[nodiscard]] auto do_enqueue_host(std::move_only_function<void()> task) -> status;
 
   vulkan_requirements requirements_{};
   std::uint32_t api_version_{ VK_API_VERSION_1_0 };

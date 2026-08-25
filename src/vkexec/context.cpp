@@ -1,5 +1,6 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -17,12 +18,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -30,16 +29,6 @@
 
 namespace vkexec {
 namespace {
-
-  [[noreturn]] auto fail(std::string const &what) -> void { VKEXEC_THROW(std::runtime_error(what)); }
-
-  template<typename T> auto unwrap(vkb::Result<T> result, char const *what) -> T
-  {
-    if (!result) {
-      fail(std::string(what) + ": " + result.error().message() + " (" + std::to_string(result.vk_result()) + ")");
-    }
-    return result.value();
-  }
 
   auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
   {
@@ -82,7 +71,6 @@ namespace {
 
   auto merge_features(vulkan_requirements const &requirements) -> VkPhysicalDeviceFeatures
   {
-    // Library baseline is currently empty; user bits are required as requested.
     (void)vulkan_library::required_features();
     return requirements.features;
   }
@@ -130,72 +118,112 @@ namespace {
     }
   }
 
-  auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> vkb::Instance
+  auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> result<vkb::Instance>
   {
     vkb::InstanceBuilder builder{};
     configure_instance_builder(builder, opts, api_version, {});
     builder.set_headless();
-    return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
+    auto const built = builder.build();
+    if (!built) { return std::unexpected(make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
+    return *built;
   }
 
   auto build_instance_with_extensions(scheduler_options const &opts,
     std::uint32_t api_version,
-    std::vector<char const *> const &extra_instance_extensions) -> vkb::Instance
+    std::vector<char const *> const &extra_instance_extensions) -> result<vkb::Instance>
   {
     vkb::InstanceBuilder builder{};
     configure_instance_builder(builder, opts, api_version, extra_instance_extensions);
     builder.set_headless();
-    return unwrap(builder.build(), "vk-bootstrap InstanceBuilder");
+    auto const built = builder.build();
+    if (!built) { return std::unexpected(make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
+    return *built;
   }
 
   auto select_physical_device(vkb::Instance const &instance,
     vulkan_requirements const &requirements,
     std::uint32_t api_version,
     VkSurfaceKHR surface,
-    bool want_present) -> vkb::PhysicalDevice
+    bool want_present) -> result<vkb::PhysicalDevice>
   {
     vkb::PhysicalDeviceSelector selector{ instance };
     configure_device_selector(selector, requirements, api_version, want_present);
     if (surface != VK_NULL_HANDLE) { selector.set_surface(surface); }
-    vkb::PhysicalDevice physical_device = unwrap(selector.select(), "vk-bootstrap PhysicalDeviceSelector");
+    auto const selected = selector.select();
+    if (!selected) { return std::unexpected(make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector")); }
+    vkb::PhysicalDevice physical_device = *selected;
     apply_optional_device_requests(physical_device, requirements);
     return physical_device;
   }
 
+  auto build_device(vkb::PhysicalDevice const &physical_device) -> result<vkb::Device>
+  {
+    auto const built = vkb::DeviceBuilder{ physical_device }.build();
+    if (!built) { return std::unexpected(make_error_from_vkb(built, "vk-bootstrap DeviceBuilder")); }
+    return *built;
+  }
+
+  auto init_common_resources(context &ctx) -> status
+  {
+    ctx.load_device_procs();
+    if (auto const pool = ctx.create_command_pool(); !pool) { return pool; }
+    if (auto const allocator = ctx.create_allocator(); !allocator) { return allocator; }
+    ctx.pipeline_cache_ = std::make_unique<pipeline_cache>(ctx);
+    ctx.completion_waiter_ = std::make_unique<detail::completion_waiter>(ctx.device_.device, ctx.compute_queue_);
+    ctx.host_agent_ = std::make_unique<detail::host_agent>();
+    return {};
+  }
+
 }// namespace
 
-context::context(scheduler_options const &opts)
-  : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_)),
-    instance_(build_headless_instance(opts, api_version_)),
-    physical_device_(select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false)),
-    device_(unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder")), has_instance_(true),
-    has_device_(true), owns_instance_(true), owns_device_(true), owns_allocator_(true)
+auto context::create(scheduler_options const &opts) -> result<std::unique_ptr<context>>
 {
-  fetch_queues(false);
-  load_device_procs();
-  create_command_pool();
-  create_allocator();
-  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
-  completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
-  host_agent_ = std::make_unique<detail::host_agent>();
+  auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
+  if (auto const initialized = ctx->init_headless(opts); !initialized) { return std::unexpected(initialized.error()); }
+  return ctx;
 }
 
-auto context::try_create(scheduler_options const &opts) -> result<std::unique_ptr<context>>
+auto context::adopt(context_adopt_info const &info) -> result<std::unique_ptr<context>>
 {
-  VKEXEC_TRY { return std::unique_ptr<context>(new context(opts)); }
-  VKEXEC_CATCH(std::exception const &error)
-  {
-    return std::unexpected(make_error(errc::unsupported, error.what()));
+  auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
+  if (auto const initialized = ctx->init_adopted(info); !initialized) { return std::unexpected(initialized.error()); }
+  return ctx;
+}
+
+auto context::init_headless(scheduler_options const &opts) -> status
+{
+  requirements_ = opts.requirements;
+  api_version_ = resolve_api_version(requirements_);
+
+  auto const instance = build_headless_instance(opts, api_version_);
+  if (!instance) { return std::unexpected(instance.error()); }
+  instance_ = std::move(*instance);
+  has_instance_ = true;
+  owns_instance_ = true;
+
+  auto const physical = select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false);
+  if (!physical) { return std::unexpected(physical.error()); }
+  physical_device_ = std::move(*physical);
+
+  auto const device = build_device(physical_device_);
+  if (!device) { return std::unexpected(device.error()); }
+  device_ = std::move(*device);
+  has_device_ = true;
+  owns_device_ = true;
+  owns_allocator_ = true;
+
+  if (auto const queues = fetch_queues(false); !queues) { return queues; }
+  return init_common_resources(*this);
+}
+
+auto context::init_adopted(context_adopt_info const &info) -> status
+{
+  if (info.device == VK_NULL_HANDLE) {
+    return make_error(errc::invalid_argument, "context::adopt requires a VkDevice");
   }
-}
-
-auto context::adopt(context_adopt_info const &info) -> std::unique_ptr<context>
-{ return std::unique_ptr<context>(new context(info)); }
-
-context::context(context_adopt_info const &info)
-{
-  if (info.device == VK_NULL_HANDLE) { fail("context::adopt requires a VkDevice"); }
-  if (info.compute_queue == VK_NULL_HANDLE) { fail("context::adopt requires a compute VkQueue"); }
+  if (info.compute_queue == VK_NULL_HANDLE) {
+    return make_error(errc::invalid_argument, "context::adopt requires a compute VkQueue");
+  }
 
   instance_.instance = info.instance;
   physical_device_.physical_device = info.physical_device;
@@ -228,46 +256,56 @@ context::context(context_adopt_info const &info)
     allocator_ = info.allocator;
   } else {
     if (info.instance == VK_NULL_HANDLE || info.physical_device == VK_NULL_HANDLE) {
-      fail("context::adopt requires instance and physical_device when allocator is null");
+      return make_error(errc::invalid_argument, "context::adopt requires instance and physical_device when allocator is null");
     }
-    create_allocator();
+    if (auto const created = create_allocator(); !created) { return created; }
     owns_allocator_ = true;
   }
 
-  create_command_pool();
+  if (auto const pool = create_command_pool(); !pool) { return pool; }
   pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   host_agent_ = std::make_unique<detail::host_agent>();
+  return {};
 }
 
 context::context(instance_only_tag tag,
   scheduler_options const &opts,
   std::vector<char const *> const &instance_extensions)
-  : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_)),
-    instance_(build_instance_with_extensions(opts, api_version_, instance_extensions)), has_instance_(true),
-    owns_instance_(true)
-{ (void)tag; }
-
-auto context::complete_for_surface(VkSurfaceKHR surface) -> void
+  : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_))
 {
-  if (surface == VK_NULL_HANDLE) { VKEXEC_THROW(std::invalid_argument("complete_for_surface requires a surface")); }
+  (void)tag;
+  auto const instance = build_instance_with_extensions(opts, api_version_, instance_extensions);
+  if (!instance) { detail::contract_violation("context instance-only construction failed"); }
+  instance_ = std::move(*instance);
+  has_instance_ = true;
+  owns_instance_ = true;
+}
 
-  physical_device_ = select_physical_device(instance_, requirements_, api_version_, surface, true);
-  device_ = unwrap(vkb::DeviceBuilder{ physical_device_ }.build(), "vk-bootstrap DeviceBuilder");
+auto context::complete_for_surface(VkSurfaceKHR surface) -> status
+{
+  if (surface == VK_NULL_HANDLE) {
+    return make_error(errc::invalid_argument, "complete_for_surface requires a surface");
+  }
+
+  auto const physical = select_physical_device(instance_, requirements_, api_version_, surface, true);
+  if (!physical) { return std::unexpected(physical.error()); }
+  physical_device_ = std::move(*physical);
+
+  auto const device = build_device(physical_device_);
+  if (!device) { return std::unexpected(device.error()); }
+  device_ = std::move(*device);
   has_device_ = true;
   owns_device_ = true;
   owns_allocator_ = true;
-  fetch_queues(true);
-  load_device_procs();
-  create_command_pool();
-  create_allocator();
-  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
-  completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
-  host_agent_ = std::make_unique<detail::host_agent>();
+
+  if (auto const queues = fetch_queues(true); !queues) { return queues; }
+  if (auto const initialized = init_common_resources(*this); !initialized) { return initialized; }
   presentation_enabled_ = true;
+  return {};
 }
 
-auto context::fetch_queues(bool want_present) -> void
+auto context::fetch_queues(bool want_present) -> status
 {
   if (auto graphics = device_.get_queue_and_index(vkb::QueueType::graphics)) {
     graphics_queue_ = graphics->first;
@@ -278,11 +316,10 @@ auto context::fetch_queues(bool want_present) -> void
     compute_queue_ = compute->first;
     queue_family_ = compute->second;
   } else if (graphics_queue_ != VK_NULL_HANDLE) {
-    // Graphics queues are compute-capable on typical GPUs.
     compute_queue_ = graphics_queue_;
     queue_family_ = graphics_family_;
   } else {
-    fail("no compute or graphics queue available");
+    return make_error(errc::unsupported, "no compute or graphics queue available");
   }
 
   if (graphics_queue_ == VK_NULL_HANDLE) {
@@ -292,13 +329,14 @@ auto context::fetch_queues(bool want_present) -> void
 
   if (want_present) {
     auto present = device_.get_queue_and_index(vkb::QueueType::present);
-    if (!present) { fail("no present queue available"); }
+    if (!present) { return make_error(errc::unsupported, "no present queue available"); }
     present_queue_ = present->first;
     present_family_ = present->second;
   } else {
     present_queue_ = graphics_queue_;
     present_family_ = graphics_family_;
   }
+  return {};
 }
 
 auto context::load_device_procs() -> void
@@ -329,7 +367,6 @@ auto context::load_device_procs() -> void
 
 context::~context()
 {
-  // Drain host schedule completions and fence waits before tearing down the device.
   host_agent_.reset();
   completion_waiter_.reset();
   pipeline_cache_.reset();
@@ -356,18 +393,19 @@ context::~context()
   }
 }
 
-auto context::create_command_pool() -> void
+auto context::create_command_pool() -> status
 {
   VkCommandPoolCreateInfo pool_info{};
   pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   pool_info.queueFamilyIndex = queue_family_;
   pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   if (vkCreateCommandPool(device_.device, &pool_info, nullptr, &command_pool_) != VK_SUCCESS) {
-    fail("vkCreateCommandPool failed");
+    return make_vk_error(VK_ERROR_UNKNOWN, "vkCreateCommandPool failed");
   }
+  return {};
 }
 
-auto context::create_allocator() -> void
+auto context::create_allocator() -> status
 {
   VmaAllocatorCreateInfo allocator_info{};
   allocator_info.physicalDevice = physical_device_.physical_device;
@@ -377,43 +415,65 @@ auto context::create_allocator() -> void
   if (procs_.get_buffer_device_address != nullptr) {
     allocator_info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
   }
-  if (vmaCreateAllocator(&allocator_info, &allocator_) != VK_SUCCESS) { fail("vmaCreateAllocator failed"); }
+  if (vmaCreateAllocator(&allocator_info, &allocator_) != VK_SUCCESS) {
+    return make_vk_error(VK_ERROR_UNKNOWN, "vmaCreateAllocator failed");
+  }
+  return {};
 }
 
 auto context::lock_host() const -> std::unique_lock<std::mutex> { return std::unique_lock{ host_mutex_ }; }
 
-auto context::ensure_completion_waiter() -> detail::completion_waiter &
+auto context::ensure_completion_waiter() -> result<detail::completion_waiter &>
 {
   if (!completion_waiter_) {
-    if (device_.device == VK_NULL_HANDLE) { fail("completion waiter requires a VkDevice"); }
+    if (device_.device == VK_NULL_HANDLE) {
+      return std::unexpected(make_error(errc::invalid_argument, "completion waiter requires a VkDevice"));
+    }
     completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   }
   return *completion_waiter_;
 }
 
-auto context::ensure_host_agent() -> detail::host_agent &
+auto context::ensure_host_agent() -> result<detail::host_agent &>
 {
   if (!host_agent_) { host_agent_ = std::make_unique<detail::host_agent>(); }
   return *host_agent_;
 }
 
-auto context::host_agent_thread_id() -> std::thread::id { return ensure_host_agent().thread_id(); }
+auto context::host_agent_thread_id() -> std::thread::id
+{
+  auto agent = ensure_host_agent();
+  if (!agent) { detail::contract_violation("host agent unavailable"); }
+  return agent->thread_id();
+}
 
 auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
   VkFence fence,
   std::move_only_function<bool()> stop_requested,
-  std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void
-{ ensure_completion_waiter().enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done)); }
+  std::move_only_function<void(std::optional<error>, bool)> on_done) -> status
+{
+  auto waiter = ensure_completion_waiter();
+  if (!waiter) { return std::unexpected(waiter.error()); }
+  return waiter->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
+}
 
 auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
   std::move_only_function<bool()> stop_requested,
-  std::move_only_function<void(std::exception_ptr, bool)> on_done) -> void
-{ ensure_completion_waiter().enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done)); }
+  std::move_only_function<void(std::optional<error>, bool)> on_done) -> status
+{
+  auto waiter = ensure_completion_waiter();
+  if (!waiter) { return std::unexpected(waiter.error()); }
+  return waiter->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
+}
 
-auto context::do_enqueue_host(std::move_only_function<void()> task) -> void
-{ ensure_host_agent().enqueue(std::move(task)); }
+auto context::do_enqueue_host(std::move_only_function<void()> task) -> status
+{
+  auto agent = ensure_host_agent();
+  if (!agent) { return std::unexpected(agent.error()); }
+  return agent->enqueue(std::move(task));
+}
 
-auto context::allocate_command_buffer() -> VkCommandBuffer
+auto context::allocate_command_buffer() -> result<VkCommandBuffer>
 {
   std::scoped_lock const lock(host_mutex_);
   VkCommandBufferAllocateInfo alloc_info{};
@@ -422,8 +482,8 @@ auto context::allocate_command_buffer() -> VkCommandBuffer
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   alloc_info.commandBufferCount = 1;
   VkCommandBuffer cmd{ VK_NULL_HANDLE };
-  if (vkAllocateCommandBuffers(device_.device, &alloc_info, &cmd) != VK_SUCCESS) {
-    fail("vkAllocateCommandBuffers failed");
+  if (VkResult const result = vkAllocateCommandBuffers(device_.device, &alloc_info, &cmd); result != VK_SUCCESS) {
+    return std::unexpected(make_vk_error(result, "vkAllocateCommandBuffers failed"));
   }
   return cmd;
 }
@@ -434,12 +494,15 @@ auto context::free_command_buffer(VkCommandBuffer cmd) -> void
   vkFreeCommandBuffers(device_.device, command_pool_, 1, &cmd);
 }
 
-auto context::submit_and_wait(VkCommandBuffer cmd) -> void
+auto context::submit_and_wait(VkCommandBuffer cmd) -> status
 {
   VkFenceCreateInfo fence_info{};
   fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   VkFence fence{ VK_NULL_HANDLE };
-  if (vkCreateFence(device_.device, &fence_info, nullptr, &fence) != VK_SUCCESS) { fail("vkCreateFence failed"); }
+  if (VkResult const create_result = vkCreateFence(device_.device, &fence_info, nullptr, &fence);
+    create_result != VK_SUCCESS) {
+    return make_vk_error(create_result, "vkCreateFence failed");
+  }
 
   {
     std::scoped_lock const lock(host_mutex_);
@@ -447,34 +510,43 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> void
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &cmd;
-    if (vkQueueSubmit(compute_queue_, 1, &submit_info, fence) != VK_SUCCESS) {
+    if (VkResult const submit_result = vkQueueSubmit(compute_queue_, 1, &submit_info, fence);
+      submit_result != VK_SUCCESS) {
       vkDestroyFence(device_.device, fence, nullptr);
-      fail("vkQueueSubmit failed");
+      return make_vk_error(submit_result, "vkQueueSubmit failed");
     }
   }
-  if (vkWaitForFences(device_.device, 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+  if (VkResult const wait_result = vkWaitForFences(device_.device, 1, &fence, VK_TRUE, UINT64_MAX);
+    wait_result != VK_SUCCESS) {
     vkDestroyFence(device_.device, fence, nullptr);
-    fail("vkWaitForFences failed");
+    return make_vk_error(wait_result, "vkWaitForFences failed");
   }
   vkDestroyFence(device_.device, fence, nullptr);
+  return {};
 }
 
-auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemaphore
+auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence) -> status
 {
+  if (out_semaphore == nullptr) {
+    return make_error(errc::invalid_argument, "submit_async requires out_semaphore");
+  }
+
   VkSemaphoreCreateInfo semaphore_info{};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
   VkSemaphore sem{ VK_NULL_HANDLE };
-  if (vkCreateSemaphore(device_.device, &semaphore_info, nullptr, &sem) != VK_SUCCESS) {
-    fail("vkCreateSemaphore failed");
+  if (VkResult const sem_result = vkCreateSemaphore(device_.device, &semaphore_info, nullptr, &sem);
+    sem_result != VK_SUCCESS) {
+    return make_vk_error(sem_result, "vkCreateSemaphore failed");
   }
 
   VkFence fence{ VK_NULL_HANDLE };
   if (out_fence != nullptr) {
     VkFenceCreateInfo fence_info{};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    if (vkCreateFence(device_.device, &fence_info, nullptr, &fence) != VK_SUCCESS) {
+    if (VkResult const fence_result = vkCreateFence(device_.device, &fence_info, nullptr, &fence);
+      fence_result != VK_SUCCESS) {
       vkDestroySemaphore(device_.device, sem, nullptr);
-      fail("vkCreateFence failed");
+      return make_vk_error(fence_result, "vkCreateFence failed");
     }
     *out_fence = fence;
   }
@@ -487,21 +559,25 @@ auto context::submit_async(VkCommandBuffer cmd, VkFence *out_fence) -> VkSemapho
     submit_info.pCommandBuffers = &cmd;
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &sem;
-    if (vkQueueSubmit(compute_queue_, 1, &submit_info, fence) != VK_SUCCESS) {
+    if (VkResult const submit_result = vkQueueSubmit(compute_queue_, 1, &submit_info, fence);
+      submit_result != VK_SUCCESS) {
       vkDestroySemaphore(device_.device, sem, nullptr);
       if (fence != VK_NULL_HANDLE) { vkDestroyFence(device_.device, fence, nullptr); }
-      fail("vkQueueSubmit failed");
+      return make_vk_error(submit_result, "vkQueueSubmit failed");
     }
   }
-  return sem;
+  *out_semaphore = sem;
+  return {};
 }
 
-auto context::submit(queue_submit const &info) -> void
+auto context::submit(queue_submit const &info) -> status
 {
-  if (info.command_buffers.empty()) { fail("queue_submit requires at least one command buffer"); }
+  if (info.command_buffers.empty()) {
+    return make_error(errc::invalid_argument, "queue_submit requires at least one command buffer");
+  }
 
   VkQueue const queue = info.queue != VK_NULL_HANDLE ? info.queue : compute_queue_;
-  if (queue == VK_NULL_HANDLE) { fail("queue_submit requires a VkQueue"); }
+  if (queue == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "queue_submit requires a VkQueue"); }
 
   std::vector<VkSemaphore> wait_semaphores;
   std::vector<VkPipelineStageFlags> wait_stages;
@@ -510,7 +586,9 @@ auto context::submit(queue_submit const &info) -> void
   wait_stages.reserve(info.waits.size());
   wait_values.reserve(info.waits.size());
   for (semaphore_submit const &wait : info.waits) {
-    if (wait.semaphore == VK_NULL_HANDLE) { fail("queue_submit wait semaphore is null"); }
+    if (wait.semaphore == VK_NULL_HANDLE) {
+      return make_error(errc::invalid_argument, "queue_submit wait semaphore is null");
+    }
     wait_semaphores.push_back(wait.semaphore);
     wait_stages.push_back(wait.stage);
     wait_values.push_back(wait.value);
@@ -521,7 +599,9 @@ auto context::submit(queue_submit const &info) -> void
   signal_semaphores.reserve(info.signals.size());
   signal_values.reserve(info.signals.size());
   for (semaphore_submit const &signal : info.signals) {
-    if (signal.semaphore == VK_NULL_HANDLE) { fail("queue_submit signal semaphore is null"); }
+    if (signal.semaphore == VK_NULL_HANDLE) {
+      return make_error(errc::invalid_argument, "queue_submit signal semaphore is null");
+    }
     signal_semaphores.push_back(signal.semaphore);
     signal_values.push_back(signal.value);
   }
@@ -551,14 +631,18 @@ auto context::submit(queue_submit const &info) -> void
   submit_info.pSignalSemaphores = signal_semaphores.empty() ? nullptr : signal_semaphores.data();
 
   std::scoped_lock const lock(host_mutex_);
-  if (vkQueueSubmit(queue, 1, &submit_info, info.fence) != VK_SUCCESS) { fail("vkQueueSubmit failed"); }
+  if (VkResult const submit_result = vkQueueSubmit(queue, 1, &submit_info, info.fence); submit_result != VK_SUCCESS) {
+    return make_vk_error(submit_result, "vkQueueSubmit failed");
+  }
+  return {};
 }
 
-auto context::get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count) -> pipeline_resources &
+auto context::get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count)
+  -> result<std::reference_wrapper<pipeline_resources>>
 { return pipeline_cache_->get_or_compile(edsl::detail::trace_ast_access::get(trace), work_count); }
 
 auto context::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> pipeline_resources &
+  -> result<std::reference_wrapper<pipeline_resources>>
 { return pipeline_cache_->get_or_create_from_spirv(spirv, desc); }
 
 }// namespace vkexec
