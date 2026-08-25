@@ -73,7 +73,7 @@ vkexec::upload_push_constants(cmd, pipe, push);
 
 ### Device requirements and adopt
 
-`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Failures that mean “this GPU cannot run” throw during `context` construction.
+`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Prefer `context::try_create` when probing optional capabilities (`errc::unsupported` on mismatch); the throwing `context` constructor remains for hard failures.
 
 Embedders that already own a Vulkan device (for example a Filament-like driver) can wrap it without transferring ownership:
 

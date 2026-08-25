@@ -2,6 +2,7 @@
 #define VKEXEC_CONTEXT_HPP
 
 #include <vkexec/device_procs.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -65,9 +66,14 @@ struct context_adopt_info
 class context
 {
 public:
-  /// Compute-only context (no window / swapchain).
+  /// Compute-only context (no window / swapchain). Throws when the device cannot satisfy
+  /// `requirements` (programmer / hard failure path).
   explicit context(scheduler_options const &opts = {});
   ~context();
+
+  /// Same as the throwing constructor, but returns `errc::unsupported` when device selection
+  /// or feature negotiation fails — preferred for apps that probe optional GPU capabilities.
+  [[nodiscard]] static auto try_create(scheduler_options const &opts = {}) -> result<std::unique_ptr<context>>;
 
   /// Wrap an existing Vulkan device/queues. Returns a context that does not destroy the
   /// instance, device, or an externally supplied VMA allocator. vkexec still owns its

@@ -180,6 +180,15 @@ context::context(scheduler_options const &opts)
   host_agent_ = std::make_unique<detail::host_agent>();
 }
 
+auto context::try_create(scheduler_options const &opts) -> result<std::unique_ptr<context>>
+{
+  VKEXEC_TRY { return std::unique_ptr<context>(new context(opts)); }
+  VKEXEC_CATCH(std::exception const &error)
+  {
+    return std::unexpected(make_error(errc::unsupported, error.what()));
+  }
+}
+
 auto context::adopt(context_adopt_info const &info) -> std::unique_ptr<context>
 { return std::unique_ptr<context>(new context(info)); }
 
