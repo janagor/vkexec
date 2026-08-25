@@ -1,11 +1,12 @@
 #include <vkexec/context.hpp>
 #include <vkexec/config.hpp>
-#include <vkexec/detail/completion_waiter.hpp>
-#include <vkexec/detail/host_agent.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/pipeline_cache.hpp>
 #include <vkexec_edsl/trace.hpp>
-#include <vkexec_edsl/trace_access.hpp>
+
+#include "detail/completion_waiter.hpp"
+#include "detail/host_agent.hpp"
+#include "pipeline_cache.hpp"
+#include "vkexec_edsl/trace_access.hpp"
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -13,11 +14,14 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
+#include <exception>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 

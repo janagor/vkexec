@@ -1,7 +1,8 @@
 #ifndef VKEXEC_EDSL_TRACE_ACCESS_HPP
 #define VKEXEC_EDSL_TRACE_ACCESS_HPP
 
-#include <vkexec_edsl/ast.hpp>
+#include "ast.hpp"
+
 #include <vkexec_edsl/trace.hpp>
 
 namespace vkexec::edsl::detail {

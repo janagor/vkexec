@@ -1,9 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec_edsl/ast.hpp>
 #include <vkexec_edsl/trace.hpp>
-#include <vkexec_edsl/trace_access.hpp>
 #include <vkexec_edsl/types.hpp>
+
+#include "vkexec_edsl/ast.hpp"
+#include "vkexec_edsl/trace_access.hpp"
 
 #include <cstddef>
 #include <cstdint>

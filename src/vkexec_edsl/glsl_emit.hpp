@@ -1,7 +1,7 @@
 #ifndef VKEXEC_EDSL_GLSL_EMIT_HPP
 #define VKEXEC_EDSL_GLSL_EMIT_HPP
 
-#include <vkexec_edsl/ast.hpp>
+#include "ast.hpp"
 
 #include <algorithm>
 #include <cstddef>

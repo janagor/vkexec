@@ -1,5 +1,6 @@
+#include "detail/host_agent.hpp"
+
 #include <vkexec/config.hpp>
-#include <vkexec/detail/host_agent.hpp>
 
 #include <future>
 #include <mutex>
