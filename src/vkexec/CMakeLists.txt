@@ -8,6 +8,7 @@ add_library(
   gpu_buffer.cpp
   timeline_semaphore.cpp
   descriptor_heap.cpp
+  image.cpp
   vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
