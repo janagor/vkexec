@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct GLFWwindow;
@@ -36,11 +37,16 @@ public:
     std::uint32_t height{ k_default_window_height };
     std::string title{ "vkexec" };
     bool validation_layers{ false };
+    bool headless{ false };
   };
 
   explicit window(config cfg);
   window();
   ~window();
+
+  /// Swapchain without GLFW or a display (`VK_EXT_headless_surface`). For CI/tests.
+  [[nodiscard]] static auto headless() -> window;
+  [[nodiscard]] static auto headless(config cfg) -> window;
 
   window(window const &) = delete;
   auto operator=(window const &) -> window & = delete;
@@ -51,7 +57,7 @@ public:
   [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
 
   [[nodiscard]] auto should_close() const noexcept -> bool;
-  auto poll_events() -> void;
+  auto poll_events() const -> void;
   auto wait_idle() -> void;
 
   [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
@@ -74,6 +80,8 @@ private:
   };
 
   auto create_surface() -> void;
+  auto create_headless_surface() -> void;
+  [[nodiscard]] auto framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>;
   auto create_swapchain() -> void;
   auto create_image_views() -> void;
   auto create_render_pass() -> void;
@@ -87,6 +95,7 @@ private:
   auto recreate_swapchain() -> void;
 
   config cfg_;
+  bool headless_{ false };
   GLFWwindow *glfw_{ nullptr };
   std::unique_ptr<context> ctx_;
   VkSurfaceKHR surface_{ VK_NULL_HANDLE };

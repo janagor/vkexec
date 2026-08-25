@@ -93,40 +93,57 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
 
 window::window() : window(config{}) {}
 
-window::window(config cfg) : cfg_(std::move(cfg))
+auto window::headless() -> window { return headless(config{}); }
+
+auto window::headless(config cfg) -> window
 {
-  g_glfw_error.clear();
-  glfwSetErrorCallback(glfw_error_callback);
-  if (glfwInit() != GLFW_TRUE) {
-    VKEXEC_THROW(
-      std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")")));
-  }
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+  cfg.headless = true;
+  return window(std::move(cfg));
+}
 
-  glfw_ =
-    glfwCreateWindow(static_cast<int>(cfg_.width), static_cast<int>(cfg_.height), cfg_.title.c_str(), nullptr, nullptr);
-  if (glfw_ == nullptr) {
-    glfwTerminate();
-    VKEXEC_THROW(std::runtime_error("glfwCreateWindow failed"));
-  }
-  glfwSetWindowUserPointer(glfw_, this);
-  glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
+window::window(config cfg) : cfg_(std::move(cfg)), headless_(cfg_.headless)
+{
+  if (headless_) {
+    std::vector<char const *> const instance_exts{ VK_KHR_SURFACE_EXTENSION_NAME,
+      VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME };
+    ctx_ = std::unique_ptr<context>(new context(
+      context::instance_only_tag{}, scheduler_options{ .validation_layers = cfg_.validation_layers }, instance_exts));
+    create_headless_surface();
+  } else {
+    g_glfw_error.clear();
+    glfwSetErrorCallback(glfw_error_callback);
+    if (glfwInit() != GLFW_TRUE) {
+      VKEXEC_THROW(
+        std::runtime_error(g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")")));
+    }
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-  std::uint32_t ext_count = 0;
-  char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
-  if (glfw_exts == nullptr || ext_count == 0) {
-    VKEXEC_THROW(std::runtime_error("glfwGetRequiredInstanceExtensions failed (no presentation support?)"));
-  }
-  std::vector<char const *> instance_exts;
-  instance_exts.reserve(ext_count);
-  for (std::uint32_t index = 0; index < ext_count; ++index) {
-    instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    glfw_ = glfwCreateWindow(
+      static_cast<int>(cfg_.width), static_cast<int>(cfg_.height), cfg_.title.c_str(), nullptr, nullptr);
+    if (glfw_ == nullptr) {
+      glfwTerminate();
+      VKEXEC_THROW(std::runtime_error("glfwCreateWindow failed"));
+    }
+    glfwSetWindowUserPointer(glfw_, this);
+    glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
+
+    std::uint32_t ext_count = 0;
+    char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
+    if (glfw_exts == nullptr || ext_count == 0) {
+      VKEXEC_THROW(std::runtime_error("glfwGetRequiredInstanceExtensions failed (no presentation support?)"));
+    }
+    std::vector<char const *> instance_exts;
+    instance_exts.reserve(ext_count);
+    for (std::uint32_t index = 0; index < ext_count; ++index) {
+      instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    }
+
+    ctx_ = std::unique_ptr<context>(new context(
+      context::instance_only_tag{}, scheduler_options{ .validation_layers = cfg_.validation_layers }, instance_exts));
+    create_surface();
   }
 
-  ctx_ = std::unique_ptr<context>(new context(
-    context::instance_only_tag{}, scheduler_options{ .validation_layers = cfg_.validation_layers }, instance_exts));
-  create_surface();
   ctx_->complete_for_surface(surface_);
 
   create_swapchain();
@@ -163,15 +180,22 @@ window::~window()
   if (glfw_ != nullptr) {
     glfwDestroyWindow(glfw_);
     glfw_ = nullptr;
+    glfwTerminate();
   }
-  glfwTerminate();
 }
 
-auto window::should_close() const noexcept -> bool { return glfwWindowShouldClose(glfw_) == GLFW_TRUE; }
+auto window::should_close() const noexcept -> bool
+{
+  if (headless_) { return false; }
+  return glfwWindowShouldClose(glfw_) == GLFW_TRUE;
+}
 
 // cppcheck-suppress functionStatic
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-auto window::poll_events() -> void { glfwPollEvents(); }
+auto window::poll_events() const -> void
+{
+  if (!headless_) { glfwPollEvents(); }
+}
 
 auto window::wait_idle() -> void
 {
@@ -181,18 +205,37 @@ auto window::wait_idle() -> void
 auto window::create_surface() -> void
 { check(glfwCreateWindowSurface(ctx_->instance(), glfw_, nullptr, &surface_), "glfwCreateWindowSurface failed"); }
 
-auto window::create_swapchain() -> void
+auto window::create_headless_surface() -> void
 {
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
+    vkGetInstanceProcAddr(ctx_->instance(), "vkCreateHeadlessSurfaceEXT"));
+  if (create_fn == nullptr) { VKEXEC_THROW(std::runtime_error("vkCreateHeadlessSurfaceEXT not available")); }
+
+  VkHeadlessSurfaceCreateInfoEXT create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
+  check(create_fn(ctx_->instance(), &create_info, nullptr, &surface_), "vkCreateHeadlessSurfaceEXT failed");
+}
+
+auto window::framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>
+{
+  if (headless_) { return { cfg_.width, cfg_.height }; }
   int framebuffer_width = 0;
   int framebuffer_height = 0;
   glfwGetFramebufferSize(glfw_, &framebuffer_width, &framebuffer_height);
+  return { static_cast<std::uint32_t>(framebuffer_width), static_cast<std::uint32_t>(framebuffer_height) };
+}
+
+auto window::create_swapchain() -> void
+{
+  auto const [framebuffer_width, framebuffer_height] = framebuffer_size();
 
   vkb::Swapchain const old_swapchain = swapchain_;
   auto builder =
     vkb::SwapchainBuilder{ ctx_->vkb_device(), surface_ }
       .set_desired_format({ .format = VK_FORMAT_B8G8R8A8_SRGB, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
       .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-      .set_desired_extent(static_cast<std::uint32_t>(framebuffer_width), static_cast<std::uint32_t>(framebuffer_height))
+      .set_desired_extent(framebuffer_width, framebuffer_height)
       .set_old_swapchain(old_swapchain);
 
   swapchain_ = unwrap(builder.build(), "vk-bootstrap SwapchainBuilder");
@@ -430,12 +473,14 @@ auto window::cleanup_swapchain() -> void
 
 auto window::recreate_swapchain() -> void
 {
-  int width = 0;
-  int height = 0;
-  glfwGetFramebufferSize(glfw_, &width, &height);
-  while (width == 0 || height == 0) {
+  if (!headless_) {
+    int width = 0;
+    int height = 0;
     glfwGetFramebufferSize(glfw_, &width, &height);
-    glfwWaitEvents();
+    while (width == 0 || height == 0) {
+      glfwGetFramebufferSize(glfw_, &width, &height);
+      glfwWaitEvents();
+    }
   }
 
   vkDeviceWaitIdle(ctx_->device());
