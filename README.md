@@ -130,7 +130,10 @@ cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/passes
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
 ./out/build/unixlike-clang-release/src/vkexec_examples/triangle
+./out/build/unixlike-clang-release/src/vkexec_examples/heap_present
 ```
+
+`heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute, dynamic rendering to an offscreen color target, then a few swapchain present frames.
 
 ### Triangle window
 
