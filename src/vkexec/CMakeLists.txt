@@ -10,6 +10,7 @@ add_library(
   descriptor_heap.cpp
   image.cpp
   image_view.cpp
+  rendering.cpp
   vma.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)

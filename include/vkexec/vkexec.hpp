@@ -19,6 +19,7 @@
 #include <vkexec/push.hpp>
 #include <vkexec/push_data.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/rendering.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/timeline_semaphore.hpp>
