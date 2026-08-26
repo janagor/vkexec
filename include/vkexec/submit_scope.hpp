@@ -113,7 +113,7 @@ namespace detail {
     dsai.pSetLayouts = &pipe.set_layout;
     VkDescriptorSet set{ VK_NULL_HANDLE };
     if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(result, "vkAllocateDescriptorSets failed"));
+      return make_vk_error(result, "vkAllocateDescriptorSets failed");
     }
     write_storage_descriptors(ctx.device(), set, buffers);
     return set;
@@ -183,7 +183,7 @@ namespace detail {
         host.free_command_buffer(scope.cmd);
         scope.cmd = VK_NULL_HANDLE;
         scope.ctx = nullptr;
-        return std::unexpected(make_vk_error(result, "vkBeginCommandBuffer failed"));
+        return make_vk_error(result, "vkBeginCommandBuffer failed");
       }
       return scope;
     }
@@ -248,27 +248,6 @@ namespace detail {
     scope.release();
     complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
   }
-
-  struct fail_sender
-  {
-    using sender_concept = ex::sender_t;
-    using completion_signatures = ex::completion_signatures<ex::set_error_t(error)>;
-
-    error err;
-
-    template<class Receiver> struct op_state
-    {
-      error err;
-      Receiver receiver;
-
-      auto start() noexcept -> void { ex::set_error(std::move(receiver), std::move(err)); }
-    };
-
-    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
-    { return op_state<Receiver>{ std::forward_like<decltype(self)>(self.err), std::move(receiver) }; }
-  };
-
-  [[nodiscard]] inline auto fail_with(error err) -> fail_sender { return fail_sender{ .err = std::move(err) }; }
 
   /// Sender factory: completes with an open `submit_scope` (cmd begun, ready to record).
   struct enter_submit_scope_sender

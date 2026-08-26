@@ -22,6 +22,7 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <optional>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -130,6 +131,33 @@ struct pass_step
   std::function<status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
 };
 
+namespace detail {
+
+  [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
+  {
+    for (pass_step const &step : steps) {
+      if (auto const recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
+        return std::unexpected(recorded.error());
+      }
+    }
+    return scope.end_recording();
+  }
+
+  [[nodiscard]] inline auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>
+  {
+    auto opened = submit_scope::open(*ctx);
+    if (!opened) { return std::unexpected(opened.error()); }
+
+    submit_scope scope = std::move(*opened);
+    if (auto const recorded = record_pass_steps(scope, steps); !recorded) {
+      scope.release();
+      return std::unexpected(recorded.error());
+    }
+    return scope;
+  }
+
+}// namespace detail
+
 struct pass_graph_sender
 {
   using sender_concept = ex::sender_t;
@@ -141,24 +169,44 @@ struct pass_graph_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
+  template<class Receiver> struct op_state
   {
-    return ex::connect(ex::let_value(detail::enter_submit_scope(self.ctx),
-                         [steps = std::forward_like<decltype(self)>(self.steps)](
-                           detail::submit_scope &scope) mutable -> decltype(auto) {
-                           for (pass_step const &step : steps) {
-                             if (auto const recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
-                               scope.release();
-                               return detail::fail_with(recorded.error());
-                             }
-                           }
-                           if (auto const ended = scope.end_recording(); !ended) {
-                             scope.release();
-                             return detail::fail_with(ended.error());
-                           }
-                           return detail::submit_and_wait(std::move(scope));
-                         }),
-      std::move(receiver));
+    context *ctx{ nullptr };
+    std::vector<pass_step> steps;
+    Receiver receiver;
+    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<Receiver>()));
+    std::optional<submit_op_t> submit_op;
+
+    auto start() noexcept -> void
+    {
+      Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      auto prepared = detail::open_and_record_pass(ctx, steps);
+      if (!prepared) {
+        ex::set_error(std::move(rcvr), std::move(prepared).error());
+        return;
+      }
+
+      submit_op.emplace(ex::connect(detail::submit_and_wait(std::move(*prepared)), std::move(rcvr)));
+      ex::start(*submit_op);
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = self.ctx,
+      .steps = std::forward_like<decltype(self)>(self.steps),
+      .receiver = std::move(receiver),
+      .submit_op = std::nullopt,
+    };
   }
 };
 
@@ -178,24 +226,44 @@ struct pass_graph_async_sender
   pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps) : ctx(host), steps(std::move(graph_steps))
   {}
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
+  template<class Receiver> struct op_state
   {
-    return ex::connect(ex::let_value(detail::enter_submit_scope(self.ctx),
-                         [steps = std::forward_like<decltype(self)>(self.steps)](
-                           detail::submit_scope &scope) mutable -> decltype(auto) {
-                           for (pass_step const &step : steps) {
-                             if (auto const recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
-                               scope.release();
-                               return detail::fail_with(recorded.error());
-                             }
-                           }
-                           if (auto const ended = scope.end_recording(); !ended) {
-                             scope.release();
-                             return detail::fail_with(ended.error());
-                           }
-                           return detail::submit_fence(std::move(scope));
-                         }),
-      std::move(receiver));
+    context *ctx{ nullptr };
+    std::vector<pass_step> steps;
+    Receiver receiver;
+    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<Receiver>()));
+    std::optional<submit_op_t> submit_op;
+
+    auto start() noexcept -> void
+    {
+      Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      auto prepared = detail::open_and_record_pass(ctx, steps);
+      if (!prepared) {
+        ex::set_error(std::move(rcvr), std::move(prepared).error());
+        return;
+      }
+
+      submit_op.emplace(ex::connect(detail::submit_fence(std::move(*prepared)), std::move(rcvr)));
+      ex::start(*submit_op);
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = self.ctx,
+      .steps = std::forward_like<decltype(self)>(self.steps),
+      .receiver = std::move(receiver),
+      .submit_op = std::nullopt,
+    };
   }
 };
 

@@ -18,6 +18,7 @@
 
 #include <concepts>
 #include <cstdint>
+#include <optional>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -70,22 +71,23 @@ namespace detail {
     return {};
   }
 
-  template<typename Params, typename Fun, class SubmitFactory>
-  [[nodiscard]] auto make_bulk_pipeline(context *ctx, std::uint32_t shape, Params params, Fun fun, SubmitFactory submit)
+  template<typename Params, typename Fun>
+  [[nodiscard]] auto open_and_record_bulk(context *ctx, std::uint32_t shape, Params &params, Fun &fun)
+    -> result<submit_scope>
   {
-    return ex::let_value(enter_submit_scope(ctx),
-      [shape, params = std::move(params), fun = std::move(fun), submit = std::move(submit)](
-        submit_scope &scope) mutable -> decltype(auto) {
-        if (auto const recorded = record_bulk_into<Params>(scope, shape, params, fun); !recorded) {
-          scope.release();
-          return fail_with(recorded.error());
-        }
-        if (auto const ended = scope.end_recording(); !ended) {
-          scope.release();
-          return fail_with(ended.error());
-        }
-        return submit(std::move(scope));
-      });
+    auto opened = submit_scope::open(*ctx);
+    if (!opened) { return std::unexpected(opened.error()); }
+
+    submit_scope scope = std::move(*opened);
+    if (auto const recorded = record_bulk_into<Params>(scope, shape, params, fun); !recorded) {
+      scope.release();
+      return std::unexpected(recorded.error());
+    }
+    if (auto const ended = scope.end_recording(); !ended) {
+      scope.release();
+      return std::unexpected(ended.error());
+    }
+    return scope;
   }
 
 }// namespace detail
@@ -117,16 +119,48 @@ template<typename Params, typename Fun> struct bulk_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
+  template<class Receiver> struct op_state
   {
-    return ex::connect(detail::make_bulk_pipeline<Params>(self.ctx,
-                         self.shape,
-                         std::forward_like<decltype(self)>(self.params),
-                         std::forward_like<decltype(self)>(self.fun),
-                         [](detail::submit_scope scope) -> detail::submit_and_wait_sender {
-                           return detail::submit_and_wait(std::move(scope));
-                         }),
-      std::move(receiver));
+    context *ctx{ nullptr };
+    std::uint32_t shape{};
+    Params params{};
+    Fun fun{};
+    Receiver receiver;
+    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<Receiver>()));
+    std::optional<submit_op_t> submit_op;
+
+    auto start() noexcept -> void
+    {
+      Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      auto prepared = detail::open_and_record_bulk<Params>(ctx, shape, params, fun);
+      if (!prepared) {
+        ex::set_error(std::move(rcvr), std::move(prepared).error());
+        return;
+      }
+
+      submit_op.emplace(ex::connect(detail::submit_and_wait(std::move(*prepared)), std::move(rcvr)));
+      ex::start(*submit_op);
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = self.ctx,
+      .shape = self.shape,
+      .params = std::forward_like<decltype(self)>(self.params),
+      .fun = std::forward_like<decltype(self)>(self.fun),
+      .receiver = std::move(receiver),
+      .submit_op = std::nullopt,
+    };
   }
 };
 
@@ -175,16 +209,48 @@ template<typename Params, typename Fun> struct bulk_async_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver)
+  template<class Receiver> struct op_state
   {
-    return ex::connect(detail::make_bulk_pipeline<Params>(self.ctx,
-                         self.shape,
-                         std::forward_like<decltype(self)>(self.params),
-                         std::forward_like<decltype(self)>(self.fun),
-                         [](detail::submit_scope scope) -> detail::submit_fence_sender {
-                           return detail::submit_fence(std::move(scope));
-                         }),
-      std::move(receiver));
+    context *ctx{ nullptr };
+    std::uint32_t shape{};
+    Params params{};
+    Fun fun{};
+    Receiver receiver;
+    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<Receiver>()));
+    std::optional<submit_op_t> submit_op;
+
+    auto start() noexcept -> void
+    {
+      Receiver rcvr = std::move(receiver);
+      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(rcvr));
+          return;
+        }
+      }
+
+      auto prepared = detail::open_and_record_bulk<Params>(ctx, shape, params, fun);
+      if (!prepared) {
+        ex::set_error(std::move(rcvr), std::move(prepared).error());
+        return;
+      }
+
+      submit_op.emplace(ex::connect(detail::submit_fence(std::move(*prepared)), std::move(rcvr)));
+      ex::start(*submit_op);
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = self.ctx,
+      .shape = self.shape,
+      .params = std::forward_like<decltype(self)>(self.params),
+      .fun = std::forward_like<decltype(self)>(self.fun),
+      .receiver = std::move(receiver),
+      .submit_op = std::nullopt,
+    };
   }
 };
 
