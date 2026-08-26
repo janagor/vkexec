@@ -11,7 +11,6 @@
 
 #include <array>
 #include <cstdint>
-#include <expected>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -113,7 +112,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
     detail += name;
     detail += ":\n";
     detail += shader.getInfoLog();
-    return std::unexpected(vkexec::make_error(vkexec::errc::parse_error, detail));
+    return vkexec::make_error(vkexec::errc::parse_error, detail);
   }
 
   glslang::TProgram program;
@@ -123,7 +122,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
     detail += name;
     detail += ":\n";
     detail += program.getInfoLog();
-    return std::unexpected(vkexec::make_error(vkexec::errc::parse_error, detail));
+    return vkexec::make_error(vkexec::errc::parse_error, detail);
   }
 
   std::vector<std::uint32_t> spirv;
@@ -133,7 +132,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
   options.optimizeSize = false;
   glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
   if (spirv.empty()) {
-    return std::unexpected(vkexec::make_error(vkexec::errc::empty_result, "SPIR-V emission produced empty module"));
+    return vkexec::make_error(vkexec::errc::empty_result, "SPIR-V emission produced empty module");
   }
   return spirv;
 }

@@ -80,7 +80,8 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
 auto window::create(config cfg) -> result<window>
 {
   window created;
-  return created.init(std::move(cfg)).transform([&] { return std::move(created); });
+  if (auto init = created.init(std::move(cfg)); !init) { return init.error(); }
+  return created;
 }
 
 auto window::headless() -> result<window> { return headless(config{}); }
@@ -128,7 +129,7 @@ auto window::init(config cfg) -> status
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       std::vector<char const *>{ surface_exts.begin(), surface_exts.end() }));
-    if (auto const surface = create_headless_surface(); !surface) { return surface; }
+    if (auto surface = create_headless_surface(); !surface) { return surface.error(); }
   } else {
     g_glfw_error.clear();
     glfwSetErrorCallback(glfw_error_callback);
@@ -162,15 +163,16 @@ auto window::init(config cfg) -> status
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       instance_exts));
-    if (auto const surface = create_surface(); !surface) { return surface; }
+    if (auto surface = create_surface(); !surface) { return surface.error(); }
   }
 
-  if (auto const completed = ctx_->complete_for_surface(surface_); !completed) { return completed; }
-  return create_swapchain()
-    .and_then([this] { return create_render_pass(); })
-    .and_then([this] { return create_depth_resources(); })
-    .and_then([this] { return create_framebuffers(); })
-    .and_then([this] { return create_frame_resources(); });
+  if (auto completed = ctx_->complete_for_surface(surface_); !completed) { return completed.error(); }
+  if (auto swapchain = create_swapchain(); !swapchain) { return swapchain.error(); }
+  if (auto render_pass = create_render_pass(); !render_pass) { return render_pass.error(); }
+  if (auto depth = create_depth_resources(); !depth) { return depth.error(); }
+  if (auto framebuffers = create_framebuffers(); !framebuffers) { return framebuffers.error(); }
+  if (auto frames = create_frame_resources(); !frames) { return frames.error(); }
+  return {};
 }
 
 window::~window()
@@ -264,10 +266,10 @@ auto window::create_swapchain() -> status
         .width = framebuffer_width,
         .height = framebuffer_height,
       });
-    if (!created) { return std::unexpected(created.error()); }
+    if (!created) { return created.error(); }
     swapchain_ = std::move(*created);
-  } else if (auto const recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
-    return recreated;
+  } else if (auto recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
+    return recreated.error();
   }
   return create_swapchain_sync();
 }
@@ -275,8 +277,8 @@ auto window::create_swapchain() -> status
 auto window::create_render_pass() -> status
 {
   if (depth_format_ == VK_FORMAT_UNDEFINED) {
-    auto const format = pick_depth_format(ctx_->physical_device());
-    if (!format) { return std::unexpected(format.error()); }
+    auto format = pick_depth_format(ctx_->physical_device());
+    if (!format) { return format.error(); }
     depth_format_ = *format;
   }
 
@@ -466,8 +468,8 @@ auto window::create_frame_resources() -> status
       return make_vk_error(result, "vkCreateFence failed");
     }
 
-    auto const cmd = ctx_->allocate_command_buffer();
-    if (!cmd) { return std::unexpected(cmd.error()); }
+    auto cmd = ctx_->allocate_command_buffer();
+    if (!cmd) { return cmd.error(); }
     command_buffers_.at(frame_index) = *cmd;
   }
   return {};
@@ -537,8 +539,10 @@ auto window::recreate_swapchain() -> status
   framebuffers_.clear();
   destroy_depth_resources();
 
-  if (auto const swapchain = create_swapchain(); !swapchain) { return swapchain; }
-  return create_depth_resources().and_then([this] { return create_framebuffers(); });
+  if (auto swapchain = create_swapchain(); !swapchain) { return swapchain.error(); }
+  if (auto depth = create_depth_resources(); !depth) { return depth.error(); }
+  if (auto framebuffers = create_framebuffers(); !framebuffers) { return framebuffers.error(); }
+  return {};
 }
 
 auto window::begin_frame() -> result<std::optional<frame>>
@@ -551,10 +555,10 @@ auto window::begin_frame() -> result<std::optional<frame>>
     return make_vk_error(wait_result, "vkWaitForFences failed");
   }
 
-  auto const acquired = swapchain_->acquire_next_image(sync.image_available);
-  if (!acquired) { return std::unexpected(acquired.error()); }
+  auto acquired = swapchain_->acquire_next_image(sync.image_available);
+  if (!acquired) { return acquired.error(); }
   if (!acquired->has_value()) {
-    if (auto const recreated = recreate_swapchain(); !recreated) { return std::unexpected(recreated.error()); }
+    if (auto recreated = recreate_swapchain(); !recreated) { return recreated.error(); }
     return std::optional<frame>{};
   }
   std::uint32_t const image_index = **acquired;
@@ -611,12 +615,12 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   }
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
-  auto const present_result = swapchain_->present(current_image_index_, wait_semaphores);
-  if (!present_result) { return std::unexpected(present_result.error()); }
+  auto present_result = swapchain_->present(current_image_index_, wait_semaphores);
+  if (!present_result) { return present_result.error(); }
   bool const needs_recreate = !*present_result || framebuffer_resized_;
   if (needs_recreate) {
     framebuffer_resized_ = false;
-    if (auto const recreated = recreate_swapchain(); !recreated) { return std::unexpected(recreated.error()); }
+    if (auto recreated = recreate_swapchain(); !recreated) { return recreated.error(); }
   }
 
   VkFence submitted = sync.in_flight;
