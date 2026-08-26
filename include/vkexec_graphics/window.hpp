@@ -53,8 +53,8 @@ public:
 
   window(window const &) = delete;
   auto operator=(window const &) -> window & = delete;
-  window(window &&) = delete;
-  auto operator=(window &&) -> window & = delete;
+  window(window &&other) noexcept;
+  auto operator=(window &&other) noexcept -> window &;
 
   [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
   [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }

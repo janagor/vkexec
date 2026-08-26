@@ -54,7 +54,7 @@ namespace detail {
       }
     }
 
-    auto const frame_result = try_begin_frame(*win);
+    auto frame_result = try_begin_frame(*win);
     if (!frame_result) {
       ex::set_error(std::move(rcvr), frame_result.error());
       return;
@@ -64,7 +64,7 @@ namespace detail {
       return;
     }
 
-    auto const fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
+    auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
     if (!fence_result) {
       ex::set_error(std::move(rcvr), fence_result.error());
       return;
@@ -250,7 +250,7 @@ struct draw_layers_sender
     auto start() noexcept -> void
     {
       if (layers.empty()) {
-        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
+        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer").error());
         return;
       }
 
@@ -283,7 +283,7 @@ struct draw_layers_sender
       }
       vkCmdEndRenderPass(drawn.command_buffer);
       if (VkResult const end_result = vkEndCommandBuffer(drawn.command_buffer); end_result != VK_SUCCESS) {
-        ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed"));
+        ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed").error());
         return;
       }
       if (auto const fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
@@ -327,7 +327,7 @@ struct draw_layers_async_sender
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
           if (layers.empty()) {
-            return std::unexpected(make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
+            return make_error(errc::invalid_argument, "draw_layers requires at least one layer");
           }
           graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
           std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
@@ -347,7 +347,7 @@ struct draw_layers_async_sender
           }
           vkCmdEndRenderPass(drawn_frame.command_buffer);
           if (VkResult const end_result = vkEndCommandBuffer(drawn_frame.command_buffer); end_result != VK_SUCCESS) {
-            return std::unexpected(make_vk_error(end_result, "vkEndCommandBuffer failed"));
+            return make_vk_error(end_result, "vkEndCommandBuffer failed");
           }
           return detail::try_end_frame(*win, drawn_frame);
         },

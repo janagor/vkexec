@@ -50,7 +50,7 @@ namespace {
       vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
       if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) { return format; }
     }
-    return std::unexpected(make_error(errc::unsupported, "no supported depth format"));
+    return make_error(errc::unsupported, "no supported depth format");
   }
 
   auto format_has_stencil(VkFormat format) -> bool
@@ -92,6 +92,33 @@ auto window::headless(config cfg) -> result<window>
 {
   cfg.headless = true;
   return create(std::move(cfg));
+}
+
+window::window(window &&other) noexcept
+  : cfg_(std::move(other.cfg_)), headless_(other.headless_), glfw_(other.glfw_), ctx_(std::move(other.ctx_)),
+    surface_(other.surface_), swapchain_(std::move(other.swapchain_)), depth_format_(other.depth_format_),
+    framebuffers_(std::move(other.framebuffers_)), depth_image_(other.depth_image_),
+    depth_allocation_(other.depth_allocation_), depth_view_(other.depth_view_), render_pass_(other.render_pass_),
+    frames_(std::move(other.frames_)), command_buffers_(std::move(other.command_buffers_)),
+    render_finished_(std::move(other.render_finished_)), images_in_flight_(std::move(other.images_in_flight_)),
+    frame_index_(other.frame_index_), current_image_index_(other.current_image_index_),
+    framebuffer_resized_(other.framebuffer_resized_), frame_open_(other.frame_open_)
+{
+  other.glfw_ = nullptr;
+  other.surface_ = VK_NULL_HANDLE;
+  other.depth_image_ = VK_NULL_HANDLE;
+  other.depth_allocation_ = VK_NULL_HANDLE;
+  other.depth_view_ = VK_NULL_HANDLE;
+  other.render_pass_ = VK_NULL_HANDLE;
+  if (glfw_ != nullptr) { glfwSetWindowUserPointer(glfw_, this); }
+}
+
+auto window::operator=(window &&other) noexcept -> window &
+{
+  if (this == &other) { return *this; }
+  this->~window();
+  new (this) window(std::move(other));
+  return *this;
 }
 
 auto window::init(config cfg) -> status
@@ -237,7 +264,7 @@ auto window::create_swapchain() -> status
 {
   auto const [framebuffer_width, framebuffer_height] = framebuffer_size();
   if (!swapchain_.has_value()) {
-    auto const created = swapchain::create(*ctx_,
+    auto created = swapchain::create(*ctx_,
       swapchain_create_info{
         .surface = surface_,
         .width = framebuffer_width,
@@ -526,13 +553,13 @@ auto window::recreate_swapchain() -> status
 auto window::begin_frame() -> result<std::optional<frame>>
 {
   if (frame_open_) {
-    return std::unexpected(make_error(errc::invalid_argument, "begin_frame called while a frame is already open"));
+    return make_error(errc::invalid_argument, "begin_frame called while a frame is already open");
   }
 
   auto &sync = frames_.at(frame_index_);
   if (VkResult const wait_result = vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX);
     wait_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(wait_result, "vkWaitForFences failed"));
+    return make_vk_error(wait_result, "vkWaitForFences failed");
   }
 
   auto const acquired = swapchain_->acquire_next_image(sync.image_available);
@@ -549,13 +576,13 @@ auto window::begin_frame() -> result<std::optional<frame>>
     if (VkResult const wait_result =
           vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX);
       wait_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(wait_result, "vkWaitForFences failed (swapchain image in flight)"));
+      return make_vk_error(wait_result, "vkWaitForFences failed (swapchain image in flight)");
     }
   }
   images_in_flight_.at(image_index) = sync.in_flight;
 
   if (VkResult const reset_result = vkResetFences(ctx_->device(), 1, &sync.in_flight); reset_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(reset_result, "vkResetFences failed"));
+    return make_vk_error(reset_result, "vkResetFences failed");
   }
 
   VkCommandBuffer cmd = command_buffers_.at(frame_index_);
@@ -563,7 +590,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
   VkCommandBufferBeginInfo begin_info{};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   if (VkResult const begin_result = vkBeginCommandBuffer(cmd, &begin_info); begin_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(begin_result, "vkBeginCommandBuffer failed"));
+    return make_vk_error(begin_result, "vkBeginCommandBuffer failed");
   }
 
   current_image_index_ = image_index;
@@ -577,7 +604,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
 auto window::end_frame(frame const &drawn) -> result<VkFence>
 {
   if (!frame_open_) {
-    return std::unexpected(make_error(errc::invalid_argument, "end_frame called without begin_frame"));
+    return make_error(errc::invalid_argument, "end_frame called without begin_frame");
   }
   (void)drawn;
 
@@ -596,7 +623,7 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   submit_info.pSignalSemaphores = &render_finished_.at(current_image_index_);
   if (VkResult const submit_result = vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight);
     submit_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(submit_result, "vkQueueSubmit failed"));
+    return make_vk_error(submit_result, "vkQueueSubmit failed");
   }
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
