@@ -103,7 +103,7 @@ namespace detail {
     ex::start(op);
     state.loop_.run();
 
-    if (state.error_) { return std::unexpected(*std::move(state.error_)); }
+    if (state.error_) { return leaf::new_error(std::move(*state.error_)); }
     if (state.stopped_) { return std::optional<sync_wait_value_tuple_t<CvSender>>{}; }
     return values;
   }
@@ -114,7 +114,7 @@ namespace detail {
 ///
 /// - Success: `result` holds `optional` with the value tuple.
 /// - Stopped: `result` holds disengaged `optional` (not an error).
-/// - Failure: `unexpected(error)`.
+/// - Failure: failed `leaf::result` carrying `vkexec::error`.
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto sync_wait(Sender &&sender) -> result<std::optional<detail::sync_wait_value_tuple_t<Sender>>>
 { return detail::sync_wait_impl(std::forward<Sender>(sender)); }

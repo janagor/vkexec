@@ -108,6 +108,17 @@ using status = leaf::result<void>;
   });
 }
 
+/// Load a `vkexec::error` previously attached to `id` (for sender set_error bridging).
+[[nodiscard]] inline auto to_error(leaf::error_id error_id) -> error
+{
+  error err{ .code = MakeErrorCode(errc::unsupported), .detail = "unknown error" };
+  leaf::try_handle_all(
+    [&]() -> leaf::result<void> { return error_id; },
+    [&](error loaded) -> void { err = std::move(loaded); },
+    []() -> void {});
+  return err;
+}
+
 [[nodiscard]] inline auto to_string(error const &err) -> std::string
 {
   if (err.detail.empty()) { return std::string(err.code.Message()); }
