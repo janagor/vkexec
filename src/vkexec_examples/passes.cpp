@@ -1,6 +1,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/push_constant.hpp>
@@ -37,47 +38,44 @@ BOOST_DESCRIBE_STRUCT(pass_params, (), (value))
 
 auto main() -> int
 {
-  auto ctx_result = vkexec::context::create({ .validation_layers = true });
-  if (!ctx_result) {
-    std::println(stderr, "vkexec passes example failed: {}", ctx_result.error().message());
-    return 1;
-  }
-  auto ctx = std::move(*ctx_result);
+  return vkexec::leaf::try_handle_all(
+    []() -> vkexec::leaf::result<int> {
+      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      BOOST_LEAF_AUTO(values, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial));
 
-  auto values_result = vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial);
-  if (!values_result) {
-    std::println(stderr, "vkexec passes example failed: {}", values_result.error().message());
-    return 1;
-  }
-  auto &values = *values_result;
+      auto graph = ex::schedule(ctx->get_scheduler())
+                   | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
+                     pass_params{ .value = k_add },
+                     [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
+                       values[idx] = values[idx] + push.get<&pass_params::value>();
+                     })
+                   | vkexec::barrier::compute_to_compute()
+                   | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
+                     pass_params{ .value = k_scale },
+                     [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
+                       values[idx] = values[idx] * push.get<&pass_params::value>();
+                     });
+      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
+      if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
 
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
-                 pass_params{ .value = k_add },
-                 [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
-                   values[idx] = values[idx] + push.get<&pass_params::value>();
-                 })
-               | vkexec::barrier::compute_to_compute()
-               | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
-                 pass_params{ .value = k_scale },
-                 [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
-                   values[idx] = values[idx] * push.get<&pass_params::value>();
-                 });
-  if (auto const waited = vkexec::sync_wait(std::move(graph)); !waited || !waited->has_value()) {
-    std::println(
-      stderr, "vkexec passes example failed: {}", waited ? "pipeline was stopped" : waited.error().message());
-    return 1;
-  }
-
-  float const expected = (k_initial + k_add) * k_scale;
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  for (std::size_t index = 0; index < k_element_count; ++index) {
-    if (std::fabs(values.data()[index] - expected) > k_epsilon) {
-      std::println(stderr, "pass mismatch at {}: got {} expected {}", index, values.data()[index], expected);
+      float const expected = (k_initial + k_add) * k_scale;
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      for (std::size_t index = 0; index < k_element_count; ++index) {
+        if (std::fabs(values.data()[index] - expected) > k_epsilon) {
+          std::println(stderr, "pass mismatch at {}: got {} expected {}", index, values.data()[index], expected);
+          return vkexec::make_error(vkexec::errc::unsupported, "pass result mismatch");
+        }
+      }
+      std::println("vkexec passes ok: N={} result={}", k_element_count, values.data()[0]);
+      // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      return 0;
+    },
+    [](vkexec::error const &e) {
+      std::println(stderr, "vkexec passes example failed: {}", e.message());
       return 1;
-    }
-  }
-  std::println("vkexec passes ok: N={} result={}", k_element_count, values.data()[0]);
-  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  return 0;
+    },
+    [] {
+      std::println(stderr, "vkexec passes example failed");
+      return 1;
+    });
 }

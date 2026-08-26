@@ -1,6 +1,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/sync_wait.hpp>
@@ -62,79 +63,61 @@ static_assert(offsetof(host_push, count) == k_count_offset);
 
 auto main() -> int
 {
-  auto ctx_result = vkexec::context::create({ .validation_layers = true });
-  if (!ctx_result) {
-    std::println(stderr, "vkexec spirv example failed: {}", ctx_result.error().message());
-    return 1;
-  }
-  auto ctx = std::move(*ctx_result);
+  return vkexec::leaf::try_handle_all(
+    []() -> vkexec::leaf::result<int> {
+      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      BOOST_LEAF_AUTO(input, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial));
+      BOOST_LEAF_AUTO(output, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
 
-  auto input_result = vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial);
-  if (!input_result) {
-    std::println(stderr, "vkexec spirv example failed: {}", input_result.error().message());
-    return 1;
-  }
-  auto output_result = vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F);
-  if (!output_result) {
-    std::println(stderr, "vkexec spirv example failed: {}", output_result.error().message());
-    return 1;
-  }
-  auto &input = *input_result;
-  auto &output = *output_result;
+      using enum vkexec::buffer_access;
+      BOOST_LEAF_AUTO(pipe,
+        vkexec::compute_pipeline::create(*ctx,
+          k_scale_glsl,
+          vkexec::layout_desc{
+            .bindings = { readonly, writeonly },
+            .push_constant_size = sizeof(host_push),
+            .specialization = {},
+            .local_size = { k_local_size_x, 1, 1 },
+          },
+          "scale.comp"));
 
-  using enum vkexec::buffer_access;
-  auto pipe = vkexec::compute_pipeline::create(*ctx,
-    k_scale_glsl,
-    vkexec::layout_desc{
-      .bindings = { readonly, writeonly },
-      .push_constant_size = sizeof(host_push),
-      .specialization = {},
-      .local_size = { k_local_size_x, 1, 1 },
+      BOOST_LEAF_AUTO(set, pipe.allocate_set());
+      std::array<vkexec::storage_binding, 2> const buffers{
+        vkexec::storage_binding{
+          .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
+        vkexec::storage_binding{
+          .buffer = output.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
+      };
+      if (auto updated = pipe.update_set(set, buffers); !updated) { return updated.error(); }
+
+      host_push push{};
+      push.xform.at(0) = k_scale;
+      push.addr = k_placeholder_bda;
+      push.count = static_cast<std::uint32_t>(k_element_count);
+
+      auto graph = ex::schedule(ctx->get_scheduler())
+                   | vkexec::compute_pass(pipe, set, push, static_cast<std::uint32_t>(k_element_count));
+      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
+      if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
+
+      float const expected = k_initial * k_scale;
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      for (std::size_t index = 0; index < k_element_count; ++index) {
+        if (std::fabs(output.data()[index] - expected) > k_epsilon) {
+          std::println(stderr, "spirv pass mismatch at {}: got {} expected {}", index, output.data()[index], expected);
+          return vkexec::make_error(vkexec::errc::unsupported, "spirv pass result mismatch");
+        }
+      }
+      std::println("vkexec spirv pass ok: N={} result={}", k_element_count, output.data()[0]);
+      // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      return 0;
     },
-    "scale.comp");
-  if (!pipe) {
-    std::println(stderr, "vkexec spirv example failed: {}", pipe.error().message());
-    return 1;
-  }
-
-  auto set_result = pipe->allocate_set();
-  if (!set_result) {
-    std::println(stderr, "vkexec spirv example failed: {}", set_result.error().message());
-    return 1;
-  }
-  VkDescriptorSet const set = *set_result;
-  std::array<vkexec::storage_binding, 2> const buffers{
-    vkexec::storage_binding{
-      .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
-    vkexec::storage_binding{
-      .buffer = output.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
-  };
-  if (auto const updated = pipe->update_set(set, buffers); !updated) {
-    std::println(stderr, "vkexec spirv example failed: {}", updated.error().message());
-    return 1;
-  }
-
-  host_push push{};
-  push.xform.at(0) = k_scale;
-  push.addr = k_placeholder_bda;
-  push.count = static_cast<std::uint32_t>(k_element_count);
-
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::compute_pass(*pipe, set, push, static_cast<std::uint32_t>(k_element_count));
-  if (auto const waited = vkexec::sync_wait(std::move(graph)); !waited || !waited->has_value()) {
-    std::println(stderr, "vkexec spirv example failed: {}", waited ? "pipeline was stopped" : waited.error().message());
-    return 1;
-  }
-
-  float const expected = k_initial * k_scale;
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  for (std::size_t index = 0; index < k_element_count; ++index) {
-    if (std::fabs(output.data()[index] - expected) > k_epsilon) {
-      std::println(stderr, "spirv pass mismatch at {}: got {} expected {}", index, output.data()[index], expected);
+    [](vkexec::error const &e) {
+      std::println(stderr, "vkexec spirv example failed: {}", e.message());
       return 1;
-    }
-  }
-  std::println("vkexec spirv pass ok: N={} result={}", k_element_count, output.data()[0]);
-  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  return 0;
+    },
+    [] {
+      std::println(stderr, "vkexec spirv example failed");
+      return 1;
+    });
 }

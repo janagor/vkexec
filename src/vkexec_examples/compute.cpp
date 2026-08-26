@@ -1,6 +1,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/push_constant.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -36,65 +37,58 @@ BOOST_DESCRIBE_STRUCT(sim_params, (), (dt, damping))
 
 auto main() -> int
 {
-  auto ctx_result = vkexec::context::create({ .validation_layers = true });
-  if (!ctx_result) {
-    std::println(stderr, "vkexec example failed: {}", ctx_result.error().message());
-    return 1;
-  }
-  auto ctx = std::move(*ctx_result);
+  return vkexec::leaf::try_handle_all(
+    []() -> vkexec::leaf::result<int> {
+      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      BOOST_LEAF_AUTO(positions, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
+      BOOST_LEAF_AUTO(velocities, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial_velocity));
 
-  auto positions_result = vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F);
-  if (!positions_result) {
-    std::println(stderr, "vkexec example failed: {}", positions_result.error().message());
-    return 1;
-  }
-  auto velocities_result = vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial_velocity);
-  if (!velocities_result) {
-    std::println(stderr, "vkexec example failed: {}", velocities_result.error().message());
-    return 1;
-  }
-  auto &positions = *positions_result;
-  auto &velocities = *velocities_result;
+      sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
-  sim_params const params{ .dt = k_timestep, .damping = k_damping };
+      auto pipeline = ex::schedule(ctx->get_scheduler())
+                      | vkexec::bulk(static_cast<std::uint32_t>(k_element_count),
+                        params,
+                        [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
+                          edsl::Float position = positions[idx];
+                          edsl::Float velocity = velocities[idx];
 
-  auto pipeline = ex::schedule(ctx->get_scheduler())
-                  | vkexec::bulk(static_cast<std::uint32_t>(k_element_count),
-                    params,
-                    [&](edsl::Int idx, edsl::push_constant<sim_params> push) -> void {
-                      edsl::Float position = positions[idx];
-                      edsl::Float velocity = velocities[idx];
+                          velocity = velocity * push.get<&sim_params::damping>();
+                          position = position + (velocity * push.get<&sim_params::dt>());
 
-                      velocity = velocity * push.get<&sim_params::damping>();
-                      position = position + (velocity * push.get<&sim_params::dt>());
+                          positions[idx] = position;
+                          velocities[idx] = velocity;
+                        });
 
-                      positions[idx] = position;
-                      velocities[idx] = velocity;
-                    });
+      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(pipeline));
+      if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
 
-  if (auto const waited = vkexec::sync_wait(pipeline); !waited || !waited->has_value()) {
-    std::println(stderr, "vkexec example failed: {}", waited ? "pipeline was stopped" : waited.error().message());
-    return 1;
-  }
+      float const expected_v = k_initial_velocity * k_damping;
+      float const expected_p = expected_v * k_timestep;
+      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      for (std::size_t const index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
+        if (std::fabs(velocities.data()[index] - expected_v) > k_epsilon
+            || std::fabs(positions.data()[index] - expected_p) > k_epsilon) {
+          std::println(stderr,
+            "mismatch at {}: p={} v={} (expected p={} v={})",
+            index,
+            positions.data()[index],
+            velocities.data()[index],
+            expected_p,
+            expected_v);
+          return vkexec::make_error(vkexec::errc::unsupported, "sim result mismatch");
+        }
+      }
 
-  float const expected_v = k_initial_velocity * k_damping;
-  float const expected_p = expected_v * k_timestep;
-  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  for (std::size_t const index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
-    if (std::fabs(velocities.data()[index] - expected_v) > k_epsilon
-        || std::fabs(positions.data()[index] - expected_p) > k_epsilon) {
-      std::println(stderr,
-        "mismatch at {}: p={} v={} (expected p={} v={})",
-        index,
-        positions.data()[index],
-        velocities.data()[index],
-        expected_p,
-        expected_v);
+      std::println("vkexec sim ok: p[0]={} v[0]={}", positions.data()[0], velocities.data()[0]);
+      // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      return 0;
+    },
+    [](vkexec::error const &e) {
+      std::println(stderr, "vkexec example failed: {}", e.message());
       return 1;
-    }
-  }
-
-  std::println("vkexec sim ok: p[0]={} v[0]={}", positions.data()[0], velocities.data()[0]);
-  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  return 0;
+    },
+    [] {
+      std::println(stderr, "vkexec example failed");
+      return 1;
+    });
 }

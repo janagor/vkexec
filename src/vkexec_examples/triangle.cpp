@@ -1,3 +1,4 @@
+#include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -21,41 +22,47 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 
 auto main() -> int
 {
-  auto win_result = vkexec::window::create(
-    { .width = k_window_width, .height = k_window_height, .title = "vkexec triangle", .validation_layers = true });
-  if (!win_result) {
-    std::println(stderr, "vkexec triangle example failed: {}", win_result.error().message());
-    return 1;
-  }
-  auto win = std::move(*win_result);
+  return vkexec::leaf::try_handle_all(
+    []() -> vkexec::leaf::result<int> {
+      BOOST_LEAF_AUTO(win,
+        vkexec::window::create({ .width = k_window_width,
+          .height = k_window_height,
+          .title = "vkexec triangle",
+          .validation_layers = true }));
 
-  auto pipeline_result = vkexec::graphics_pipeline::create(
-    win.ctx(),
-    win.render_pass(),
-    [](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
-      edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),
-        edsl::vec2(0.0, -0.5),
-        edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec2(0.5, 0.5), edsl::vec2(-0.5, 0.5)));
-      edsl::Float3 const col = edsl::select(vertex_id == edsl::Int::constant(0),
-        edsl::vec3(1.0, 0.2, 0.2),
-        edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec3(0.2, 1.0, 0.2), edsl::vec3(0.2, 0.4, 1.0)));
-      out.position(pos);
-      out.color(col);
+      BOOST_LEAF_AUTO(pipeline,
+        vkexec::graphics_pipeline::create(
+          win.ctx(),
+          win.render_pass(),
+          [](edsl::Int vertex_id, edsl::VertexWriter out) -> void {
+            edsl::Float2 const pos = edsl::select(vertex_id == edsl::Int::constant(0),
+              edsl::vec2(0.0, -0.5),
+              edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec2(0.5, 0.5), edsl::vec2(-0.5, 0.5)));
+            edsl::Float3 const col = edsl::select(vertex_id == edsl::Int::constant(0),
+              edsl::vec3(1.0, 0.2, 0.2),
+              edsl::select(vertex_id == edsl::Int::constant(1), edsl::vec3(0.2, 1.0, 0.2), edsl::vec3(0.2, 0.4, 1.0)));
+            out.position(pos);
+            out.color(col);
+          },
+          [](edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void {
+            out.color(edsl::vec4(fragment_in.color(), 1.0));
+          }));
+
+      std::println("vkexec traced triangle (stdexec frame pipeline) - close the window to exit");
+      while (!win.should_close()) {
+        win.poll_events();
+        (void)vkexec::sync_wait(
+          ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices));
+      }
+      win.wait_idle();
+      return 0;
     },
-    [](edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void {
-      out.color(edsl::vec4(fragment_in.color(), 1.0));
+    [](vkexec::error const &e) {
+      std::println(stderr, "vkexec triangle example failed: {}", e.message());
+      return 1;
+    },
+    [] {
+      std::println(stderr, "vkexec triangle example failed");
+      return 1;
     });
-  if (!pipeline_result) {
-    std::println(stderr, "vkexec triangle example failed: {}", pipeline_result.error().message());
-    return 1;
-  }
-  auto &pipeline = *pipeline_result;
-
-  std::println("vkexec traced triangle (stdexec frame pipeline) - close the window to exit");
-  while (!win.should_close()) {
-    win.poll_events();
-    (void)vkexec::sync_wait(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices));
-  }
-  win.wait_idle();
-  return 0;
 }
