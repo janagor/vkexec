@@ -43,48 +43,52 @@ namespace detail {
     edsl::Int const idx = edsl::Int::param_index();
     auto push_proxy = edsl::push_constant<Params>::bind();
     fun(idx, push_proxy);
-    return ctx.get_or_compile(scope, shape).transform([&](std::reference_wrapper<pipeline_resources> pipe) {
-      return bulk_traced_state{
-        .pipe = &pipe.get(),
-        .buffers = scope.buffers(),
-        .local_size_x = scope.local_size_x(),
-      };
-    });
+    auto pipe = ctx.get_or_compile(scope, shape);
+    if (!pipe) { return pipe.error(); }
+    return bulk_traced_state{
+      .pipe = &pipe->get(),
+      .buffers = scope.buffers(),
+      .local_size_x = scope.local_size_x(),
+    };
   }
 
   template<typename Params, typename Fun>
   auto record_bulk_into(submit_scope &scope, std::uint32_t shape, Params const &params, Fun &fun) -> status
   {
-    return trace_bulk_kernel<Params>(*scope.ctx, shape, fun).and_then([&](bulk_traced_state traced) -> status {
-      return allocate_compute_set(*scope.ctx, *traced.pipe, traced.buffers)
-        .and_then([&](VkDescriptorSet set) -> status {
-          scope.track_set(*traced.pipe, set);
+    auto traced = trace_bulk_kernel<Params>(*scope.ctx, shape, fun);
+    if (!traced) { return traced.error(); }
 
-          vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
-          vkCmdBindDescriptorSets(
-            scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline_layout, 0, 1, &set, 0, nullptr);
-          if (traced.pipe->push_bytes > 0) { upload_push_constants(scope.cmd, *traced.pipe, params); }
+    auto set = allocate_compute_set(*scope.ctx, *traced->pipe, traced->buffers);
+    if (!set) { return set.error(); }
+    VkDescriptorSet const descriptor_set = *set;
+    scope.track_set(*traced->pipe, descriptor_set);
 
-          std::uint32_t const groups = (shape + traced.local_size_x - 1U) / traced.local_size_x;
-          vkCmdDispatch(scope.cmd, groups, 1, 1);
-          return {};
-        });
-    });
+    vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced->pipe->pipeline);
+    vkCmdBindDescriptorSets(
+      scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced->pipe->pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+    if (traced->pipe->push_bytes > 0) { upload_push_constants(scope.cmd, *traced->pipe, params); }
+
+    std::uint32_t const groups = (shape + traced->local_size_x - 1U) / traced->local_size_x;
+    vkCmdDispatch(scope.cmd, groups, 1, 1);
+    return {};
   }
 
   template<typename Params, typename Fun>
   [[nodiscard]] auto open_and_record_bulk(context *ctx, std::uint32_t shape, Params &params, Fun &fun)
     -> result<submit_scope>
   {
-    return submit_scope::open(*ctx).and_then([&](submit_scope scope) -> result<submit_scope> {
-      return record_bulk_into<Params>(scope, shape, params, fun)
-        .and_then([&] { return scope.end_recording(); })
-        .transform([&] { return std::move(scope); })
-        .or_else([&](error err) -> result<submit_scope> {
-          scope.release();
-          return std::unexpected(std::move(err));
-        });
-    });
+    auto opened = submit_scope::open(*ctx);
+    if (!opened) { return opened.error(); }
+    submit_scope scope = std::move(*opened);
+    if (auto recorded = record_bulk_into<Params>(scope, shape, params, fun); !recorded) {
+      scope.release();
+      return recorded.error();
+    }
+    if (auto ended = scope.end_recording(); !ended) {
+      scope.release();
+      return ended.error();
+    }
+    return scope;
   }
 
 }// namespace detail
@@ -139,7 +143,7 @@ template<typename Params, typename Fun> struct bulk_sender
 
       auto prepared = detail::open_and_record_bulk<Params>(ctx, shape, params, fun);
       if (!prepared) {
-        ex::set_error(std::move(rcvr), std::move(prepared).error());
+        ex::set_error(std::move(rcvr), to_error(prepared.error()));
         return;
       }
 
@@ -229,7 +233,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
 
       auto prepared = detail::open_and_record_bulk<Params>(ctx, shape, params, fun);
       if (!prepared) {
-        ex::set_error(std::move(rcvr), std::move(prepared).error());
+        ex::set_error(std::move(rcvr), to_error(prepared.error()));
         return;
       }
 

@@ -56,7 +56,7 @@ namespace detail {
 
     auto frame_result = try_begin_frame(*win);
     if (!frame_result) {
-      ex::set_error(std::move(rcvr), frame_result.error());
+      ex::set_error(std::move(rcvr), to_error(frame_result.error()));
       return;
     }
     if (!frame_result->has_value()) {
@@ -66,7 +66,7 @@ namespace detail {
 
     auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
     if (!fence_result) {
-      ex::set_error(std::move(rcvr), fence_result.error());
+      ex::set_error(std::move(rcvr), to_error(fence_result.error()));
       return;
     }
 
@@ -137,9 +137,9 @@ struct draw_sender
 
     auto start() noexcept -> void
     {
-      auto const frame_result = detail::try_begin_frame(*win);
+      auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
-        ex::set_error(std::move(receiver), frame_result.error());
+        ex::set_error(std::move(receiver), to_error(frame_result.error()));
         return;
       }
       if (!frame_result->has_value()) {
@@ -148,14 +148,14 @@ struct draw_sender
       }
 
       frame const &drawn = **frame_result;
-      if (auto const draw_status =
+      if (auto draw_status =
             pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
         !draw_status) {
-        ex::set_error(std::move(receiver), draw_status.error());
+        ex::set_error(std::move(receiver), to_error(draw_status.error()));
         return;
       }
-      if (auto const fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-        ex::set_error(std::move(receiver), fence_result.error());
+      if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+        ex::set_error(std::move(receiver), to_error(fence_result.error()));
         return;
       }
       ex::set_value(std::move(receiver));
@@ -204,10 +204,10 @@ struct draw_async_sender
         ctx,
         win,
         [this](frame &drawn) -> result<VkFence> {
-          if (auto const draw_status =
+          if (auto draw_status =
                 pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
             !draw_status) {
-            return std::unexpected(draw_status.error());
+            return draw_status.error();
           }
           return detail::try_end_frame(*win, drawn);
         },
@@ -249,13 +249,13 @@ struct draw_layers_sender
     {
       if (layers.empty()) {
         ex::set_error(
-          std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer").error());
+          std::move(receiver), to_error(make_error(errc::invalid_argument, "draw_layers requires at least one layer")));
         return;
       }
 
-      auto const frame_result = detail::try_begin_frame(*win);
+      auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
-        ex::set_error(std::move(receiver), frame_result.error());
+        ex::set_error(std::move(receiver), to_error(frame_result.error()));
         return;
       }
       if (!frame_result->has_value()) {
@@ -282,11 +282,11 @@ struct draw_layers_sender
       }
       vkCmdEndRenderPass(drawn.command_buffer);
       if (VkResult const end_result = vkEndCommandBuffer(drawn.command_buffer); end_result != VK_SUCCESS) {
-        ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed").error());
+        ex::set_error(std::move(receiver), to_error(make_vk_error(end_result, "vkEndCommandBuffer failed")));
         return;
       }
-      if (auto const fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-        ex::set_error(std::move(receiver), fence_result.error());
+      if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+        ex::set_error(std::move(receiver), to_error(fence_result.error()));
         return;
       }
       ex::set_value(std::move(receiver));
@@ -395,9 +395,9 @@ struct draw_mesh_sender
 
     auto start() noexcept -> void
     {
-      auto const frame_result = detail::try_begin_frame(*win);
+      auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
-        ex::set_error(std::move(receiver), frame_result.error());
+        ex::set_error(std::move(receiver), to_error(frame_result.error()));
         return;
       }
       if (!frame_result->has_value()) {
@@ -406,14 +406,14 @@ struct draw_mesh_sender
       }
 
       frame const &drawn_frame = **frame_result;
-      if (auto const draw_status = pipeline->draw(
+      if (auto draw_status = pipeline->draw(
             drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
         !draw_status) {
-        ex::set_error(std::move(receiver), draw_status.error());
+        ex::set_error(std::move(receiver), to_error(draw_status.error()));
         return;
       }
-      if (auto const fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
-        ex::set_error(std::move(receiver), fence_result.error());
+      if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
+        ex::set_error(std::move(receiver), to_error(fence_result.error()));
         return;
       }
       ex::set_value(std::move(receiver));
@@ -462,10 +462,10 @@ struct draw_mesh_async_sender
         ctx,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
-          if (auto const draw_status = pipeline->draw(
+          if (auto draw_status = pipeline->draw(
                 drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
             !draw_status) {
-            return std::unexpected(draw_status.error());
+            return draw_status.error();
           }
           return detail::try_end_frame(*win, drawn_frame);
         },

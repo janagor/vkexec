@@ -128,13 +128,12 @@ namespace detail {
       if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
     }
 
-    auto const set = allocate_compute_set(ctx, pipe, buffers);
-    return set.transform([&](VkDescriptorSet allocated) {
-      cleanup.sets.insert_or_assign(&pipe,
-        descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
-      cleanup.track(pipe.descriptor_pool, allocated);
-      return allocated;
-    });
+    auto set = allocate_compute_set(ctx, pipe, buffers);
+    if (!set) { return set.error(); }
+    cleanup.sets.insert_or_assign(&pipe,
+      descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = *set });
+    cleanup.track(pipe.descriptor_pool, *set);
+    return *set;
   }
 
   /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.
@@ -170,22 +169,23 @@ namespace detail {
 
     [[nodiscard]] static auto open(context &host) -> result<submit_scope>
     {
-      return host.allocate_command_buffer().and_then([&](VkCommandBuffer cmd) -> result<submit_scope> {
-        submit_scope scope;
-        scope.ctx = &host;
-        scope.cmd = cmd;
+      auto cmd = host.allocate_command_buffer();
+      if (!cmd) { return cmd.error(); }
 
-        VkCommandBufferBeginInfo begin{};
-        begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        if (VkResult const result = vkBeginCommandBuffer(scope.cmd, &begin); result != VK_SUCCESS) {
-          host.free_command_buffer(scope.cmd);
-          scope.cmd = VK_NULL_HANDLE;
-          scope.ctx = nullptr;
-          return make_vk_error(result, "vkBeginCommandBuffer failed");
-        }
-        return scope;
-      });
+      submit_scope scope;
+      scope.ctx = &host;
+      scope.cmd = *cmd;
+
+      VkCommandBufferBeginInfo begin{};
+      begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      if (VkResult const result = vkBeginCommandBuffer(scope.cmd, &begin); result != VK_SUCCESS) {
+        host.free_command_buffer(scope.cmd);
+        scope.cmd = VK_NULL_HANDLE;
+        scope.ctx = nullptr;
+        return make_vk_error(result, "vkBeginCommandBuffer failed");
+      }
+      return scope;
     }
 
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
@@ -276,9 +276,9 @@ namespace detail {
           }
         }
 
-        auto const opened = submit_scope::open(*ctx);
+        auto opened = submit_scope::open(*ctx);
         if (!opened) {
-          ex::set_error(std::move(rcvr), opened.error());
+          ex::set_error(std::move(rcvr), to_error(opened.error()));
           return;
         }
         ex::set_value(std::move(rcvr), std::move(*opened));
@@ -314,9 +314,9 @@ namespace detail {
       auto start() noexcept -> void
       {
         context *const host = scope.ctx;
-        if (auto const submitted = host->submit_and_wait(scope.cmd); !submitted) {
+        if (auto submitted = host->submit_and_wait(scope.cmd); !submitted) {
           scope.release();
-          ex::set_error(std::move(receiver), submitted.error());
+          ex::set_error(std::move(receiver), to_error(submitted.error()));
           return;
         }
         scope.release();
@@ -368,14 +368,14 @@ namespace detail {
         context *const host = scope.ctx;
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done{ VK_NULL_HANDLE };
-        if (auto const submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
+        if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
           reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
           scope.release();
-          ex::set_error(std::move(rcvr), submitted.error());
+          ex::set_error(std::move(rcvr), to_error(submitted.error()));
           return;
         }
 
-        if (auto const enqueued = host->enqueue_fence_wait(done,
+        if (auto enqueued = host->enqueue_fence_wait(done,
               fence,
               token,
               [scope = std::move(scope), rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable
@@ -383,7 +383,7 @@ namespace detail {
           !enqueued) {
           reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
           scope.release();
-          ex::set_error(std::move(rcvr), enqueued.error());
+          ex::set_error(std::move(rcvr), to_error(enqueued.error()));
         }
       }
     };

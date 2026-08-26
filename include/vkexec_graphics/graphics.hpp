@@ -63,11 +63,11 @@ public:
     graphics_pipeline pipe;
     pipe.device_ = ctx.device();
     pipe.cfg_ = cfg;
-    if (auto const built =
+    if (auto built =
           pipe.build(ctx, render_pass, std::forward<VertexFn>(vertex_fn), std::forward<FragmentFn>(fragment_fn));
       !built) {
       pipe.destroy();
-      return std::unexpected(built.error());
+      return built.error();
     }
     return pipe;
   }
@@ -174,28 +174,28 @@ private:
     std::vector<edsl::storage_trace> vs_buffers;
     std::vector<std::uint32_t> fs_spv;
 
-    status compiled = [&]() -> status {
+    {
       edsl::trace_scope const vertex_trace;
       edsl::Int const vertex_id = edsl::Int::vertex_index();
       edsl::VertexWriter const vertex_out;
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
-      return edsl::compile_vertex_spirv(vertex_trace, ctx.api_version())
-        .transform([&](std::vector<std::uint32_t> spirv) {
-          vs_spv = std::move(spirv);
-          vs_buffers = vertex_trace.buffers();
-        });
-    }();
+      auto vs = edsl::compile_vertex_spirv(vertex_trace, ctx.api_version());
+      if (!vs) { return vs.error(); }
+      vs_spv = std::move(*vs);
+      vs_buffers = vertex_trace.buffers();
+    }
 
-    compiled = std::move(compiled).and_then([&]() -> status {
+    {
       edsl::trace_scope const fragment_trace;
       edsl::FragmentReader const fragment_in;
       edsl::FragmentWriter const fragment_out;
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
-      return edsl::compile_fragment_spirv(fragment_trace, ctx.api_version())
-        .transform([&](std::vector<std::uint32_t> spirv) { fs_spv = std::move(spirv); });
-    });
+      auto fs = edsl::compile_fragment_spirv(fragment_trace, ctx.api_version());
+      if (!fs) { return fs.error(); }
+      fs_spv = std::move(*fs);
+    }
 
-    return std::move(compiled).and_then([&] { return complete(ctx, render_pass, vs_spv, fs_spv, vs_buffers); });
+    return complete(ctx, render_pass, vs_spv, fs_spv, vs_buffers);
   }
 
   auto complete(context &ctx,

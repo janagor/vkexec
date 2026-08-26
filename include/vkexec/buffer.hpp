@@ -62,7 +62,7 @@ template<typename T> struct buffer_allocate_sender
       if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
         ex::set_value(std::move(rcvr), std::move(*allocated));
       } else {
-        ex::set_error(std::move(rcvr), std::move(allocated.error()));
+        ex::set_error(std::move(rcvr), to_error(allocated.error()));
       }
     }
   };
@@ -92,10 +92,10 @@ public:
   /// Synchronous allocate: `sync_wait(allocate(...))`.
   [[nodiscard]] static auto create_sync(context &ctx, std::size_t count, T fill = T{}) -> result<buffer<T>>
   {
-    return sync_wait(allocate(ctx, count, std::move(fill))).and_then([](auto waited) -> result<buffer<T>> {
-      if (!waited.has_value()) { return make_error(errc::cancelled, "buffer allocate was stopped"); }
-      return std::get<0>(std::move(*waited));
-    });
+    auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
+    if (!waited) { return waited.error(); }
+    if (!waited->has_value()) { return make_error(errc::cancelled, "buffer allocate was stopped"); }
+    return std::get<0>(std::move(**waited));
   }
 
   ~buffer()
