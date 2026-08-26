@@ -22,18 +22,15 @@ public:
   // cppcheck-suppress noExplicitConstructor
   // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
   extension_feature(Feature feature)
-    : require_([feature](vkb::PhysicalDeviceSelector &selector) -> void {
-        selector.add_required_extension_features(feature);
-      }),
-      enable_if_present_([feature](vkb::PhysicalDevice &device) -> bool {
-        return device.enable_extension_features_if_present(feature);
-      })
+    : require_([feature](
+                 vkb::PhysicalDeviceSelector &selector) -> void { selector.add_required_extension_features(feature); }),
+      enable_if_present_(
+        [feature](vkb::PhysicalDevice &device) -> bool { return device.enable_extension_features_if_present(feature); })
   {}
 
   auto require(vkb::PhysicalDeviceSelector &selector) const -> void { require_(selector); }
 
-  [[nodiscard]] auto enable_if_present(vkb::PhysicalDevice &device) const -> bool
-  { return enable_if_present_(device); }
+  [[nodiscard]] auto enable_if_present(vkb::PhysicalDevice &device) const -> bool { return enable_if_present_(device); }
 
 private:
   std::function<void(vkb::PhysicalDeviceSelector &)> require_;
@@ -86,12 +83,10 @@ namespace vulkan_library {
   constexpr std::uint32_t k_min_api_version_minor = 0;
 
   /// Instance extensions always requested for compute-only contexts.
-  [[nodiscard]] inline auto required_instance_extensions() noexcept -> std::span<char const * const>
-  { return {}; }
+  [[nodiscard]] inline auto required_instance_extensions() noexcept -> std::span<char const *const> { return {}; }
 
   /// Instance extensions for `window::headless()` (`VK_EXT_headless_surface`).
-  [[nodiscard]] inline auto required_headless_surface_instance_extensions() noexcept
-    -> std::span<char const * const>
+  [[nodiscard]] inline auto required_headless_surface_instance_extensions() noexcept -> std::span<char const *const>
   {
     static constexpr std::array k_exts{
       VK_KHR_SURFACE_EXTENSION_NAME,
@@ -101,10 +96,10 @@ namespace vulkan_library {
   }
 
   /// Device extensions always requested for compute-only contexts.
-  [[nodiscard]] inline auto required_device_extensions() noexcept -> std::span<char const * const> { return {}; }
+  [[nodiscard]] inline auto required_device_extensions() noexcept -> std::span<char const *const> { return {}; }
 
   /// Device extensions required when presentation / swapchain is enabled.
-  [[nodiscard]] inline auto required_presentation_device_extensions() noexcept -> std::span<char const * const>
+  [[nodiscard]] inline auto required_presentation_device_extensions() noexcept -> std::span<char const *const>
   {
     static constexpr std::array k_exts{
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,

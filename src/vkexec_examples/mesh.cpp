@@ -1,7 +1,7 @@
 #include "load_gltf_mesh.hpp"
 
-#include <vkexec_edsl/types.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
@@ -29,10 +29,8 @@ constexpr char const *k_gltf_path = VKEXEC_MESH_GLTF_PATH;
 
 auto main() -> int
 {
-  auto win_result = vkexec::window::create({ .width = k_window_width,
-    .height = k_window_height,
-    .title = "vkexec mesh",
-    .validation_layers = true });
+  auto win_result = vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true });
   if (!win_result) {
     std::println(stderr, "vkexec mesh example failed: {}", win_result.error().message());
     return 1;

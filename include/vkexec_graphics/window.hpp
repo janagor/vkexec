@@ -65,8 +65,7 @@ public:
   auto wait_idle() -> void;
 
   [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
-  [[nodiscard]] auto extent() const noexcept -> VkExtent2D
-  { return swapchain_ ? swapchain_->extent() : VkExtent2D{}; }
+  [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return swapchain_ ? swapchain_->extent() : VkExtent2D{}; }
   [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
   { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 

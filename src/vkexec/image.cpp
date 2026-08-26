@@ -68,9 +68,7 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
       VmaAllocation allocation{ VK_NULL_HANDLE };
       VkResult const create_result =
         vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
-      if (create_result != VK_SUCCESS) {
-        return make_vk_error(create_result, "vmaCreateImage failed");
-      }
+      if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vmaCreateImage failed"); }
 
       return image{ &ctx, image_handle, allocation, format, VkExtent2D{ info.width, info.height }, info.usage };
     });

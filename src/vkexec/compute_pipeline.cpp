@@ -18,16 +18,15 @@ namespace vkexec {
 auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<compute_pipeline>
 {
-  return ctx.get_or_create_from_spirv(spirv, desc).transform(
-    [&](std::reference_wrapper<pipeline_resources> cached) { return compute_pipeline{ &ctx, &cached.get() }; });
+  return ctx.get_or_create_from_spirv(spirv, desc).transform([&](std::reference_wrapper<pipeline_resources> cached) {
+    return compute_pipeline{ &ctx, &cached.get() };
+  });
 }
 
 auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
   -> result<compute_pipeline>
 {
-  if (glsl.empty()) {
-    return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL");
-  }
+  if (glsl.empty()) { return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
   return edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute, ctx.api_version())
     .and_then([&](std::vector<std::uint32_t> const &spirv) { return create(ctx, spirv, desc); });
 }
@@ -41,9 +40,7 @@ auto compute_pipeline::allocate_set() -> result<VkDescriptorSet>
   dsai.pSetLayouts = &resources_->set_layout;
   VkDescriptorSet set{ VK_NULL_HANDLE };
   VkResult const allocate_result = vkAllocateDescriptorSets(ctx_->device(), &dsai, &set);
-  if (allocate_result != VK_SUCCESS) {
-    return make_vk_error(allocate_result, "vkAllocateDescriptorSets failed");
-  }
+  if (allocate_result != VK_SUCCESS) { return make_vk_error(allocate_result, "vkAllocateDescriptorSets failed"); }
   return set;
 }
 

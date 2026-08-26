@@ -73,9 +73,7 @@ auto main() -> int
                     });
 
   if (auto const waited = vkexec::sync_wait(pipeline); !waited || !waited->has_value()) {
-    std::println(stderr,
-      "vkexec example failed: {}",
-      waited ? "pipeline was stopped" : waited.error().message());
+    std::println(stderr, "vkexec example failed: {}", waited ? "pipeline was stopped" : waited.error().message());
     return 1;
   }
 

@@ -28,10 +28,10 @@ namespace detail {
 
   [[nodiscard]] inline auto try_begin_frame(window &win) -> result<std::optional<frame>> { return win.begin_frame(); }
 
-  [[nodiscard]] inline auto try_end_frame(window &win, frame const &drawn) -> result<VkFence> { return win.end_frame(drawn); }
+  [[nodiscard]] inline auto try_end_frame(window &win, frame const &drawn) -> result<VkFence>
+  { return win.end_frame(drawn); }
 
-  template<class Receiver>
-  auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
+  template<class Receiver> auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
   {
     if (failure) {
       ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
@@ -71,9 +71,7 @@ namespace detail {
     }
 
     (void)ctx->enqueue_borrowed_fence_wait(
-      *fence_result,
-      token,
-      [rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable -> void {
+      *fence_result, token, [rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable -> void {
         complete_draw(std::move(rcvr), std::move(wait_error), stopped);
       });
   }
@@ -206,8 +204,8 @@ struct draw_async_sender
         ctx,
         win,
         [this](frame &drawn) -> result<VkFence> {
-          if (auto const draw_status = pipeline->draw(
-                drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
+          if (auto const draw_status =
+                pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
             !draw_status) {
             return std::unexpected(draw_status.error());
           }
@@ -250,7 +248,8 @@ struct draw_layers_sender
     auto start() noexcept -> void
     {
       if (layers.empty()) {
-        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer").error());
+        ex::set_error(
+          std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer").error());
         return;
       }
 
@@ -326,9 +325,7 @@ struct draw_layers_async_sender
         ctx,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
-          if (layers.empty()) {
-            return make_error(errc::invalid_argument, "draw_layers requires at least one layer");
-          }
+          if (layers.empty()) { return make_error(errc::invalid_argument, "draw_layers requires at least one layer"); }
           graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
           std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
 

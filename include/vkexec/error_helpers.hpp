@@ -35,19 +35,14 @@ template<typename T>
   return make_error(errc::unsupported, std::move(detail));
 }
 
-[[nodiscard]] inline auto propagate_error(error err) -> std::unexpected<error> { return std::unexpected(std::move(err)); }
+[[nodiscard]] inline auto propagate_error(error err) -> std::unexpected<error>
+{ return std::unexpected(std::move(err)); }
 
-template<typename T>
-[[nodiscard]] inline auto propagate(result<T> const &value) -> std::unexpected<error>
-{
-  return std::unexpected(value.error());
-}
+template<typename T> [[nodiscard]] inline auto propagate(result<T> const &value) -> std::unexpected<error>
+{ return std::unexpected(value.error()); }
 
-template<typename T>
-[[nodiscard]] inline auto propagate(result<T> &&value) -> std::unexpected<error>
-{
-  return std::unexpected(std::move(value.error()));
-}
+template<typename T> [[nodiscard]] inline auto propagate(result<T> &&value) -> std::unexpected<error>
+{ return std::unexpected(std::move(value.error())); }
 
 }// namespace vkexec
 

@@ -20,9 +20,7 @@ namespace {
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VkSemaphore semaphore{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateSemaphore(device, &info, nullptr, &semaphore);
-    if (create_result != VK_SUCCESS) {
-      return make_vk_error(create_result, "vkCreateSemaphore (binary) failed");
-    }
+    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateSemaphore (binary) failed"); }
     return semaphore;
   }
 
@@ -30,12 +28,8 @@ namespace {
 
 auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
 {
-  if (ctx.device() == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "frame_ring requires a VkDevice");
-  }
-  if (info.slot_count == 0) {
-    return make_error(errc::invalid_argument, "frame_ring requires slot_count > 0");
-  }
+  if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "frame_ring requires a VkDevice"); }
+  if (info.slot_count == 0) { return make_error(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
 
   return timeline_semaphore::create(ctx, 0).and_then([&](timeline_semaphore timeline) -> result<frame_ring> {
     frame_ring ring{ &ctx, std::move(timeline) };
@@ -60,8 +54,7 @@ auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
   });
 }
 
-frame_ring::frame_ring(context *ctx, timeline_semaphore timeline) noexcept
-  : ctx_(ctx), timeline_(std::move(timeline))
+frame_ring::frame_ring(context *ctx, timeline_semaphore timeline) noexcept : ctx_(ctx), timeline_(std::move(timeline))
 {}
 
 frame_ring::~frame_ring() { destroy(); }
@@ -133,13 +126,11 @@ auto frame_ring::allocate_signal_value() -> std::uint64_t
 
 auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> status
 {
-  return check_slot(slot)
-    .and_then([&] { return check_image(image_index); })
-    .and_then([&]() -> status {
-      slot_timeline_value_.at(slot) = signal_value;
-      image_timeline_value_.at(image_index) = signal_value;
-      return {};
-    });
+  return check_slot(slot).and_then([&] { return check_image(image_index); }).and_then([&]() -> status {
+    slot_timeline_value_.at(slot) = signal_value;
+    image_timeline_value_.at(image_index) = signal_value;
+    return {};
+  });
 }
 
 auto frame_ring::make_submit_sync(std::size_t slot,

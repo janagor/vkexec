@@ -44,8 +44,7 @@ auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_
   if (layout.descriptor_stride == 0) {
     return make_error(errc::unsupported, "descriptor heap properties reported a zero descriptor stride");
   }
-  auto const descriptor_alignment =
-    std::max(heap_props.bufferDescriptorAlignment, heap_props.imageDescriptorAlignment);
+  auto const descriptor_alignment = std::max(heap_props.bufferDescriptorAlignment, heap_props.imageDescriptorAlignment);
   if (descriptor_alignment != 0 && layout.descriptor_stride % descriptor_alignment != 0) {
     return make_error(errc::unsupported, "descriptor heap stride is not aligned for buffer/image descriptors");
   }
@@ -85,11 +84,8 @@ auto write_storage_buffer_descriptor(context const &ctx,
   host_range.address = destination.data();
   host_range.size = destination.size();
 
-  VkResult const write_result =
-    ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
-  if (write_result != VK_SUCCESS) {
-    return make_vk_error(write_result, "vkWriteResourceDescriptorsEXT failed");
-  }
+  VkResult const write_result = ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
+  if (write_result != VK_SUCCESS) { return make_vk_error(write_result, "vkWriteResourceDescriptorsEXT failed"); }
   return {};
 }
 

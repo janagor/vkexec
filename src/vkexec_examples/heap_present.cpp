@@ -1,6 +1,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/descriptor_heap.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
@@ -9,7 +10,6 @@
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/rendering.hpp>
 #include <vkexec/sync_wait.hpp>
-#include <vkexec/error_helpers.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -117,7 +117,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
           .extent = img_result->extent(),
           .color = colors,
         });
-      !began) {
+    !began) {
     ctx.free_command_buffer(cmd);
     return began;
   }
@@ -145,7 +145,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
         .fence = fence,
         .queue = ctx.graphics_queue() != VK_NULL_HANDLE ? ctx.graphics_queue() : ctx.compute_queue(),
       });
-      !submitted) {
+    !submitted) {
     vkDestroyFence(ctx.device(), fence, nullptr);
     ctx.free_command_buffer(cmd);
     return submitted;
@@ -174,9 +174,8 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
       .shader_device_address = true,
     });
   if (!storage_result) { return false; }
-  auto heap_result = vkexec::gpu_buffer::create(ctx,
-    vkexec::descriptor_heap_byte_size(layout, k_heap_slots),
-    vkexec::gpu_buffer_memory::descriptor_heap);
+  auto heap_result = vkexec::gpu_buffer::create(
+    ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots), vkexec::gpu_buffer_memory::descriptor_heap);
   if (!heap_result) { return false; }
 
   auto const storage_addr = storage_result->device_address();
@@ -184,7 +183,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
   auto mapped = heap_result->mapped();
   if (auto const written = vkexec::write_storage_buffer_descriptor(
         ctx, *storage_addr, storage_result->size(), mapped.subspan(0, layout.buffer_descriptor_size));
-      !written) {
+    !written) {
     return false;
   }
 

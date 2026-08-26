@@ -28,14 +28,11 @@ auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> re
 
   VkSemaphore semaphore{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateSemaphore(ctx.device(), &info, nullptr, &semaphore);
-  if (create_result != VK_SUCCESS) {
-    return make_vk_error(create_result, "vkCreateSemaphore (timeline) failed");
-  }
+  if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateSemaphore (timeline) failed"); }
   return timeline_semaphore{ &ctx, semaphore };
 }
 
-timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept
-  : ctx_(ctx), semaphore_(semaphore)
+timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept : ctx_(ctx), semaphore_(semaphore)
 {}
 
 timeline_semaphore::~timeline_semaphore() { destroy(); }
@@ -74,8 +71,7 @@ auto timeline_semaphore::wait(std::uint64_t value) const -> status
   wait_info.pSemaphores = semaphores.data();
   wait_info.pValues = values.data();
 
-  VkResult const wait_result =
-    vkWaitSemaphores(ctx_->device(), &wait_info, std::numeric_limits<std::uint64_t>::max());
+  VkResult const wait_result = vkWaitSemaphores(ctx_->device(), &wait_info, std::numeric_limits<std::uint64_t>::max());
   if (wait_result != VK_SUCCESS) { return make_vk_error(wait_result, "vkWaitSemaphores failed"); }
   return {};
 }

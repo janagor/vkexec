@@ -80,8 +80,8 @@ TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][schedu
   auto const agent = ctx.host_agent_thread_id();
 
   std::thread::id ran_on{};
-  auto waited = vkexec::sync_wait(ex::starts_on(ctx.get_scheduler(),
-    ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
+  auto waited = vkexec::sync_wait(
+    ex::starts_on(ctx.get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
   REQUIRE(waited.has_value());
   REQUIRE(waited->has_value());
 

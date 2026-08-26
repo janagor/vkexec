@@ -38,8 +38,8 @@ namespace {
 
     mapped_buffer created{};
     VmaAllocationInfo mapped_info{};
-    if (VkResult const result =
-          vmaCreateBuffer(ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info);
+    if (VkResult const result = vmaCreateBuffer(
+          ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info);
       result != VK_SUCCESS) {
       return make_vk_error(result, "vmaCreateBuffer failed (mesh)");
     }
@@ -78,13 +78,15 @@ auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<s
           vertex_count_ = vertices_count;
           index_count_ = indices_count;
 
-          return create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+          return create_host_buffer(
+            ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
             .and_then([&](mapped_buffer vertex) {
               vertex_buffer_ = vertex.buffer;
               vertex_allocation_ = vertex.allocation;
               std::memcpy(vertex.mapped, vertices.data(), vertices.size_bytes());
 
-              return create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+              return create_host_buffer(
+                ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
                 .transform([&](mapped_buffer index) {
                   index_buffer_ = index.buffer;
                   index_allocation_ = index.allocation;

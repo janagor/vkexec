@@ -79,10 +79,12 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
     .value = k_signal_value,
   } };
 
-  REQUIRE(ctx.submit(vkexec::queue_submit{
-    .command_buffers = cmds,
-    .signals = signals,
-  }).has_value());
+  REQUIRE(ctx
+      .submit(vkexec::queue_submit{
+        .command_buffers = cmds,
+        .signals = signals,
+      })
+      .has_value());
   REQUIRE(timeline.wait(k_signal_value).has_value());
   ctx.free_command_buffer(cmd);
 }

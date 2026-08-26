@@ -60,10 +60,8 @@ auto create_particle_buffer(vkexec::context &ctx, Fn &&fill) -> vkexec::result<v
 
 auto main() -> int
 {
-  auto win_result = vkexec::window::create({ .width = k_window_width,
-    .height = k_window_height,
-    .title = "vkexec particles",
-    .validation_layers = true });
+  auto win_result = vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true });
   if (!win_result) {
     std::println(stderr, "vkexec particles example failed: {}", win_result.error().message());
     return 1;

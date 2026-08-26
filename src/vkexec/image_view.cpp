@@ -16,9 +16,7 @@ namespace {
 
 auto image_view::create(context &ctx, image const &img) -> result<image_view>
 {
-  if (ctx.device() == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "image_view requires a VkDevice");
-  }
+  if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "image_view requires a VkDevice"); }
   if (img.handle() == VK_NULL_HANDLE) {
     return make_error(errc::invalid_argument, "image_view requires a valid image");
   }
@@ -36,9 +34,7 @@ auto image_view::create(context &ctx, image const &img) -> result<image_view>
 
   VkImageView view{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
-  if (create_result != VK_SUCCESS) {
-    return make_vk_error(create_result, "vkCreateImageView failed");
-  }
+  if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateImageView failed"); }
   return image_view{ &ctx, view };
 }
 

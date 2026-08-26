@@ -1,5 +1,5 @@
-#include <vkexec_edsl/types.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/window.hpp>
@@ -21,10 +21,8 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 
 auto main() -> int
 {
-  auto win_result = vkexec::window::create({ .width = k_window_width,
-    .height = k_window_height,
-    .title = "vkexec triangle",
-    .validation_layers = true });
+  auto win_result = vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec triangle", .validation_layers = true });
   if (!win_result) {
     std::println(stderr, "vkexec triangle example failed: {}", win_result.error().message());
     return 1;

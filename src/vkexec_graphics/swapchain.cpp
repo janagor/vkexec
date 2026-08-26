@@ -18,9 +18,7 @@ namespace vkexec {
 
 auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapchain>
 {
-  if (ctx.device() == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "swapchain requires a VkDevice");
-  }
+  if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "swapchain requires a VkDevice"); }
   if (info.surface == VK_NULL_HANDLE) {
     return make_error(errc::invalid_argument, "swapchain requires a VkSurfaceKHR");
   }
@@ -84,9 +82,7 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
   VkResult const result =
     vkAcquireNextImageKHR(ctx_->device(), swapchain_.swapchain, timeout, image_available, VK_NULL_HANDLE, &image_index);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return std::optional<std::uint32_t>{}; }
-  if (result != VK_SUCCESS) {
-    return make_vk_error(result, "vkAcquireNextImageKHR failed");
-  }
+  if (result != VK_SUCCESS) { return make_vk_error(result, "vkAcquireNextImageKHR failed"); }
   return image_index;
 }
 
@@ -112,9 +108,7 @@ auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> 
 
 auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) -> status
 {
-  if (width == 0 || height == 0) {
-    return make_error(errc::invalid_argument, "swapchain extent must be > 0");
-  }
+  if (width == 0 || height == 0) { return make_error(errc::invalid_argument, "swapchain extent must be > 0"); }
 
   destroy_views();
   images_.clear();

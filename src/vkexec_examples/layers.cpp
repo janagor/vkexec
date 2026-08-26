@@ -1,5 +1,5 @@
-#include <vkexec_edsl/types.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec_edsl/types.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/window.hpp>
@@ -56,10 +56,8 @@ auto tinted_fragment(edsl::FragmentReader fragment_in, edsl::FragmentWriter out)
 
 auto main() -> int
 {
-  auto win_result = vkexec::window::create({ .width = k_window_width,
-    .height = k_window_height,
-    .title = "vkexec layers",
-    .validation_layers = true });
+  auto win_result = vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec layers", .validation_layers = true });
   if (!win_result) {
     std::println(stderr, "vkexec layers example failed: {}", win_result.error().message());
     return 1;
@@ -71,8 +69,8 @@ auto main() -> int
   background_cfg.clear_g = k_clear_g;
   background_cfg.clear_b = k_clear_b;
 
-  auto background_result =
-    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), background_cfg, fullscreen_vertex, gradient_fragment);
+  auto background_result = vkexec::graphics_pipeline::create(
+    win.ctx(), win.render_pass(), background_cfg, fullscreen_vertex, gradient_fragment);
   if (!background_result) {
     std::println(stderr, "vkexec layers example failed: {}", background_result.error().message());
     return 1;

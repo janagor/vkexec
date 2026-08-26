@@ -1,9 +1,9 @@
 #ifndef VKEXEC_BULK_HPP
 #define VKEXEC_BULK_HPP
 
-#include <vkexec/error.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/config.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
@@ -55,9 +55,9 @@ namespace detail {
   template<typename Params, typename Fun>
   auto record_bulk_into(submit_scope &scope, std::uint32_t shape, Params const &params, Fun &fun) -> status
   {
-    return trace_bulk_kernel<Params>(*scope.ctx, shape, fun)
-      .and_then([&](bulk_traced_state traced) -> status {
-        return allocate_compute_set(*scope.ctx, *traced.pipe, traced.buffers).and_then([&](VkDescriptorSet set) -> status {
+    return trace_bulk_kernel<Params>(*scope.ctx, shape, fun).and_then([&](bulk_traced_state traced) -> status {
+      return allocate_compute_set(*scope.ctx, *traced.pipe, traced.buffers)
+        .and_then([&](VkDescriptorSet set) -> status {
           scope.track_set(*traced.pipe, set);
 
           vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced.pipe->pipeline);
@@ -69,7 +69,7 @@ namespace detail {
           vkCmdDispatch(scope.cmd, groups, 1, 1);
           return {};
         });
-      });
+    });
   }
 
   template<typename Params, typename Fun>

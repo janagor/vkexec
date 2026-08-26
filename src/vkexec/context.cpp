@@ -32,26 +32,24 @@ namespace {
 
   auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
   {
-    auto const requested =
-      VK_MAKE_API_VERSION(0, requirements.api_version_major, requirements.api_version_minor, 0);
+    auto const requested = VK_MAKE_API_VERSION(0, requirements.api_version_major, requirements.api_version_minor, 0);
     auto const minimum =
       VK_MAKE_API_VERSION(0, vulkan_library::k_min_api_version_major, vulkan_library::k_min_api_version_minor, 0);
     return requested < minimum ? minimum : requested;
   }
 
-  auto append_unique(std::vector<char const *> &dst, std::span<char const * const> src) -> void
+  auto append_unique(std::vector<char const *> &dst, std::span<char const *const> src) -> void
   {
     for (char const *extension : src) {
       if (extension == nullptr) { continue; }
-      bool const exists = std::ranges::any_of(dst, [extension](char const *item) -> bool {
-        return item != nullptr && std::strcmp(item, extension) == 0;
-      });
+      bool const exists = std::ranges::any_of(
+        dst, [extension](char const *item) -> bool { return item != nullptr && std::strcmp(item, extension) == 0; });
       if (!exists) { dst.push_back(extension); }
     }
   }
 
   auto merge_instance_extensions(vulkan_requirements const &requirements,
-    std::span<char const * const> extra_instance_extensions) -> std::vector<char const *>
+    std::span<char const *const> extra_instance_extensions) -> std::vector<char const *>
   {
     std::vector<char const *> merged;
     append_unique(merged, vulkan_library::required_instance_extensions());
@@ -78,11 +76,10 @@ namespace {
   auto configure_instance_builder(vkb::InstanceBuilder &builder,
     scheduler_options const &opts,
     std::uint32_t api_version,
-    std::span<char const * const> extra_instance_extensions) -> void
+    std::span<char const *const> extra_instance_extensions) -> void
   {
-    builder.set_app_name("vkexec")
-      .set_engine_name("vkexec")
-      .require_api_version(VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version));
+    builder.set_app_name("vkexec").set_engine_name("vkexec").require_api_version(
+      VK_API_VERSION_MAJOR(api_version), VK_API_VERSION_MINOR(api_version));
     if (opts.validation_layers) { builder.enable_validation_layers().use_default_debug_messenger(); }
 
     auto const instance_exts = merge_instance_extensions(opts.requirements, extra_instance_extensions);
@@ -102,13 +99,11 @@ namespace {
 
     selector.set_required_features(merge_features(requirements));
 
-    for (extension_feature const &feature : requirements.required_extension_features) {
-      feature.require(selector);
-    }
+    for (extension_feature const &feature : requirements.required_extension_features) { feature.require(selector); }
   }
 
-  auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device,
-    vulkan_requirements const &requirements) -> void
+  auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device, vulkan_requirements const &requirements)
+    -> void
   {
     for (char const *extension : requirements.optional_device_extensions) {
       if (extension != nullptr) { (void)physical_device.enable_extension_if_present(extension); }
@@ -182,14 +177,12 @@ auto context::adopt(context_adopt_info const &info) -> result<std::unique_ptr<co
 auto context::init_common_resources() -> status
 {
   load_device_procs();
-  return create_command_pool()
-    .and_then([this] { return create_allocator(); })
-    .and_then([this]() -> status {
-      pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
-      completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
-      host_agent_ = std::make_unique<detail::host_agent>();
-      return {};
-    });
+  return create_command_pool().and_then([this] { return create_allocator(); }).and_then([this]() -> status {
+    pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
+    completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+    host_agent_ = std::make_unique<detail::host_agent>();
+    return {};
+  });
 }
 
 auto context::init_headless(scheduler_options const &opts) -> status
@@ -257,7 +250,8 @@ auto context::init_adopted(context_adopt_info const &info) -> status
     allocator_ = info.allocator;
   } else {
     if (info.instance == VK_NULL_HANDLE || info.physical_device == VK_NULL_HANDLE) {
-      return make_error(errc::invalid_argument, "context::adopt requires instance and physical_device when allocator is null");
+      return make_error(
+        errc::invalid_argument, "context::adopt requires instance and physical_device when allocator is null");
     }
     if (auto const created = create_allocator(); !created) { return created; }
     owns_allocator_ = true;
@@ -347,8 +341,8 @@ auto context::load_device_procs() -> void
   if (device_.device == VK_NULL_HANDLE) { return; }
 
   // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
-  procs_.get_buffer_device_address = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(
-    vkGetDeviceProcAddr(device_.device, "vkGetBufferDeviceAddress"));
+  procs_.get_buffer_device_address =
+    reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr(device_.device, "vkGetBufferDeviceAddress"));
   if (procs_.get_buffer_device_address == nullptr) {
     procs_.get_buffer_device_address = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(
       vkGetDeviceProcAddr(device_.device, "vkGetBufferDeviceAddressKHR"));
@@ -358,10 +352,10 @@ auto context::load_device_procs() -> void
     vkGetDeviceProcAddr(device_.device, "vkWriteResourceDescriptorsEXT"));
   procs_.write_sampler_descriptors = reinterpret_cast<PFN_vkWriteSamplerDescriptorsEXT>(
     vkGetDeviceProcAddr(device_.device, "vkWriteSamplerDescriptorsEXT"));
-  procs_.cmd_bind_resource_heap = reinterpret_cast<PFN_vkCmdBindResourceHeapEXT>(
-    vkGetDeviceProcAddr(device_.device, "vkCmdBindResourceHeapEXT"));
-  procs_.cmd_bind_sampler_heap = reinterpret_cast<PFN_vkCmdBindSamplerHeapEXT>(
-    vkGetDeviceProcAddr(device_.device, "vkCmdBindSamplerHeapEXT"));
+  procs_.cmd_bind_resource_heap =
+    reinterpret_cast<PFN_vkCmdBindResourceHeapEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdBindResourceHeapEXT"));
+  procs_.cmd_bind_sampler_heap =
+    reinterpret_cast<PFN_vkCmdBindSamplerHeapEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdBindSamplerHeapEXT"));
   procs_.cmd_push_data =
     reinterpret_cast<PFN_vkCmdPushDataEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdPushDataEXT"));
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -470,8 +464,7 @@ auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
 
 auto context::do_enqueue_host(std::move_only_function<void()> task) -> status
 {
-  return ensure_host_agent().and_then(
-    [&](detail::host_agent *agent) { return agent->enqueue(std::move(task)); });
+  return ensure_host_agent().and_then([&](detail::host_agent *agent) { return agent->enqueue(std::move(task)); });
 }
 
 auto context::allocate_command_buffer() -> result<VkCommandBuffer>
@@ -528,9 +521,7 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> status
 
 auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence) -> status
 {
-  if (out_semaphore == nullptr) {
-    return make_error(errc::invalid_argument, "submit_async requires out_semaphore");
-  }
+  if (out_semaphore == nullptr) { return make_error(errc::invalid_argument, "submit_async requires out_semaphore"); }
 
   VkSemaphoreCreateInfo semaphore_info{};
   semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -607,9 +598,9 @@ auto context::submit(queue_submit const &info) -> status
     signal_values.push_back(signal.value);
   }
 
-  bool const use_timeline = std::ranges::any_of(info.waits, [](semaphore_submit const &entry) -> bool {
-    return entry.value != 0;
-  }) || std::ranges::any_of(info.signals, [](semaphore_submit const &entry) -> bool { return entry.value != 0; });
+  bool const use_timeline =
+    std::ranges::any_of(info.waits, [](semaphore_submit const &entry) -> bool { return entry.value != 0; })
+    || std::ranges::any_of(info.signals, [](semaphore_submit const &entry) -> bool { return entry.value != 0; });
 
   VkTimelineSemaphoreSubmitInfo timeline_info{};
   timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;

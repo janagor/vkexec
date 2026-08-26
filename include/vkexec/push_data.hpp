@@ -13,14 +13,11 @@
 namespace vkexec {
 
 /// Record `vkCmdPushDataEXT` for a host-visible byte range.
-[[nodiscard]] inline auto cmd_push_data(context const &ctx,
-  VkCommandBuffer cmd,
-  std::span<std::byte const> bytes,
-  std::uint32_t offset = 0) -> status
+[[nodiscard]] inline auto
+  cmd_push_data(context const &ctx, VkCommandBuffer cmd, std::span<std::byte const> bytes, std::uint32_t offset = 0)
+    -> status
 {
-  if (ctx.procs().cmd_push_data == nullptr) {
-    return make_error(errc::unsupported, "vkCmdPushDataEXT is unavailable");
-  }
+  if (ctx.procs().cmd_push_data == nullptr) { return make_error(errc::unsupported, "vkCmdPushDataEXT is unavailable"); }
   if (bytes.empty()) { return make_error(errc::invalid_argument, "cmd_push_data requires a non-empty payload"); }
 
   VkPushDataInfoEXT info{};

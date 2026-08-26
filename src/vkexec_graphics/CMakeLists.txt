@@ -1,4 +1,9 @@
-add_library(vkexec_graphics window.cpp swapchain.cpp graphics.cpp mesh.cpp)
+add_library(
+  vkexec_graphics
+  window.cpp
+  swapchain.cpp
+  graphics.cpp
+  mesh.cpp)
 
 add_library(vkexec::vkexec_graphics ALIAS vkexec_graphics)
 

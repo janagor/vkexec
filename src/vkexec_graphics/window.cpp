@@ -133,8 +133,8 @@ auto window::init(config cfg) -> status
     g_glfw_error.clear();
     glfwSetErrorCallback(glfw_error_callback);
     if (glfwInit() != GLFW_TRUE) {
-      return make_error(errc::io_error,
-        g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
+      return make_error(
+        errc::io_error, g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
@@ -235,9 +235,7 @@ auto window::create_headless_surface() -> status
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
     vkGetInstanceProcAddr(ctx_->instance(), "vkCreateHeadlessSurfaceEXT"));
-  if (create_fn == nullptr) {
-    return make_error(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available");
-  }
+  if (create_fn == nullptr) { return make_error(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
 
   VkHeadlessSurfaceCreateInfoEXT create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
@@ -463,8 +461,7 @@ auto window::create_frame_resources() -> status
     VkFenceCreateInfo fence_info{};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    if (VkResult const result =
-          vkCreateFence(ctx_->device(), &fence_info, nullptr, &frames_.at(frame_index).in_flight);
+    if (VkResult const result = vkCreateFence(ctx_->device(), &fence_info, nullptr, &frames_.at(frame_index).in_flight);
       result != VK_SUCCESS) {
       return make_vk_error(result, "vkCreateFence failed");
     }
@@ -546,9 +543,7 @@ auto window::recreate_swapchain() -> status
 
 auto window::begin_frame() -> result<std::optional<frame>>
 {
-  if (frame_open_) {
-    return make_error(errc::invalid_argument, "begin_frame called while a frame is already open");
-  }
+  if (frame_open_) { return make_error(errc::invalid_argument, "begin_frame called while a frame is already open"); }
 
   auto &sync = frames_.at(frame_index_);
   if (VkResult const wait_result = vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX);
@@ -559,9 +554,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
   auto const acquired = swapchain_->acquire_next_image(sync.image_available);
   if (!acquired) { return std::unexpected(acquired.error()); }
   if (!acquired->has_value()) {
-    if (auto const recreated = recreate_swapchain(); !recreated) {
-      return std::unexpected(recreated.error());
-    }
+    if (auto const recreated = recreate_swapchain(); !recreated) { return std::unexpected(recreated.error()); }
     return std::optional<frame>{};
   }
   std::uint32_t const image_index = **acquired;
@@ -589,17 +582,14 @@ auto window::begin_frame() -> result<std::optional<frame>>
 
   current_image_index_ = image_index;
   frame_open_ = true;
-  return frame{ .command_buffer = cmd,
-    .framebuffer = framebuffers_.at(image_index),
-    .extent = extent(),
-    .image_index = image_index };
+  return frame{
+    .command_buffer = cmd, .framebuffer = framebuffers_.at(image_index), .extent = extent(), .image_index = image_index
+  };
 }
 
 auto window::end_frame(frame const &drawn) -> result<VkFence>
 {
-  if (!frame_open_) {
-    return make_error(errc::invalid_argument, "end_frame called without begin_frame");
-  }
+  if (!frame_open_) { return make_error(errc::invalid_argument, "end_frame called without begin_frame"); }
   (void)drawn;
 
   auto &sync = frames_.at(frame_index_);
@@ -626,9 +616,7 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   bool const needs_recreate = !*present_result || framebuffer_resized_;
   if (needs_recreate) {
     framebuffer_resized_ = false;
-    if (auto const recreated = recreate_swapchain(); !recreated) {
-      return std::unexpected(recreated.error());
-    }
+    if (auto const recreated = recreate_swapchain(); !recreated) { return std::unexpected(recreated.error()); }
   }
 
   VkFence submitted = sync.in_flight;

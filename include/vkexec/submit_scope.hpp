@@ -130,8 +130,8 @@ namespace detail {
 
     auto const set = allocate_compute_set(ctx, pipe, buffers);
     return set.transform([&](VkDescriptorSet allocated) {
-      cleanup.sets.insert_or_assign(
-        &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
+      cleanup.sets.insert_or_assign(&pipe,
+        descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
       cleanup.track(pipe.descriptor_pool, allocated);
       return allocated;
     });

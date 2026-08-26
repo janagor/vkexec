@@ -232,7 +232,7 @@ private:
     VmaAllocation allocation{ VK_NULL_HANDLE };
     VmaAllocationInfo ainfo{};
     if (VkResult const created = vmaCreateBuffer(ctx.allocator(), &bci, &aci, &handle, &allocation, &ainfo);
-        created != VK_SUCCESS) {
+      created != VK_SUCCESS) {
       return make_vk_error(created, "vmaCreateBuffer failed");
     }
     if (ainfo.pMappedData == nullptr) {

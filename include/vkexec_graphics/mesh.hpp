@@ -23,9 +23,8 @@ struct mesh_vertex
 class mesh
 {
 public:
-  [[nodiscard]] static auto create(context &ctx,
-    std::span<mesh_vertex const> vertices,
-    std::span<std::uint32_t const> indices) -> result<mesh>;
+  [[nodiscard]] static auto
+    create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> result<mesh>;
 
   ~mesh();
 

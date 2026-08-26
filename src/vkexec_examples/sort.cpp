@@ -92,9 +92,7 @@ auto main() -> int
     graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
   }
   if (auto const waited = vkexec::sync_wait(std::move(graph)); !waited || !waited->has_value()) {
-    std::println(stderr,
-      "vkexec sort example failed: {}",
-      waited ? "pipeline was stopped" : waited.error().message());
+    std::println(stderr, "vkexec sort example failed: {}", waited ? "pipeline was stopped" : waited.error().message());
     return 1;
   }
 

@@ -54,8 +54,8 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
 {
   auto ctx = open_timeline_context();
 
-  auto ring_result = vkexec::frame_ring::create(*ctx,
-    vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 3 });
+  auto ring_result =
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 3 });
   REQUIRE(ring_result.has_value());
   auto &ring = *ring_result;
   REQUIRE(ring.slot_count() == 2);
@@ -73,8 +73,8 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
 {
   auto ctx = open_timeline_context();
 
-  auto ring_result = vkexec::frame_ring::create(*ctx,
-    vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
+  auto ring_result =
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
   REQUIRE(ring_result.has_value());
   auto &ring = *ring_result;
 
@@ -99,11 +99,13 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
   REQUIRE(sync.has_value());
   std::array<VkCommandBuffer, 1> const cmds{ record_empty(*ctx) };
 
-  REQUIRE(ctx->submit(vkexec::queue_submit{
-    .command_buffers = cmds,
-    .waits = sync->waits,
-    .signals = sync->signals,
-  }).has_value());
+  REQUIRE(ctx
+      ->submit(vkexec::queue_submit{
+        .command_buffers = cmds,
+        .waits = sync->waits,
+        .signals = sync->signals,
+      })
+      .has_value());
   REQUIRE(ring.mark_submitted(0, 0, signal_value).has_value());
 
   REQUIRE(ring.wait_slot(0).has_value());
@@ -114,8 +116,8 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
 {
   auto ctx = open_timeline_context();
 
-  auto ring_result = vkexec::frame_ring::create(*ctx,
-    vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
+  auto ring_result =
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
   REQUIRE(ring_result.has_value());
   auto &ring = *ring_result;
   auto const old_finished = ring.render_finished_semaphore(0);

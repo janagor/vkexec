@@ -29,8 +29,8 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_headless_window() -> vkexec::window
 {
-  auto result = vkexec::window::headless(
-    { .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" });
+  auto result =
+    vkexec::window::headless({ .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" });
   if (!result) { SKIP(std::string("Headless surface unavailable: ") + std::string(result.error().message())); }
   return std::move(*result);
 }
@@ -53,9 +53,7 @@ constexpr int k_post_stop_frames = 4;
     [](edsl::FragmentReader fragment_in, edsl::FragmentWriter out) -> void {
       out.color(edsl::vec4(fragment_in.color(), 1.0));
     });
-  if (!result) {
-    FAIL(std::string("graphics pipeline creation failed: ") + std::string(result.error().message()));
-  }
+  if (!result) { FAIL(std::string("graphics pipeline creation failed: ") + std::string(result.error().message())); }
   return std::move(*result);
 }
 

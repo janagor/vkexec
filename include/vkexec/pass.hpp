@@ -139,8 +139,7 @@ namespace detail {
   {
     status recorded{};
     for (pass_step const &step : steps) {
-      recorded = std::move(recorded).and_then(
-        [&] { return step.record(*scope.ctx, scope.cmd, scope.cleanup); });
+      recorded = std::move(recorded).and_then([&] { return step.record(*scope.ctx, scope.cmd, scope.cleanup); });
     }
     return std::move(recorded).and_then([&] { return scope.end_recording(); });
   }
@@ -350,13 +349,14 @@ namespace detail {
         std::vector<edsl::storage_trace> const buffers = scope.buffers();
         auto const local = scope.local_size_x();
 
-        return bind_or_allocate_set(record_ctx, pipe.get(), buffers, cleanup).and_then([&](VkDescriptorSet set) -> status {
-          std::uint32_t const groups = (closure.shape + local - 1U) / local;
-          void const *push_ptr = pipe.get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
-          auto const push_bytes = static_cast<std::uint32_t>(pipe.get().push_bytes > 0 ? sizeof(Params) : 0);
-          record_pass(cmd, pipe.get(), set, push_ptr, push_bytes, dispatch{ .x = groups });
-          return {};
-        });
+        return bind_or_allocate_set(record_ctx, pipe.get(), buffers, cleanup)
+          .and_then([&](VkDescriptorSet set) -> status {
+            std::uint32_t const groups = (closure.shape + local - 1U) / local;
+            void const *push_ptr = pipe.get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
+            auto const push_bytes = static_cast<std::uint32_t>(pipe.get().push_bytes > 0 ? sizeof(Params) : 0);
+            record_pass(cmd, pipe.get(), set, push_ptr, push_bytes, dispatch{ .x = groups });
+            return {};
+          });
       });
     } };
   }

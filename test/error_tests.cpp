@@ -58,12 +58,10 @@ TEST_CASE("vulkan library floors document instance and device requests", "[vkexe
 {
   auto const headless_instance = vkexec::vulkan_library::required_headless_surface_instance_extensions();
   REQUIRE(headless_instance.size() == 2);
-  REQUIRE(std::ranges::any_of(headless_instance, [](char const *name) -> bool {
-    return std::strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0;
-  }));
-  REQUIRE(std::ranges::any_of(headless_instance, [](char const *name) -> bool {
-    return std::strcmp(name, VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME) == 0;
-  }));
+  REQUIRE(std::ranges::any_of(
+    headless_instance, [](char const *name) -> bool { return std::strcmp(name, VK_KHR_SURFACE_EXTENSION_NAME) == 0; }));
+  REQUIRE(std::ranges::any_of(headless_instance,
+    [](char const *name) -> bool { return std::strcmp(name, VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME) == 0; }));
 
   auto const present_device = vkexec::vulkan_library::required_presentation_device_extensions();
   REQUIRE(present_device.size() == 1);

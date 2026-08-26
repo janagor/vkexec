@@ -85,11 +85,9 @@ namespace detail {
     ex::__mtransform<ex::__q<std::decay_t>, Continuation>,
     ex::__q<ex::__msingle>>;
 
-  template<class CvSender>
-  using sync_wait_value_tuple_t = sync_wait_result_t<CvSender, ex::__qq<std::tuple>>;
+  template<class CvSender> using sync_wait_value_tuple_t = sync_wait_result_t<CvSender, ex::__qq<std::tuple>>;
 
-  template<class CvSender>
-  using sync_wait_receiver_t = sync_wait_result_t<CvSender, ex::__q<sync_wait_receiver>>;
+  template<class CvSender> using sync_wait_receiver_t = sync_wait_result_t<CvSender, ex::__q<sync_wait_receiver>>;
 
   template<class CvSender>
   concept sync_waitable_sender =
@@ -119,9 +117,7 @@ namespace detail {
 /// - Failure: `unexpected(error)`.
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto sync_wait(Sender &&sender) -> result<std::optional<detail::sync_wait_value_tuple_t<Sender>>>
-{
-  return detail::sync_wait_impl(std::forward<Sender>(sender));
-}
+{ return detail::sync_wait_impl(std::forward<Sender>(sender)); }
 
 }// namespace vkexec
 

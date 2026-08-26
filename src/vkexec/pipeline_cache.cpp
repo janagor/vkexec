@@ -74,9 +74,7 @@ namespace {
     module_info.pCode = spirv.data();
     VkShaderModule shader{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateShaderModule(device, &module_info, nullptr, &shader);
-    if (create_result != VK_SUCCESS) {
-      return make_vk_error(create_result, "vkCreateShaderModule failed");
-    }
+    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateShaderModule failed"); }
     return shader;
   }
 
@@ -96,9 +94,7 @@ namespace {
     layout_info.pBindings = bindings.data();
     VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateDescriptorSetLayout(device, &layout_info, nullptr, &set_layout);
-    if (create_result != VK_SUCCESS) {
-      return make_vk_error(create_result, "vkCreateDescriptorSetLayout failed");
-    }
+    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateDescriptorSetLayout failed"); }
     return set_layout;
   }
 
@@ -120,9 +116,7 @@ namespace {
     }
     VkPipelineLayout layout{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &layout);
-    if (create_result != VK_SUCCESS) {
-      return make_vk_error(create_result, "vkCreatePipelineLayout failed");
-    }
+    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreatePipelineLayout failed"); }
     return layout;
   }
 
@@ -149,9 +143,7 @@ namespace {
     VkPipeline pipeline{ VK_NULL_HANDLE };
     VkResult const create_result =
       vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_info, nullptr, &pipeline);
-    if (create_result != VK_SUCCESS) {
-      return make_vk_error(create_result, "vkCreateComputePipelines failed");
-    }
+    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateComputePipelines failed"); }
     return pipeline;
   }
 
@@ -169,9 +161,7 @@ namespace {
     pool_info.pPoolSizes = &pool_size;
     VkDescriptorPool pool{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateDescriptorPool(device, &pool_info, nullptr, &pool);
-    if (create_result != VK_SUCCESS) {
-      return make_vk_error(create_result, "vkCreateDescriptorPool failed");
-    }
+    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateDescriptorPool failed"); }
     return pool;
   }
 
@@ -200,54 +190,54 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   std::string const glsl = edsl::emit_glsl(ast, work_count);
   return edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version())
     .and_then([&](std::vector<std::uint32_t> const &spirv) -> result<std::reference_wrapper<pipeline_resources>> {
-  auto resources = std::make_unique<pipeline_resources>();
-  resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
-  resources->push_bytes = ast.push_bytes;
-  resources->local_size = { static_cast<std::uint32_t>(ast.local_size_x), 1, 1 };
+      auto resources = std::make_unique<pipeline_resources>();
+      resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
+      resources->push_bytes = ast.push_bytes;
+      resources->local_size = { static_cast<std::uint32_t>(ast.local_size_x), 1, 1 };
 
-  VkDevice device = ctx_->device();
+      VkDevice device = ctx_->device();
 
-  auto shader_result = create_shader_module(device, spirv);
-  if (!shader_result) { return std::unexpected(std::move(shader_result).error()); }
-  resources->shader = *shader_result;
+      auto shader_result = create_shader_module(device, spirv);
+      if (!shader_result) { return std::unexpected(std::move(shader_result).error()); }
+      resources->shader = *shader_result;
 
-  auto set_layout_result = create_set_layout(device, resources->binding_count);
-  if (!set_layout_result) {
-    destroy_resources(*ctx_, *resources);
-    return propagate(set_layout_result);
-  }
-  resources->set_layout = *set_layout_result;
+      auto set_layout_result = create_set_layout(device, resources->binding_count);
+      if (!set_layout_result) {
+        destroy_resources(*ctx_, *resources);
+        return propagate(set_layout_result);
+      }
+      resources->set_layout = *set_layout_result;
 
-  auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, ast.push_bytes);
-  if (!pipeline_layout_result) {
-    destroy_resources(*ctx_, *resources);
-    return propagate(pipeline_layout_result);
-  }
-  resources->pipeline_layout = *pipeline_layout_result;
+      auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, ast.push_bytes);
+      if (!pipeline_layout_result) {
+        destroy_resources(*ctx_, *resources);
+        return propagate(pipeline_layout_result);
+      }
+      resources->pipeline_layout = *pipeline_layout_result;
 
-  auto pipeline_result =
-    create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr, false);
-  if (!pipeline_result) {
-    destroy_resources(*ctx_, *resources);
-    return propagate(pipeline_result);
-  }
-  resources->pipeline = *pipeline_result;
+      auto pipeline_result =
+        create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr, false);
+      if (!pipeline_result) {
+        destroy_resources(*ctx_, *resources);
+        return propagate(pipeline_result);
+      }
+      resources->pipeline = *pipeline_result;
 
-  auto pool_result = create_descriptor_pool(device, resources->binding_count);
-  if (!pool_result) {
-    destroy_resources(*ctx_, *resources);
-    return propagate(pool_result);
-  }
-  resources->descriptor_pool = *pool_result;
+      auto pool_result = create_descriptor_pool(device, resources->binding_count);
+      if (!pool_result) {
+        destroy_resources(*ctx_, *resources);
+        return propagate(pool_result);
+      }
+      resources->descriptor_pool = *pool_result;
 
-  std::scoped_lock const lock(mutex_);
-  if (auto cached = cache_.find(key); cached != cache_.end()) {
-    destroy_resources(*ctx_, *resources);
-    return std::ref(*cached->second);
-  }
-  auto [inserted_at, was_inserted] = cache_.emplace(key, std::move(resources));
-  (void)was_inserted;
-  return std::ref(*inserted_at->second);
+      std::scoped_lock const lock(mutex_);
+      if (auto cached = cache_.find(key); cached != cache_.end()) {
+        destroy_resources(*ctx_, *resources);
+        return std::ref(*cached->second);
+      }
+      auto [inserted_at, was_inserted] = cache_.emplace(key, std::move(resources));
+      (void)was_inserted;
+      return std::ref(*inserted_at->second);
     });
 }
 

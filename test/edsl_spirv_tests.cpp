@@ -29,27 +29,24 @@ auto make_spirv_version(std::uint32_t major, std::uint32_t minor) -> std::uint32
 
 TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.0 for Vulkan 1.0", "[vkexec][edsl][spirv]")
 {
-  auto const spirv =
-    vkexec::edsl::compile_glsl_to_spirv(k_trivial_compute, "trivial.comp", vkexec::edsl::shader_kind::compute,
-      VK_API_VERSION_1_0);
+  auto const spirv = vkexec::edsl::compile_glsl_to_spirv(
+    k_trivial_compute, "trivial.comp", vkexec::edsl::shader_kind::compute, VK_API_VERSION_1_0);
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version_word(*spirv) == make_spirv_version(1, 0));
 }
 
 TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.5 for Vulkan 1.2", "[vkexec][edsl][spirv]")
 {
-  auto const spirv =
-    vkexec::edsl::compile_glsl_to_spirv(k_trivial_compute, "trivial.comp", vkexec::edsl::shader_kind::compute,
-      VK_API_VERSION_1_2);
+  auto const spirv = vkexec::edsl::compile_glsl_to_spirv(
+    k_trivial_compute, "trivial.comp", vkexec::edsl::shader_kind::compute, VK_API_VERSION_1_2);
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version_word(*spirv) == make_spirv_version(1, 5));
 }
 
 TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.6 for Vulkan 1.3", "[vkexec][edsl][spirv]")
 {
-  auto const spirv =
-    vkexec::edsl::compile_glsl_to_spirv(k_trivial_compute, "trivial.comp", vkexec::edsl::shader_kind::compute,
-      VK_API_VERSION_1_3);
+  auto const spirv = vkexec::edsl::compile_glsl_to_spirv(
+    k_trivial_compute, "trivial.comp", vkexec::edsl::shader_kind::compute, VK_API_VERSION_1_3);
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version_word(*spirv) == make_spirv_version(1, 6));
 }

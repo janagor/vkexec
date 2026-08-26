@@ -122,9 +122,7 @@ auto main() -> int
   auto graph = ex::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(*pipe, set, push, static_cast<std::uint32_t>(k_element_count));
   if (auto const waited = vkexec::sync_wait(std::move(graph)); !waited || !waited->has_value()) {
-    std::println(stderr,
-      "vkexec spirv example failed: {}",
-      waited ? "pipeline was stopped" : waited.error().message());
+    std::println(stderr, "vkexec spirv example failed: {}", waited ? "pipeline was stopped" : waited.error().message());
     return 1;
   }
 
