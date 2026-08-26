@@ -92,12 +92,11 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu
   }
 
   auto const usage_result = usage_for(info.memory, want_device_address);
-  if (!usage_result) { return std::unexpected(usage_result.error()); }
-
+  return usage_result.and_then([&](VkBufferUsageFlags usage) -> result<gpu_buffer> {
   VkBufferCreateInfo bci{};
   bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   bci.size = info.size;
-  bci.usage = *usage_result;
+  bci.usage = usage;
   bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VmaAllocationCreateInfo const aci = allocation_info_for(info.memory);
@@ -129,6 +128,7 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu
   }
 
   return gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
+  });
 }
 
 gpu_buffer::gpu_buffer(context *ctx,

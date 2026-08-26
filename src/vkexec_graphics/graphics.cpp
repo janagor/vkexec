@@ -87,20 +87,19 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   }
 
   auto const vert = create_module(vs_spv);
-  if (!vert) { return std::unexpected(vert.error()); }
   auto const frag = create_module(fs_spv);
-  if (!frag) { return std::unexpected(frag.error()); }
-
+  return vert.and_then([&](VkShaderModule vert_module) {
+    return frag.and_then([&](VkShaderModule frag_module) -> status {
   static constexpr std::size_t k_graphics_stage_count = 2;
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   std::array<VkPipelineShaderStageCreateInfo, k_graphics_stage_count> stages{};
   stages.at(0).sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   stages.at(0).stage = VK_SHADER_STAGE_VERTEX_BIT;
-  stages.at(0).module = *vert;
+  stages.at(0).module = vert_module;
   stages.at(0).pName = "main";
   stages.at(1).sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   stages.at(1).stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  stages.at(1).module = *frag;
+  stages.at(1).module = frag_module;
   stages.at(1).pName = "main";
 
   constexpr std::uint32_t k_mesh_binding = 0;
@@ -192,8 +191,8 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   }
   if (VkResult const layout_result = vkCreatePipelineLayout(device_, &plci, nullptr, &layout_);
     layout_result != VK_SUCCESS) {
-    vkDestroyShaderModule(device_, *frag, nullptr);
-    vkDestroyShaderModule(device_, *vert, nullptr);
+    vkDestroyShaderModule(device_, frag_module, nullptr);
+    vkDestroyShaderModule(device_, vert_module, nullptr);
     return make_vk_error(layout_result, "vkCreatePipelineLayout failed");
   }
 
@@ -213,10 +212,12 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   gpci.renderPass = render_pass;
   gpci.subpass = 0;
   VkResult const created = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &gpci, nullptr, &pipeline_);
-  vkDestroyShaderModule(device_, *frag, nullptr);
-  vkDestroyShaderModule(device_, *vert, nullptr);
+  vkDestroyShaderModule(device_, frag_module, nullptr);
+  vkDestroyShaderModule(device_, vert_module, nullptr);
   if (created != VK_SUCCESS) { return make_vk_error(created, "vkCreateGraphicsPipelines failed"); }
   return {};
+    });
+  });
 }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void

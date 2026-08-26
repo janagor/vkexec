@@ -34,10 +34,7 @@ auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapc
   created.preferred_format_ = info.preferred_format;
   created.preferred_color_space_ = info.preferred_color_space;
   created.present_mode_ = info.present_mode;
-  if (auto const built = created.create_or_recreate(info.width, info.height); !built) {
-    return std::unexpected(built.error());
-  }
-  return created;
+  return created.create_or_recreate(info.width, info.height).transform([&] { return std::move(created); });
 }
 
 swapchain::~swapchain() { destroy(); }

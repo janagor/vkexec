@@ -97,11 +97,12 @@ inline auto record_pass(VkCommandBuffer cmd,
   dispatch groups) -> status
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) {
-    if (auto const pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed; }
-  }
-  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
-  return {};
+  status pushed{};
+  if (!push.empty()) { pushed = cmd_push_data(ctx, cmd, push); }
+  return std::move(pushed).and_then([&]() -> status {
+    vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
+    return {};
+  });
 }
 
 [[nodiscard]] inline auto record_heap_pass(context const &ctx,
@@ -111,11 +112,12 @@ inline auto record_pass(VkCommandBuffer cmd,
   indirect_dispatch groups) -> status
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) {
-    if (auto const pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed; }
-  }
-  vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
-  return {};
+  status pushed{};
+  if (!push.empty()) { pushed = cmd_push_data(ctx, cmd, push); }
+  return std::move(pushed).and_then([&]() -> status {
+    vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
+    return {};
+  });
 }
 
 inline auto record_pass(VkCommandBuffer cmd,
@@ -135,25 +137,24 @@ namespace detail {
 
   [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
   {
+    status recorded{};
     for (pass_step const &step : steps) {
-      if (auto const recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
-        return std::unexpected(recorded.error());
-      }
+      recorded = std::move(recorded).and_then(
+        [&] { return step.record(*scope.ctx, scope.cmd, scope.cleanup); });
     }
-    return scope.end_recording();
+    return std::move(recorded).and_then([&] { return scope.end_recording(); });
   }
 
   [[nodiscard]] inline auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>
   {
-    auto opened = submit_scope::open(*ctx);
-    if (!opened) { return std::unexpected(opened.error()); }
-
-    submit_scope scope = std::move(*opened);
-    if (auto const recorded = record_pass_steps(scope, steps); !recorded) {
-      scope.release();
-      return std::unexpected(recorded.error());
-    }
-    return scope;
+    return submit_scope::open(*ctx).and_then([&](submit_scope scope) -> result<submit_scope> {
+      return record_pass_steps(scope, steps)
+        .transform([&] { return std::move(scope); })
+        .or_else([&](error err) -> result<submit_scope> {
+          scope.release();
+          return std::unexpected(std::move(err));
+        });
+    });
   }
 
 }// namespace detail
@@ -345,18 +346,18 @@ namespace detail {
       auto push = edsl::push_constant<Params>::bind();
       closure.fun(idx, push);
 
-      auto const pipe = record_ctx.get_or_compile(scope, closure.shape);
-      if (!pipe) { return std::unexpected(pipe.error()); }
-      std::vector<edsl::storage_trace> const buffers = scope.buffers();
-      auto const local = scope.local_size_x();
+      return record_ctx.get_or_compile(scope, closure.shape).and_then([&](auto pipe) -> status {
+        std::vector<edsl::storage_trace> const buffers = scope.buffers();
+        auto const local = scope.local_size_x();
 
-      auto const set = bind_or_allocate_set(record_ctx, *pipe, buffers, cleanup);
-      if (!set) { return std::unexpected(set.error()); }
-      std::uint32_t const groups = (closure.shape + local - 1U) / local;
-      void const *push_ptr = pipe->get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
-      auto const push_bytes = static_cast<std::uint32_t>(pipe->get().push_bytes > 0 ? sizeof(Params) : 0);
-      record_pass(cmd, pipe->get(), *set, push_ptr, push_bytes, dispatch{ .x = groups });
-      return {};
+        return bind_or_allocate_set(record_ctx, pipe.get(), buffers, cleanup).and_then([&](VkDescriptorSet set) -> status {
+          std::uint32_t const groups = (closure.shape + local - 1U) / local;
+          void const *push_ptr = pipe.get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
+          auto const push_bytes = static_cast<std::uint32_t>(pipe.get().push_bytes > 0 ? sizeof(Params) : 0);
+          record_pass(cmd, pipe.get(), set, push_ptr, push_bytes, dispatch{ .x = groups });
+          return {};
+        });
+      });
     } };
   }
 

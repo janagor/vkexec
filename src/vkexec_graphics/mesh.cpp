@@ -65,43 +65,43 @@ auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span
   -> result<mesh>
 {
   mesh created;
-  if (auto const initialized = created.init(ctx, vertices, indices); !initialized) {
-    return std::unexpected(initialized.error());
-  }
-  return created;
+  return created.init(ctx, vertices, indices).transform([&] { return std::move(created); });
 }
 
 auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
 {
-  auto const vertices_count = count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]");
-  if (!vertices_count) { return std::unexpected(vertices_count.error()); }
-  auto const indices_count = count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]");
-  if (!indices_count) { return std::unexpected(indices_count.error()); }
+  return count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]")
+    .and_then([&](std::uint32_t vertices_count) {
+      return count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]")
+        .and_then([&](std::uint32_t indices_count) -> status {
+          ctx_ = &ctx;
+          vertex_count_ = vertices_count;
+          index_count_ = indices_count;
 
-  ctx_ = &ctx;
-  vertex_count_ = *vertices_count;
-  index_count_ = *indices_count;
+          return create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+            .and_then([&](mapped_buffer vertex) {
+              vertex_buffer_ = vertex.buffer;
+              vertex_allocation_ = vertex.allocation;
+              std::memcpy(vertex.mapped, vertices.data(), vertices.size_bytes());
 
-  auto const vertex = create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-  if (!vertex) { return std::unexpected(vertex.error()); }
-  vertex_buffer_ = vertex->buffer;
-  vertex_allocation_ = vertex->allocation;
-  std::memcpy(vertex->mapped, vertices.data(), vertices.size_bytes());
-
-  auto const index = create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-  if (!index) {
-    vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
-    vertex_buffer_ = VK_NULL_HANDLE;
-    vertex_allocation_ = VK_NULL_HANDLE;
-    ctx_ = nullptr;
-    vertex_count_ = 0;
-    index_count_ = 0;
-    return std::unexpected(index.error());
-  }
-  index_buffer_ = index->buffer;
-  index_allocation_ = index->allocation;
-  std::memcpy(index->mapped, indices.data(), indices.size_bytes());
-  return {};
+              return create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+                .transform([&](mapped_buffer index) {
+                  index_buffer_ = index.buffer;
+                  index_allocation_ = index.allocation;
+                  std::memcpy(index.mapped, indices.data(), indices.size_bytes());
+                })
+                .or_else([&](error err) -> status {
+                  vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
+                  vertex_buffer_ = VK_NULL_HANDLE;
+                  vertex_allocation_ = VK_NULL_HANDLE;
+                  ctx_ = nullptr;
+                  vertex_count_ = 0;
+                  index_count_ = 0;
+                  return std::unexpected(std::move(err));
+                });
+            });
+        });
+    });
 }
 
 mesh::~mesh() { destroy(); }

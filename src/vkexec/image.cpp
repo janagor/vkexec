@@ -46,37 +46,35 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
     return make_error(errc::invalid_argument, "vkexec::image requires a VMA allocator");
   }
 
-  auto const format_result = resolve_format(info);
-  if (!format_result) { return std::unexpected(format_result.error()); }
+  return resolve_format(info).and_then([&](VkFormat format) {
+    return usage_flags(info.usage).and_then([&](VkImageUsageFlags usage) -> result<image> {
+      VkImageCreateInfo image_info{};
+      image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+      image_info.imageType = VK_IMAGE_TYPE_2D;
+      image_info.extent = { info.width, info.height, 1 };
+      image_info.mipLevels = 1;
+      image_info.arrayLayers = 1;
+      image_info.format = format;
+      image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+      image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      image_info.usage = usage;
+      image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+      image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  auto const usage_result = usage_flags(info.usage);
-  if (!usage_result) { return std::unexpected(usage_result.error()); }
+      VmaAllocationCreateInfo alloc_info{};
+      alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-  VkImageCreateInfo image_info{};
-  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent = { info.width, info.height, 1 };
-  image_info.mipLevels = 1;
-  image_info.arrayLayers = 1;
-  image_info.format = *format_result;
-  image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = *usage_result;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      VkImage image_handle{ VK_NULL_HANDLE };
+      VmaAllocation allocation{ VK_NULL_HANDLE };
+      VkResult const create_result =
+        vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
+      if (create_result != VK_SUCCESS) {
+        return make_vk_error(create_result, "vmaCreateImage failed");
+      }
 
-  VmaAllocationCreateInfo alloc_info{};
-  alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-
-  VkImage image_handle{ VK_NULL_HANDLE };
-  VmaAllocation allocation{ VK_NULL_HANDLE };
-  VkResult const create_result =
-    vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
-  if (create_result != VK_SUCCESS) {
-    return make_vk_error(create_result, "vmaCreateImage failed");
-  }
-
-  return image{ &ctx, image_handle, allocation, *format_result, VkExtent2D{ info.width, info.height }, info.usage };
+      return image{ &ctx, image_handle, allocation, format, VkExtent2D{ info.width, info.height }, info.usage };
+    });
+  });
 }
 
 image::image(context *ctx,

@@ -198,9 +198,8 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   }
 
   std::string const glsl = edsl::emit_glsl(ast, work_count);
-  auto const spirv = edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version());
-  if (!spirv) { return std::unexpected(spirv.error()); }
-
+  return edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version())
+    .and_then([&](std::vector<std::uint32_t> const &spirv) -> result<std::reference_wrapper<pipeline_resources>> {
   auto resources = std::make_unique<pipeline_resources>();
   resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
   resources->push_bytes = ast.push_bytes;
@@ -208,8 +207,8 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
 
   VkDevice device = ctx_->device();
 
-  auto shader_result = create_shader_module(device, *spirv);
-  if (!shader_result) { return propagate(shader_result); }
+  auto shader_result = create_shader_module(device, spirv);
+  if (!shader_result) { return std::unexpected(std::move(shader_result).error()); }
   resources->shader = *shader_result;
 
   auto set_layout_result = create_set_layout(device, resources->binding_count);
@@ -249,6 +248,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   auto [inserted_at, was_inserted] = cache_.emplace(key, std::move(resources));
   (void)was_inserted;
   return std::ref(*inserted_at->second);
+    });
 }
 
 auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)

@@ -129,11 +129,12 @@ namespace detail {
     }
 
     auto const set = allocate_compute_set(ctx, pipe, buffers);
-    if (!set) { return std::unexpected(set.error()); }
-    cleanup.sets.insert_or_assign(
-      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = *set });
-    cleanup.track(pipe.descriptor_pool, *set);
-    return *set;
+    return set.transform([&](VkDescriptorSet allocated) {
+      cleanup.sets.insert_or_assign(
+        &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
+      cleanup.track(pipe.descriptor_pool, allocated);
+      return allocated;
+    });
   }
 
   /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.
@@ -169,23 +170,22 @@ namespace detail {
 
     [[nodiscard]] static auto open(context &host) -> result<submit_scope>
     {
-      submit_scope scope;
-      scope.ctx = &host;
+      return host.allocate_command_buffer().and_then([&](VkCommandBuffer cmd) -> result<submit_scope> {
+        submit_scope scope;
+        scope.ctx = &host;
+        scope.cmd = cmd;
 
-      auto const cmd = host.allocate_command_buffer();
-      if (!cmd) { return std::unexpected(cmd.error()); }
-      scope.cmd = *cmd;
-
-      VkCommandBufferBeginInfo begin{};
-      begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-      if (VkResult const result = vkBeginCommandBuffer(scope.cmd, &begin); result != VK_SUCCESS) {
-        host.free_command_buffer(scope.cmd);
-        scope.cmd = VK_NULL_HANDLE;
-        scope.ctx = nullptr;
-        return make_vk_error(result, "vkBeginCommandBuffer failed");
-      }
-      return scope;
+        VkCommandBufferBeginInfo begin{};
+        begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        if (VkResult const result = vkBeginCommandBuffer(scope.cmd, &begin); result != VK_SUCCESS) {
+          host.free_command_buffer(scope.cmd);
+          scope.cmd = VK_NULL_HANDLE;
+          scope.ctx = nullptr;
+          return make_vk_error(result, "vkBeginCommandBuffer failed");
+        }
+        return scope;
+      });
     }
 
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const

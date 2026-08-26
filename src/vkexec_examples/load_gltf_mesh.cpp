@@ -276,38 +276,37 @@ namespace {
 
   auto accessor_bytes(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::span<std::uint8_t const>>
   {
-    auto accessor_result = accessor_at(model, accessor_index);
-    if (!accessor_result) { return std::unexpected(accessor_result.error()); }
-    tg3_accessor const &accessor = *accessor_result.value();
-
-    if (accessor.buffer_view < 0) {
-      return make_error(errc::parse_error, "gltf accessor missing buffer view");
-    }
-    auto view_result = buffer_view_at(model, accessor.buffer_view);
-    if (!view_result) { return std::unexpected(view_result.error()); }
-    tg3_buffer_view const &view = *view_result.value();
-
-    if (view.buffer < 0) {
-      return make_error(errc::parse_error, "gltf buffer view missing buffer");
-    }
-    auto buffer_result = buffer_at(model, view.buffer);
-    if (!buffer_result) { return std::unexpected(buffer_result.error()); }
-    tg3_buffer const &buffer = *buffer_result.value();
-
-    std::size_t const offset =
-      static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
-    int const component_size = tg3_component_size(accessor.component_type);
-    int const component_count = tg3_num_components(accessor.type);
-    if (component_size < 0 || component_count < 0) {
-      return make_error(errc::parse_error, "gltf accessor has invalid component layout");
-    }
-    std::size_t const byte_length = static_cast<std::size_t>(accessor.count) * static_cast<std::size_t>(component_size)
-                                    * static_cast<std::size_t>(component_count);
-    if (offset + byte_length > buffer.data.count) {
-      return make_error(errc::parse_error, "gltf accessor exceeds buffer bounds");
-    }
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    return std::span<std::uint8_t const>{ buffer.data.data + offset, byte_length };
+    using bytes_result = vkexec::result<std::span<std::uint8_t const>>;
+    return accessor_at(model, accessor_index).and_then([&](tg3_accessor const *accessor_ptr) -> bytes_result {
+      tg3_accessor const &accessor = *accessor_ptr;
+      if (accessor.buffer_view < 0) {
+        return make_error(errc::parse_error, "gltf accessor missing buffer view");
+      }
+      return buffer_view_at(model, accessor.buffer_view).and_then([&](tg3_buffer_view const *view_ptr) -> bytes_result {
+        tg3_buffer_view const &view = *view_ptr;
+        if (view.buffer < 0) {
+          return make_error(errc::parse_error, "gltf buffer view missing buffer");
+        }
+        return buffer_at(model, view.buffer).and_then([&](tg3_buffer const *buffer_ptr) -> bytes_result {
+          tg3_buffer const &buffer = *buffer_ptr;
+          std::size_t const offset =
+            static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
+          int const component_size = tg3_component_size(accessor.component_type);
+          int const component_count = tg3_num_components(accessor.type);
+          if (component_size < 0 || component_count < 0) {
+            return make_error(errc::parse_error, "gltf accessor has invalid component layout");
+          }
+          std::size_t const byte_length = static_cast<std::size_t>(accessor.count)
+                                          * static_cast<std::size_t>(component_size)
+                                          * static_cast<std::size_t>(component_count);
+          if (offset + byte_length > buffer.data.count) {
+            return make_error(errc::parse_error, "gltf accessor exceeds buffer bounds");
+          }
+          // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+          return std::span<std::uint8_t const>{ buffer.data.data + offset, byte_length };
+        });
+      });
+    });
   }
 
   auto read_vec3_positions(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::vector<vec3>>

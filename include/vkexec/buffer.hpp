@@ -92,10 +92,10 @@ public:
   /// Synchronous allocate: `sync_wait(allocate(...))`.
   [[nodiscard]] static auto create_sync(context &ctx, std::size_t count, T fill = T{}) -> result<buffer<T>>
   {
-    auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
-    if (!waited) { return std::unexpected(waited.error()); }
-    if (!waited->has_value()) { return make_error(errc::cancelled, "buffer allocate was stopped"); }
-    return std::get<0>(std::move(**waited));
+    return sync_wait(allocate(ctx, count, std::move(fill))).and_then([](auto waited) -> result<buffer<T>> {
+      if (!waited.has_value()) { return make_error(errc::cancelled, "buffer allocate was stopped"); }
+      return std::get<0>(std::move(*waited));
+    });
   }
 
   ~buffer()

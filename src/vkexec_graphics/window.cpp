@@ -80,10 +80,7 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
 auto window::create(config cfg) -> result<window>
 {
   window created;
-  if (auto const initialized = created.init(std::move(cfg)); !initialized) {
-    return std::unexpected(initialized.error());
-  }
-  return created;
+  return created.init(std::move(cfg)).transform([&] { return std::move(created); });
 }
 
 auto window::headless() -> result<window> { return headless(config{}); }
@@ -169,12 +166,11 @@ auto window::init(config cfg) -> status
   }
 
   if (auto const completed = ctx_->complete_for_surface(surface_); !completed) { return completed; }
-  if (auto const swapchain = create_swapchain(); !swapchain) { return swapchain; }
-  if (auto const render_pass = create_render_pass(); !render_pass) { return render_pass; }
-  if (auto const depth = create_depth_resources(); !depth) { return depth; }
-  if (auto const framebuffers = create_framebuffers(); !framebuffers) { return framebuffers; }
-  if (auto const frame_resources = create_frame_resources(); !frame_resources) { return frame_resources; }
-  return {};
+  return create_swapchain()
+    .and_then([this] { return create_render_pass(); })
+    .and_then([this] { return create_depth_resources(); })
+    .and_then([this] { return create_framebuffers(); })
+    .and_then([this] { return create_frame_resources(); });
 }
 
 window::~window()
@@ -545,9 +541,7 @@ auto window::recreate_swapchain() -> status
   destroy_depth_resources();
 
   if (auto const swapchain = create_swapchain(); !swapchain) { return swapchain; }
-  if (auto const depth = create_depth_resources(); !depth) { return depth; }
-  if (auto const framebuffers = create_framebuffers(); !framebuffers) { return framebuffers; }
-  return {};
+  return create_depth_resources().and_then([this] { return create_framebuffers(); });
 }
 
 auto window::begin_frame() -> result<std::optional<frame>>
