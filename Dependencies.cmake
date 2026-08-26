@@ -87,7 +87,7 @@ function(vkexec_setup_dependencies)
       "BOOST_ENABLE_CMAKE ON"
       "BOOST_SKIP_INSTALL_RULES ON"
       "BUILD_SHARED_LIBS OFF"
-      "BOOST_INCLUDE_LIBRARIES describe\\\;mp11")
+      "BOOST_INCLUDE_LIBRARIES describe\\\;mp11\\\;leaf")
   endif()
 
   if(NOT TARGET glslang::glslang)

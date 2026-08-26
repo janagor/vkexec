@@ -24,6 +24,7 @@ target_link_libraries(
          vkexec_warnings
          vkexec::vkexec_edsl
          cx_system_error::cx_system_error
+         Boost::leaf
          Vulkan::Vulkan
          STDEXEC::stdexec
          vk-bootstrap::vk-bootstrap

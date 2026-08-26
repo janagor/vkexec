@@ -9,6 +9,7 @@ target_link_libraries(
          cx_system_error::cx_system_error
          Boost::describe
          Boost::mp11
+         Boost::leaf
   PRIVATE glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
 
 target_include_directories(

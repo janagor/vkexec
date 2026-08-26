@@ -13,16 +13,16 @@
 
 namespace vkexec {
 
-[[nodiscard]] inline auto make_vk_error(VkResult result, std::string_view context) -> std::unexpected<error>
+[[nodiscard]] inline auto make_vk_error(VkResult result, std::string_view context) -> leaf::error_id
 {
-  return std::unexpected(error{
+  return leaf::new_error(error{
     .code = MakeVkErrorCode(static_cast<int>(result)),
     .detail = std::string(context),
   });
 }
 
 template<typename T>
-[[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> std::unexpected<error>
+[[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> leaf::error_id
 {
   std::string detail = what;
   detail += ": ";
@@ -34,15 +34,6 @@ template<typename T>
   }
   return make_error(errc::unsupported, std::move(detail));
 }
-
-[[nodiscard]] inline auto propagate_error(error err) -> std::unexpected<error>
-{ return std::unexpected(std::move(err)); }
-
-template<typename T> [[nodiscard]] inline auto propagate(result<T> const &value) -> std::unexpected<error>
-{ return std::unexpected(value.error()); }
-
-template<typename T> [[nodiscard]] inline auto propagate(result<T> &&value) -> std::unexpected<error>
-{ return std::unexpected(std::move(value.error())); }
 
 }// namespace vkexec
 

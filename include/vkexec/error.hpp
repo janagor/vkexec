@@ -3,13 +3,16 @@
 
 #include <cx_system_error/system_error.hpp>
 
-#include <expected>
+#include <boost/leaf.hpp>
+
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 
 namespace vkexec {
+
+namespace leaf = boost::leaf;
 
 // NOLINTNEXTLINE(performance-enum-size)
 enum class errc {
@@ -94,12 +97,12 @@ struct error
   { return detail.empty() ? code.Message() : std::string_view(detail); }
 };
 
-template<typename T> using result = std::expected<T, error>;
-using status = std::expected<void, error>;
+template<typename T> using result = leaf::result<T>;
+using status = leaf::result<void>;
 
-[[nodiscard]] inline auto make_error(errc code, std::string detail = {}) -> std::unexpected<error>
+[[nodiscard]] inline auto make_error(errc code, std::string detail = {}) -> leaf::error_id
 {
-  return std::unexpected(error{
+  return leaf::new_error(error{
     .code = MakeErrorCode(code),
     .detail = std::move(detail),
   });
