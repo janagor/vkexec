@@ -88,38 +88,37 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu
       "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
   }
 
-  auto const usage_result = usage_for(info.memory, want_device_address);
-  return usage_result.and_then([&](VkBufferUsageFlags usage) -> result<gpu_buffer> {
-    VkBufferCreateInfo bci{};
-    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.size = info.size;
-    bci.usage = usage;
-    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  BOOST_LEAF_AUTO(usage, usage_for(info.memory, want_device_address));
 
-    VmaAllocationCreateInfo const aci = allocation_info_for(info.memory);
+  VkBufferCreateInfo bci{};
+  bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bci.size = info.size;
+  bci.usage = usage;
+  bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkBuffer buffer_handle{ VK_NULL_HANDLE };
-    VmaAllocation allocation{ VK_NULL_HANDLE };
-    VmaAllocationInfo ainfo{};
-    VkResult const create_result =
-      info.memory == gpu_buffer_memory::descriptor_heap
-        ? vmaCreateBufferWithAlignment(
-            ctx.allocator(), &bci, &aci, k_heap_device_address_alignment, &buffer_handle, &allocation, &ainfo)
-        : vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vmaCreateBuffer failed"); }
+  VmaAllocationCreateInfo const aci = allocation_info_for(info.memory);
 
-    void *mapped_ptr = nullptr;
-    if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging
-        || info.memory == gpu_buffer_memory::descriptor_heap) {
-      mapped_ptr = ainfo.pMappedData;
-      if (mapped_ptr == nullptr) {
-        vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);
-        return make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
-      }
+  VkBuffer buffer_handle{ VK_NULL_HANDLE };
+  VmaAllocation allocation{ VK_NULL_HANDLE };
+  VmaAllocationInfo ainfo{};
+  VkResult const create_result =
+    info.memory == gpu_buffer_memory::descriptor_heap
+      ? vmaCreateBufferWithAlignment(
+          ctx.allocator(), &bci, &aci, k_heap_device_address_alignment, &buffer_handle, &allocation, &ainfo)
+      : vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
+  if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vmaCreateBuffer failed"); }
+
+  void *mapped_ptr = nullptr;
+  if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging
+      || info.memory == gpu_buffer_memory::descriptor_heap) {
+    mapped_ptr = ainfo.pMappedData;
+    if (mapped_ptr == nullptr) {
+      vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);
+      return make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
     }
+  }
 
-    return gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
-  });
+  return gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
 }
 
 gpu_buffer::gpu_buffer(context *ctx,

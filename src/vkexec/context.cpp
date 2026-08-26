@@ -165,24 +165,26 @@ context::context(uninitialized_tag /*tag*/) noexcept {}
 auto context::create(scheduler_options const &opts) -> result<std::unique_ptr<context>>
 {
   auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
-  return ctx->init_headless(opts).transform([ctx = std::move(ctx)]() mutable { return std::move(ctx); });
+  BOOST_LEAF_CHECK(ctx->init_headless(opts));
+  return ctx;
 }
 
 auto context::adopt(context_adopt_info const &info) -> result<std::unique_ptr<context>>
 {
   auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
-  return ctx->init_adopted(info).transform([ctx = std::move(ctx)]() mutable { return std::move(ctx); });
+  BOOST_LEAF_CHECK(ctx->init_adopted(info));
+  return ctx;
 }
 
 auto context::init_common_resources() -> status
 {
   load_device_procs();
-  return create_command_pool().and_then([this] { return create_allocator(); }).and_then([this]() -> status {
-    pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
-    completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
-    host_agent_ = std::make_unique<detail::host_agent>();
-    return {};
-  });
+  BOOST_LEAF_CHECK(create_command_pool());
+  BOOST_LEAF_CHECK(create_allocator());
+  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
+  completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+  host_agent_ = std::make_unique<detail::host_agent>();
+  return {};
 }
 
 auto context::init_headless(scheduler_options const &opts) -> status
@@ -190,24 +192,23 @@ auto context::init_headless(scheduler_options const &opts) -> status
   requirements_ = opts.requirements;
   api_version_ = resolve_api_version(requirements_);
 
-  return build_headless_instance(opts, api_version_)
-    .and_then([this](vkb::Instance instance) {
-      instance_ = std::move(instance);
-      has_instance_ = true;
-      owns_instance_ = true;
-      return select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false);
-    })
-    .and_then([this](vkb::PhysicalDevice physical) {
-      physical_device_ = std::move(physical);
-      return build_device(physical_device_);
-    })
-    .and_then([this](vkb::Device device) -> status {
-      device_ = std::move(device);
-      has_device_ = true;
-      owns_device_ = true;
-      owns_allocator_ = true;
-      return fetch_queues(false).and_then([this] { return init_common_resources(); });
-    });
+  BOOST_LEAF_AUTO(built_instance, build_headless_instance(opts, api_version_));
+  instance_ = std::move(built_instance);
+  has_instance_ = true;
+  owns_instance_ = true;
+
+  BOOST_LEAF_AUTO(selected_physical,
+    select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false));
+  physical_device_ = std::move(selected_physical);
+
+  BOOST_LEAF_AUTO(built_device, build_device(physical_device_));
+  device_ = std::move(built_device);
+  has_device_ = true;
+  owns_device_ = true;
+  owns_allocator_ = true;
+
+  BOOST_LEAF_CHECK(fetch_queues(false));
+  return init_common_resources();
 }
 
 auto context::init_adopted(context_adopt_info const &info) -> status
@@ -253,16 +254,15 @@ auto context::init_adopted(context_adopt_info const &info) -> status
       return make_error(
         errc::invalid_argument, "context::adopt requires instance and physical_device when allocator is null");
     }
-    if (auto const created = create_allocator(); !created) { return created; }
+    BOOST_LEAF_CHECK(create_allocator());
     owns_allocator_ = true;
   }
 
-  return create_command_pool().and_then([this]() -> status {
-    pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
-    completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
-    host_agent_ = std::make_unique<detail::host_agent>();
-    return {};
-  });
+  BOOST_LEAF_CHECK(create_command_pool());
+  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
+  completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+  host_agent_ = std::make_unique<detail::host_agent>();
+  return {};
 }
 
 context::context(instance_only_tag tag,
@@ -284,21 +284,19 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
     return make_error(errc::invalid_argument, "complete_for_surface requires a surface");
   }
 
-  return select_physical_device(instance_, requirements_, api_version_, surface, true)
-    .and_then([this](vkb::PhysicalDevice physical) {
-      physical_device_ = std::move(physical);
-      return build_device(physical_device_);
-    })
-    .and_then([this](vkb::Device device) -> status {
-      device_ = std::move(device);
-      has_device_ = true;
-      owns_device_ = true;
-      owns_allocator_ = true;
-      return fetch_queues(true).and_then([this] { return init_common_resources(); }).and_then([this]() -> status {
-        presentation_enabled_ = true;
-        return {};
-      });
-    });
+  BOOST_LEAF_AUTO(selected_physical, select_physical_device(instance_, requirements_, api_version_, surface, true));
+  physical_device_ = std::move(selected_physical);
+
+  BOOST_LEAF_AUTO(built_device, build_device(physical_device_));
+  device_ = std::move(built_device);
+  has_device_ = true;
+  owns_device_ = true;
+  owns_allocator_ = true;
+
+  BOOST_LEAF_CHECK(fetch_queues(true));
+  BOOST_LEAF_CHECK(init_common_resources());
+  presentation_enabled_ = true;
+  return {};
 }
 
 auto context::fetch_queues(bool want_present) -> status
@@ -448,23 +446,22 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
   std::move_only_function<bool()> stop_requested,
   std::move_only_function<void(std::optional<error>, bool)> on_done) -> status
 {
-  return ensure_completion_waiter().and_then([&](detail::completion_waiter *waiter) {
-    return waiter->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
-  });
+  BOOST_LEAF_AUTO(waiter, ensure_completion_waiter());
+  return waiter->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
 }
 
 auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
   std::move_only_function<bool()> stop_requested,
   std::move_only_function<void(std::optional<error>, bool)> on_done) -> status
 {
-  return ensure_completion_waiter().and_then([&](detail::completion_waiter *waiter) {
-    return waiter->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
-  });
+  BOOST_LEAF_AUTO(waiter, ensure_completion_waiter());
+  return waiter->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
 }
 
 auto context::do_enqueue_host(std::move_only_function<void()> task) -> status
 {
-  return ensure_host_agent().and_then([&](detail::host_agent *agent) { return agent->enqueue(std::move(task)); });
+  BOOST_LEAF_AUTO(agent, ensure_host_agent());
+  return agent->enqueue(std::move(task));
 }
 
 auto context::allocate_command_buffer() -> result<VkCommandBuffer>
