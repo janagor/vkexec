@@ -46,7 +46,9 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
-  auto const layout = vkexec::query_descriptor_heap_layout(ctx);
+  auto const layout_result = vkexec::query_descriptor_heap_layout(ctx);
+  REQUIRE(layout_result.has_value());
+  auto const &layout = *layout_result;
   REQUIRE(layout.descriptor_stride > 0);
   REQUIRE(layout.buffer_descriptor_size > 0);
 
@@ -66,7 +68,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   std::vector<std::byte> slot(layout.buffer_descriptor_size);
   auto const storage_addr = storage_result->device_address();
   REQUIRE(storage_addr.has_value());
-  vkexec::write_storage_buffer_descriptor(ctx, *storage_addr, storage_result->size(), slot);
+  REQUIRE(vkexec::write_storage_buffer_descriptor(ctx, *storage_addr, storage_result->size(), slot).has_value());
   auto mapped = heap_result->mapped();
   REQUIRE(mapped.size() >= slot.size());
   std::ranges::copy(slot, mapped.begin());
@@ -87,8 +89,9 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
           * layout.resource_heap_alignment;
   auto const heap_addr = heap_result->device_address();
   REQUIRE(heap_addr.has_value());
-  vkexec::cmd_bind_resource_heap(
-    ctx, cmd, *heap_addr, heap_result->size(), aligned_offset, layout.min_resource_heap_reserved_range);
+  REQUIRE(vkexec::cmd_bind_resource_heap(
+    ctx, cmd, *heap_addr, heap_result->size(), aligned_offset, layout.min_resource_heap_reserved_range)
+      .has_value());
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   ctx.free_command_buffer(cmd);

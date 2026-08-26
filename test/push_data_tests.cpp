@@ -52,7 +52,7 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
   push_payload const payload{ .x = 1.5F, .y = 9U };
-  vkexec::cmd_push_data(ctx, cmd, payload);
+  REQUIRE(vkexec::cmd_push_data(ctx, cmd, payload).has_value());
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   ctx.free_command_buffer(cmd);

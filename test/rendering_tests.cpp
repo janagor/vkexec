@@ -77,12 +77,13 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   color.clear.color = { { 0.1F, 0.2F, 0.3F, 1.0F } };
   std::array<vkexec::color_attachment, 1> const colors{ color };
 
-  vkexec::cmd_begin_rendering(cmd,
+  REQUIRE(vkexec::cmd_begin_rendering(cmd,
     vkexec::rendering_info{
       .extent = img_result->extent(),
       .color = colors,
-    });
-  vkexec::cmd_end_rendering(cmd);
+    })
+      .has_value());
+  REQUIRE(vkexec::cmd_end_rendering(cmd).has_value());
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   std::array<VkCommandBuffer, 1> const cmds{ cmd };

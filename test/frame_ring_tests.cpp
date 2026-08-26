@@ -60,13 +60,13 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
   auto &ring = *ring_result;
   REQUIRE(ring.slot_count() == 2);
   REQUIRE(ring.image_count() == 3);
-  REQUIRE(ring.acquire_semaphore(0) != VK_NULL_HANDLE);
-  REQUIRE(ring.acquire_semaphore(1) != VK_NULL_HANDLE);
-  REQUIRE(ring.render_finished_semaphore(2) != VK_NULL_HANDLE);
+  REQUIRE(ring.acquire_semaphore(0).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
+  REQUIRE(ring.acquire_semaphore(1).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
+  REQUIRE(ring.render_finished_semaphore(2).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
   REQUIRE(ring.timeline().handle() != VK_NULL_HANDLE);
 
-  ring.wait_slot(0);
-  ring.wait_image(0);
+  REQUIRE(ring.wait_slot(0).has_value());
+  REQUIRE(ring.wait_image(0).has_value());
 }
 
 TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]")
@@ -80,7 +80,9 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
 
   // Prime the acquire semaphore so the wait is satisfied without a real swapchain acquire.
   {
-    std::array<VkSemaphore, 1> const signals{ ring.acquire_semaphore(0) };
+    auto const acquire = ring.acquire_semaphore(0);
+    REQUIRE(acquire.has_value());
+    std::array<VkSemaphore, 1> const signals{ *acquire };
     VkSubmitInfo submit{};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit.signalSemaphoreCount = 1;
@@ -94,17 +96,18 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
 
   auto const signal_value = ring.allocate_signal_value();
   auto const sync = ring.make_submit_sync(0, 0, signal_value);
+  REQUIRE(sync.has_value());
   std::array<VkCommandBuffer, 1> const cmds{ record_empty(*ctx) };
 
   REQUIRE(ctx->submit(vkexec::queue_submit{
     .command_buffers = cmds,
-    .waits = sync.waits,
-    .signals = sync.signals,
+    .waits = sync->waits,
+    .signals = sync->signals,
   }).has_value());
-  ring.mark_submitted(0, 0, signal_value);
+  REQUIRE(ring.mark_submitted(0, 0, signal_value).has_value());
 
-  ring.wait_slot(0);
-  ring.wait_image(0);
+  REQUIRE(ring.wait_slot(0).has_value());
+  REQUIRE(ring.wait_image(0).has_value());
 }
 
 TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][frame_ring][gpu]")
@@ -115,14 +118,17 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
     vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
   REQUIRE(ring_result.has_value());
   auto &ring = *ring_result;
-  VkSemaphore const old_finished = ring.render_finished_semaphore(0);
+  auto const old_finished = ring.render_finished_semaphore(0);
+  REQUIRE(old_finished.has_value());
 
-  ring.resize_images(4);
+  REQUIRE(ring.resize_images(4).has_value());
   REQUIRE(ring.image_count() == 4);
-  REQUIRE(ring.render_finished_semaphore(0) != VK_NULL_HANDLE);
-  REQUIRE(ring.render_finished_semaphore(0) != old_finished);
-  REQUIRE(ring.render_finished_semaphore(3) != VK_NULL_HANDLE);
+  auto const new_finished = ring.render_finished_semaphore(0);
+  REQUIRE(new_finished.has_value());
+  REQUIRE(*new_finished != VK_NULL_HANDLE);
+  REQUIRE(*new_finished != *old_finished);
+  REQUIRE(ring.render_finished_semaphore(3).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
   ring.reset_completion_tracking();
-  ring.wait_slot(1);
-  ring.wait_image(3);
+  REQUIRE(ring.wait_slot(1).has_value());
+  REQUIRE(ring.wait_image(3).has_value());
 }
