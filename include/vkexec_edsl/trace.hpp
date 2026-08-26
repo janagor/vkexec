@@ -1,6 +1,7 @@
 #ifndef VKEXEC_EDSL_TRACE_HPP
 #define VKEXEC_EDSL_TRACE_HPP
 
+#include <vkexec/error.hpp>
 #include <vkexec_edsl/types.hpp>
 
 #include <vulkan/vulkan_core.h>

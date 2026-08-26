@@ -112,12 +112,19 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   color.view = view_result->handle();
   color.clear.color = { { 0.15F, 0.35F, 0.55F, 1.0F } };
   std::array<vkexec::color_attachment, 1> const colors{ color };
-  vkexec::cmd_begin_rendering(cmd,
-    vkexec::rendering_info{
-      .extent = img_result->extent(),
-      .color = colors,
-    });
-  vkexec::cmd_end_rendering(cmd);
+  if (auto const began = vkexec::cmd_begin_rendering(cmd,
+        vkexec::rendering_info{
+          .extent = img_result->extent(),
+          .color = colors,
+        });
+      !began) {
+    ctx.free_command_buffer(cmd);
+    return began;
+  }
+  if (auto const ended = vkexec::cmd_end_rendering(cmd); !ended) {
+    ctx.free_command_buffer(cmd);
+    return ended;
+  }
 
   if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);
@@ -157,7 +164,9 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
 {
   if (ctx.procs().cmd_push_data == nullptr || ctx.procs().write_resource_descriptors == nullptr) { return false; }
 
-  auto const layout = vkexec::query_descriptor_heap_layout(ctx);
+  auto const layout_result = vkexec::query_descriptor_heap_layout(ctx);
+  if (!layout_result) { return false; }
+  auto const &layout = *layout_result;
   auto storage_result = vkexec::gpu_buffer::create(ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
@@ -173,8 +182,11 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
   auto const storage_addr = storage_result->device_address();
   if (!storage_addr) { return false; }
   auto mapped = heap_result->mapped();
-  vkexec::write_storage_buffer_descriptor(
-    ctx, *storage_addr, storage_result->size(), mapped.subspan(0, layout.buffer_descriptor_size));
+  if (auto const written = vkexec::write_storage_buffer_descriptor(
+        ctx, *storage_addr, storage_result->size(), mapped.subspan(0, layout.buffer_descriptor_size));
+      !written) {
+    return false;
+  }
 
   auto pipe = vkexec::compute_pipeline::create(ctx,
     k_heap_glsl,
