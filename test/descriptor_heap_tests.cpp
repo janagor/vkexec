@@ -43,7 +43,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto const layout_result = vkexec::query_descriptor_heap_layout(ctx);

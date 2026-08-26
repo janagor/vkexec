@@ -33,7 +33,7 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(ctx, k_count, k_fill));
@@ -51,7 +51,7 @@ TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][bu
 TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto waited = vkexec::sync_wait(vkexec::buffer<std::uint32_t>::create(ctx, k_count, k_int_fill));
@@ -64,7 +64,7 @@ TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
 TEST_CASE("buffer::create_sync allocates synchronously", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_fill);
@@ -92,7 +92,7 @@ TEST_CASE("buffer::allocate completes with set_stopped when stop is already requ
 TEST_CASE("buffer allocate advertises completion scheduler", "[vkexec][buffer][scheduler]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto const sender = vkexec::buffer<float>::allocate(ctx, k_count);

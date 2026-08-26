@@ -33,7 +33,7 @@ TEST_CASE("timeline_semaphore create and wait for initial value", "[vkexec][time
   requirements.require_extension_feature(features_12);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto timeline_result = vkexec::timeline_semaphore::create(ctx, 3);
@@ -56,7 +56,7 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
   requirements.require_extension_feature(features_12);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto timeline_result = vkexec::timeline_semaphore::create(ctx, 0);

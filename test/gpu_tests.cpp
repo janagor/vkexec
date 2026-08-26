@@ -69,7 +69,7 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto positions_result = vkexec::buffer<float>::create_sync(ctx, k_count, 0.0F);
@@ -112,7 +112,7 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
@@ -152,7 +152,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
@@ -211,7 +211,7 @@ TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto data_result = vkexec::buffer<float>::create_sync(ctx, k_count, 0.0F);

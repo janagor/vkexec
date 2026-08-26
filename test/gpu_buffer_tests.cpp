@@ -25,7 +25,7 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::host_visible);
@@ -44,7 +44,7 @@ TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::device_local);
@@ -58,7 +58,7 @@ TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gp
 TEST_CASE("gpu_buffer staging is host-mapped", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::staging);
@@ -85,7 +85,7 @@ TEST_CASE("gpu_buffer descriptor_heap allocates when extension is available", "[
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::descriptor_heap);
@@ -110,7 +110,7 @@ TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[
   requirements.require_extension_feature(features_12);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx,

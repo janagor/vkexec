@@ -46,7 +46,7 @@ TEST_CASE("context can require Vulkan 1.4 features and extension feature structs
     .enable_extension_feature_if_present(features_present_timing);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
 
   auto &ctx = **ctx_result;
   REQUIRE(ctx.device() != VK_NULL_HANDLE);
@@ -73,7 +73,7 @@ TEST_CASE("context can require bufferDeviceAddress and dynamicRendering", "[vkex
   requirements.require_extension_feature(features_12).require_extension_feature(features_13);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
 
   auto &ctx = **ctx_result;
   REQUIRE(ctx.device() != VK_NULL_HANDLE);

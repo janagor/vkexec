@@ -19,7 +19,7 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("sampler creates a linear clamp sampler", "[vkexec][sampler][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto samp_result = vkexec::sampler::create(ctx);

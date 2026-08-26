@@ -53,7 +53,7 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
 TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto const caller = std::this_thread::get_id();
@@ -73,7 +73,7 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
 TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][scheduler][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto const caller = std::this_thread::get_id();
@@ -108,7 +108,7 @@ TEST_CASE("starts_on then bulk lowers via vkexec domain", "[vkexec][scheduler][d
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);

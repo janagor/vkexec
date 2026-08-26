@@ -22,7 +22,7 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,

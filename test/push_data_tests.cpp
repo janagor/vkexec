@@ -38,7 +38,7 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   requirements.require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   REQUIRE(ctx.procs().cmd_push_data != nullptr);

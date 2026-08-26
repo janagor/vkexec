@@ -39,7 +39,7 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   requirements.require_extension_feature(features_13);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,

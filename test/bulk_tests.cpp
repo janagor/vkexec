@@ -70,7 +70,7 @@ TEST_CASE("bulk factory stores shape and params", "[vkexec][bulk]")
 TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
@@ -97,7 +97,7 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto sender =
@@ -118,7 +118,7 @@ TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
 TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
@@ -144,7 +144,7 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto left_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
@@ -196,7 +196,7 @@ TEST_CASE("submit completes with set_stopped when stop is already requested", "[
 TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);

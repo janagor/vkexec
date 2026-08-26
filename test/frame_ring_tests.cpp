@@ -31,7 +31,7 @@ auto open_timeline_context() -> std::unique_ptr<vkexec::context>
   requirements.require_extension_feature(features_12);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
   return std::move(*ctx_result);
 }
 
