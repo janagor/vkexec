@@ -124,7 +124,7 @@ namespace {
     configure_instance_builder(builder, opts, api_version, {});
     builder.set_headless();
     auto const built = builder.build();
-    if (!built) { return std::unexpected(make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
+    if (!built) { return make_error_from_vkb(built, "vk-bootstrap InstanceBuilder"); }
     return *built;
   }
 
@@ -136,7 +136,7 @@ namespace {
     configure_instance_builder(builder, opts, api_version, extra_instance_extensions);
     builder.set_headless();
     auto const built = builder.build();
-    if (!built) { return std::unexpected(make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
+    if (!built) { return make_error_from_vkb(built, "vk-bootstrap InstanceBuilder"); }
     return *built;
   }
 
@@ -150,7 +150,7 @@ namespace {
     configure_device_selector(selector, requirements, api_version, want_present);
     if (surface != VK_NULL_HANDLE) { selector.set_surface(surface); }
     auto const selected = selector.select();
-    if (!selected) { return std::unexpected(make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector")); }
+    if (!selected) { return make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector"); }
     vkb::PhysicalDevice physical_device = *selected;
     apply_optional_device_requests(physical_device, requirements);
     return physical_device;
@@ -159,22 +159,13 @@ namespace {
   auto build_device(vkb::PhysicalDevice const &physical_device) -> result<vkb::Device>
   {
     auto const built = vkb::DeviceBuilder{ physical_device }.build();
-    if (!built) { return std::unexpected(make_error_from_vkb(built, "vk-bootstrap DeviceBuilder")); }
+    if (!built) { return make_error_from_vkb(built, "vk-bootstrap DeviceBuilder"); }
     return *built;
   }
 
-  auto init_common_resources(context &ctx) -> status
-  {
-    ctx.load_device_procs();
-    if (auto const pool = ctx.create_command_pool(); !pool) { return pool; }
-    if (auto const allocator = ctx.create_allocator(); !allocator) { return allocator; }
-    ctx.pipeline_cache_ = std::make_unique<pipeline_cache>(ctx);
-    ctx.completion_waiter_ = std::make_unique<detail::completion_waiter>(ctx.device_.device, ctx.compute_queue_);
-    ctx.host_agent_ = std::make_unique<detail::host_agent>();
-    return {};
-  }
-
 }// namespace
+
+context::context(uninitialized_tag /*tag*/) noexcept {}
 
 auto context::create(scheduler_options const &opts) -> result<std::unique_ptr<context>>
 {
@@ -188,6 +179,17 @@ auto context::adopt(context_adopt_info const &info) -> result<std::unique_ptr<co
   auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
   if (auto const initialized = ctx->init_adopted(info); !initialized) { return std::unexpected(initialized.error()); }
   return ctx;
+}
+
+auto context::init_common_resources() -> status
+{
+  load_device_procs();
+  if (auto const pool = create_command_pool(); !pool) { return pool; }
+  if (auto const allocator = create_allocator(); !allocator) { return allocator; }
+  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
+  completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
+  host_agent_ = std::make_unique<detail::host_agent>();
+  return {};
 }
 
 auto context::init_headless(scheduler_options const &opts) -> status
@@ -213,7 +215,7 @@ auto context::init_headless(scheduler_options const &opts) -> status
   owns_allocator_ = true;
 
   if (auto const queues = fetch_queues(false); !queues) { return queues; }
-  return init_common_resources(*this);
+  return init_common_resources();
 }
 
 auto context::init_adopted(context_adopt_info const &info) -> status
@@ -300,7 +302,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
   owns_allocator_ = true;
 
   if (auto const queues = fetch_queues(true); !queues) { return queues; }
-  if (auto const initialized = init_common_resources(*this); !initialized) { return initialized; }
+  if (auto const initialized = init_common_resources(); !initialized) { return initialized; }
   presentation_enabled_ = true;
   return {};
 }
@@ -423,28 +425,28 @@ auto context::create_allocator() -> status
 
 auto context::lock_host() const -> std::unique_lock<std::mutex> { return std::unique_lock{ host_mutex_ }; }
 
-auto context::ensure_completion_waiter() -> result<detail::completion_waiter &>
+auto context::ensure_completion_waiter() -> result<detail::completion_waiter *>
 {
   if (!completion_waiter_) {
     if (device_.device == VK_NULL_HANDLE) {
-      return std::unexpected(make_error(errc::invalid_argument, "completion waiter requires a VkDevice"));
+      return make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
     }
     completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   }
-  return *completion_waiter_;
+  return completion_waiter_.get();
 }
 
-auto context::ensure_host_agent() -> result<detail::host_agent &>
+auto context::ensure_host_agent() -> result<detail::host_agent *>
 {
   if (!host_agent_) { host_agent_ = std::make_unique<detail::host_agent>(); }
-  return *host_agent_;
+  return host_agent_.get();
 }
 
 auto context::host_agent_thread_id() -> std::thread::id
 {
   auto agent = ensure_host_agent();
   if (!agent) { detail::contract_violation("host agent unavailable"); }
-  return agent->thread_id();
+  return (*agent)->thread_id();
 }
 
 auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
@@ -454,7 +456,7 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) { return std::unexpected(waiter.error()); }
-  return waiter->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
+  return (*waiter)->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
 }
 
 auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
@@ -463,14 +465,14 @@ auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) { return std::unexpected(waiter.error()); }
-  return waiter->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
+  return (*waiter)->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
 }
 
 auto context::do_enqueue_host(std::move_only_function<void()> task) -> status
 {
   auto agent = ensure_host_agent();
   if (!agent) { return std::unexpected(agent.error()); }
-  return agent->enqueue(std::move(task));
+  return (*agent)->enqueue(std::move(task));
 }
 
 auto context::allocate_command_buffer() -> result<VkCommandBuffer>
@@ -483,7 +485,7 @@ auto context::allocate_command_buffer() -> result<VkCommandBuffer>
   alloc_info.commandBufferCount = 1;
   VkCommandBuffer cmd{ VK_NULL_HANDLE };
   if (VkResult const result = vkAllocateCommandBuffers(device_.device, &alloc_info, &cmd); result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(result, "vkAllocateCommandBuffers failed"));
+    return make_vk_error(result, "vkAllocateCommandBuffers failed");
   }
   return cmd;
 }

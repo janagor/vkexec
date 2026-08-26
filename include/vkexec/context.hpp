@@ -166,21 +166,22 @@ private:
   {
   };
 
-  explicit context(uninitialized_tag) noexcept = default;
+  explicit context(uninitialized_tag) noexcept;
   explicit context(instance_only_tag tag,
     scheduler_options const &opts,
     std::vector<char const *> const &instance_extensions);
 
   auto init_headless(scheduler_options const &opts) -> status;
   auto init_adopted(context_adopt_info const &info) -> status;
+  auto init_common_resources() -> status;
   auto complete_for_surface(VkSurfaceKHR surface) -> status;
 
   auto create_command_pool() -> status;
   auto create_allocator() -> status;
   auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> void;
-  auto ensure_completion_waiter() -> result<detail::completion_waiter &>;
-  auto ensure_host_agent() -> result<detail::host_agent &>;
+  auto ensure_completion_waiter() -> result<detail::completion_waiter *>;
+  auto ensure_host_agent() -> result<detail::host_agent *>;
   [[nodiscard]] auto do_enqueue_fence_wait(VkSemaphore semaphore,
     VkFence fence,
     std::move_only_function<bool()> stop_requested,
