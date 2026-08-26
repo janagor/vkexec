@@ -5,6 +5,7 @@
 
 #include <stdexec/execution.hpp>
 
+#include <exception>
 #include <optional>
 #include <tuple>
 #include <type_traits>
@@ -18,7 +19,7 @@ namespace detail {
 
   struct sync_wait_env
   {
-    template<ex::one_of<ex::get_scheduler_t, ex::get_start_scheduler_t, ex::get_delegation_scheduler_t> Query>
+    template<ex::__one_of<ex::get_scheduler_t, ex::get_start_scheduler_t, ex::get_delegation_scheduler_t> Query>
     [[nodiscard]] constexpr auto query(Query) const noexcept -> ex::run_loop::scheduler
     { return loop_->get_scheduler(); }
 
@@ -47,9 +48,25 @@ namespace detail {
       state_->loop_.finish();
     }
 
-    auto set_error(error err) noexcept -> void
+    auto set_error(error &&err) noexcept -> void
     {
-      state_->error_ = std::move(err);
+      state_->error_.emplace(std::move(err));
+      state_->loop_.finish();
+    }
+
+    auto set_error(error const &err) noexcept -> void
+    {
+      state_->error_.emplace(err);
+      state_->loop_.finish();
+    }
+
+    // stdexec adaptors (then, etc.) still advertise exception_ptr even under -fno-exceptions.
+    auto set_error(std::exception_ptr) noexcept -> void
+    {
+      state_->error_.emplace(error{
+        .code = MakeErrorCode(errc::unsupported),
+        .detail = "sender completed with exception_ptr",
+      });
       state_->loop_.finish();
     }
 
@@ -75,10 +92,8 @@ namespace detail {
   using sync_wait_receiver_t = sync_wait_result_t<CvSender, ex::__q<sync_wait_receiver>>;
 
   template<class CvSender>
-  concept sync_waitable_sender = ex::sender_in<CvSender, sync_wait_env> && requires {
-    { ex::__count_of<ex::set_value_t, CvSender, sync_wait_env>::value } -> std::same_as<const int>;
-  } && ex::__count_of<ex::set_value_t, CvSender, sync_wait_env>::value == 1 && ex::sender_to<CvSender,
-    sync_wait_receiver_t<CvSender>>;
+  concept sync_waitable_sender =
+    ex::sender_in<CvSender, sync_wait_env> && ex::sender_to<CvSender, sync_wait_receiver_t<CvSender>>;
 
   template<sync_waitable_sender CvSender>
   auto sync_wait_impl(CvSender &&sender) -> result<std::optional<sync_wait_value_tuple_t<CvSender>>>
