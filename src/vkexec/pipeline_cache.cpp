@@ -75,7 +75,7 @@ namespace {
     VkShaderModule shader{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateShaderModule(device, &module_info, nullptr, &shader);
     if (create_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(create_result, "vkCreateShaderModule failed"));
+      return make_vk_error(create_result, "vkCreateShaderModule failed");
     }
     return shader;
   }
@@ -97,7 +97,7 @@ namespace {
     VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateDescriptorSetLayout(device, &layout_info, nullptr, &set_layout);
     if (create_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(create_result, "vkCreateDescriptorSetLayout failed"));
+      return make_vk_error(create_result, "vkCreateDescriptorSetLayout failed");
     }
     return set_layout;
   }
@@ -121,7 +121,7 @@ namespace {
     VkPipelineLayout layout{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &layout);
     if (create_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(create_result, "vkCreatePipelineLayout failed"));
+      return make_vk_error(create_result, "vkCreatePipelineLayout failed");
     }
     return layout;
   }
@@ -150,7 +150,7 @@ namespace {
     VkResult const create_result =
       vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_info, nullptr, &pipeline);
     if (create_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(create_result, "vkCreateComputePipelines failed"));
+      return make_vk_error(create_result, "vkCreateComputePipelines failed");
     }
     return pipeline;
   }
@@ -170,7 +170,7 @@ namespace {
     VkDescriptorPool pool{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateDescriptorPool(device, &pool_info, nullptr, &pool);
     if (create_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(create_result, "vkCreateDescriptorPool failed"));
+      return make_vk_error(create_result, "vkCreateDescriptorPool failed");
     }
     return pool;
   }
@@ -255,7 +255,7 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   -> result<std::reference_wrapper<pipeline_resources>>
 {
   if (spirv.empty()) {
-    return std::unexpected(make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V"));
+    return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V");
   }
   std::size_t const key = hash_spirv_layout(spirv, desc);
   {
@@ -265,12 +265,10 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
 
   if (desc.descriptor_heap) {
     if (!desc.bindings.empty()) {
-      return std::unexpected(
-        make_error(errc::invalid_argument, "descriptor_heap pipelines must not declare descriptor-set bindings"));
+      return make_error(errc::invalid_argument, "descriptor_heap pipelines must not declare descriptor-set bindings");
     }
     if (desc.push_constant_size != 0) {
-      return std::unexpected(
-        make_error(errc::invalid_argument, "descriptor_heap pipelines use push data, not push constants"));
+      return make_error(errc::invalid_argument, "descriptor_heap pipelines use push data, not push constants");
     }
   }
 

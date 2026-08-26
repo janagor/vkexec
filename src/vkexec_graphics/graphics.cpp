@@ -25,7 +25,7 @@ auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) c
   create_info.pCode = spirv.data();
   VkShaderModule module{ VK_NULL_HANDLE };
   if (VkResult const result = vkCreateShaderModule(device_, &create_info, nullptr, &module); result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(result, "vkCreateShaderModule failed"));
+    return make_vk_error(result, "vkCreateShaderModule failed");
   }
   return module;
 }

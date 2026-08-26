@@ -21,7 +21,7 @@ namespace {
     VkSemaphore semaphore{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateSemaphore(device, &info, nullptr, &semaphore);
     if (create_result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(create_result, "vkCreateSemaphore (binary) failed"));
+      return make_vk_error(create_result, "vkCreateSemaphore (binary) failed");
     }
     return semaphore;
   }
@@ -31,10 +31,10 @@ namespace {
 auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
 {
   if (ctx.device() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "frame_ring requires a VkDevice"));
+    return make_error(errc::invalid_argument, "frame_ring requires a VkDevice");
   }
   if (info.slot_count == 0) {
-    return std::unexpected(make_error(errc::invalid_argument, "frame_ring requires slot_count > 0"));
+    return make_error(errc::invalid_argument, "frame_ring requires slot_count > 0");
   }
 
   auto timeline_result = timeline_semaphore::create(ctx, 0);
@@ -157,7 +157,7 @@ auto frame_ring::make_submit_sync(std::size_t slot,
   if (auto slot_status = check_slot(slot); !slot_status) { return propagate(slot_status); }
   if (auto image_status = check_image(image_index); !image_status) { return propagate(image_status); }
   if (signal_value == 0) {
-    return std::unexpected(make_error(errc::invalid_argument, "frame_ring::make_submit_sync requires signal_value > 0"));
+    return make_error(errc::invalid_argument, "frame_ring::make_submit_sync requires signal_value > 0");
   }
 
   frame_ring_submit_sync sync{};

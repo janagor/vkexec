@@ -92,10 +92,9 @@ public:
   /// Synchronous allocate: `sync_wait(allocate(...))`.
   [[nodiscard]] static auto create_sync(context &ctx, std::size_t count, T fill = T{}) -> result<buffer<T>>
   {
-    if (result const waited = sync_wait(allocate(ctx, count, std::move(fill))); !waited) {
-      return std::unexpected(waited.error());
-    }
-    if (!waited->has_value()) { return std::unexpected(make_error(errc::cancelled, "buffer allocate was stopped")); }
+    auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
+    if (!waited) { return std::unexpected(waited.error()); }
+    if (!waited->has_value()) { return make_error(errc::cancelled, "buffer allocate was stopped"); }
     return std::get<0>(std::move(**waited));
   }
 
@@ -214,7 +213,7 @@ private:
   [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> result<buffer>
   {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (count == 0) { return std::unexpected(make_error(errc::invalid_argument, "vkexec::buffer count must be > 0")); }
+    if (count == 0) { return make_error(errc::invalid_argument, "vkexec::buffer count must be > 0"); }
 
     auto const bytes = static_cast<VkDeviceSize>(count * sizeof(T));
 
@@ -234,11 +233,11 @@ private:
     VmaAllocationInfo ainfo{};
     if (VkResult const created = vmaCreateBuffer(ctx.allocator(), &bci, &aci, &handle, &allocation, &ainfo);
         created != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(created, "vmaCreateBuffer failed"));
+      return make_vk_error(created, "vmaCreateBuffer failed");
     }
     if (ainfo.pMappedData == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), handle, allocation);
-      return std::unexpected(make_error(errc::io_error, "vmaCreateBuffer did not map host-visible memory"));
+      return make_error(errc::io_error, "vmaCreateBuffer did not map host-visible memory");
     }
 
     auto *const elems = static_cast<T *>(ainfo.pMappedData);

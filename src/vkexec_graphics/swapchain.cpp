@@ -19,13 +19,13 @@ namespace vkexec {
 auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapchain>
 {
   if (ctx.device() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "swapchain requires a VkDevice"));
+    return make_error(errc::invalid_argument, "swapchain requires a VkDevice");
   }
   if (info.surface == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"));
+    return make_error(errc::invalid_argument, "swapchain requires a VkSurfaceKHR");
   }
   if (ctx.present_queue() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "swapchain requires a present queue"));
+    return make_error(errc::invalid_argument, "swapchain requires a present queue");
   }
 
   swapchain created;
@@ -80,7 +80,7 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
   -> result<std::optional<std::uint32_t>>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "swapchain::acquire_next_image on empty swapchain"));
+    return make_error(errc::invalid_argument, "swapchain::acquire_next_image on empty swapchain");
   }
 
   std::uint32_t image_index = 0;
@@ -88,7 +88,7 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
     vkAcquireNextImageKHR(ctx_->device(), swapchain_.swapchain, timeout, image_available, VK_NULL_HANDLE, &image_index);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return std::optional<std::uint32_t>{}; }
   if (result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(result, "vkAcquireNextImageKHR failed"));
+    return make_vk_error(result, "vkAcquireNextImageKHR failed");
   }
   return image_index;
 }
@@ -96,7 +96,7 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
 auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "swapchain::present on empty swapchain"));
+    return make_error(errc::invalid_argument, "swapchain::present on empty swapchain");
   }
 
   VkPresentInfoKHR present_info{};
@@ -109,7 +109,7 @@ auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> 
 
   VkResult const result = vkQueuePresentKHR(ctx_->present_queue(), &present_info);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return false; }
-  if (result != VK_SUCCESS) { return std::unexpected(make_vk_error(result, "vkQueuePresentKHR failed")); }
+  if (result != VK_SUCCESS) { return make_vk_error(result, "vkQueuePresentKHR failed"); }
   return true;
 }
 

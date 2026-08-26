@@ -26,7 +26,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
   -> result<compute_pipeline>
 {
   if (glsl.empty()) {
-    return std::unexpected(make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"));
+    return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL");
   }
   result<std::vector<std::uint32_t>> const spirv =
     edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute, ctx.api_version());
@@ -44,7 +44,7 @@ auto compute_pipeline::allocate_set() -> result<VkDescriptorSet>
   VkDescriptorSet set{ VK_NULL_HANDLE };
   VkResult const allocate_result = vkAllocateDescriptorSets(ctx_->device(), &dsai, &set);
   if (allocate_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(allocate_result, "vkAllocateDescriptorSets failed"));
+    return make_vk_error(allocate_result, "vkAllocateDescriptorSets failed");
   }
   return set;
 }

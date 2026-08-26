@@ -41,12 +41,12 @@ namespace {
     if (VkResult const result =
           vmaCreateBuffer(ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info);
       result != VK_SUCCESS) {
-      return std::unexpected(make_vk_error(result, "vmaCreateBuffer failed (mesh)"));
+      return make_vk_error(result, "vmaCreateBuffer failed (mesh)");
     }
     created.mapped = mapped_info.pMappedData;
     if (created.mapped == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), created.buffer, created.allocation);
-      return std::unexpected(make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory"));
+      return make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
     }
     return created;
   }
@@ -54,7 +54,7 @@ namespace {
   auto count_as_uint32(std::size_t count, char const *what) -> result<std::uint32_t>
   {
     if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) {
-      return std::unexpected(make_error(errc::invalid_argument, what));
+      return make_error(errc::invalid_argument, what);
     }
     return static_cast<std::uint32_t>(count);
   }

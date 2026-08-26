@@ -14,7 +14,7 @@ namespace vkexec {
 auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>
 {
   if (ctx.device() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "timeline_semaphore requires a VkDevice"));
+    return make_error(errc::invalid_argument, "timeline_semaphore requires a VkDevice");
   }
 
   VkSemaphoreTypeCreateInfo type_info{};
@@ -29,7 +29,7 @@ auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> re
   VkSemaphore semaphore{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateSemaphore(ctx.device(), &info, nullptr, &semaphore);
   if (create_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(create_result, "vkCreateSemaphore (timeline) failed"));
+    return make_vk_error(create_result, "vkCreateSemaphore (timeline) failed");
   }
   return timeline_semaphore{ &ctx, semaphore };
 }

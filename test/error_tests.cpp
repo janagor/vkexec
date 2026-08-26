@@ -27,10 +27,10 @@ TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
 
 TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
 {
-  vkexec::error const with_detail = vkexec::make_error(vkexec::errc::parse_error, "bad glsl");
+  vkexec::error const with_detail = vkexec::make_error(vkexec::errc::parse_error, "bad glsl").error();
   REQUIRE(with_detail.message() == "bad glsl");
 
-  vkexec::error const without_detail = vkexec::make_error(vkexec::errc::parse_error);
+  vkexec::error const without_detail = vkexec::make_error(vkexec::errc::parse_error).error();
   REQUIRE(without_detail.message() == "parse error");
 }
 
@@ -46,11 +46,11 @@ TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]
 
 TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vulkan]")
 {
-  vkexec::error const with_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, "submit failed");
+  vkexec::error const with_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, "submit failed").error();
   REQUIRE(with_context.code == vkexec::MakeVkErrorCode(VK_ERROR_DEVICE_LOST));
   REQUIRE(with_context.message() == "submit failed");
 
-  vkexec::error const without_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, {});
+  vkexec::error const without_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, {}).error();
   REQUIRE(without_context.message() == "device lost");
 }
 

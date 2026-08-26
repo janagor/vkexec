@@ -31,7 +31,7 @@ namespace {
       return VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
       // NOLINTEND(hicpp-signed-bitwise)
     }
-    return std::unexpected(make_error(errc::invalid_argument, "unknown gpu_buffer_memory"));
+    return make_error(errc::invalid_argument, "unknown gpu_buffer_memory");
   }
 
   auto allocation_info_for(gpu_buffer_memory memory) -> VmaAllocationCreateInfo
@@ -78,17 +78,17 @@ namespace {
 auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu_buffer>
 {
   if (info.size == 0) {
-    return std::unexpected(make_error(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"));
+    return make_error(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0");
   }
   if (ctx.allocator() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator"));
+    return make_error(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
   }
 
   bool const want_device_address =
     info.shader_device_address || info.memory == gpu_buffer_memory::descriptor_heap;
   if (want_device_address && ctx.procs().get_buffer_device_address == nullptr) {
-    return std::unexpected(make_error(errc::unsupported,
-      "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable"));
+    return make_error(errc::unsupported,
+      "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
   }
 
   auto const usage_result = usage_for(info.memory, want_device_address);
@@ -115,7 +115,7 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu
                                        &ainfo)
                                    : vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
   if (create_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(create_result, "vmaCreateBuffer failed"));
+    return make_vk_error(create_result, "vmaCreateBuffer failed");
   }
 
   void *mapped_ptr = nullptr;
@@ -124,8 +124,7 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu
     mapped_ptr = ainfo.pMappedData;
     if (mapped_ptr == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);
-      return std::unexpected(
-        make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory"));
+      return make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
     }
   }
 
@@ -186,11 +185,10 @@ auto gpu_buffer::mapped() const noexcept -> std::span<std::byte>
 auto gpu_buffer::device_address() const -> result<VkDeviceAddress>
 {
   if (!shader_device_address_) {
-    return std::unexpected(
-      make_error(errc::invalid_argument, "vkexec::gpu_buffer was not created with shader_device_address"));
+    return make_error(errc::invalid_argument, "vkexec::gpu_buffer was not created with shader_device_address");
   }
   if (ctx_ == nullptr || ctx_->procs().get_buffer_device_address == nullptr) {
-    return std::unexpected(make_error(errc::unsupported, "vkGetBufferDeviceAddress is unavailable"));
+    return make_error(errc::unsupported, "vkGetBufferDeviceAddress is unavailable");
   }
   VkBufferDeviceAddressInfo info{};
   info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;

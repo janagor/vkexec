@@ -22,7 +22,7 @@ namespace {
 auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_layout>
 {
   if (ctx.physical_device() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "query_descriptor_heap_layout requires a physical device"));
+    return make_error(errc::invalid_argument, "query_descriptor_heap_layout requires a physical device");
   }
 
   VkPhysicalDeviceDescriptorHeapPropertiesEXT heap_props{};
@@ -42,14 +42,12 @@ auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_
   layout.min_resource_heap_reserved_range = heap_props.minResourceHeapReservedRange;
 
   if (layout.descriptor_stride == 0) {
-    return std::unexpected(
-      make_error(errc::unsupported, "descriptor heap properties reported a zero descriptor stride"));
+    return make_error(errc::unsupported, "descriptor heap properties reported a zero descriptor stride");
   }
   auto const descriptor_alignment =
     std::max(heap_props.bufferDescriptorAlignment, heap_props.imageDescriptorAlignment);
   if (descriptor_alignment != 0 && layout.descriptor_stride % descriptor_alignment != 0) {
-    return std::unexpected(
-      make_error(errc::unsupported, "descriptor heap stride is not aligned for buffer/image descriptors"));
+    return make_error(errc::unsupported, "descriptor heap stride is not aligned for buffer/image descriptors");
   }
   return layout;
 }

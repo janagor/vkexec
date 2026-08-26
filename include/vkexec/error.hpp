@@ -97,12 +97,12 @@ struct error
 template<typename T> using result = std::expected<T, error>;
 using status = std::expected<void, error>;
 
-[[nodiscard]] inline auto make_error(errc code, std::string const &detail = {}) -> error
+[[nodiscard]] inline auto make_error(errc code, std::string detail = {}) -> std::unexpected<error>
 {
-  return error{
+  return std::unexpected(error{
     .code = MakeErrorCode(code),
-    .detail = detail,
-  };
+    .detail = std::move(detail),
+  });
 }
 
 [[nodiscard]] inline auto to_string(error const &err) -> std::string

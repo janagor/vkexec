@@ -18,7 +18,7 @@ namespace {
     case image_usage::depth:
       return VK_FORMAT_D32_SFLOAT;
     }
-    return std::unexpected(make_error(errc::invalid_argument, "unknown image_usage"));
+    return make_error(errc::invalid_argument, "unknown image_usage");
   }
 
   auto usage_flags(image_usage usage) -> result<VkImageUsageFlags>
@@ -32,7 +32,7 @@ namespace {
     case image_usage::depth:
       return VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     }
-    return std::unexpected(make_error(errc::invalid_argument, "unknown image_usage"));
+    return make_error(errc::invalid_argument, "unknown image_usage");
   }
 
 }// namespace
@@ -40,10 +40,10 @@ namespace {
 auto image::create(context &ctx, image_create_info info) -> result<image>
 {
   if (info.width == 0 || info.height == 0) {
-    return std::unexpected(make_error(errc::invalid_argument, "vkexec::image extent must be > 0"));
+    return make_error(errc::invalid_argument, "vkexec::image extent must be > 0");
   }
   if (ctx.allocator() == VK_NULL_HANDLE) {
-    return std::unexpected(make_error(errc::invalid_argument, "vkexec::image requires a VMA allocator"));
+    return make_error(errc::invalid_argument, "vkexec::image requires a VMA allocator");
   }
 
   auto const format_result = resolve_format(info);
@@ -73,7 +73,7 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
   VkResult const create_result =
     vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
   if (create_result != VK_SUCCESS) {
-    return std::unexpected(make_vk_error(create_result, "vmaCreateImage failed"));
+    return make_vk_error(create_result, "vmaCreateImage failed");
   }
 
   return image{ &ctx, image_handle, allocation, *format_result, VkExtent2D{ info.width, info.height }, info.usage };

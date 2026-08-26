@@ -13,33 +13,24 @@
 
 namespace vkexec {
 
-[[nodiscard]] inline auto make_vk_error(VkResult result, std::string_view context) -> error
+[[nodiscard]] inline auto make_vk_error(VkResult result, std::string_view context) -> std::unexpected<error>
 {
-  if (context.empty()) {
-    return error{
-      .code = MakeVkErrorCode(static_cast<int>(result)),
-      .detail = {},
-    };
-  }
-  return error{
+  return std::unexpected(error{
     .code = MakeVkErrorCode(static_cast<int>(result)),
     .detail = std::string(context),
-  };
+  });
 }
 
 template<typename T>
-[[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> error
+[[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> std::unexpected<error>
 {
   std::string detail = what;
-  if (!result.vk_result()) {
-    detail += ": ";
-    detail += result.error().message();
+  detail += ": ";
+  detail += result.error().message();
+  if (result.vk_result() != VK_SUCCESS) {
     detail += " (";
     detail += std::to_string(result.vk_result());
     detail += ')';
-  } else {
-    detail += ": ";
-    detail += result.error().message();
   }
   return make_error(errc::unsupported, std::move(detail));
 }

@@ -123,13 +123,13 @@ auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> st
   VkResult const wait_result =
     vkWaitForFences(device_, static_cast<std::uint32_t>(fences.size()), fences.data(), VK_FALSE, k_poll_timeout_ns);
   if (wait_result == VK_SUCCESS || wait_result == VK_TIMEOUT) { return std::nullopt; }
-  return make_vk_error(wait_result, "vkWaitForFences failed");
+  return make_vk_error(wait_result, "vkWaitForFences failed").error();
 }
 
 auto completion_waiter::complete_without_fences(std::vector<job> &jobs) -> void
 {
   if (vkQueueWaitIdle(fallback_queue_) != VK_SUCCESS) {
-    finish_all(jobs, make_vk_error(VK_ERROR_UNKNOWN, "vkQueueWaitIdle failed"));
+    finish_all(jobs, make_vk_error(VK_ERROR_UNKNOWN, "vkQueueWaitIdle failed").error());
     return;
   }
   finish_all(jobs, std::nullopt);
@@ -155,7 +155,7 @@ auto completion_waiter::reap_ready_jobs(std::vector<job> &jobs) -> void
       still_waiting.push_back(std::move(item));
       continue;
     }
-    finish_job(std::move(item), make_vk_error(status, "vkGetFenceStatus failed"));
+    finish_job(std::move(item), make_vk_error(status, "vkGetFenceStatus failed").error());
   }
 
   jobs = std::move(still_waiting);
