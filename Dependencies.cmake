@@ -183,7 +183,7 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
-  if(VKEXEC_BUILD_EXAMPLES AND NOT TARGET tinygltf::tinygltf)
+  if(vkexec_BUILD_EXAMPLES AND NOT TARGET tinygltf::tinygltf)
     cpmaddpackage(
       NAME
       tinygltf

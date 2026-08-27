@@ -31,7 +31,6 @@ include(ProjectOptions.cmake)
 vkexec_setup_options()
 
 vkexec_global_options()
-option(VKEXEC_BUILD_EXAMPLES "Build vkexec example executables (pulls extra dependencies like tinygltf)" ON)
 include(Dependencies.cmake)
 vkexec_setup_dependencies()
 
