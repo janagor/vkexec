@@ -19,64 +19,66 @@ namespace detail {
 
   struct sync_wait_env
   {
+    // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
     template<ex::__one_of<ex::get_scheduler_t, ex::get_start_scheduler_t, ex::get_delegation_scheduler_t> Query>
-    [[nodiscard]] constexpr auto query(Query) const noexcept -> ex::run_loop::scheduler
-    { return loop_->get_scheduler(); }
+    [[nodiscard]] constexpr auto query(Query /*query*/) const noexcept -> ex::run_loop::scheduler
+    { return loop->get_scheduler(); }
 
-    [[nodiscard]] constexpr auto query(ex::__root_t) const noexcept -> bool { return true; }
+    // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+    [[nodiscard]] static constexpr auto query(ex::__root_t /*query*/) noexcept -> bool { return true; }
 
-    ex::run_loop *loop_{ nullptr };
+    ex::run_loop *loop{ nullptr };
   };
 
   struct sync_wait_state
   {
-    std::optional<error> error_{};
-    bool stopped_{ false };
-    ex::run_loop loop_{};
+    std::optional<error> wait_error;
+    bool stopped{ false };
+    ex::run_loop loop;
   };
 
   template<class... Values> struct sync_wait_receiver
   {
     using receiver_concept = ex::receiver_t;
 
-    sync_wait_state *state_{ nullptr };
-    std::optional<std::tuple<Values...>> *values_{ nullptr };
+    sync_wait_state *state{ nullptr };
+    std::optional<std::tuple<Values...>> *values{ nullptr };
 
     template<class... As> auto set_value(As &&...args) noexcept -> void
     {
-      values_->emplace(std::forward<As>(args)...);
-      state_->loop_.finish();
+      values->emplace(std::forward<As>(args)...);
+      state->loop.finish();
     }
 
     auto set_error(error &&err) noexcept -> void
     {
-      state_->error_.emplace(std::move(err));
-      state_->loop_.finish();
+      state->wait_error.emplace(std::move(err));
+      state->loop.finish();
     }
 
     auto set_error(error const &err) noexcept -> void
     {
-      state_->error_.emplace(err);
-      state_->loop_.finish();
+      state->wait_error.emplace(err);
+      state->loop.finish();
     }
 
     // stdexec adaptors (then, etc.) still advertise exception_ptr even under -fno-exceptions.
-    auto set_error(std::exception_ptr) noexcept -> void
+    auto set_error(std::exception_ptr const & /*exception*/) noexcept -> void
     {
-      state_->error_.emplace(error{
+      state->wait_error.emplace(error{
         .code = MakeErrorCode(errc::unsupported),
         .detail = "sender completed with exception_ptr",
       });
-      state_->loop_.finish();
+      state->loop.finish();
     }
 
     auto set_stopped() noexcept -> void
     {
-      state_->stopped_ = true;
-      state_->loop_.finish();
+      state->stopped = true;
+      state->loop.finish();
     }
 
-    [[nodiscard]] auto get_env() const noexcept -> sync_wait_env { return sync_wait_env{ &state_->loop_ }; }
+    [[nodiscard]] auto get_env() const noexcept -> sync_wait_env { return sync_wait_env{ &state->loop }; }
   };
 
   template<class CvSender, class Continuation>
@@ -99,12 +101,12 @@ namespace detail {
     sync_wait_state state{};
     std::optional<sync_wait_value_tuple_t<CvSender>> values{};
 
-    auto op = ex::connect(std::forward<CvSender>(sender), sync_wait_receiver_t<CvSender>{ &state, &values });
-    ex::start(op);
-    state.loop_.run();
+    auto operation = ex::connect(std::forward<CvSender>(sender), sync_wait_receiver_t<CvSender>{ &state, &values });
+    ex::start(operation);
+    state.loop.run();
 
-    if (state.error_) { return leaf::new_error(std::move(*state.error_)); }
-    if (state.stopped_) { return std::optional<sync_wait_value_tuple_t<CvSender>>{}; }
+    if (state.wait_error) { return leaf::new_error(std::move(*state.wait_error)); }
+    if (state.stopped) { return std::optional<sync_wait_value_tuple_t<CvSender>>{}; }
     return values;
   }
 

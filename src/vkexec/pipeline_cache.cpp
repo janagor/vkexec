@@ -1,6 +1,7 @@
 #include "pipeline_cache.hpp"
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec_edsl/spirv.hpp>
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -188,7 +190,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   }
 
   std::string const glsl = edsl::emit_glsl(ast, work_count);
-  BOOST_LEAF_AUTO(
+  VKEXEC_LEAF_AUTO(
     spirv, edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version()));
 
   auto resources = std::make_unique<pipeline_resources>();
@@ -200,35 +202,35 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
 
   auto shader_result = create_shader_module(device, spirv);
   if (!shader_result) { return shader_result.error(); }
-  resources->shader = *shader_result;
+  resources->shader = detail::leaf_take(shader_result);
 
   auto set_layout_result = create_set_layout(device, resources->binding_count);
   if (!set_layout_result) {
     destroy_resources(*ctx_, *resources);
     return set_layout_result.error();
   }
-  resources->set_layout = *set_layout_result;
+  resources->set_layout = detail::leaf_take(set_layout_result);
 
   auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, ast.push_bytes);
   if (!pipeline_layout_result) {
     destroy_resources(*ctx_, *resources);
     return pipeline_layout_result.error();
   }
-  resources->pipeline_layout = *pipeline_layout_result;
+  resources->pipeline_layout = detail::leaf_take(pipeline_layout_result);
 
   auto pipeline_result = create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr, false);
   if (!pipeline_result) {
     destroy_resources(*ctx_, *resources);
     return pipeline_result.error();
   }
-  resources->pipeline = *pipeline_result;
+  resources->pipeline = detail::leaf_take(pipeline_result);
 
   auto pool_result = create_descriptor_pool(device, resources->binding_count);
   if (!pool_result) {
     destroy_resources(*ctx_, *resources);
     return pool_result.error();
   }
-  resources->descriptor_pool = *pool_result;
+  resources->descriptor_pool = detail::leaf_take(pool_result);
 
   std::scoped_lock const lock(mutex_);
   if (auto cached = cache_.find(key); cached != cache_.end()) {
@@ -286,7 +288,7 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
 
   auto shader_result = create_shader_module(device, spirv);
   if (!shader_result) { return shader_result.error(); }
-  resources->shader = *shader_result;
+  resources->shader = detail::leaf_take(shader_result);
 
   if (desc.descriptor_heap) {
     auto pipeline_result = create_compute_pipeline(device, resources->shader, VK_NULL_HANDLE, spec_ptr, true);
@@ -294,21 +296,21 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
       destroy_resources(*ctx_, *resources);
       return pipeline_result.error();
     }
-    resources->pipeline = *pipeline_result;
+    resources->pipeline = detail::leaf_take(pipeline_result);
   } else {
     auto set_layout_result = create_set_layout(device, resources->binding_count);
     if (!set_layout_result) {
       destroy_resources(*ctx_, *resources);
       return set_layout_result.error();
     }
-    resources->set_layout = *set_layout_result;
+    resources->set_layout = detail::leaf_take(set_layout_result);
 
     auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
     if (!pipeline_layout_result) {
       destroy_resources(*ctx_, *resources);
       return pipeline_layout_result.error();
     }
-    resources->pipeline_layout = *pipeline_layout_result;
+    resources->pipeline_layout = detail::leaf_take(pipeline_layout_result);
 
     auto pipeline_result =
       create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr, false);
@@ -316,14 +318,14 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
       destroy_resources(*ctx_, *resources);
       return pipeline_result.error();
     }
-    resources->pipeline = *pipeline_result;
+    resources->pipeline = detail::leaf_take(pipeline_result);
 
     auto pool_result = create_descriptor_pool(device, resources->binding_count);
     if (!pool_result) {
       destroy_resources(*ctx_, *resources);
       return pool_result.error();
     }
-    resources->descriptor_pool = *pool_result;
+    resources->descriptor_pool = detail::leaf_take(pool_result);
   }
 
   std::scoped_lock const lock(mutex_);

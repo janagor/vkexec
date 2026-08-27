@@ -1,12 +1,14 @@
 #include <vkexec/descriptor_heap.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <cstddef>
+#include <span>
 
 namespace vkexec {
 namespace {
@@ -59,10 +61,12 @@ auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t
   return reserved_offset + layout.min_resource_heap_reserved_range;
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto write_storage_buffer_descriptor(context const &ctx,
   VkDeviceAddress buffer_address,
   VkDeviceSize buffer_size,
   std::span<std::byte> destination) -> status
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (ctx.procs().write_resource_descriptors == nullptr) {
     return make_error(errc::unsupported, "vkWriteResourceDescriptorsEXT is unavailable");
@@ -89,12 +93,14 @@ auto write_storage_buffer_descriptor(context const &ctx,
   return {};
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto cmd_bind_resource_heap(context const &ctx,
   VkCommandBuffer cmd,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
   VkDeviceSize reserved_range_size) -> status
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (ctx.procs().cmd_bind_resource_heap == nullptr) {
     return make_error(errc::unsupported, "vkCmdBindResourceHeapEXT is unavailable");

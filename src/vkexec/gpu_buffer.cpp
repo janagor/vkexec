@@ -1,6 +1,7 @@
 #include <vkexec/gpu_buffer.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
@@ -88,7 +89,7 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> result<gpu
       "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
   }
 
-  BOOST_LEAF_AUTO(usage, usage_for(info.memory, want_device_address));
+  VKEXEC_LEAF_AUTO(usage, usage_for(info.memory, want_device_address));
 
   VkBufferCreateInfo bci{};
   bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

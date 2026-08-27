@@ -60,7 +60,7 @@ namespace detail {
 
     auto set = allocate_compute_set(*scope.ctx, *traced->pipe, traced->buffers);
     if (!set) { return set.error(); }
-    VkDescriptorSet const descriptor_set = *set;
+    VkDescriptorSet descriptor_set = *set;
     scope.track_set(*traced->pipe, descriptor_set);
 
     vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced->pipe->pipeline);

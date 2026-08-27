@@ -80,7 +80,7 @@ public:
     -> result<frame_ring_submit_sync>;
 
 private:
-  frame_ring(context *ctx, timeline_semaphore timeline) noexcept;
+  frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept;
 
   auto destroy() noexcept -> void;
   auto destroy_image_semaphores() noexcept -> void;

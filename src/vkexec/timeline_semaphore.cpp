@@ -1,6 +1,7 @@
 #include <vkexec/timeline_semaphore.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>

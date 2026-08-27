@@ -29,18 +29,22 @@ struct descriptor_heap_layout
   -> VkDeviceSize;
 
 /// Host write of a storage-buffer descriptor into a slot-sized destination span.
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] auto write_storage_buffer_descriptor(context const &ctx,
   VkDeviceAddress buffer_address,
   VkDeviceSize buffer_size,
   std::span<std::byte> destination) -> status;
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 /// Bind a resource descriptor heap buffer for subsequent bindless dispatches/draws.
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] auto cmd_bind_resource_heap(context const &ctx,
   VkCommandBuffer cmd,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
   VkDeviceSize reserved_range_size) -> status;
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 }// namespace vkexec
 

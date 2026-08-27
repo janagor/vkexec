@@ -1,6 +1,7 @@
 #include <vkexec/image.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
@@ -46,19 +47,20 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
     return make_error(errc::invalid_argument, "vkexec::image requires a VMA allocator");
   }
 
-  BOOST_LEAF_AUTO(format, resolve_format(info));
-  BOOST_LEAF_AUTO(usage, usage_flags(info.usage));
+  VKEXEC_LEAF_AUTO(vk_format, resolve_format(info));
+  VKEXEC_LEAF_AUTO(usg_flags, usage_flags(info.usage));
 
+  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   VkImageCreateInfo image_info{};
   image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent = { info.width, info.height, 1 };
+  image_info.extent = { .width = info.width, .height = info.height, .depth = 1 };
   image_info.mipLevels = 1;
   image_info.arrayLayers = 1;
-  image_info.format = format;
+  image_info.format = vk_format;
   image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
   image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = usage;
+  image_info.usage = usg_flags;
   image_info.samples = VK_SAMPLE_COUNT_1_BIT;
   image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -71,16 +73,18 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
     vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
   if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vmaCreateImage failed"); }
 
-  return image{ &ctx, image_handle, allocation, format, VkExtent2D{ info.width, info.height }, info.usage };
+  return image{
+    &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage
+  };
 }
 
 image::image(context *ctx,
-  VkImage image_handle,
+  VkImage image,
   VmaAllocation allocation,
   VkFormat format,
   VkExtent2D extent,
   image_usage usage) noexcept
-  : ctx_(ctx), image_(image_handle), allocation_(allocation), format_(format), extent_(extent), usage_(usage)
+  : ctx_(ctx), image_(image), allocation_(allocation), format_(format), extent_(extent), usage_(usage)
 {}
 
 image::~image() { destroy(); }

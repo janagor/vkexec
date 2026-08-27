@@ -1,5 +1,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec_edsl/spirv.hpp>
@@ -18,7 +19,7 @@ namespace vkexec {
 auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<compute_pipeline>
 {
-  BOOST_LEAF_AUTO(cached, ctx.get_or_create_from_spirv(spirv, desc));
+  VKEXEC_LEAF_AUTO(cached, ctx.get_or_create_from_spirv(spirv, desc));
   return compute_pipeline{ &ctx, &cached.get() };
 }
 
@@ -26,7 +27,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
   -> result<compute_pipeline>
 {
   if (glsl.empty()) { return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
-  BOOST_LEAF_AUTO(spirv, edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute, ctx.api_version()));
+  VKEXEC_LEAF_AUTO(spirv, edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute, ctx.api_version()));
   return create(ctx, spirv, desc);
 }
 

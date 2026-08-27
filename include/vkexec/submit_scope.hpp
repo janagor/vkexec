@@ -147,6 +147,8 @@ namespace detail {
     submit_scope(submit_scope const &) = delete;
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
+    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
+    // CSA cannot model values stored in Boost.LEAF result<>; move is fine at runtime.
     submit_scope(submit_scope &&other) noexcept : ctx(other.ctx), cmd(other.cmd), cleanup(std::move(other.cleanup))
     {
       other.ctx = nullptr;
@@ -164,6 +166,7 @@ namespace detail {
       other.cmd = VK_NULL_HANDLE;
       return *this;
     }
+    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
 
     ~submit_scope() { release(); }
 
@@ -172,19 +175,17 @@ namespace detail {
       auto cmd = host.allocate_command_buffer();
       if (!cmd) { return cmd.error(); }
 
-      submit_scope scope;
-      scope.ctx = &host;
-      scope.cmd = *cmd;
-
       VkCommandBufferBeginInfo begin{};
       begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
       begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-      if (VkResult const result = vkBeginCommandBuffer(scope.cmd, &begin); result != VK_SUCCESS) {
-        host.free_command_buffer(scope.cmd);
-        scope.cmd = VK_NULL_HANDLE;
-        scope.ctx = nullptr;
+      if (VkResult const result = vkBeginCommandBuffer(*cmd, &begin); result != VK_SUCCESS) {
+        host.free_command_buffer(*cmd);
         return make_vk_error(result, "vkBeginCommandBuffer failed");
       }
+
+      submit_scope scope;
+      scope.ctx = &host;
+      scope.cmd = *cmd;
       return scope;
     }
 
@@ -381,9 +382,8 @@ namespace detail {
               [scope = std::move(scope), rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable
                 -> void { release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
           !enqueued) {
-          reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
-          scope.release();
-          ex::set_error(std::move(rcvr), to_error(enqueued.error()));
+          // on_done already completed `rcvr` (and released `scope`) on the failure path.
+          (void)enqueued;
         }
       }
     };

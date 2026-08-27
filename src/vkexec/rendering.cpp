@@ -1,9 +1,10 @@
 #include <vkexec/rendering.hpp>
 
-#include <vkexec/error_helpers.hpp>
+#include <vkexec/error.hpp>
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstdint>
 #include <vector>
 
 namespace vkexec {
@@ -51,7 +52,7 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> sta
 
   VkRenderingInfo rendering{};
   rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-  rendering.renderArea.offset = { 0, 0 };
+  rendering.renderArea.offset = { .x = 0, .y = 0 };
   rendering.renderArea.extent = info.extent;
   rendering.layerCount = info.layer_count == 0 ? 1U : info.layer_count;
   rendering.colorAttachmentCount = static_cast<std::uint32_t>(color_infos.size());

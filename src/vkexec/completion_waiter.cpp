@@ -1,5 +1,6 @@
 #include "detail/completion_waiter.hpp"
 
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -7,6 +8,7 @@
 #include <cstdint>
 #include <iterator>
 #include <mutex>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -41,6 +43,9 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
     std::scoped_lock const lock(mutex_);
     if (shutting_down_) {
       reclaim_sync(device_, fallback_queue_, semaphore, fence);
+      if (on_done) {
+        on_done(to_error(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown")), false);
+      }
       return make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
     }
     pending_.push_back(job{
@@ -60,7 +65,12 @@ auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, 
 {
   {
     std::scoped_lock const lock(mutex_);
-    if (shutting_down_) { return make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"); }
+    if (shutting_down_) {
+      if (on_done) {
+        on_done(to_error(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown")), false);
+      }
+      return make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
+    }
     pending_.push_back(job{
       .semaphore = VK_NULL_HANDLE,
       .fence = fence,
@@ -85,17 +95,17 @@ auto completion_waiter::shutdown() -> void
   thread_ = std::jthread{};
 }
 
-auto completion_waiter::finish_job(job item, std::optional<error> failure) -> void
+auto completion_waiter::finish_job(job item, std::optional<error> const &failure) -> void
 {
   if (item.destroy_sync) {
     reclaim_sync(device_, fallback_queue_, item.semaphore, item.fence);
   } else if (item.fence != VK_NULL_HANDLE) {
     (void)vkWaitForFences(device_, 1, &item.fence, VK_TRUE, UINT64_MAX);
   }
-  if (item.on_done) { item.on_done(std::move(failure), item.stop_seen); }
+  if (item.on_done) { item.on_done(failure, item.stop_seen); }
 }
 
-auto completion_waiter::finish_all(std::vector<job> &jobs, std::optional<error> failure) -> void
+auto completion_waiter::finish_all(std::vector<job> &jobs, std::optional<error> const &failure) -> void
 {
   for (job &item : jobs) { finish_job(std::move(item), failure); }
   jobs.clear();

@@ -1,7 +1,10 @@
 #include <vkexec/frame_ring.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/queue_submit.hpp>
+#include <vkexec/timeline_semaphore.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -31,8 +34,8 @@ auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
   if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "frame_ring requires a VkDevice"); }
   if (info.slot_count == 0) { return make_error(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
 
-  BOOST_LEAF_AUTO(timeline, timeline_semaphore::create(ctx, 0));
-  frame_ring ring{ &ctx, std::move(timeline) };
+  VKEXEC_LEAF_AUTO(timeline_sem, timeline_semaphore::create(ctx, 0));
+  frame_ring ring{ &ctx, std::move(timeline_sem) };
   ring.acquire_.resize(info.slot_count, VK_NULL_HANDLE);
   ring.slot_timeline_value_.assign(info.slot_count, 0);
 
@@ -47,14 +50,15 @@ auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
       }
       return semaphore_result.error();
     }
-    ring.acquire_.at(slot) = *semaphore_result;
+    ring.acquire_.at(slot) = detail::leaf_take(semaphore_result);
   }
 
-  BOOST_LEAF_CHECK(ring.create_image_semaphores(info.image_count));
+  VKEXEC_LEAF_CHECK(ring.create_image_semaphores(info.image_count));
   return ring;
 }
 
-frame_ring::frame_ring(context *ctx, timeline_semaphore timeline) noexcept : ctx_(ctx), timeline_(std::move(timeline))
+frame_ring::frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept
+  : ctx_(ctx), timeline_(std::move(timeline_sem))
 {}
 
 frame_ring::~frame_ring() { destroy(); }
@@ -93,32 +97,32 @@ auto frame_ring::resize_images(std::size_t image_count) -> status
 
 auto frame_ring::reset_completion_tracking() -> void
 {
-  std::fill(slot_timeline_value_.begin(), slot_timeline_value_.end(), 0);
-  std::fill(image_timeline_value_.begin(), image_timeline_value_.end(), 0);
+  std::ranges::fill(slot_timeline_value_, 0);
+  std::ranges::fill(image_timeline_value_, 0);
   next_timeline_value_ = 0;
 }
 
 auto frame_ring::acquire_semaphore(std::size_t slot) const -> result<VkSemaphore>
 {
-  BOOST_LEAF_CHECK(check_slot(slot));
+  VKEXEC_LEAF_CHECK(check_slot(slot));
   return acquire_.at(slot);
 }
 
 auto frame_ring::render_finished_semaphore(std::size_t image_index) const -> result<VkSemaphore>
 {
-  BOOST_LEAF_CHECK(check_image(image_index));
+  VKEXEC_LEAF_CHECK(check_image(image_index));
   return render_finished_.at(image_index);
 }
 
 auto frame_ring::wait_slot(std::size_t slot) const -> status
 {
-  BOOST_LEAF_CHECK(check_slot(slot));
+  VKEXEC_LEAF_CHECK(check_slot(slot));
   return timeline_.wait(slot_timeline_value_.at(slot));
 }
 
 auto frame_ring::wait_image(std::size_t image_index) const -> status
 {
-  BOOST_LEAF_CHECK(check_image(image_index));
+  VKEXEC_LEAF_CHECK(check_image(image_index));
   return timeline_.wait(image_timeline_value_.at(image_index));
 }
 
@@ -130,39 +134,43 @@ auto frame_ring::allocate_signal_value() -> std::uint64_t
 
 auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> status
 {
-  BOOST_LEAF_CHECK(check_slot(slot));
-  BOOST_LEAF_CHECK(check_image(image_index));
+  VKEXEC_LEAF_CHECK(check_slot(slot));
+  VKEXEC_LEAF_CHECK(check_image(image_index));
   slot_timeline_value_.at(slot) = signal_value;
   image_timeline_value_.at(image_index) = signal_value;
   return {};
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto frame_ring::make_submit_sync(std::size_t slot,
   std::size_t image_index,
   std::uint64_t signal_value,
   VkPipelineStageFlags acquire_wait_stage) const -> result<frame_ring_submit_sync>
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  BOOST_LEAF_CHECK(check_slot(slot));
-  BOOST_LEAF_CHECK(check_image(image_index));
+  VKEXEC_LEAF_CHECK(check_slot(slot));
+  VKEXEC_LEAF_CHECK(check_image(image_index));
   if (signal_value == 0) {
     return make_error(errc::invalid_argument, "frame_ring::make_submit_sync requires signal_value > 0");
   }
 
   frame_ring_submit_sync sync{};
-  sync.waits[0] = semaphore_submit{
+  sync.waits = { semaphore_submit{
     .semaphore = acquire_.at(slot),
     .value = 0,
     .stage = acquire_wait_stage,
-  };
-  sync.signals[0] = semaphore_submit{
-    .semaphore = render_finished_.at(image_index),
-    .value = 0,
-    .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-  };
-  sync.signals[1] = semaphore_submit{
-    .semaphore = timeline_.handle(),
-    .value = signal_value,
-    .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+  } };
+  sync.signals = {
+    semaphore_submit{
+      .semaphore = render_finished_.at(image_index),
+      .value = 0,
+      .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    },
+    semaphore_submit{
+      .semaphore = timeline_.handle(),
+      .value = signal_value,
+      .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    },
   };
   return sync;
 }
@@ -202,7 +210,7 @@ auto frame_ring::create_image_semaphores(std::size_t image_count) -> status
       destroy_image_semaphores();
       return semaphore_result.error();
     }
-    render_finished_.at(index) = *semaphore_result;
+    render_finished_.at(index) = detail::leaf_take(semaphore_result);
   }
   return {};
 }

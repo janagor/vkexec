@@ -53,8 +53,8 @@ private:
   };
 
   auto run() -> void;
-  auto finish_job(job item, std::optional<error> failure) -> void;
-  auto finish_all(std::vector<job> &jobs, std::optional<error> failure) -> void;
+  auto finish_job(job item, std::optional<error> const &failure) -> void;
+  auto finish_all(std::vector<job> &jobs, std::optional<error> const &failure) -> void;
   [[nodiscard]] auto wait_any_fence(std::vector<VkFence> const &fences) -> std::optional<error>;
   auto complete_without_fences(std::vector<job> &jobs) -> void;
   auto reap_ready_jobs(std::vector<job> &jobs) -> void;

@@ -20,7 +20,9 @@ struct semaphore_submit
 struct queue_submit
 {
   std::span<VkCommandBuffer const> command_buffers;
+  // NOLINTNEXTLINE(readability-redundant-member-init) -- keep for designated-init call sites
   std::span<semaphore_submit const> waits{};
+  // NOLINTNEXTLINE(readability-redundant-member-init) -- keep for designated-init call sites
   std::span<semaphore_submit const> signals{};
   VkFence fence{ VK_NULL_HANDLE };
   /// Defaults to the context compute queue when null.

@@ -117,7 +117,7 @@ public:
   [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence = nullptr)
     -> status;
   /// Submit with optional binary/timeline wait and signal semaphores.
-  [[nodiscard]] auto submit(queue_submit const &info) -> status;
+  [[nodiscard]] auto submit(queue_submit const &info) const -> status;
 
   /// Wait for a submitted fence on the context completion agent, then invoke `on_done`.
   /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
@@ -166,7 +166,7 @@ private:
   {
   };
 
-  explicit context(uninitialized_tag) noexcept;
+  explicit context(uninitialized_tag tag) noexcept;
   explicit context(instance_only_tag tag,
     scheduler_options const &opts,
     std::vector<char const *> const &instance_extensions);
