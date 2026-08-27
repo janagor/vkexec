@@ -3,6 +3,10 @@
 
 #include <cx_system_error/system_error.hpp>
 
+// Pedantic clang rejects LEAF's GNU stmt-expr BOOST_LEAF_CHECK; use the portable form.
+#ifndef BOOST_LEAF_CFG_GNUC_STMTEXPR
+#  define BOOST_LEAF_CFG_GNUC_STMTEXPR 0
+#endif
 #include <boost/leaf.hpp>
 
 #include <string>
