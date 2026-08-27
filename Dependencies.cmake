@@ -71,7 +71,22 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
-  if(NOT TARGET Boost::describe)
+  set(_vkexec_boost_wanted_libs describe mp11 leaf)
+  set(_vkexec_boost_libs "")
+  foreach(_vkexec_boost_lib IN LISTS _vkexec_boost_wanted_libs)
+    if(NOT TARGET Boost::${_vkexec_boost_lib})
+      list(APPEND _vkexec_boost_libs ${_vkexec_boost_lib})
+    endif()
+  endforeach()
+
+  if(_vkexec_boost_libs)
+    # Extra escaping so CPM OPTIONS keeps describe;mp11;leaf as one list value
+    # (same as writing describe\\\;mp11\\\;leaf in a string literal).
+    string(
+      REPLACE ";"
+              "\\\\;"
+              _vkexec_boost_include_libs
+              "${_vkexec_boost_libs}")
     cpmaddpackage(
       NAME
       Boost
@@ -87,7 +102,7 @@ function(vkexec_setup_dependencies)
       "BOOST_ENABLE_CMAKE ON"
       "BOOST_SKIP_INSTALL_RULES ON"
       "BUILD_SHARED_LIBS OFF"
-      "BOOST_INCLUDE_LIBRARIES describe\\\;mp11\\\;leaf")
+      "BOOST_INCLUDE_LIBRARIES ${_vkexec_boost_include_libs}")
   endif()
 
   if(NOT TARGET glslang::glslang)
