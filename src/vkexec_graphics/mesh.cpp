@@ -1,6 +1,7 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
@@ -65,22 +66,22 @@ auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span
   -> result<mesh>
 {
   mesh created;
-  if (auto init = created.init(ctx, vertices, indices); !init) { return init.error(); }
+  if (auto initialized = created.init(ctx, vertices, indices); !initialized) { return initialized.error(); }
   return created;
 }
 
 auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
 {
-  BOOST_LEAF_AUTO(
+  VKEXEC_LEAF_AUTO(
     vertices_count, count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]"));
-  BOOST_LEAF_AUTO(
+  VKEXEC_LEAF_AUTO(
     indices_count, count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]"));
 
   ctx_ = &ctx;
   vertex_count_ = vertices_count;
   index_count_ = indices_count;
 
-  BOOST_LEAF_AUTO(vertex,
+  VKEXEC_LEAF_AUTO(vertex,
     create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
   vertex_buffer_ = vertex.buffer;
   vertex_allocation_ = vertex.allocation;
@@ -97,9 +98,10 @@ auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<s
     index_count_ = 0;
     return index.error();
   }
-  index_buffer_ = index->buffer;
-  index_allocation_ = index->allocation;
-  std::memcpy(index->mapped, indices.data(), indices.size_bytes());
+  auto const &index_buf = detail::leaf_get(index);
+  index_buffer_ = index_buf.buffer;
+  index_allocation_ = index_buf.allocation;
+  std::memcpy(index_buf.mapped, indices.data(), indices.size_bytes());
   return {};
 }
 

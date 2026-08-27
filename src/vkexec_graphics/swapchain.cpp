@@ -1,6 +1,7 @@
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <VkBootstrap.h>

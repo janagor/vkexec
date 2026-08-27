@@ -2,6 +2,7 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec_edsl/trace.hpp>
 
@@ -86,13 +87,13 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     }
   }
 
-  BOOST_LEAF_AUTO(vert_module, create_module(vs_spv));
+  VKEXEC_LEAF_AUTO(vert_module, create_module(vs_spv));
   auto frag = create_module(fs_spv);
   if (!frag) {
     vkDestroyShaderModule(device_, vert_module, nullptr);
     return frag.error();
   }
-  VkShaderModule const frag_module = *frag;
+  VkShaderModule frag_module = detail::leaf_take(frag);
 
   static constexpr std::size_t k_graphics_stage_count = 2;
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)

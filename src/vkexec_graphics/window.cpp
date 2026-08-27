@@ -1,8 +1,10 @@
 #include <vkexec_graphics/window.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_graphics/swapchain.hpp>
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -80,7 +82,7 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
 auto window::create(config cfg) -> result<window>
 {
   window created;
-  if (auto init = created.init(std::move(cfg)); !init) { return init.error(); }
+  if (auto initialized = created.init(std::move(cfg)); !initialized) { return initialized.error(); }
   return created;
 }
 
@@ -129,7 +131,7 @@ auto window::init(config cfg) -> status
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       std::vector<char const *>{ surface_exts.begin(), surface_exts.end() }));
-    if (auto surface = create_headless_surface(); !surface) { return surface.error(); }
+    if (auto headless_surface = create_headless_surface(); !headless_surface) { return headless_surface.error(); }
   } else {
     g_glfw_error.clear();
     glfwSetErrorCallback(glfw_error_callback);
@@ -163,12 +165,12 @@ auto window::init(config cfg) -> status
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       instance_exts));
-    if (auto surface = create_surface(); !surface) { return surface.error(); }
+    if (auto created_surface = create_surface(); !created_surface) { return created_surface.error(); }
   }
 
   if (auto completed = ctx_->complete_for_surface(surface_); !completed) { return completed.error(); }
   if (auto swapchain = create_swapchain(); !swapchain) { return swapchain.error(); }
-  if (auto render_pass = create_render_pass(); !render_pass) { return render_pass.error(); }
+  if (auto pass = create_render_pass(); !pass) { return pass.error(); }
   if (auto depth = create_depth_resources(); !depth) { return depth.error(); }
   if (auto framebuffers = create_framebuffers(); !framebuffers) { return framebuffers.error(); }
   if (auto frames = create_frame_resources(); !frames) { return frames.error(); }
@@ -279,7 +281,7 @@ auto window::create_render_pass() -> status
   if (depth_format_ == VK_FORMAT_UNDEFINED) {
     auto format = pick_depth_format(ctx_->physical_device());
     if (!format) { return format.error(); }
-    depth_format_ = *format;
+    depth_format_ = detail::leaf_take(format);
   }
 
   VkAttachmentDescription const color{
@@ -425,9 +427,12 @@ auto window::destroy_depth_resources() noexcept -> void
 
 auto window::create_framebuffers() -> status
 {
-  auto const views = swapchain_->image_views();
+  if (!swapchain_) { return make_error(errc::invalid_argument, "create_framebuffers requires a swapchain"); }
+  swapchain const &active_swapchain = *swapchain_;
+  auto const views = active_swapchain.image_views();
   framebuffers_.resize(views.size());
   for (std::size_t index = 0; index < views.size(); ++index) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
     std::array const attachments{ views[index], depth_view_ };
     VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -477,9 +482,11 @@ auto window::create_frame_resources() -> status
 
 auto window::create_swapchain_sync() -> status
 {
+  if (!swapchain_) { return make_error(errc::invalid_argument, "create_swapchain_sync requires a swapchain"); }
+  swapchain const &active_swapchain = *swapchain_;
   destroy_swapchain_sync();
 
-  auto const image_count = swapchain_->images().size();
+  auto const image_count = active_swapchain.images().size();
   render_finished_.resize(image_count);
   images_in_flight_.assign(image_count, VK_NULL_HANDLE);
 
@@ -548,6 +555,8 @@ auto window::recreate_swapchain() -> status
 auto window::begin_frame() -> result<std::optional<frame>>
 {
   if (frame_open_) { return make_error(errc::invalid_argument, "begin_frame called while a frame is already open"); }
+  if (!swapchain_) { return make_error(errc::invalid_argument, "begin_frame requires a swapchain"); }
+  swapchain &active_swapchain = *swapchain_;
 
   auto &sync = frames_.at(frame_index_);
   if (VkResult const wait_result = vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX);
@@ -555,7 +564,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
     return make_vk_error(wait_result, "vkWaitForFences failed");
   }
 
-  auto acquired = swapchain_->acquire_next_image(sync.image_available);
+  auto acquired = active_swapchain.acquire_next_image(sync.image_available);
   if (!acquired) { return acquired.error(); }
   if (!acquired->has_value()) {
     if (auto recreated = recreate_swapchain(); !recreated) { return recreated.error(); }
@@ -594,6 +603,8 @@ auto window::begin_frame() -> result<std::optional<frame>>
 auto window::end_frame(frame const &drawn) -> result<VkFence>
 {
   if (!frame_open_) { return make_error(errc::invalid_argument, "end_frame called without begin_frame"); }
+  if (!swapchain_) { return make_error(errc::invalid_argument, "end_frame requires a swapchain"); }
+  swapchain &active_swapchain = *swapchain_;
   (void)drawn;
 
   auto &sync = frames_.at(frame_index_);
@@ -615,7 +626,7 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   }
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
-  auto present_result = swapchain_->present(current_image_index_, wait_semaphores);
+  auto present_result = active_swapchain.present(current_image_index_, wait_semaphores);
   if (!present_result) { return present_result.error(); }
   bool const needs_recreate = !*present_result || framebuffer_resized_;
   if (needs_recreate) {
