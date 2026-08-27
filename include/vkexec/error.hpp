@@ -104,9 +104,33 @@ struct error
 template<typename T> using result = leaf::result<T>;
 using status = leaf::result<void>;
 
+namespace detail {
+
+struct last_error_slot
+{
+  int id{ 0 };
+  error value{};
+};
+
+// LEAF drops e-types when no context slot is active; stash the payload for to_error.
+[[nodiscard]] inline auto last_error() noexcept -> last_error_slot &
+{
+  thread_local last_error_slot slot{};
+  return slot;
+}
+
+[[nodiscard]] inline auto stash_error(error err) -> leaf::error_id
+{
+  leaf::error_id const id = leaf::new_error(err);
+  last_error() = { .id = id.value(), .value = std::move(err) };
+  return id;
+}
+
+}// namespace detail
+
 [[nodiscard]] inline auto make_error(errc code, std::string detail = {}) -> leaf::error_id
 {
-  return leaf::new_error(error{
+  return detail::stash_error(error{
     .code = MakeErrorCode(code),
     .detail = std::move(detail),
   });
@@ -115,6 +139,9 @@ using status = leaf::result<void>;
 /// Load a `vkexec::error` previously attached to `id` (for sender set_error bridging).
 [[nodiscard]] inline auto to_error(leaf::error_id error_id) -> error
 {
+  auto const &slot = detail::last_error();
+  if (slot.id == error_id.value()) { return slot.value; }
+
   error err{ .code = MakeErrorCode(errc::unsupported), .detail = "unknown error" };
   leaf::try_handle_all(
     [&]() -> leaf::result<void> { return error_id; },

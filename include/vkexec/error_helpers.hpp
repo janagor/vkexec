@@ -15,7 +15,7 @@ namespace vkexec {
 
 [[nodiscard]] inline auto make_vk_error(VkResult result, std::string_view context) -> leaf::error_id
 {
-  return leaf::new_error(error{
+  return detail::stash_error(error{
     .code = MakeVkErrorCode(static_cast<int>(result)),
     .detail = std::string(context),
   });
