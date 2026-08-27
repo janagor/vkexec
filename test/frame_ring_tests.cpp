@@ -60,13 +60,19 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
   auto &ring = *ring_result;
   REQUIRE(ring.slot_count() == 2);
   REQUIRE(ring.image_count() == 3);
-  REQUIRE(ring.acquire_semaphore(0).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
-  REQUIRE(ring.acquire_semaphore(1).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
-  REQUIRE(ring.render_finished_semaphore(2).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
+  auto const acquire0 = ring.acquire_semaphore(0);
+  REQUIRE(acquire0);
+  REQUIRE(*acquire0 != VK_NULL_HANDLE);
+  auto const acquire1 = ring.acquire_semaphore(1);
+  REQUIRE(acquire1);
+  REQUIRE(*acquire1 != VK_NULL_HANDLE);
+  auto const finished2 = ring.render_finished_semaphore(2);
+  REQUIRE(finished2);
+  REQUIRE(*finished2 != VK_NULL_HANDLE);
   REQUIRE(ring.timeline().handle() != VK_NULL_HANDLE);
 
-  REQUIRE(ring.wait_slot(0).has_value());
-  REQUIRE(ring.wait_image(0).has_value());
+  REQUIRE(ring.wait_slot(0));
+  REQUIRE(ring.wait_image(0));
 }
 
 TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]")
@@ -99,17 +105,15 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
   REQUIRE(sync.has_value());
   std::array<VkCommandBuffer, 1> const cmds{ record_empty(*ctx) };
 
-  REQUIRE(ctx
-      ->submit(vkexec::queue_submit{
-        .command_buffers = cmds,
-        .waits = sync->waits,
-        .signals = sync->signals,
-      })
-      .has_value());
-  REQUIRE(ring.mark_submitted(0, 0, signal_value).has_value());
+  REQUIRE(ctx->submit(vkexec::queue_submit{
+    .command_buffers = cmds,
+    .waits = sync->waits,
+    .signals = sync->signals,
+  }));
+  REQUIRE(ring.mark_submitted(0, 0, signal_value));
 
-  REQUIRE(ring.wait_slot(0).has_value());
-  REQUIRE(ring.wait_image(0).has_value());
+  REQUIRE(ring.wait_slot(0));
+  REQUIRE(ring.wait_image(0));
 }
 
 TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][frame_ring][gpu]")
@@ -123,14 +127,16 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
   auto const old_finished = ring.render_finished_semaphore(0);
   REQUIRE(old_finished.has_value());
 
-  REQUIRE(ring.resize_images(4).has_value());
+  REQUIRE(ring.resize_images(4));
   REQUIRE(ring.image_count() == 4);
   auto const new_finished = ring.render_finished_semaphore(0);
   REQUIRE(new_finished.has_value());
   REQUIRE(*new_finished != VK_NULL_HANDLE);
   REQUIRE(*new_finished != *old_finished);
-  REQUIRE(ring.render_finished_semaphore(3).value_or(VK_NULL_HANDLE) != VK_NULL_HANDLE);
+  auto const finished3 = ring.render_finished_semaphore(3);
+  REQUIRE(finished3);
+  REQUIRE(*finished3 != VK_NULL_HANDLE);
   ring.reset_completion_tracking();
-  REQUIRE(ring.wait_slot(1).has_value());
-  REQUIRE(ring.wait_image(3).has_value());
+  REQUIRE(ring.wait_slot(1));
+  REQUIRE(ring.wait_image(3));
 }

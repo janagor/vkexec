@@ -40,8 +40,8 @@ TEST_CASE("timeline_semaphore create and wait for initial value", "[vkexec][time
   REQUIRE(timeline_result.has_value());
   auto &timeline = *timeline_result;
   REQUIRE(timeline.handle() != VK_NULL_HANDLE);
-  REQUIRE(timeline.wait(3).has_value());
-  REQUIRE(timeline.wait(0).has_value());
+  REQUIRE(timeline.wait(3));
+  REQUIRE(timeline.wait(0));
 }
 
 TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gpu]")
@@ -79,12 +79,10 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
     .value = k_signal_value,
   } };
 
-  REQUIRE(ctx
-      .submit(vkexec::queue_submit{
-        .command_buffers = cmds,
-        .signals = signals,
-      })
-      .has_value());
-  REQUIRE(timeline.wait(k_signal_value).has_value());
+  REQUIRE(ctx.submit(vkexec::queue_submit{
+    .command_buffers = cmds,
+    .signals = signals,
+  }));
+  REQUIRE(timeline.wait(k_signal_value));
   ctx.free_command_buffer(cmd);
 }

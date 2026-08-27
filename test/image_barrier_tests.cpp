@@ -56,6 +56,6 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
-  REQUIRE(ctx.submit(vkexec::queue_submit{ .command_buffers = cmds }).has_value());
+  REQUIRE(ctx.submit(vkexec::queue_submit{ .command_buffers = cmds }));
   ctx.free_command_buffer(cmd);
 }
