@@ -5,6 +5,7 @@
 
 // Pedantic clang rejects LEAF's GNU stmt-expr BOOST_LEAF_CHECK; use the portable form.
 #ifndef BOOST_LEAF_CFG_GNUC_STMTEXPR
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BOOST_LEAF_CFG_GNUC_STMTEXPR 0
 #endif
 #include <boost/leaf.hpp>
@@ -106,6 +107,24 @@ using status = leaf::result<void>;
 
 namespace detail {
 
+  template<typename T> [[nodiscard, clang::suppress]] auto leaf_take(leaf::result<T> &result) -> T
+  { return std::move(*result); }
+
+  template<typename T> [[nodiscard, clang::suppress]] auto leaf_get(leaf::result<T> &result) -> T & { return *result; }
+
+}// namespace detail
+
+// NOLINTBEGIN(cppcoreguidelines-macro-usage,bugprone-macro-parentheses)
+#define VKEXEC_LEAF_AUTO(v, r)                                      \
+  auto vkexec_leaf_tmp_##v = (r);                                   \
+  if (!vkexec_leaf_tmp_##v) { return vkexec_leaf_tmp_##v.error(); } \
+  auto &v = ::vkexec::detail::leaf_get(vkexec_leaf_tmp_##v)
+#define VKEXEC_LEAF_CHECK(r) \
+  if (auto vkexec_leaf_chk = (r); !vkexec_leaf_chk) return vkexec_leaf_chk.error()
+// NOLINTEND(cppcoreguidelines-macro-usage,bugprone-macro-parentheses)
+
+namespace detail {
+
   struct last_error_slot
   {
     int id{ 0 };
@@ -121,9 +140,9 @@ namespace detail {
 
   [[nodiscard]] inline auto stash_error(error err) -> leaf::error_id
   {
-    leaf::error_id const id = leaf::new_error(err);
-    last_error() = { .id = id.value(), .value = std::move(err) };
-    return id;
+    leaf::error_id const leaf_id = leaf::new_error(err);
+    last_error() = { .id = leaf_id.value(), .value = std::move(err) };
+    return leaf_id;
   }
 
 }// namespace detail
