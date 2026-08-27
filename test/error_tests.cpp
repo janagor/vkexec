@@ -95,6 +95,8 @@ TEST_CASE("context::create returns unsupported when requirements cannot be met",
 TEST_CASE("context::create succeeds for default requirements", "[vkexec][error][gpu]")
 {
   auto created = vkexec::context::create();
-  if (!created.has_value()) { SKIP(std::string("Vulkan unavailable: ") + std::string(vkexec::to_error(created.error()).message())); }
+  if (!created.has_value()) {
+    SKIP(std::string("Vulkan unavailable: ") + std::string(vkexec::to_error(created.error()).message()));
+  }
   REQUIRE((*created)->device() != VK_NULL_HANDLE);
 }

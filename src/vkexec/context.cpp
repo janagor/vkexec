@@ -197,8 +197,8 @@ auto context::init_headless(scheduler_options const &opts) -> status
   has_instance_ = true;
   owns_instance_ = true;
 
-  BOOST_LEAF_AUTO(selected_physical,
-    select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false));
+  BOOST_LEAF_AUTO(
+    selected_physical, select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false));
   physical_device_ = std::move(selected_physical);
 
   BOOST_LEAF_AUTO(built_device, build_device(physical_device_));

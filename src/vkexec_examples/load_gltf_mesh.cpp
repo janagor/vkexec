@@ -286,8 +286,7 @@ namespace {
     if (component_size < 0 || component_count < 0) {
       return make_error(errc::parse_error, "gltf accessor has invalid component layout");
     }
-    std::size_t const byte_length = static_cast<std::size_t>(accessor.count)
-                                    * static_cast<std::size_t>(component_size)
+    std::size_t const byte_length = static_cast<std::size_t>(accessor.count) * static_cast<std::size_t>(component_size)
                                     * static_cast<std::size_t>(component_count);
     if (offset + byte_length > buffer.data.count) {
       return make_error(errc::parse_error, "gltf accessor exceeds buffer bounds");

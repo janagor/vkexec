@@ -136,9 +136,7 @@ namespace detail {
   [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
   {
     for (pass_step const &step : steps) {
-      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
-        return recorded.error();
-      }
+      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) { return recorded.error(); }
     }
     return scope.end_recording();
   }

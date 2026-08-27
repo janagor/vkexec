@@ -5,7 +5,7 @@
 
 // Pedantic clang rejects LEAF's GNU stmt-expr BOOST_LEAF_CHECK; use the portable form.
 #ifndef BOOST_LEAF_CFG_GNUC_STMTEXPR
-#  define BOOST_LEAF_CFG_GNUC_STMTEXPR 0
+#define BOOST_LEAF_CFG_GNUC_STMTEXPR 0
 #endif
 #include <boost/leaf.hpp>
 
@@ -106,25 +106,25 @@ using status = leaf::result<void>;
 
 namespace detail {
 
-struct last_error_slot
-{
-  int id{ 0 };
-  error value{};
-};
+  struct last_error_slot
+  {
+    int id{ 0 };
+    error value{};
+  };
 
-// LEAF drops e-types when no context slot is active; stash the payload for to_error.
-[[nodiscard]] inline auto last_error() noexcept -> last_error_slot &
-{
-  thread_local last_error_slot slot{};
-  return slot;
-}
+  // LEAF drops e-types when no context slot is active; stash the payload for to_error.
+  [[nodiscard]] inline auto last_error() noexcept -> last_error_slot &
+  {
+    thread_local last_error_slot slot{};
+    return slot;
+  }
 
-[[nodiscard]] inline auto stash_error(error err) -> leaf::error_id
-{
-  leaf::error_id const id = leaf::new_error(err);
-  last_error() = { .id = id.value(), .value = std::move(err) };
-  return id;
-}
+  [[nodiscard]] inline auto stash_error(error err) -> leaf::error_id
+  {
+    leaf::error_id const id = leaf::new_error(err);
+    last_error() = { .id = id.value(), .value = std::move(err) };
+    return id;
+  }
 
 }// namespace detail
 
@@ -143,8 +143,7 @@ struct last_error_slot
   if (slot.id == error_id.value()) { return slot.value; }
 
   error err{ .code = MakeErrorCode(errc::unsupported), .detail = "unknown error" };
-  leaf::try_handle_all(
-    [&]() -> leaf::result<void> { return error_id; },
+  leaf::try_handle_all([&]() -> leaf::result<void> { return error_id; },
     [&](error loaded) -> void { err = std::move(loaded); },
     []() -> void {});
   return err;

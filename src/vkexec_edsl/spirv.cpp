@@ -131,9 +131,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
   options.disableOptimizer = false;
   options.optimizeSize = false;
   glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
-  if (spirv.empty()) {
-    return vkexec::make_error(vkexec::errc::empty_result, "SPIR-V emission produced empty module");
-  }
+  if (spirv.empty()) { return vkexec::make_error(vkexec::errc::empty_result, "SPIR-V emission produced empty module"); }
   return spirv;
 }
 

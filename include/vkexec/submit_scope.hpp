@@ -130,8 +130,8 @@ namespace detail {
 
     auto set = allocate_compute_set(ctx, pipe, buffers);
     if (!set) { return set.error(); }
-    cleanup.sets.insert_or_assign(&pipe,
-      descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = *set });
+    cleanup.sets.insert_or_assign(
+      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = *set });
     cleanup.track(pipe.descriptor_pool, *set);
     return *set;
   }

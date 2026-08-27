@@ -188,8 +188,8 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   }
 
   std::string const glsl = edsl::emit_glsl(ast, work_count);
-  BOOST_LEAF_AUTO(spirv,
-    edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version()));
+  BOOST_LEAF_AUTO(
+    spirv, edsl::compile_glsl_to_spirv(glsl, "vkexec_bulk", edsl::shader_kind::compute, ctx_->api_version()));
 
   auto resources = std::make_unique<pipeline_resources>();
   resources->binding_count = static_cast<std::uint32_t>(ast.buffers.size());
@@ -216,8 +216,7 @@ auto pipeline_cache::get_or_compile(edsl::ASTContext const &ast, std::uint32_t w
   }
   resources->pipeline_layout = *pipeline_layout_result;
 
-  auto pipeline_result =
-    create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr, false);
+  auto pipeline_result = create_compute_pipeline(device, resources->shader, resources->pipeline_layout, nullptr, false);
   if (!pipeline_result) {
     destroy_resources(*ctx_, *resources);
     return pipeline_result.error();

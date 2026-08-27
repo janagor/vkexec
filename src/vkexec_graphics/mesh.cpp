@@ -71,8 +71,10 @@ auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span
 
 auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
 {
-  BOOST_LEAF_AUTO(vertices_count, count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]"));
-  BOOST_LEAF_AUTO(indices_count, count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]"));
+  BOOST_LEAF_AUTO(
+    vertices_count, count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]"));
+  BOOST_LEAF_AUTO(
+    indices_count, count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]"));
 
   ctx_ = &ctx;
   vertex_count_ = vertices_count;
