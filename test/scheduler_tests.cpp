@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <stdexec/__detail/__execution_fwd.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
@@ -45,7 +46,6 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
   vkexec::scheduler const sched{ nullptr };
   auto const sender = sched.schedule();
 
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
   REQUIRE(completion.get_context() == nullptr);
@@ -138,7 +138,6 @@ TEST_CASE("bulk_sender advertises completion scheduler", "[vkexec][scheduler]")
     | vkexec::bulk(
       1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {});
 
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
 }
@@ -152,7 +151,6 @@ TEST_CASE("bulk_async_sender advertises completion scheduler", "[vkexec][schedul
       1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {})
     | vkexec::submit;
 
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
 }
@@ -165,7 +163,6 @@ TEST_CASE("pass_graph_sender advertises completion scheduler", "[vkexec][schedul
     | vkexec::compute_pass(
       1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {});
 
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
 }
@@ -179,7 +176,6 @@ TEST_CASE("pass_graph_async_sender advertises completion scheduler", "[vkexec][s
       1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {})
     | vkexec::submit;
 
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
 }

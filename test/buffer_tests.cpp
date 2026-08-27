@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <stdexec/__detail/__execution_fwd.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
@@ -86,7 +87,6 @@ TEST_CASE("buffer::allocate completes with set_stopped when stop is already requ
 
   auto sender = vkexec::buffer_allocate_sender<float>{ .ctx = no_ctx, .count = k_count, .fill = k_fill };
   auto const waited =
-    // NOLINTNEXTLINE(misc-include-cleaner)
     vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
   REQUIRE(waited.has_value());
   REQUIRE_FALSE(waited->has_value());
@@ -99,7 +99,6 @@ TEST_CASE("buffer allocate advertises completion scheduler", "[vkexec][buffer][s
   auto &ctx = **ctx_result;
 
   auto const sender = vkexec::buffer<float>::allocate(ctx, k_count);
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(sched == ctx.get_scheduler());
 }

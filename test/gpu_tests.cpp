@@ -199,7 +199,6 @@ TEST_CASE("pass graph submit completes with set_stopped when stop is already req
     | vkexec::submit;
 
   auto const waited =
-    // NOLINTNEXTLINE(misc-include-cleaner)
     vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
   REQUIRE(waited.has_value());
   REQUIRE_FALSE(waited->has_value());

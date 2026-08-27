@@ -1,6 +1,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <stdexec/__detail/__execution_fwd.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
@@ -65,7 +66,6 @@ TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][sc
 
   STATIC_REQUIRE(std::same_as<std::remove_cvref_t<decltype(async_sender)>, vkexec::draw_async_sender>);
 
-  // NOLINTNEXTLINE(misc-include-cleaner)
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(async_sender));
   REQUIRE(completion == sched);
 

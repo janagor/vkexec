@@ -84,7 +84,6 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
   source.request_stop();
 
   auto env_sender =
-    // NOLINTNEXTLINE(misc-include-cleaner)
     ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
   auto const waited = vkexec::sync_wait(std::move(env_sender));
   REQUIRE(waited.has_value());
@@ -98,7 +97,6 @@ TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion
   ex::inplace_stop_source source;
 
   auto env_sender =
-    // NOLINTNEXTLINE(misc-include-cleaner)
     ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
 
   std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
