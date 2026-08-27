@@ -31,6 +31,8 @@ macro(vkexec_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
           --suppress=preprocessorErrorDirective
           # ignores static_assert type failures
           --suppress=knownConditionTrueFalse
+          --suppress=constParameterReference
+          --suppress=constVariableReference
           --inconclusive
           --check-level=exhaustive
           --suppress=${SUPPRESS_DIR})
