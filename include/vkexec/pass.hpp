@@ -361,9 +361,7 @@ namespace detail {
   inline auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx,
-                                  VkCommandBuffer cmd,
-                                  pass_cleanup & /*cleanup*/) -> status {
+                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       std::span<std::byte const> const push_bytes{ closure.push };
       bool const use_push_data = closure.bind.layout == VK_NULL_HANDLE;
       if (use_push_data) {
