@@ -1,3 +1,5 @@
+#include <boost/leaf/handle_errors.hpp>
+#include <boost/leaf/result.hpp>
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
@@ -27,7 +29,6 @@ constexpr float k_initial = 1.0F;
 constexpr float k_add = 3.0F;
 constexpr float k_scale = 2.0F;
 constexpr float k_epsilon = 1.0E-4F;
-}// namespace
 
 struct pass_params
 {
@@ -35,13 +36,14 @@ struct pass_params
 };
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(pass_params, (), (value))
+}// namespace
 
 auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
-      BOOST_LEAF_AUTO(values, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial));
+      VKEXEC_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      VKEXEC_LEAF_AUTO(values, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial));
 
       auto graph = ex::schedule(ctx->get_scheduler())
                    | vkexec::compute_pass(static_cast<std::uint32_t>(k_element_count),
@@ -55,7 +57,7 @@ auto main() -> int
                      [&](edsl::Int idx, edsl::push_constant<pass_params> push) -> void {
                        values[idx] = values[idx] * push.get<&pass_params::value>();
                      });
-      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
+      VKEXEC_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
       if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
 
       float const expected = (k_initial + k_add) * k_scale;
@@ -70,11 +72,11 @@ auto main() -> int
       // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec passes example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec passes example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec passes example failed");
       return 1;
     });

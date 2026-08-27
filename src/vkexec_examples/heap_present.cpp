@@ -1,5 +1,7 @@
+#include <boost/leaf/handle_errors.hpp>
 #include <vkexec/barrier.hpp>
 #include <vkexec/compute_pipeline.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/descriptor_heap.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -10,6 +12,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/rendering.hpp>
+#include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -19,15 +22,15 @@
 
 #include <stdexec/execution.hpp>
 
+#include <boost/leaf/result.hpp>
+
 #include <vulkan/vulkan_core.h>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <print>
-#include <string>
 #include <string_view>
-#include <utility>
 
 namespace ex = stdexec;
 namespace edsl = vkexec::edsl;
@@ -38,8 +41,13 @@ constexpr std::uint32_t k_width = 64;
 constexpr std::uint32_t k_height = 64;
 constexpr std::uint32_t k_present_frames = 3;
 constexpr std::uint32_t k_triangle_vertices = 3;
+constexpr std::uint32_t k_work_count = 64;
 constexpr std::size_t k_heap_slots = 1;
 constexpr VkDeviceSize k_storage_bytes = 256;
+constexpr float k_clear_r = 0.15F;
+constexpr float k_clear_g = 0.35F;
+constexpr float k_clear_b = 0.55F;
+constexpr float k_clear_a = 1.0F;
 constexpr std::string_view k_heap_glsl = R"(#version 460
 layout(local_size_x = 64) in;
 void main() {}
@@ -111,7 +119,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 
   vkexec::color_attachment color{};
   color.view = view_result->handle();
-  color.clear.color = { { 0.15F, 0.35F, 0.55F, 1.0F } };
+  color.clear.color = { { k_clear_r, k_clear_g, k_clear_b, k_clear_a } };
   std::array<vkexec::color_attachment, 1> const colors{ color };
   if (auto began = vkexec::cmd_begin_rendering(cmd,
         vkexec::rendering_info{
@@ -194,14 +202,15 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
       .bindings = {},
       .push_constant_size = 0,
       .specialization = {},
-      .local_size = { 64, 1, 1 },
+      .local_size = vkexec::k_default_local_size,
       .descriptor_heap = true,
     },
     "heap_present.comp");
   if (!pipe) { return false; }
 
-  heap_push const params{ .count = 64 };
-  auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, 64U));
+  heap_push const params{ .count = k_work_count };
+  auto waited =
+    vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, k_work_count));
   return waited.has_value() && waited->has_value();
 }
 
@@ -219,7 +228,7 @@ auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(win,
+      VKEXEC_LEAF_AUTO(win,
         vkexec::window::headless(vkexec::window::config{
           .width = k_width,
           .height = k_height,
@@ -237,7 +246,7 @@ auto main() -> int
         std::println("heap_present: skipped bindless heap compute (extension PFNs unavailable)");
       }
 
-      BOOST_LEAF_AUTO(pipeline,
+      VKEXEC_LEAF_AUTO(pipeline,
         vkexec::graphics_pipeline::create(
           win.ctx(),
           win.render_pass(),
@@ -260,11 +269,11 @@ auto main() -> int
       std::println("heap_present: completed ({} headless frames)", k_present_frames);
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec heap_present example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec heap_present example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec heap_present example failed");
       return 1;
     });

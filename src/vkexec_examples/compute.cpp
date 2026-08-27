@@ -1,3 +1,4 @@
+#include <boost/leaf/handle_errors.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
@@ -7,6 +8,7 @@
 #include <vkexec_edsl/types.hpp>
 
 #include <boost/describe/class.hpp>
+#include <boost/leaf/result.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -25,7 +27,6 @@ constexpr float k_initial_velocity = 1.5F;
 constexpr float k_timestep = 0.016F;
 constexpr float k_damping = 0.99F;
 constexpr float k_epsilon = 1.0E-4F;
-}// namespace
 
 struct sim_params
 {
@@ -34,14 +35,15 @@ struct sim_params
 };
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(sim_params, (), (dt, damping))
+}// namespace
 
 auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
-      BOOST_LEAF_AUTO(positions, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
-      BOOST_LEAF_AUTO(velocities, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial_velocity));
+      VKEXEC_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      VKEXEC_LEAF_AUTO(positions, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
+      VKEXEC_LEAF_AUTO(velocities, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial_velocity));
 
       sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
@@ -59,7 +61,7 @@ auto main() -> int
                           velocities[idx] = velocity;
                         });
 
-      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(pipeline));
+      VKEXEC_LEAF_AUTO(waited, vkexec::sync_wait(pipeline));
       if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
 
       float const expected_v = k_initial_velocity * k_damping;
@@ -83,11 +85,11 @@ auto main() -> int
       // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec example failed");
       return 1;
     });

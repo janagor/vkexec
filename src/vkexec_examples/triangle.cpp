@@ -1,3 +1,5 @@
+#include <boost/leaf/handle_errors.hpp>
+#include <boost/leaf/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -8,7 +10,6 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
-#include <memory>
 #include <print>
 
 namespace ex = stdexec;
@@ -24,13 +25,13 @@ auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(win,
+      VKEXEC_LEAF_AUTO(win,
         vkexec::window::create({ .width = k_window_width,
           .height = k_window_height,
           .title = "vkexec triangle",
           .validation_layers = true }));
 
-      BOOST_LEAF_AUTO(pipeline,
+      VKEXEC_LEAF_AUTO(pipeline,
         vkexec::graphics_pipeline::create(
           win.ctx(),
           win.render_pass(),
@@ -57,11 +58,11 @@ auto main() -> int
       win.wait_idle();
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec triangle example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec triangle example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec triangle example failed");
       return 1;
     });

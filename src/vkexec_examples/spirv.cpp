@@ -1,3 +1,5 @@
+#include <boost/leaf/handle_errors.hpp>
+#include <boost/leaf/result.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
@@ -49,7 +51,6 @@ void main() {
   dst.data[i] = src.data[i] * pc.xform[0][0];
 }
 )";
-}// namespace
 
 /// Host POD matching the GLSL push block
 struct host_push
@@ -60,17 +61,18 @@ struct host_push
 };
 static_assert(offsetof(host_push, addr) == k_addr_offset);
 static_assert(offsetof(host_push, count) == k_count_offset);
+}// namespace
 
 auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
-      BOOST_LEAF_AUTO(input, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial));
-      BOOST_LEAF_AUTO(output, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
+      VKEXEC_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      VKEXEC_LEAF_AUTO(input, vkexec::buffer<float>::create_sync(*ctx, k_element_count, k_initial));
+      VKEXEC_LEAF_AUTO(output, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
 
       using enum vkexec::buffer_access;
-      BOOST_LEAF_AUTO(pipe,
+      VKEXEC_LEAF_AUTO(pipe,
         vkexec::compute_pipeline::create(*ctx,
           k_scale_glsl,
           vkexec::layout_desc{
@@ -81,7 +83,7 @@ auto main() -> int
           },
           "scale.comp"));
 
-      BOOST_LEAF_AUTO(set, pipe.allocate_set());
+      VKEXEC_LEAF_AUTO(set, pipe.allocate_set());
       std::array<vkexec::storage_binding, 2> const buffers{
         vkexec::storage_binding{
           .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
@@ -97,7 +99,7 @@ auto main() -> int
 
       auto graph = ex::schedule(ctx->get_scheduler())
                    | vkexec::compute_pass(pipe, set, push, static_cast<std::uint32_t>(k_element_count));
-      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
+      VKEXEC_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
       if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
 
       float const expected = k_initial * k_scale;
@@ -112,11 +114,11 @@ auto main() -> int
       // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec spirv example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec spirv example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec spirv example failed");
       return 1;
     });

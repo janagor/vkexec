@@ -271,14 +271,23 @@ namespace {
   auto accessor_bytes(tg3_model const &model, std::int32_t accessor_index)
     -> vkexec::result<std::span<std::uint8_t const>>
   {
-    BOOST_LEAF_AUTO(accessor_ptr, accessor_at(model, accessor_index));
-    tg3_accessor const &accessor = *accessor_ptr;
+    if (accessor_index < 0 || std::cmp_greater_equal(accessor_index, model.accessors_count)) {
+      return make_error(errc::out_of_range, "gltf accessor index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_accessor const &accessor = model.accessors[static_cast<std::size_t>(accessor_index)];
     if (accessor.buffer_view < 0) { return make_error(errc::parse_error, "gltf accessor missing buffer view"); }
-    BOOST_LEAF_AUTO(view_ptr, buffer_view_at(model, accessor.buffer_view));
-    tg3_buffer_view const &view = *view_ptr;
+    if (std::cmp_greater_equal(accessor.buffer_view, model.buffer_views_count)) {
+      return make_error(errc::out_of_range, "gltf buffer view index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_buffer_view const &view = model.buffer_views[static_cast<std::size_t>(accessor.buffer_view)];
     if (view.buffer < 0) { return make_error(errc::parse_error, "gltf buffer view missing buffer"); }
-    BOOST_LEAF_AUTO(buffer_ptr, buffer_at(model, view.buffer));
-    tg3_buffer const &buffer = *buffer_ptr;
+    if (std::cmp_greater_equal(view.buffer, model.buffers_count)) {
+      return make_error(errc::out_of_range, "gltf buffer index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_buffer const &buffer = model.buffers[static_cast<std::size_t>(view.buffer)];
     std::size_t const offset =
       static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
     int const component_size = tg3_component_size(accessor.component_type);
@@ -473,7 +482,7 @@ namespace {
     for (std::uint32_t primitive_index = 0; primitive_index < mesh.primitives_count; ++primitive_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       if (auto status = append_primitive(model, mesh.primitives[primitive_index], world, vertices, indices); !status) {
-        return status;
+        return status.error();
       }
     }
     return {};
@@ -492,11 +501,11 @@ namespace {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     tg3_node const &node = model.nodes[static_cast<std::size_t>(node_index)];
     mat4 const world = multiply(parent, node_local_matrix(node));
-    if (auto status = append_mesh(model, node.mesh, world, vertices, indices); !status) { return status; }
+    if (auto status = append_mesh(model, node.mesh, world, vertices, indices); !status) { return status.error(); }
     for (std::uint32_t child_index = 0; child_index < node.children_count; ++child_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       if (auto status = traverse_nodes(model, node.children[child_index], world, vertices, indices); !status) {
-        return status;
+        return status.error();
       }
     }
     return {};

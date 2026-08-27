@@ -1,3 +1,5 @@
+#include <boost/leaf/handle_errors.hpp>
+#include <boost/leaf/result.hpp>
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
@@ -30,7 +32,6 @@ constexpr std::size_t k_element_count = 256;
 constexpr unsigned k_rng_seed = 42;
 constexpr float k_value_max = 1000.0F;
 constexpr float k_epsilon = 1.0E-4F;
-}// namespace
 
 struct sort_params
 {
@@ -39,13 +40,14 @@ struct sort_params
 };
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(sort_params, (), (offset, n))
+}// namespace
 
 auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
-      BOOST_LEAF_AUTO(data, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
+      VKEXEC_LEAF_AUTO(ctx, vkexec::context::create({ .validation_layers = true }));
+      VKEXEC_LEAF_AUTO(data, vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
 
       // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
       std::mt19937 rng{ k_rng_seed };
@@ -83,7 +85,7 @@ auto main() -> int
       for (std::size_t phase = 1; phase < k_element_count; ++phase) {
         graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
       }
-      BOOST_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
+      VKEXEC_LEAF_AUTO(waited, vkexec::sync_wait(std::move(graph)));
       if (!waited.has_value()) { return vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
 
       // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -103,11 +105,11 @@ auto main() -> int
       // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec sort example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec sort example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec sort example failed");
       return 1;
     });

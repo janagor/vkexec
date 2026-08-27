@@ -1,3 +1,5 @@
+#include <boost/leaf/handle_errors.hpp>
+#include <boost/leaf/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/types.hpp>
@@ -8,7 +10,6 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
-#include <memory>
 #include <print>
 
 namespace ex = stdexec;
@@ -59,7 +60,7 @@ auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(win,
+      VKEXEC_LEAF_AUTO(win,
         vkexec::window::create(
           { .width = k_window_width, .height = k_window_height, .title = "vkexec layers", .validation_layers = true }));
 
@@ -68,14 +69,14 @@ auto main() -> int
       background_cfg.clear_g = k_clear_g;
       background_cfg.clear_b = k_clear_b;
 
-      BOOST_LEAF_AUTO(background,
+      VKEXEC_LEAF_AUTO(background,
         vkexec::graphics_pipeline::create(
           win.ctx(), win.render_pass(), background_cfg, fullscreen_vertex, gradient_fragment));
 
       vkexec::graphics_pipeline_config foreground_cfg{};
       foreground_cfg.alpha_blend = true;
 
-      BOOST_LEAF_AUTO(foreground,
+      VKEXEC_LEAF_AUTO(foreground,
         vkexec::graphics_pipeline::create(
           win.ctx(), win.render_pass(), foreground_cfg, foreground_vertex, tinted_fragment));
 
@@ -94,11 +95,11 @@ auto main() -> int
       win.wait_idle();
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec layers example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec layers example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec layers example failed");
       return 1;
     });

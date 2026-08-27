@@ -1,5 +1,7 @@
+#include <boost/leaf/handle_errors.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_edsl/control.hpp>
@@ -10,6 +12,7 @@
 #include <vkexec_graphics/window.hpp>
 
 #include <boost/describe/class.hpp>
+#include <boost/leaf/result.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -19,7 +22,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <memory>
 #include <print>
 #include <random>
 
@@ -41,7 +43,6 @@ constexpr float k_clear_r = 0.02F;
 constexpr float k_clear_g = 0.02F;
 constexpr float k_clear_b = 0.05F;
 constexpr unsigned k_rng_seed = 42;
-}// namespace
 
 struct particle_params
 {
@@ -49,21 +50,13 @@ struct particle_params
 };
 // cppcheck-suppress unknownMacro
 BOOST_DESCRIBE_STRUCT(particle_params, (), (delta_time))
-
-template<typename Fn>
-auto create_particle_buffer(vkexec::context &ctx, Fn &&fill) -> vkexec::result<vkexec::buffer<float>>
-{
-  auto buffer_result = vkexec::buffer<float>::create_sync(ctx, k_particle_count);
-  if (!buffer_result) { return buffer_result.error(); }
-  std::forward<Fn>(fill)(*buffer_result);
-  return buffer_result;
-}
+}// namespace
 
 auto main() -> int
 {
   return vkexec::leaf::try_handle_all(
     []() -> vkexec::leaf::result<int> {
-      BOOST_LEAF_AUTO(win,
+      VKEXEC_LEAF_AUTO(win,
         vkexec::window::create({ .width = k_window_width,
           .height = k_window_height,
           .title = "vkexec particles",
@@ -71,14 +64,16 @@ auto main() -> int
       auto &ctx = win.ctx();
 
       // SoA particle buffers (host-mapped SSBOs shared by compute + vertex stages).
-      BOOST_LEAF_AUTO(pos_x, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(pos_y, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(vel_x, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(vel_y, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(col_r, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(col_g, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(col_b, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
-      BOOST_LEAF_AUTO(col_a, create_particle_buffer(ctx, [](vkexec::buffer<float> &) {}));
+      // Bind refs into leaf::result temporaries — avoid returning result<buffer> by value
+      // (clang CSA cannot model LEAF's stored value and false-positives on buffer move).
+      VKEXEC_LEAF_AUTO(pos_x, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(pos_y, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(vel_x, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(vel_y, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(col_r, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(col_g, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(col_b, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+      VKEXEC_LEAF_AUTO(col_a, vkexec::buffer<float>::create_sync(ctx, k_particle_count));
 
       {
         // Deterministic demo seed (not cryptographic).
@@ -120,7 +115,7 @@ auto main() -> int
       graphics_cfg.clear_g = k_clear_g;
       graphics_cfg.clear_b = k_clear_b;
 
-      BOOST_LEAF_AUTO(gfx,
+      VKEXEC_LEAF_AUTO(gfx,
         vkexec::graphics_pipeline::create(
           ctx,
           win.render_pass(),
@@ -175,11 +170,11 @@ auto main() -> int
       win.wait_idle();
       return 0;
     },
-    [](vkexec::error const &e) {
-      std::println(stderr, "vkexec particles example failed: {}", e.message());
+    [](vkexec::error const &error) -> int {
+      std::println(stderr, "vkexec particles example failed: {}", error.message());
       return 1;
     },
-    [] {
+    [] -> int {
       std::println(stderr, "vkexec particles example failed");
       return 1;
     });
