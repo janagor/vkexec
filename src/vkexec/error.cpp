@@ -2,7 +2,18 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstdlib>
+#include <exception>
 #include <string_view>
+
+#ifdef BOOST_LEAF_NO_EXCEPTIONS
+namespace boost {
+[[noreturn]] void throw_exception(std::exception const &)
+{
+  std::abort();
+}
+}// namespace boost
+#endif
 
 namespace vkexec {
 
