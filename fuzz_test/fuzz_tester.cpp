@@ -3,6 +3,8 @@
 #include <fmt/base.h>
 #include <span>
 
+namespace {
+
 [[nodiscard]] auto sum_values(uint8_t const *data, size_t size) -> int
 {
   constexpr auto k_scale = 1000;
@@ -11,6 +13,8 @@
   for (auto const byte : std::span{ data, size }) { value += static_cast<int>(byte) * k_scale; }
   return value;
 }
+
+}// namespace
 
 // Fuzzer that attempts to invoke undefined behavior for signed integer overflow
 // cppcheck-suppress unusedFunction symbolName=LLVMFuzzerTestOneInput

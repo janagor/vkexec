@@ -1,18 +1,22 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/queue_submit.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 
 namespace {
+
+constexpr std::uint32_t k_width = 32;
+constexpr std::uint32_t k_height = 32;
 
 auto skip_if_no_vulkan(vkexec::error const &err) -> void
 { SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
@@ -27,8 +31,8 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
 
   auto img_result = vkexec::image::create(ctx,
     vkexec::image_create_info{
-      .width = 32,
-      .height = 32,
+      .width = k_width,
+      .height = k_height,
       .usage = vkexec::image_usage::color_storage,
     });
   REQUIRE(img_result.has_value());

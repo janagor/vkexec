@@ -3,13 +3,12 @@
 #include <vulkan/vulkan_core.h>
 
 #include <array>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/frame_ring.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>

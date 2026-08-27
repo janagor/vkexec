@@ -8,8 +8,8 @@
 #include <string>
 #include <utility>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/timeline_semaphore.hpp>
 #include <vkexec/vulkan_requirements.hpp>

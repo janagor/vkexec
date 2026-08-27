@@ -4,6 +4,7 @@
 #include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
@@ -113,6 +114,7 @@ TEST_CASE("starts_on then bulk lowers via vkexec domain", "[vkexec][scheduler][d
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
 
   auto waited = vkexec::sync_wait(

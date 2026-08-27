@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/compute_pipeline.hpp>
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/sync_wait.hpp>
@@ -20,6 +20,8 @@
 namespace ex = stdexec;
 
 namespace {
+
+constexpr std::uint32_t k_work_count = 64;
 
 constexpr std::string_view k_heap_compute_glsl = R"(#version 460
 layout(local_size_x = 64) in;
@@ -97,8 +99,9 @@ TEST_CASE("compute_pass records bindless push data for heap pipelines", "[vkexec
     "heap_pass.comp");
   REQUIRE(pipe.has_value());
 
-  heap_push const params{ .count = 64 };
-  auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, 64U));
+  heap_push const params{ .count = k_work_count };
+  auto waited =
+    vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, k_work_count));
   REQUIRE(waited.has_value());
   REQUIRE(waited->has_value());
 }

@@ -16,6 +16,9 @@ void main() {}
 )";
 
 /// SPIR-V magic is word0; version is word1 as 0x00MMmm00.
+constexpr std::uint32_t k_spirv_version_major_shift = 16U;
+constexpr std::uint32_t k_spirv_version_minor_shift = 8U;
+
 auto spirv_version_word(std::vector<std::uint32_t> const &words) -> std::uint32_t
 {
   REQUIRE(words.size() >= 2);
@@ -23,7 +26,7 @@ auto spirv_version_word(std::vector<std::uint32_t> const &words) -> std::uint32_
 }
 
 auto make_spirv_version(std::uint32_t major, std::uint32_t minor) -> std::uint32_t
-{ return (major << 16U) | (minor << 8U); }
+{ return (major << k_spirv_version_major_shift) | (minor << k_spirv_version_minor_shift); }
 
 }// namespace
 

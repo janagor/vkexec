@@ -1,7 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/sampler.hpp>
 
 #include <vulkan/vulkan_core.h>

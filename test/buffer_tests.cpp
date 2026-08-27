@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/buffer.hpp>
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/sync_wait.hpp>
 
@@ -39,6 +39,7 @@ TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][bu
   auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(ctx, k_count, k_fill));
   REQUIRE(waited.has_value());
   REQUIRE(waited->has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto [values] = std::move(**waited);
   REQUIRE(values.size() == k_count);
   REQUIRE(values.vk_buffer() != VK_NULL_HANDLE);
@@ -57,6 +58,7 @@ TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
   auto waited = vkexec::sync_wait(vkexec::buffer<std::uint32_t>::create(ctx, k_count, k_int_fill));
   REQUIRE(waited.has_value());
   REQUIRE(waited->has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto [values] = std::move(**waited);
   REQUIRE(values.size() == k_count);
 }
@@ -69,6 +71,7 @@ TEST_CASE("buffer::create_sync allocates synchronously", "[vkexec][buffer][gpu]"
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_fill);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
   REQUIRE(values.size() == k_count);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)

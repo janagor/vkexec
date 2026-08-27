@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_heap.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
@@ -10,7 +10,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -25,7 +24,7 @@ auto skip_if_unavailable(vkexec::error const &err) -> void
 { SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
-
+// NOLINTBEGIN(readability-function-cognitive-complexity)
 TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceVulkan12Features features_12{};
@@ -95,3 +94,4 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   ctx.free_command_buffer(cmd);
 }
+// NOLINTEND(readability-function-cognitive-complexity)

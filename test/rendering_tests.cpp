@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/queue_submit.hpp>
@@ -21,6 +21,10 @@ namespace {
 
 constexpr std::uint32_t k_width = 32;
 constexpr std::uint32_t k_height = 32;
+constexpr float k_clear_r = 0.1F;
+constexpr float k_clear_g = 0.2F;
+constexpr float k_clear_b = 0.3F;
+constexpr float k_clear_a = 1.0F;
 
 auto skip_if_unavailable(vkexec::error const &err) -> void
 { SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
@@ -74,7 +78,7 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
 
   vkexec::color_attachment color{};
   color.view = view_result->handle();
-  color.clear.color = { { 0.1F, 0.2F, 0.3F, 1.0F } };
+  color.clear.color = { { k_clear_r, k_clear_g, k_clear_b, k_clear_a } };
   std::array<vkexec::color_attachment, 1> const colors{ color };
 
   REQUIRE(vkexec::cmd_begin_rendering(cmd,

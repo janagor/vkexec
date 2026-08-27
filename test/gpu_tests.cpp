@@ -3,8 +3,8 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
@@ -117,6 +117,7 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
 
   auto graph = ex::schedule(ctx.get_scheduler())
@@ -157,6 +158,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
 
   auto graph = ex::schedule(ctx.get_scheduler())

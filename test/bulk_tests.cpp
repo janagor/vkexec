@@ -2,8 +2,8 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/bulk.hpp>
-#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 #include <vkexec/sync_wait.hpp>
@@ -75,6 +75,7 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
 
   auto pipeline =
@@ -123,6 +124,7 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
 
   auto pipeline = ex::schedule(ctx.get_scheduler())
@@ -201,6 +203,7 @@ TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vke
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   auto &values = *values_result;
 
   ex::inplace_stop_source source;
