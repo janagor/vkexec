@@ -1,4 +1,3 @@
-#include <vkexec/config.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec_edsl/spirv.hpp>
 #include <vkexec_edsl/trace.hpp>
@@ -13,7 +12,6 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>

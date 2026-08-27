@@ -14,7 +14,6 @@
 #include <mutex>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace vkexec::edsl {
@@ -23,12 +22,14 @@ namespace {
   // KHR_vulkan_glsl dialect version for setEnvInput (not the Vulkan API version).
   // See glslang ShaderLang.h: dialectVersion = 100 for Vulkan GLSL.
   constexpr int k_vulkan_glsl_dialect_version = 100;
+  constexpr int k_glsl_version_450 = 450;
+  constexpr int k_glsl_version_460 = 460;
 
   struct glslang_targets
   {
     glslang::EShTargetClientVersion vulkan_client{ glslang::EShTargetVulkan_1_0 };
     glslang::EShTargetLanguageVersion spirv{ glslang::EShTargetSpv_1_0 };
-    int default_glsl_version{ 450 };
+    int default_glsl_version{ k_glsl_version_450 };
   };
 
   /// Map a packed `VK_API_VERSION_*` to glslang client / SPIR-V / default GLSL.
@@ -43,23 +44,23 @@ namespace {
     if (minor >= 4) {
       targets.vulkan_client = glslang::EShTargetVulkan_1_4;
       targets.spirv = glslang::EShTargetSpv_1_6;
-      targets.default_glsl_version = 460;
+      targets.default_glsl_version = k_glsl_version_460;
     } else if (minor >= 3) {
       targets.vulkan_client = glslang::EShTargetVulkan_1_3;
       targets.spirv = glslang::EShTargetSpv_1_6;
-      targets.default_glsl_version = 460;
+      targets.default_glsl_version = k_glsl_version_460;
     } else if (minor >= 2) {
       targets.vulkan_client = glslang::EShTargetVulkan_1_2;
       targets.spirv = glslang::EShTargetSpv_1_5;
-      targets.default_glsl_version = 450;
+      targets.default_glsl_version = k_glsl_version_450;
     } else if (minor >= 1) {
       targets.vulkan_client = glslang::EShTargetVulkan_1_1;
       targets.spirv = glslang::EShTargetSpv_1_3;
-      targets.default_glsl_version = 450;
+      targets.default_glsl_version = k_glsl_version_450;
     } else {
       targets.vulkan_client = glslang::EShTargetVulkan_1_0;
       targets.spirv = glslang::EShTargetSpv_1_0;
-      targets.default_glsl_version = 450;
+      targets.default_glsl_version = k_glsl_version_450;
     }
     return targets;
   }
