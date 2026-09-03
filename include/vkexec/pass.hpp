@@ -145,7 +145,8 @@ namespace detail {
   {
     auto opened = submit_scope::open(*ctx);
     if (!opened) { return opened.error(); }
-    submit_scope scope = std::move(*opened);
+    submit_scope scope;
+    move_from_leaf_submit_scope(scope, opened);
     if (auto recorded = record_pass_steps(scope, steps); !recorded) {
       scope.release();
       return recorded.error();
