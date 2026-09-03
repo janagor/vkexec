@@ -1,4 +1,4 @@
-#include "detail/completion_waiter.hpp"
+#include "completion_waiter.hpp"
 
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>

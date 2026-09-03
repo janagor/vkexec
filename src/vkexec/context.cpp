@@ -8,8 +8,8 @@
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_edsl/trace.hpp>
 
-#include "detail/completion_waiter.hpp"
-#include "detail/host_agent.hpp"
+#include "completion_waiter.hpp"
+#include "host_agent.hpp"
 #include "pipeline_cache.hpp"
 #include "vkexec_edsl/trace_access.hpp"
 

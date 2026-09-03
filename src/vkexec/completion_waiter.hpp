@@ -1,5 +1,5 @@
-#ifndef VKEXEC_DETAIL_COMPLETION_WAITER_HPP
-#define VKEXEC_DETAIL_COMPLETION_WAITER_HPP
+#ifndef VKEXEC_COMPLETION_WAITER_HPP
+#define VKEXEC_COMPLETION_WAITER_HPP
 
 #include <vkexec/error.hpp>
 
@@ -73,4 +73,4 @@ private:
 
 }// namespace vkexec::detail
 
-#endif// VKEXEC_DETAIL_COMPLETION_WAITER_HPP
+#endif// VKEXEC_COMPLETION_WAITER_HPP

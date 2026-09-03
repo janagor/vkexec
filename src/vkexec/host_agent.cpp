@@ -1,4 +1,4 @@
-#include "detail/host_agent.hpp"
+#include "host_agent.hpp"
 
 #include <vkexec/error.hpp>
 

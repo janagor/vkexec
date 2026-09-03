@@ -1,5 +1,5 @@
-#ifndef VKEXEC_DETAIL_HOST_AGENT_HPP
-#define VKEXEC_DETAIL_HOST_AGENT_HPP
+#ifndef VKEXEC_HOST_AGENT_HPP
+#define VKEXEC_HOST_AGENT_HPP
 
 #include <vkexec/error.hpp>
 
@@ -51,4 +51,4 @@ private:
 
 }// namespace vkexec::detail
 
-#endif// VKEXEC_DETAIL_HOST_AGENT_HPP
+#endif// VKEXEC_HOST_AGENT_HPP
