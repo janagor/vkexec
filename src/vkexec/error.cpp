@@ -1,10 +1,17 @@
 #include <vkexec/error.hpp>
 
+#include <boost/leaf/error.hpp>
+#include <boost/leaf/handle_errors.hpp>
+#include <boost/leaf/result.hpp>
+#include <boost/system/detail/error_category.hpp>
+#include <boost/system/detail/error_code.hpp>
+
 #include <vulkan/vulkan_core.h>
 
 #include <cstdlib>
 #include <exception>
 #include <string>
+#include <utility>
 
 #ifdef BOOST_LEAF_NO_EXCEPTIONS
 namespace boost {
@@ -84,6 +91,71 @@ auto vulkan_error_category::message(int error_value, char * /*buffer*/, std::siz
   default:
     return "vulkan error";
   }
+}
+
+auto category() noexcept -> sys::error_category const &
+{
+  static vkexec_error_category const k_instance{};
+  return k_instance;
+}
+
+auto vulkan_category() noexcept -> sys::error_category const &
+{
+  static vulkan_error_category const k_instance{};
+  return k_instance;
+}
+
+auto make_error_code(errc error) noexcept -> sys::error_code
+{
+  return sys::error_code{ static_cast<int>(error), category() };
+}
+
+auto make_vk_error_code(int vk_result) noexcept -> sys::error_code
+{
+  return sys::error_code{ vk_result, vulkan_category() };
+}
+
+namespace detail {
+
+auto last_error() noexcept -> last_error_slot &
+{
+  thread_local last_error_slot slot{};
+  return slot;
+}
+
+auto stash_error(error err) -> leaf::error_id
+{
+  leaf::error_id const leaf_id = leaf::new_error(err);
+  last_error() = { .id = leaf_id.value(), .value = std::move(err) };
+  return leaf_id;
+}
+
+}// namespace detail
+
+auto make_error(errc code, std::string detail) -> leaf::error_id
+{
+  return detail::stash_error(error{
+    .code = make_error_code(code),
+    .detail = std::move(detail),
+  });
+}
+
+auto to_error(leaf::error_id error_id) -> error
+{
+  auto const &slot = detail::last_error();
+  if (slot.id == error_id.value()) { return slot.value; }
+
+  error err{ .code = make_error_code(errc::unsupported), .detail = "unknown error" };
+  leaf::try_handle_all([&]() -> leaf::result<void> { return error_id; },
+    [&](error loaded) -> void { err = std::move(loaded); },
+    []() -> void {});
+  return err;
+}
+
+auto to_string(error const &err) -> std::string
+{
+  if (err.detail.empty()) { return std::string(err.message()); }
+  return err.detail;
 }
 
 }// namespace vkexec

@@ -13,13 +13,7 @@
 
 namespace vkexec {
 
-[[nodiscard]] inline auto make_vk_error(VkResult result, std::string_view context) -> leaf::error_id
-{
-  return detail::stash_error(error{
-    .code = make_vk_error_code(static_cast<int>(result)),
-    .detail = std::string(context),
-  });
-}
+[[nodiscard]] auto make_vk_error(VkResult result, std::string_view context) -> leaf::error_id;
 
 template<typename T>
 [[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> leaf::error_id

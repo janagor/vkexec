@@ -83,32 +83,19 @@ namespace vulkan_library {
   constexpr std::uint32_t k_min_api_version_minor = 0;
 
   /// Instance extensions always requested for compute-only contexts.
-  [[nodiscard]] inline auto required_instance_extensions() noexcept -> std::span<char const *const> { return {}; }
+  [[nodiscard]] auto required_instance_extensions() noexcept -> std::span<char const *const>;
 
   /// Instance extensions for `window::headless()` (`VK_EXT_headless_surface`).
-  [[nodiscard]] inline auto required_headless_surface_instance_extensions() noexcept -> std::span<char const *const>
-  {
-    static constexpr std::array k_exts{
-      VK_KHR_SURFACE_EXTENSION_NAME,
-      VK_EXT_HEADLESS_SURFACE_EXTENSION_NAME,
-    };
-    return k_exts;
-  }
+  [[nodiscard]] auto required_headless_surface_instance_extensions() noexcept -> std::span<char const *const>;
 
   /// Device extensions always requested for compute-only contexts.
-  [[nodiscard]] inline auto required_device_extensions() noexcept -> std::span<char const *const> { return {}; }
+  [[nodiscard]] auto required_device_extensions() noexcept -> std::span<char const *const>;
 
   /// Device extensions required when presentation / swapchain is enabled.
-  [[nodiscard]] inline auto required_presentation_device_extensions() noexcept -> std::span<char const *const>
-  {
-    static constexpr std::array k_exts{
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    };
-    return k_exts;
-  }
+  [[nodiscard]] auto required_presentation_device_extensions() noexcept -> std::span<char const *const>;
 
   /// Core features vkexec itself requires.
-  [[nodiscard]] inline auto required_features() noexcept -> VkPhysicalDeviceFeatures { return {}; }
+  [[nodiscard]] auto required_features() noexcept -> VkPhysicalDeviceFeatures;
 
 }// namespace vulkan_library
 

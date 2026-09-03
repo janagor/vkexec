@@ -1,6 +1,7 @@
 add_library(
   vkexec
   error.cpp
+  error_helpers.cpp
   context.cpp
   completion_waiter.cpp
   host_agent.cpp
@@ -18,6 +19,7 @@ add_library(
   push_data.cpp
   submit_scope.cpp
   pass.cpp
+  vulkan_requirements.cpp
   sampler.cpp
   vma.cpp)
 
