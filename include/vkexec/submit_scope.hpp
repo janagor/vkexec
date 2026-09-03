@@ -147,6 +147,8 @@ namespace detail {
     submit_scope(submit_scope const &) = delete;
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
+    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
+    // CSA cannot model values stored in Boost.LEAF result<>; move is fine at runtime.
     submit_scope(submit_scope &&other) noexcept : ctx(other.ctx), cmd(other.cmd), cleanup(std::move(other.cleanup))
     {
       other.ctx = nullptr;
@@ -164,11 +166,28 @@ namespace detail {
       other.cmd = VK_NULL_HANDLE;
       return *this;
     }
+    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
 
     ~submit_scope() { release(); }
 
-    // Defined out-of-line (submit_scope_leaf.cpp) so clang CSA cannot see through LEAF result<>.
-    [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
+    [[nodiscard]] static auto open(context &host) -> result<submit_scope>
+    {
+      auto cmd = host.allocate_command_buffer();
+      if (!cmd) { return cmd.error(); }
+
+      VkCommandBufferBeginInfo begin{};
+      begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      if (VkResult const result = vkBeginCommandBuffer(*cmd, &begin); result != VK_SUCCESS) {
+        host.free_command_buffer(*cmd);
+        return make_vk_error(result, "vkBeginCommandBuffer failed");
+      }
+
+      submit_scope scope;
+      scope.ctx = &host;
+      scope.cmd = *cmd;
+      return scope;
+    }
 
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
     [[nodiscard]] auto end_recording() -> status
@@ -194,9 +213,6 @@ namespace detail {
       ctx = nullptr;
     }
   };
-
-  // Out-of-line extract so clang CSA (per-TU) cannot see through LEAF's opaque result<>.
-  void move_from_leaf_submit_scope(submit_scope &dest, leaf::result<submit_scope> &src);
 
   /// Wait for GPU work, destroy semaphore/fence. Safe when handles are null.
   inline auto
@@ -266,9 +282,7 @@ namespace detail {
           ex::set_error(std::move(rcvr), to_error(opened.error()));
           return;
         }
-        submit_scope scope;
-        move_from_leaf_submit_scope(scope, opened);
-        ex::set_value(std::move(rcvr), std::move(scope));
+        ex::set_value(std::move(rcvr), std::move(*opened));
       }
     };
 

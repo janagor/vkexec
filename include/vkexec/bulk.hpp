@@ -79,8 +79,7 @@ namespace detail {
   {
     auto opened = submit_scope::open(*ctx);
     if (!opened) { return opened.error(); }
-    submit_scope scope;
-    move_from_leaf_submit_scope(scope, opened);
+    submit_scope scope = std::move(*opened);
     if (auto recorded = record_bulk_into<Params>(scope, shape, params, fun); !recorded) {
       scope.release();
       return recorded.error();
