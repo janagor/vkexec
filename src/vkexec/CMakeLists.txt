@@ -2,7 +2,6 @@ add_library(
   vkexec
   error.cpp
   context.cpp
-  vkb_device_move.cpp
   completion_waiter.cpp
   host_agent.cpp
   pipeline_cache.cpp
@@ -16,10 +15,6 @@ add_library(
   rendering.cpp
   sampler.cpp
   vma.cpp)
-
-# clang CSA cannot model Boost.LEAF result<>; keep the Device move out of line and
-# skip tidy on this TU so the false-positive Assign is not reintroduced here.
-set_source_files_properties(vkb_device_move.cpp PROPERTIES SKIP_LINTING ON)
 
 add_library(vkexec::vkexec ALIAS vkexec)
 

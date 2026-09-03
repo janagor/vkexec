@@ -33,10 +33,6 @@
 
 namespace vkexec {
 
-namespace detail {
-  void move_from_leaf_device(vkb::Device &dest, leaf::result<vkb::Device> &src);
-}
-
 namespace {
 
   auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
@@ -160,11 +156,12 @@ namespace {
     return physical_device;
   }
 
-  auto build_device(vkb::PhysicalDevice const &physical_device) -> result<vkb::Device>
+  auto build_device_into(vkb::PhysicalDevice const &physical_device, vkb::Device &out) -> status
   {
     auto const built = vkb::DeviceBuilder{ physical_device }.build();
     if (!built) { return make_error_from_vkb(built, "vk-bootstrap DeviceBuilder"); }
-    return *built;
+    out = *built;
+    return {};
   }
 
 }// namespace
@@ -210,9 +207,7 @@ auto context::init_headless(scheduler_options const &opts) -> status
     selected_physical, select_physical_device(instance_, requirements_, api_version_, VK_NULL_HANDLE, false));
   physical_device_ = std::move(selected_physical);
 
-  auto device_result = build_device(physical_device_);
-  if (!device_result) { return device_result.error(); }
-  detail::move_from_leaf_device(device_, device_result);
+  VKEXEC_LEAF_CHECK(build_device_into(physical_device_, device_));
   has_device_ = true;
   owns_device_ = true;
   owns_allocator_ = true;
@@ -297,9 +292,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
   VKEXEC_LEAF_AUTO(selected_physical, select_physical_device(instance_, requirements_, api_version_, surface, true));
   physical_device_ = std::move(selected_physical);
 
-  auto device_result = build_device(physical_device_);
-  if (!device_result) { return device_result.error(); }
-  detail::move_from_leaf_device(device_, device_result);
+  VKEXEC_LEAF_CHECK(build_device_into(physical_device_, device_));
   has_device_ = true;
   owns_device_ = true;
   owns_allocator_ = true;
