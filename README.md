@@ -61,9 +61,9 @@ int main() {
 
 vkexec is **exception-free**. Factory functions and GPU setup return `vkexec::result<T>` (`std::expected<T, vkexec::error>`) or `vkexec::status` (`std::expected<void, vkexec::error>`).
 
-- **`vkexec::error`** carries a `cx::ErrorCode` plus optional detail text. Use `error.message()` for a human-readable string.
+- **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
-- **Vulkan failures** use `vkexec::MakeVkErrorCode(VkResult)` / `vkexec::make_vk_error(...)`.
+- **Vulkan failures** use `vkexec::make_vk_error_code(VkResult)` / `vkexec::make_vk_error(...)`.
 - **Blocking waits** use `vkexec::sync_wait(sender)` instead of `stdexec::sync_wait`. It returns `result<std::optional<value_tuple>>`:
   - success: engaged inner `optional` with the value tuple
   - stopped: disengaged inner `optional` (not an error)

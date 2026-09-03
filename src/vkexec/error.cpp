@@ -4,7 +4,7 @@
 
 #include <cstdlib>
 #include <exception>
-#include <string_view>
+#include <string>
 
 #ifdef BOOST_LEAF_NO_EXCEPTIONS
 namespace boost {
@@ -14,7 +14,13 @@ namespace boost {
 
 namespace vkexec {
 
-auto vulkan_error_category::Message(int error_value) const noexcept -> std::string_view
+auto vulkan_error_category::message(int error_value) const -> std::string
+{
+  return message(error_value, nullptr, 0);
+}
+
+auto vulkan_error_category::message(int error_value, char * /*buffer*/, std::size_t /*len*/) const noexcept
+  -> char const *
 {
   switch (static_cast<VkResult>(error_value)) {
   case VK_SUCCESS:

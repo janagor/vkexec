@@ -15,14 +15,14 @@
 
 TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
 {
-  REQUIRE(std::string_view(vkexec::category().Name()) == "vkexec");
-  REQUIRE(vkexec::MakeErrorCode(vkexec::errc::invalid_argument).Message() == "invalid argument");
-  REQUIRE(vkexec::MakeErrorCode(vkexec::errc::io_error).Message() == "I/O error");
-  REQUIRE(vkexec::MakeErrorCode(vkexec::errc::parse_error).Message() == "parse error");
-  REQUIRE(vkexec::MakeErrorCode(vkexec::errc::unsupported).Message() == "unsupported operation");
-  REQUIRE(vkexec::MakeErrorCode(vkexec::errc::out_of_range).Message() == "out of range");
-  REQUIRE(vkexec::MakeErrorCode(vkexec::errc::empty_result).Message() == "empty result");
-  REQUIRE(vkexec::MakeErrorCode(static_cast<vkexec::errc>(999)).Message() == "unknown vkexec error");
+  REQUIRE(std::string_view(vkexec::category().name()) == "vkexec");
+  REQUIRE(vkexec::make_error_code(vkexec::errc::invalid_argument).message() == "invalid argument");
+  REQUIRE(vkexec::make_error_code(vkexec::errc::io_error).message() == "I/O error");
+  REQUIRE(vkexec::make_error_code(vkexec::errc::parse_error).message() == "parse error");
+  REQUIRE(vkexec::make_error_code(vkexec::errc::unsupported).message() == "unsupported operation");
+  REQUIRE(vkexec::make_error_code(vkexec::errc::out_of_range).message() == "out of range");
+  REQUIRE(vkexec::make_error_code(vkexec::errc::empty_result).message() == "empty result");
+  REQUIRE(vkexec::make_error_code(static_cast<vkexec::errc>(999)).message() == "unknown vkexec error");
 }
 
 TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
@@ -36,18 +36,18 @@ TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
 
 TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]")
 {
-  REQUIRE(std::string_view(vkexec::vulkan_category().Name()) == "vkexec.vulkan");
-  REQUIRE(vkexec::MakeVkErrorCode(VK_SUCCESS).Message() == "success");
-  REQUIRE(vkexec::MakeVkErrorCode(VK_ERROR_DEVICE_LOST).Message() == "device lost");
-  REQUIRE(vkexec::MakeVkErrorCode(VK_ERROR_OUT_OF_DEVICE_MEMORY).Message() == "out of device memory");
-  REQUIRE(vkexec::MakeVkErrorCode(VK_ERROR_VALIDATION_FAILED_EXT).Message() == "validation failed");
-  REQUIRE(vkexec::MakeVkErrorCode(static_cast<int>(999)).Message() == "vulkan error");
+  REQUIRE(std::string_view(vkexec::vulkan_category().name()) == "vkexec.vulkan");
+  REQUIRE(vkexec::make_vk_error_code(VK_SUCCESS).message() == "success");
+  REQUIRE(vkexec::make_vk_error_code(VK_ERROR_DEVICE_LOST).message() == "device lost");
+  REQUIRE(vkexec::make_vk_error_code(VK_ERROR_OUT_OF_DEVICE_MEMORY).message() == "out of device memory");
+  REQUIRE(vkexec::make_vk_error_code(VK_ERROR_VALIDATION_FAILED_EXT).message() == "validation failed");
+  REQUIRE(vkexec::make_vk_error_code(static_cast<int>(999)).message() == "vulkan error");
 }
 
 TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vulkan]")
 {
   vkexec::error const with_context = vkexec::to_error(vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, "submit failed"));
-  REQUIRE(with_context.code == vkexec::MakeVkErrorCode(VK_ERROR_DEVICE_LOST));
+  REQUIRE(with_context.code == vkexec::make_vk_error_code(VK_ERROR_DEVICE_LOST));
   REQUIRE(with_context.message() == "submit failed");
 
   vkexec::error const without_context = vkexec::to_error(vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, {}));
@@ -88,7 +88,7 @@ TEST_CASE("context::create returns unsupported when requirements cannot be met",
   auto created = vkexec::context::create({ .requirements = std::move(requirements) });
   REQUIRE_FALSE(created.has_value());
   auto const err = vkexec::to_error(created.error());
-  REQUIRE(err.code == vkexec::MakeErrorCode(vkexec::errc::unsupported));
+  REQUIRE(err.code == vkexec::make_error_code(vkexec::errc::unsupported));
   REQUIRE_FALSE(err.message().empty());
 }
 

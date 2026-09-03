@@ -28,7 +28,7 @@ target_link_libraries(
   PUBLIC vkexec_options
          vkexec_warnings
          vkexec::vkexec_edsl
-         cx_system_error::cx_system_error
+         Boost::system
          Boost::leaf
          Vulkan::Vulkan
          STDEXEC::stdexec

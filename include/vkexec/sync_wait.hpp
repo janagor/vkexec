@@ -66,7 +66,7 @@ namespace detail {
     auto set_error(std::exception_ptr const & /*exception*/) noexcept -> void
     {
       state->wait_error.emplace(error{
-        .code = MakeErrorCode(errc::unsupported),
+        .code = make_error_code(errc::unsupported),
         .detail = "sender completed with exception_ptr",
       });
       state->loop.finish();

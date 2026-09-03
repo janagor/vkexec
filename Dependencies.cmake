@@ -71,7 +71,7 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
-  set(_vkexec_boost_wanted_libs describe mp11 leaf)
+  set(_vkexec_boost_wanted_libs describe mp11 leaf system)
   set(_vkexec_boost_libs "")
   foreach(_vkexec_boost_lib IN LISTS _vkexec_boost_wanted_libs)
     if(NOT TARGET Boost::${_vkexec_boost_lib})
@@ -80,8 +80,8 @@ function(vkexec_setup_dependencies)
   endforeach()
 
   if(_vkexec_boost_libs)
-    # Extra escaping so CPM OPTIONS keeps describe;mp11;leaf as one list value
-    # (same as writing describe\\\;mp11\\\;leaf in a string literal).
+    # Extra escaping so CPM OPTIONS keeps describe;mp11;leaf;system as one list value
+    # (same as writing describe\\\;mp11\\\;leaf\\\;system in a string literal).
     string(
       REPLACE ";"
               "\\\\;"
@@ -141,18 +141,6 @@ function(vkexec_setup_dependencies)
       "STDEXEC_BUILD_TESTS OFF"
       "STDEXEC_ENABLE_CUDA OFF"
       "STDEXEC_ENABLE_IO_URING OFF")
-  endif()
-
-  if(NOT TARGET cx_system_error::cx_system_error)
-    cpmaddpackage(
-      NAME
-      cx_system_error
-      GITHUB_REPOSITORY
-      "janagor/cx_system_error"
-      GIT_TAG
-      "main"
-      SYSTEM
-      YES)
   endif()
 
   if(NOT TARGET glfw)

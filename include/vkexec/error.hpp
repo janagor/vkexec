@@ -1,7 +1,7 @@
 #ifndef VKEXEC_ERROR_HPP
 #define VKEXEC_ERROR_HPP
 
-#include <cx_system_error/system_error.hpp>
+#include <boost/system/error_code.hpp>
 
 // Pedantic clang rejects LEAF's GNU stmt-expr BOOST_LEAF_CHECK; use the portable form.
 #ifndef BOOST_LEAF_CFG_GNUC_STMTEXPR
@@ -10,6 +10,8 @@
 #endif
 #include <boost/leaf.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -18,6 +20,7 @@
 namespace vkexec {
 
 namespace leaf = boost::leaf;
+namespace sys = boost::system;
 
 // NOLINTNEXTLINE(performance-enum-size)
 enum class errc {
@@ -31,14 +34,27 @@ enum class errc {
   vulkan,
 };
 
-class vkexec_error_category final : public cx::ErrorCategory
+// Stable Boost.System category ids (random.org); distinct instances compare equal by id.
+inline constexpr std::uint64_t k_vkexec_error_category_id = 0x9f3c2a7b1e8d4056ULL;
+inline constexpr std::uint64_t k_vulkan_error_category_id = 0x4b71e90c6d2a83f5ULL;
+
+class vkexec_error_category final : public sys::error_category
 {
 public:
-  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto Name() const noexcept -> char const * override { return "vkexec"; }
+  constexpr vkexec_error_category() noexcept : error_category(k_vkexec_error_category_id) {}
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto Message(int error_value) const noexcept -> std::string_view override
+  [[nodiscard]] auto name() const noexcept -> char const * override { return "vkexec"; }
+
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] auto message(int error_value) const -> std::string override
+  {
+    return message(error_value, nullptr, 0);
+  }
+
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] auto message(int error_value, char * /*buffer*/, std::size_t /*len*/) const noexcept
+    -> char const * override
   {
     switch (static_cast<errc>(error_value)) {
     case errc::invalid_argument:
@@ -63,43 +79,59 @@ public:
   }
 };
 
-class vulkan_error_category final : public cx::ErrorCategory
+class vulkan_error_category final : public sys::error_category
 {
 public:
-  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto Name() const noexcept -> char const * override { return "vkexec.vulkan"; }
+  constexpr vulkan_error_category() noexcept : error_category(k_vulkan_error_category_id) {}
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] auto Message(int error_value) const noexcept -> std::string_view override;
+  [[nodiscard]] auto name() const noexcept -> char const * override { return "vkexec.vulkan"; }
+
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] auto message(int error_value) const -> std::string override;
+
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] auto message(int error_value, char *buffer, std::size_t len) const noexcept
+    -> char const * override;
+
+  // VkResult: negative values are errors; non-negative includes success and status codes.
+  // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+  [[nodiscard]] auto failed(int error_value) const noexcept -> bool override { return error_value < 0; }
 };
 
-[[nodiscard]] inline auto category() noexcept -> cx::ErrorCategory const &
+[[nodiscard]] inline auto category() noexcept -> sys::error_category const &
 {
   static vkexec_error_category const k_instance{};
   return k_instance;
 }
 
-[[nodiscard]] inline auto vulkan_category() noexcept -> cx::ErrorCategory const &
+[[nodiscard]] inline auto vulkan_category() noexcept -> sys::error_category const &
 {
   static vulkan_error_category const k_instance{};
   return k_instance;
 }
 
-// NOLINTNEXTLINE(readability-identifier-naming)
-[[nodiscard]] inline auto MakeErrorCode(errc error) noexcept -> cx::ErrorCode
-{ return cx::ErrorCode{ static_cast<int>(error), category() }; }
+[[nodiscard]] inline auto make_error_code(errc error) noexcept -> sys::error_code
+{
+  return sys::error_code{ static_cast<int>(error), category() };
+}
 
-// NOLINTNEXTLINE(readability-identifier-naming)
-[[nodiscard]] inline auto MakeVkErrorCode(int vk_result) noexcept -> cx::ErrorCode
-{ return cx::ErrorCode{ vk_result, vulkan_category() }; }
+[[nodiscard]] inline auto make_vk_error_code(int vk_result) noexcept -> sys::error_code
+{
+  return sys::error_code{ vk_result, vulkan_category() };
+}
 
 struct error
 {
-  cx::ErrorCode code{};
+  sys::error_code code{};
   std::string detail;
 
   [[nodiscard]] auto message() const noexcept -> std::string_view
-  { return detail.empty() ? code.Message() : std::string_view(detail); }
+  {
+    if (!detail.empty()) { return detail; }
+    // Category messages are static literals (see message overloads above / in error.cpp).
+    return code.category().message(code.value(), nullptr, 0);
+  }
 };
 
 template<typename T> using result = leaf::result<T>;
@@ -150,7 +182,7 @@ namespace detail {
 [[nodiscard]] inline auto make_error(errc code, std::string detail = {}) -> leaf::error_id
 {
   return detail::stash_error(error{
-    .code = MakeErrorCode(code),
+    .code = make_error_code(code),
     .detail = std::move(detail),
   });
 }
@@ -161,7 +193,7 @@ namespace detail {
   auto const &slot = detail::last_error();
   if (slot.id == error_id.value()) { return slot.value; }
 
-  error err{ .code = MakeErrorCode(errc::unsupported), .detail = "unknown error" };
+  error err{ .code = make_error_code(errc::unsupported), .detail = "unknown error" };
   leaf::try_handle_all([&]() -> leaf::result<void> { return error_id; },
     [&](error loaded) -> void { err = std::move(loaded); },
     []() -> void {});
@@ -170,19 +202,18 @@ namespace detail {
 
 [[nodiscard]] inline auto to_string(error const &err) -> std::string
 {
-  if (err.detail.empty()) { return std::string(err.code.Message()); }
+  if (err.detail.empty()) { return std::string(err.message()); }
   return err.detail;
 }
 
 }// namespace vkexec
 
-namespace cx {
+namespace boost::system {
 
-// NOLINTNEXTLINE(readability-identifier-naming)
-template<> struct IsErrorCodeEnum<vkexec::errc> : std::true_type
+template<> struct is_error_code_enum<vkexec::errc> : std::true_type
 {
 };
 
-}// namespace cx
+}// namespace boost::system
 
 #endif// VKEXEC_ERROR_HPP
