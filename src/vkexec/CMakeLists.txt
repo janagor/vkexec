@@ -6,13 +6,18 @@ add_library(
   host_agent.cpp
   pipeline_cache.cpp
   compute_pipeline.cpp
+  push.cpp
   gpu_buffer.cpp
   timeline_semaphore.cpp
   frame_ring.cpp
   descriptor_heap.cpp
+  barrier.cpp
   image.cpp
   image_view.cpp
   rendering.cpp
+  push_data.cpp
+  submit_scope.cpp
+  pass.cpp
   sampler.cpp
   vma.cpp)
 

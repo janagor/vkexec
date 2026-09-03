@@ -60,71 +60,37 @@ struct compute_bind
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
-[[nodiscard]] inline auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
-  -> compute_bind
-{ return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }
+[[nodiscard]] auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
+  -> compute_bind;
 
-inline auto
+auto
   record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
-    -> void
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (bind.set != VK_NULL_HANDLE) {
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
-  }
-  if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
-  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
-}
+    -> void;
 
-inline auto record_pass(VkCommandBuffer cmd,
+auto record_pass(VkCommandBuffer cmd,
   compute_bind bind,
   void const *push,
   std::uint32_t push_bytes,
-  indirect_dispatch groups) -> void
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (bind.set != VK_NULL_HANDLE) {
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
-  }
-  if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
-  vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
-}
+  indirect_dispatch groups) -> void;
 
-[[nodiscard]] inline auto record_heap_pass(context const &ctx,
+[[nodiscard]] auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  dispatch groups) -> status
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) {
-    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed.error(); }
-  }
-  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
-  return {};
-}
+  dispatch groups) -> status;
 
-[[nodiscard]] inline auto record_heap_pass(context const &ctx,
+[[nodiscard]] auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  indirect_dispatch groups) -> status
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) {
-    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed.error(); }
-  }
-  vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
-  return {};
-}
+  indirect_dispatch groups) -> status;
 
-inline auto record_pass(VkCommandBuffer cmd,
+auto record_pass(VkCommandBuffer cmd,
   pipeline_resources const &pipe,
   VkDescriptorSet set,
   void const *push,
   std::uint32_t push_bytes,
-  dispatch groups) -> void
-{ record_pass(cmd, bind_compute(pipe, set), push, push_bytes, groups); }
+  dispatch groups) -> void;
 
 struct pass_step
 {
@@ -133,25 +99,9 @@ struct pass_step
 
 namespace detail {
 
-  [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
-  {
-    for (pass_step const &step : steps) {
-      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) { return recorded.error(); }
-    }
-    return scope.end_recording();
-  }
+  [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status;
 
-  [[nodiscard]] inline auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>
-  {
-    auto opened = submit_scope::open(*ctx);
-    if (!opened) { return opened.error(); }
-    submit_scope scope = std::move(*opened);
-    if (auto recorded = record_pass_steps(scope, steps); !recorded) {
-      scope.release();
-      return recorded.error();
-    }
-    return scope;
-  }
+  [[nodiscard]] auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>;
 
 }// namespace detail
 
@@ -309,22 +259,9 @@ auto compute_pass(compute_bind bind, Params const &params, indirect_dispatch gro
   return closure;
 }
 
-inline auto compute_pass(compute_bind bind, dispatch groups) -> prebuilt_compute_pass_closure
-{
-  prebuilt_compute_pass_closure closure{};
-  closure.bind = bind;
-  closure.groups = groups;
-  return closure;
-}
+auto compute_pass(compute_bind bind, dispatch groups) -> prebuilt_compute_pass_closure;
 
-inline auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compute_pass_closure
-{
-  prebuilt_compute_pass_closure closure{};
-  closure.bind = bind;
-  closure.indirect = groups;
-  closure.is_indirect = true;
-  return closure;
-}
+auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compute_pass_closure;
 
 template<typename Params>
 auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &params, dispatch groups)
@@ -358,29 +295,7 @@ namespace detail {
     } };
   }
 
-  inline auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
-  {
-    return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-      std::span<std::byte const> const push_bytes{ closure.push };
-      bool const use_push_data = closure.bind.layout == VK_NULL_HANDLE;
-      if (use_push_data) {
-        if (closure.is_indirect) {
-          return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
-        }
-        return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
-      }
-
-      void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
-      auto const push_size = static_cast<std::uint32_t>(closure.push.size());
-      if (closure.is_indirect) {
-        record_pass(cmd, closure.bind, push_ptr, push_size, closure.indirect);
-      } else {
-        record_pass(cmd, closure.bind, push_ptr, push_size, closure.groups);
-      }
-      return {};
-    } };
-  }
+  auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step;
 
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
   {
@@ -390,11 +305,7 @@ namespace detail {
     } };
   }
 
-  inline auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender
-  {
-    graph.steps.push_back(std::move(step));
-    return graph;
-  }
+  auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender;
 
 }// namespace detail
 
@@ -464,11 +375,9 @@ template<typename Params, typename Fun>
 auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_traced_step(std::move(closure))); }
 
-inline auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender
-{ return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } }; }
+auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
 
-inline auto operator|(pass_graph_sender graph, prebuilt_compute_pass_closure closure) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_prebuilt_step(std::move(closure))); }
+auto operator|(pass_graph_sender graph, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
 
 template<vkexec_predecessor Pred, typename Params, typename Fun>
   requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>
@@ -495,26 +404,19 @@ template<vkexec_predecessor Pred>
   };
 }
 
-inline auto operator|(pass_graph_sender graph, barrier::transfer_to_compute_t tag) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
+auto operator|(pass_graph_sender graph, barrier::transfer_to_compute_t tag) -> pass_graph_sender;
 
-inline auto operator|(pass_graph_sender graph, barrier::compute_to_compute_t tag) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
+auto operator|(pass_graph_sender graph, barrier::compute_to_compute_t tag) -> pass_graph_sender;
 
-inline auto operator|(pass_graph_sender graph, barrier::compute_to_graphics_t tag) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
+auto operator|(pass_graph_sender graph, barrier::compute_to_graphics_t tag) -> pass_graph_sender;
 
-inline auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
+auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> pass_graph_sender;
 
-inline auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
+auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender;
 
-[[nodiscard]] inline auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender
-{ return pass_graph_async_sender{ std::move(snd) }; }
+[[nodiscard]] auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender;
 
-[[nodiscard]] inline auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender
-{ return pass_graph_async_sender{ snd.ctx, snd.steps }; }
+[[nodiscard]] auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender;
 
 template<class Pred, class Closure>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)

@@ -12,12 +12,8 @@ namespace vkexec {
 
 /// Host (non-traced) push constants: blob `T` onto the command buffer.
 /// Separate from `edsl::push_constant<T>::get<&...>()` used by `bulk()` / traced `compute_pass`.
-inline auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, void const *data, std::uint32_t bytes)
-  -> void
-{
-  if (data == nullptr || bytes == 0U) { return; }
-  vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, bytes, data);
-}
+auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, void const *data, std::uint32_t bytes)
+  -> void;
 
 template<typename T> auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, T const &params) -> void
 {

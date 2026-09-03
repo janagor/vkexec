@@ -1,0 +1,169 @@
+#include <vkexec/submit_scope.hpp>
+
+#include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
+#include <vkexec/pipeline.hpp>
+#include <vkexec_edsl/trace.hpp>
+
+#include <vulkan/vulkan_core.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <mutex>
+#include <span>
+#include <utility>
+#include <vector>
+
+namespace vkexec::detail {
+
+auto descriptor_cleanup::release(context const &ctx) noexcept -> void
+{
+  std::unique_lock const lock = ctx.lock_host();
+  for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
+  allocated.clear();
+  sets.clear();
+}
+
+auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs) -> bool
+{
+  return lhs.size() == rhs.size()
+         && std::equal(lhs.begin(),
+           lhs.end(),
+           rhs.begin(),
+           [](edsl::storage_trace const &left, edsl::storage_trace const &right) -> bool {
+             return left.vk_buffer == right.vk_buffer && left.byte_size == right.byte_size
+                    && left.binding == right.binding;
+           });
+}
+
+auto write_storage_descriptors(VkDevice device,
+  VkDescriptorSet set,
+  std::span<edsl::storage_trace const> buffers) -> void
+{
+  if (buffers.empty()) { return; }
+  std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
+  std::vector<VkWriteDescriptorSet> writes(buffers.size());
+  std::size_t index = 0;
+  for (edsl::storage_trace const &buffer : buffers) {
+    buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
+    buf_infos.at(index).offset = 0;
+    buf_infos.at(index).range = buffer.byte_size;
+    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes.at(index).dstSet = set;
+    writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
+    writes.at(index).descriptorCount = 1;
+    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    writes.at(index).pBufferInfo = &buf_infos.at(index);
+    ++index;
+  }
+  vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+auto write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers)
+  -> void
+{ write_storage_descriptors(device, set, buffers); }
+
+auto allocate_compute_set(context const &ctx,
+  pipeline_resources &pipe,
+  std::span<edsl::storage_trace const> buffers) -> result<VkDescriptorSet>
+{
+  std::unique_lock const lock = ctx.lock_host();
+  VkDescriptorSetAllocateInfo dsai{};
+  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  dsai.descriptorPool = pipe.descriptor_pool;
+  dsai.descriptorSetCount = 1;
+  dsai.pSetLayouts = &pipe.set_layout;
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
+    return make_vk_error(result, "vkAllocateDescriptorSets failed");
+  }
+  write_storage_descriptors(ctx.device(), set, buffers);
+  return set;
+}
+
+auto bind_or_allocate_set(context const &ctx,
+  pipeline_resources &pipe,
+  std::span<edsl::storage_trace const> buffers,
+  descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
+{
+  if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
+    if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
+  }
+
+  auto set = allocate_compute_set(ctx, pipe, buffers);
+  if (!set) { return set.error(); }
+  auto *allocated = leaf_take(set);
+  cleanup.sets.insert_or_assign(
+    &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
+  cleanup.track(pipe.descriptor_pool, allocated);
+  return allocated;
+}
+
+auto submit_scope::open(context &host) -> result<submit_scope>
+{
+  auto cmd = host.allocate_command_buffer();
+  if (!cmd) { return cmd.error(); }
+  auto *cmd_buf = leaf_take(cmd);
+
+  VkCommandBufferBeginInfo begin{};
+  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
+    host.free_command_buffer(cmd_buf);
+    return make_vk_error(result, "vkBeginCommandBuffer failed");
+  }
+
+  submit_scope scope;
+  scope.ctx = &host;
+  scope.cmd = cmd_buf;
+  return scope;
+}
+
+// NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
+auto submit_scope::end_recording() -> status
+{
+  if (cmd == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "submit_scope has no command buffer"); }
+  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
+    return make_vk_error(result, "vkEndCommandBuffer failed");
+  }
+  return {};
+}
+
+auto submit_scope::release() noexcept -> void
+{
+  if (ctx == nullptr) { return; }
+  if (cmd != VK_NULL_HANDLE) {
+    ctx->free_command_buffer(cmd);
+    cmd = VK_NULL_HANDLE;
+  }
+  cleanup.release(*ctx);
+  ctx = nullptr;
+}
+
+auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+  -> void
+{
+  if (fence != VK_NULL_HANDLE) {
+    (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+  } else if (fallback_queue != VK_NULL_HANDLE) {
+    (void)vkQueueWaitIdle(fallback_queue);
+  }
+  if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
+  if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+}
+
+auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender
+{ return enter_submit_scope_sender{ .ctx = ctx }; }
+
+auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender
+{ return enter_submit_scope(&ctx); }
+
+auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
+{ return submit_and_wait_sender{ .scope = std::move(scope) }; }
+
+auto submit_fence(submit_scope scope) -> submit_fence_sender
+{ return submit_fence_sender{ .scope = std::move(scope) }; }
+
+}// namespace vkexec::detail

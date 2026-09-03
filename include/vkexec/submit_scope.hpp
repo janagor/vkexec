@@ -46,13 +46,7 @@ namespace detail {
     std::unordered_map<pipeline_resources *, pipeline_set_entry> sets;
     std::vector<allocated_set> allocated;
 
-    auto release(context const &ctx) noexcept -> void
-    {
-      std::unique_lock const lock = ctx.lock_host();
-      for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
-      allocated.clear();
-      sets.clear();
-    }
+    auto release(context const &ctx) noexcept -> void;
 
     auto track(VkDescriptorPool pool, VkDescriptorSet set) -> void
     { allocated.push_back(allocated_set{ .pool = pool, .set = set }); }
@@ -61,80 +55,24 @@ namespace detail {
   // Compatibility alias used by pass graph recording.
   using pass_cleanup = descriptor_cleanup;
 
-  inline auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs)
-    -> bool
-  {
-    return lhs.size() == rhs.size()
-           && std::equal(lhs.begin(),
-             lhs.end(),
-             rhs.begin(),
-             [](edsl::storage_trace const &left, edsl::storage_trace const &right) -> bool {
-               return left.vk_buffer == right.vk_buffer && left.byte_size == right.byte_size
-                      && left.binding == right.binding;
-             });
-  }
+  auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs)
+    -> bool;
 
-  inline auto write_storage_descriptors(VkDevice device,
+  auto write_storage_descriptors(VkDevice device,
     VkDescriptorSet set,
-    std::span<edsl::storage_trace const> buffers) -> void
-  {
-    if (buffers.empty()) { return; }
-    std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
-    std::vector<VkWriteDescriptorSet> writes(buffers.size());
-    std::size_t index = 0;
-    for (edsl::storage_trace const &buffer : buffers) {
-      buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
-      buf_infos.at(index).offset = 0;
-      buf_infos.at(index).range = buffer.byte_size;
-      writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      writes.at(index).dstSet = set;
-      writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
-      writes.at(index).descriptorCount = 1;
-      writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      writes.at(index).pBufferInfo = &buf_infos.at(index);
-      ++index;
-    }
-    vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
-  }
+    std::span<edsl::storage_trace const> buffers) -> void;
 
-  inline auto
-    write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers) -> void
-  { write_storage_descriptors(device, set, buffers); }
+  auto
+    write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers) -> void;
 
-  inline auto allocate_compute_set(context const &ctx,
+  auto allocate_compute_set(context const &ctx,
     pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers) -> result<VkDescriptorSet>
-  {
-    std::unique_lock const lock = ctx.lock_host();
-    VkDescriptorSetAllocateInfo dsai{};
-    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dsai.descriptorPool = pipe.descriptor_pool;
-    dsai.descriptorSetCount = 1;
-    dsai.pSetLayouts = &pipe.set_layout;
-    VkDescriptorSet set{ VK_NULL_HANDLE };
-    if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-      return make_vk_error(result, "vkAllocateDescriptorSets failed");
-    }
-    write_storage_descriptors(ctx.device(), set, buffers);
-    return set;
-  }
+    std::span<edsl::storage_trace const> buffers) -> result<VkDescriptorSet>;
 
-  inline auto bind_or_allocate_set(context const &ctx,
+  auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
     std::span<edsl::storage_trace const> buffers,
-    descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
-  {
-    if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-      if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
-    }
-
-    auto set = allocate_compute_set(ctx, pipe, buffers);
-    if (!set) { return set.error(); }
-    cleanup.sets.insert_or_assign(
-      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = *set });
-    cleanup.track(pipe.descriptor_pool, *set);
-    return *set;
-  }
+    descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
 
   /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.
   struct submit_scope
@@ -170,63 +108,21 @@ namespace detail {
 
     ~submit_scope() { release(); }
 
-    [[nodiscard]] static auto open(context &host) -> result<submit_scope>
-    {
-      auto cmd = host.allocate_command_buffer();
-      if (!cmd) { return cmd.error(); }
-
-      VkCommandBufferBeginInfo begin{};
-      begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-      if (VkResult const result = vkBeginCommandBuffer(*cmd, &begin); result != VK_SUCCESS) {
-        host.free_command_buffer(*cmd);
-        return make_vk_error(result, "vkBeginCommandBuffer failed");
-      }
-
-      submit_scope scope;
-      scope.ctx = &host;
-      scope.cmd = *cmd;
-      return scope;
-    }
+    [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
 
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-    [[nodiscard]] auto end_recording() -> status
-    {
-      if (cmd == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "submit_scope has no command buffer"); }
-      if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-        return make_vk_error(result, "vkEndCommandBuffer failed");
-      }
-      return {};
-    }
+    [[nodiscard]] auto end_recording() -> status;
 
     auto track_set(pipeline_resources const &pipe, VkDescriptorSet set) -> void
     { cleanup.track(pipe.descriptor_pool, set); }
 
-    auto release() noexcept -> void
-    {
-      if (ctx == nullptr) { return; }
-      if (cmd != VK_NULL_HANDLE) {
-        ctx->free_command_buffer(cmd);
-        cmd = VK_NULL_HANDLE;
-      }
-      cleanup.release(*ctx);
-      ctx = nullptr;
-    }
+    auto release() noexcept -> void;
   };
 
   /// Wait for GPU work, destroy semaphore/fence. Safe when handles are null.
-  inline auto
+  auto
     reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
-    -> void
-  {
-    if (fence != VK_NULL_HANDLE) {
-      (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-    } else if (fallback_queue != VK_NULL_HANDLE) {
-      (void)vkQueueWaitIdle(fallback_queue);
-    }
-    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
-    if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
-  }
+    -> void;
 
   /// Release cmd/descriptors, then deliver exactly one completion signal.
   /// Call only after GPU/host sync objects for this submit have already been reclaimed.
@@ -291,11 +187,9 @@ namespace detail {
     { return op_state<Receiver>{ self.ctx, std::move(receiver) }; }
   };
 
-  [[nodiscard]] inline auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender
-  { return enter_submit_scope_sender{ .ctx = ctx }; }
+  [[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
 
-  [[nodiscard]] inline auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender
-  { return enter_submit_scope(&ctx); }
+  [[nodiscard]] auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender;
 
   /// Submit a fully recorded scope and block until the GPU finishes, then release loans.
   struct submit_and_wait_sender
@@ -335,8 +229,7 @@ namespace detail {
     }
   };
 
-  [[nodiscard]] inline auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
-  { return submit_and_wait_sender{ .scope = std::move(scope) }; }
+  [[nodiscard]] auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender;
 
   /// Submit a recorded scope without blocking `start()`; reclaim then complete on the fence agent.
   struct submit_fence_sender
@@ -398,8 +291,7 @@ namespace detail {
     }
   };
 
-  [[nodiscard]] inline auto submit_fence(submit_scope scope) -> submit_fence_sender
-  { return submit_fence_sender{ .scope = std::move(scope) }; }
+  [[nodiscard]] auto submit_fence(submit_scope scope) -> submit_fence_sender;
 
 }// namespace detail
 
