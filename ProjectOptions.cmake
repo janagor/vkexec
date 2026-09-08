@@ -1,4 +1,3 @@
-include(cmake/LibFuzzer.cmake)
 include(CMakeDependentOption)
 include(CheckCXXCompilerFlag)
 
@@ -114,18 +113,6 @@ macro(vkexec_setup_options)
       vkexec_ENABLE_PCH
       vkexec_ENABLE_CACHE)
   endif()
-
-  vkexec_check_libfuzzer_support(LIBFUZZER_SUPPORTED)
-  if(LIBFUZZER_SUPPORTED
-     AND (vkexec_ENABLE_SANITIZER_ADDRESS
-          OR vkexec_ENABLE_SANITIZER_THREAD
-          OR vkexec_ENABLE_SANITIZER_UNDEFINED))
-    set(DEFAULT_FUZZER ON)
-  else()
-    set(DEFAULT_FUZZER OFF)
-  endif()
-
-  option(vkexec_BUILD_FUZZ_TESTS "Enable fuzz testing executable" ${DEFAULT_FUZZER})
 
 endmacro()
 
