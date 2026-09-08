@@ -1,6 +1,7 @@
 #ifndef VKEXEC_ERROR_HELPERS_HPP
 #define VKEXEC_ERROR_HELPERS_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <VkBootstrap.h>
@@ -15,8 +16,15 @@ namespace vkexec {
 
 [[nodiscard]] auto make_vk_error(VkResult result, std::string_view context) -> error;
 
+namespace detail {
+
 [[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> std::unexpected<error>
 { return fail(make_vk_error(result, context)); }
+
+}// namespace detail
+
+[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> std::unexpected<error>
+{ return detail::fail(make_vk_error(result, context)); }
 
 template<typename T>
 [[nodiscard, clang::suppress]] auto vkb_take(vkb::Result<T> const &result) -> T

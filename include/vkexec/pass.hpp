@@ -2,6 +2,7 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -74,13 +75,13 @@ auto record_pass(VkCommandBuffer cmd,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  dispatch groups) -> status;
+  dispatch groups) -> detail::status;
 
 [[nodiscard]] auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  indirect_dispatch groups) -> status;
+  indirect_dispatch groups) -> detail::status;
 
 auto record_pass(VkCommandBuffer cmd,
   pipeline_resources const &pipe,
@@ -91,14 +92,14 @@ auto record_pass(VkCommandBuffer cmd,
 
 struct pass_step
 {
-  std::function<status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
+  std::function<detail::status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
 };
 
 namespace detail {
 
-  [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status;
+  [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> detail::status;
 
-  [[nodiscard]] auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>;
+  [[nodiscard]] auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> detail::result<submit_scope>;
 
 }// namespace detail
 
@@ -260,7 +261,7 @@ namespace detail {
 
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
   {
-    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
+    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> detail::status {
       tag(cmd);
       return {};
     } };

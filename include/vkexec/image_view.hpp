@@ -2,6 +2,7 @@
 #define VKEXEC_IMAGE_VIEW_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/image.hpp>
 
@@ -13,7 +14,7 @@ namespace vkexec {
 class image_view
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, image const &img) -> result<image_view>;
+  [[nodiscard]] static auto create(context &ctx, image const &img) -> detail::sync_sender_fn<image_view>;
 
   ~image_view();
 

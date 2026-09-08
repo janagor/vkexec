@@ -2,6 +2,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 
@@ -64,7 +65,7 @@ namespace {
     if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
   }
 
-  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> result<VkShaderModule>
+  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> detail::result<VkShaderModule>
   {
     VkShaderModuleCreateInfo module_info{};
     module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -76,7 +77,7 @@ namespace {
     return shader;
   }
 
-  auto create_set_layout(VkDevice device, std::uint32_t binding_count) -> result<VkDescriptorSetLayout>
+  auto create_set_layout(VkDevice device, std::uint32_t binding_count) -> detail::result<VkDescriptorSetLayout>
   {
     std::vector<VkDescriptorSetLayoutBinding> bindings(binding_count);
     for (std::uint32_t index = 0; index < binding_count; ++index) {
@@ -97,7 +98,7 @@ namespace {
   }
 
   auto create_pipeline_layout(VkDevice device, VkDescriptorSetLayout set_layout, std::size_t push_bytes)
-    -> result<VkPipelineLayout>
+    -> detail::result<VkPipelineLayout>
   {
     VkPushConstantRange push_range{};
     push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -122,7 +123,7 @@ namespace {
     VkShaderModule shader,
     VkPipelineLayout layout,
     VkSpecializationInfo const *specialization,
-    bool descriptor_heap) -> result<VkPipeline>
+    bool descriptor_heap) -> detail::result<VkPipeline>
   {
     VkPipelineCreateFlags2CreateInfo flags2{};
     flags2.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
@@ -145,7 +146,7 @@ namespace {
     return pipeline;
   }
 
-  auto create_descriptor_pool(VkDevice device, std::uint32_t binding_count) -> result<VkDescriptorPool>
+  auto create_descriptor_pool(VkDevice device, std::uint32_t binding_count) -> detail::result<VkDescriptorPool>
   {
     VkDescriptorPoolSize pool_size{};
     pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -177,7 +178,7 @@ pipeline_cache::~pipeline_cache()
 }
 
 auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> result<std::reference_wrapper<pipeline_resources>>
+  -> detail::result<std::reference_wrapper<pipeline_resources>>
 {
   if (spirv.empty()) {
     return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V");

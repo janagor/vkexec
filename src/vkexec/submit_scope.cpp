@@ -2,6 +2,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 
@@ -61,7 +62,7 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
 
 auto allocate_compute_set(context const &ctx,
   pipeline_resources &pipe,
-  std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
+  std::span<storage_binding const> buffers) -> detail::result<VkDescriptorSet>
 {
   std::unique_lock const lock = ctx.lock_host();
   VkDescriptorSetAllocateInfo dsai{};
@@ -80,7 +81,7 @@ auto allocate_compute_set(context const &ctx,
 auto bind_or_allocate_set(context const &ctx,
   pipeline_resources &pipe,
   std::span<storage_binding const> buffers,
-  descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
+  descriptor_cleanup &cleanup) -> detail::result<VkDescriptorSet>
 {
   if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
     if (storage_bindings_equal(found->second.buffers, buffers)) { return found->second.set; }
@@ -95,7 +96,7 @@ auto bind_or_allocate_set(context const &ctx,
   return allocated;
 }
 
-auto submit_scope::open(context &host) -> result<submit_scope>
+auto submit_scope::open(context &host) -> detail::result<submit_scope>
 {
   auto cmd = host.allocate_command_buffer();
   if (!cmd) { return fail(cmd); }
@@ -116,7 +117,7 @@ auto submit_scope::open(context &host) -> result<submit_scope>
 }
 
 // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-auto submit_scope::end_recording() -> status
+auto submit_scope::end_recording() -> detail::status
 {
   if (cmd == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "submit_scope has no command buffer"); }
   if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {

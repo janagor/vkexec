@@ -1,6 +1,7 @@
 #include "host_agent.hpp"
 
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 
 #include <future>
 #include <mutex>
@@ -52,7 +53,7 @@ auto host_agent::on_agent_thread() const noexcept -> bool { return std::this_thr
 
 auto host_agent::thread_id() const noexcept -> std::thread::id { return thread_id_; }
 
-auto host_agent::enqueue(task_fn task) -> status
+auto host_agent::enqueue(task_fn task) -> detail::status
 {
   if (!task) { return {}; }
   if (on_agent_thread()) {

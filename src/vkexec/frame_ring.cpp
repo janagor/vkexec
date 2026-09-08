@@ -1,7 +1,9 @@
 #include <vkexec/frame_ring.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/timeline_semaphore.hpp>
@@ -17,7 +19,7 @@
 namespace vkexec {
 namespace {
 
-  auto create_binary_semaphore(VkDevice device) -> result<VkSemaphore>
+  auto create_binary_semaphore(VkDevice device) -> detail::result<VkSemaphore>
   {
     VkSemaphoreCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -29,12 +31,13 @@ namespace {
 
 }// namespace
 
-auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
+auto frame_ring::create(context &ctx, create_info info) -> detail::sync_sender_fn<frame_ring>
 {
+  return detail::make_sync_sender_fn<frame_ring>([&ctx, info]() -> detail::result<frame_ring> {
   if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }
   if (info.slot_count == 0) { return fail(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
 
-  VKEXEC_TRY_ASSIGN(timeline_sem, timeline_semaphore::create(ctx, 0));
+  VKEXEC_TRY_ASSIGN(timeline_sem, detail::make_timeline_semaphore(ctx, 0));
   frame_ring ring{ &ctx, std::move(timeline_sem) };
   ring.acquire_.resize(info.slot_count, VK_NULL_HANDLE);
   ring.slot_timeline_value_.assign(info.slot_count, 0);
@@ -55,6 +58,7 @@ auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
 
   VKEXEC_TRY(ring.create_image_semaphores(info.image_count));
   return ring;
+  });
 }
 
 frame_ring::frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept
@@ -89,7 +93,7 @@ auto frame_ring::operator=(frame_ring &&other) noexcept -> frame_ring &
   return *this;
 }
 
-auto frame_ring::resize_images(std::size_t image_count) -> status
+auto frame_ring::resize_images(std::size_t image_count) -> detail::status
 {
   destroy_image_semaphores();
   return create_image_semaphores(image_count);
@@ -102,25 +106,25 @@ auto frame_ring::reset_completion_tracking() -> void
   next_timeline_value_ = 0;
 }
 
-auto frame_ring::acquire_semaphore(std::size_t slot) const -> result<VkSemaphore>
+auto frame_ring::acquire_semaphore(std::size_t slot) const -> detail::result<VkSemaphore>
 {
   VKEXEC_TRY(check_slot(slot));
   return acquire_.at(slot);
 }
 
-auto frame_ring::render_finished_semaphore(std::size_t image_index) const -> result<VkSemaphore>
+auto frame_ring::render_finished_semaphore(std::size_t image_index) const -> detail::result<VkSemaphore>
 {
   VKEXEC_TRY(check_image(image_index));
   return render_finished_.at(image_index);
 }
 
-auto frame_ring::wait_slot(std::size_t slot) const -> status
+auto frame_ring::wait_slot(std::size_t slot) const -> detail::status
 {
   VKEXEC_TRY(check_slot(slot));
   return timeline_.wait(slot_timeline_value_.at(slot));
 }
 
-auto frame_ring::wait_image(std::size_t image_index) const -> status
+auto frame_ring::wait_image(std::size_t image_index) const -> detail::status
 {
   VKEXEC_TRY(check_image(image_index));
   return timeline_.wait(image_timeline_value_.at(image_index));
@@ -132,7 +136,7 @@ auto frame_ring::allocate_signal_value() -> std::uint64_t
   return next_timeline_value_;
 }
 
-auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> status
+auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> detail::status
 {
   VKEXEC_TRY(check_slot(slot));
   VKEXEC_TRY(check_image(image_index));
@@ -145,7 +149,7 @@ auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::
 auto frame_ring::make_submit_sync(std::size_t slot,
   std::size_t image_index,
   std::uint64_t signal_value,
-  VkPipelineStageFlags acquire_wait_stage) const -> result<frame_ring_submit_sync>
+  VkPipelineStageFlags acquire_wait_stage) const -> detail::result<frame_ring_submit_sync>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
   VKEXEC_TRY(check_slot(slot));
@@ -200,7 +204,7 @@ auto frame_ring::destroy_image_semaphores() noexcept -> void
   image_timeline_value_.clear();
 }
 
-auto frame_ring::create_image_semaphores(std::size_t image_count) -> status
+auto frame_ring::create_image_semaphores(std::size_t image_count) -> detail::status
 {
   render_finished_.assign(image_count, VK_NULL_HANDLE);
   image_timeline_value_.assign(image_count, 0);
@@ -215,13 +219,13 @@ auto frame_ring::create_image_semaphores(std::size_t image_count) -> status
   return {};
 }
 
-auto frame_ring::check_slot(std::size_t slot) const -> status
+auto frame_ring::check_slot(std::size_t slot) const -> detail::status
 {
   if (slot >= acquire_.size()) { return fail(errc::out_of_range, "frame_ring slot index out of range"); }
   return {};
 }
 
-auto frame_ring::check_image(std::size_t image_index) const -> status
+auto frame_ring::check_image(std::size_t image_index) const -> detail::status
 {
   if (image_index >= render_finished_.size()) {
     return fail(errc::out_of_range, "frame_ring image index out of range");

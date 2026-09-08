@@ -2,6 +2,7 @@
 #define VKEXEC_COMPUTE_PIPELINE_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -12,6 +13,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <vector>
 
 namespace vkexec {
 
@@ -20,10 +22,10 @@ class compute_pipeline
 {
 public:
   [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> result<compute_pipeline>;
+    -> detail::sync_sender_fn<compute_pipeline>;
   [[nodiscard]] static auto
     create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
-      -> result<compute_pipeline>;
+    -> detail::sync_sender_fn<compute_pipeline>;
 
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
@@ -41,8 +43,12 @@ public:
   [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
   { return dispatch_groups_for(work_count, resources_->local_size.at(0)); }
 
-  [[nodiscard]] auto allocate_set() -> result<VkDescriptorSet>;
-  [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> status;
+  [[nodiscard]] auto allocate_set_sender() const -> detail::sync_sender_fn<VkDescriptorSet>;
+  [[nodiscard]] auto update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
+    -> detail::sync_void_sender_fn;
+
+  [[nodiscard]] auto allocate_set() const -> detail::result<VkDescriptorSet>;
+  [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> detail::status;
 
 private:
   compute_pipeline(context *ctx, pipeline_resources *pipe) noexcept : ctx_(ctx), resources_(pipe) {}
@@ -50,6 +56,15 @@ private:
   context *ctx_{ nullptr };
   pipeline_resources *resources_{ nullptr };
 };
+
+struct bound_compute_pipeline
+{
+  compute_pipeline pipe;
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+};
+
+[[nodiscard]] auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding const> buffers)
+  -> detail::sync_sender_fn<bound_compute_pipeline>;
 
 template<typename Params>
 auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count)

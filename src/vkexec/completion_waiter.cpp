@@ -1,6 +1,7 @@
 #include "completion_waiter.hpp"
 
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -37,7 +38,7 @@ completion_waiter::completion_waiter(VkDevice device, VkQueue fallback_queue)
 
 completion_waiter::~completion_waiter() { shutdown(); }
 
-auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
+auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> detail::status
 {
   {
     std::scoped_lock const lock(mutex_);
@@ -61,7 +62,7 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
   return {};
 }
 
-auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
+auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> detail::status
 {
   {
     std::scoped_lock const lock(mutex_);

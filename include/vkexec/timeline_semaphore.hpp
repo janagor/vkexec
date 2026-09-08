@@ -2,6 +2,8 @@
 #define VKEXEC_TIMELINE_SEMAPHORE_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/result.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
@@ -10,11 +12,20 @@
 
 namespace vkexec {
 
+class timeline_semaphore;
+
+namespace detail {
+
+  [[nodiscard]] auto make_timeline_semaphore(context &ctx, std::uint64_t initial_value = 0) -> result<timeline_semaphore>;
+
+}// namespace detail
+
 /// RAII timeline semaphore (`VK_SEMAPHORE_TYPE_TIMELINE`).
 class timeline_semaphore
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0) -> result<timeline_semaphore>;
+  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0)
+    -> detail::sync_sender_fn<timeline_semaphore>;
 
   ~timeline_semaphore();
 
@@ -27,9 +38,11 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkSemaphore { return semaphore_; }
 
   /// Host wait until the semaphore reaches at least `value` (no-op when value == 0).
-  [[nodiscard]] auto wait(std::uint64_t value) const -> status;
+  [[nodiscard]] auto wait(std::uint64_t value) const -> detail::status;
 
 private:
+  friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> detail::result<timeline_semaphore>;
+
   timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;
   auto destroy() noexcept -> void;
 

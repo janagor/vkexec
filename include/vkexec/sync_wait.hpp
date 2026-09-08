@@ -1,6 +1,7 @@
 #ifndef VKEXEC_SYNC_WAIT_HPP
 #define VKEXEC_SYNC_WAIT_HPP
 
+#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error.hpp>
 
 #include <stdexec/execution.hpp>
@@ -95,7 +96,7 @@ namespace detail {
     ex::sender_in<CvSender, sync_wait_env> && ex::sender_to<CvSender, sync_wait_receiver_t<CvSender>>;
 
   template<sync_waitable_sender CvSender>
-  auto sync_wait_expected_impl(CvSender &&sender) -> result<std::optional<sync_wait_value_tuple_t<CvSender>>>
+  auto sync_wait_outcome_impl(CvSender &&sender) -> sync_wait_outcome<sync_wait_value_tuple_t<CvSender>>
   {
     sync_wait_state state{};
     std::optional<sync_wait_value_tuple_t<CvSender>> values{};
@@ -104,9 +105,15 @@ namespace detail {
     ex::start(operation);
     state.loop.run();
 
-    if (state.wait_error) { return std::unexpected(std::move(*state.wait_error)); }
-    if (state.stopped) { return std::optional<sync_wait_value_tuple_t<CvSender>>{}; }
-    return values;
+    sync_wait_outcome<sync_wait_value_tuple_t<CvSender>> outcome{};
+    if (state.wait_error) {
+      outcome.error = std::move(*state.wait_error);
+    } else if (state.stopped) {
+      outcome.stopped = true;
+    } else {
+      outcome.values = std::move(values);
+    }
+    return outcome;
   }
 
 }// namespace detail
@@ -123,10 +130,15 @@ template<ex::sender Sender>
 
 /// Non-throwing blocking wait for `-fno-exceptions` builds.
 template<detail::sync_waitable_sender Sender>
-[[nodiscard]] auto sync_wait(Sender &&sender) -> result<std::optional<detail::sync_wait_value_tuple_t<Sender>>>
-{ return detail::sync_wait_expected_impl(std::forward<Sender>(sender)); }
+[[nodiscard]] auto sync_wait(Sender &&sender) -> detail::sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
+{ return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
 
 #endif
+
+/// Non-throwing wait for tests and callers that must inspect errors without exceptions.
+template<detail::sync_waitable_sender Sender>
+[[nodiscard]] auto try_sync_wait(Sender &&sender) -> detail::sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
+{ return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
 
 }// namespace vkexec
 

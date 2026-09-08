@@ -1,6 +1,7 @@
 #ifndef VKEXEC_COMPLETION_WAITER_HPP
 #define VKEXEC_COMPLETION_WAITER_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>

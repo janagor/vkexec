@@ -1,6 +1,7 @@
 #ifndef VKEXEC_PIPELINE_CACHE_HPP
 #define VKEXEC_PIPELINE_CACHE_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 
@@ -28,7 +29,7 @@ public:
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> result<std::reference_wrapper<pipeline_resources>>;
+    -> detail::result<std::reference_wrapper<pipeline_resources>>;
 
 private:
   context *ctx_;

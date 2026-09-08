@@ -2,6 +2,7 @@
 #define VKEXEC_SAMPLER_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
@@ -23,7 +24,7 @@ struct sampler_create_info
 class sampler
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> result<sampler>;
+  [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> detail::sync_sender_fn<sampler>;
 
   ~sampler();
 

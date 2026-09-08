@@ -2,7 +2,7 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/push_data.hpp>
@@ -52,7 +52,7 @@ auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  dispatch groups) -> status
+  dispatch groups) -> detail::status
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
   if (!push.empty()) {
@@ -66,7 +66,7 @@ auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  indirect_dispatch groups) -> status
+  indirect_dispatch groups) -> detail::status
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
   if (!push.empty()) {
@@ -103,7 +103,7 @@ auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compu
 
 namespace detail {
 
-  auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
+  auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> detail::status
   {
     for (pass_step const &step : steps) {
       if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) { return fail(recorded); }
@@ -111,7 +111,7 @@ namespace detail {
     return scope.end_recording();
   }
 
-  auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>
+  auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> detail::result<submit_scope>
   {
     auto opened = submit_scope::open(*ctx);
     if (!opened) { return fail(opened); }
@@ -126,7 +126,7 @@ namespace detail {
   auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
+                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> detail::status {
       std::span<std::byte const> const push_bytes{ closure.push };
       bool const use_push_data = closure.bind.layout == VK_NULL_HANDLE;
       if (use_push_data) {

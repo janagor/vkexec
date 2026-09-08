@@ -1,6 +1,7 @@
 #ifndef VKEXEC_HOST_AGENT_HPP
 #define VKEXEC_HOST_AGENT_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <condition_variable>

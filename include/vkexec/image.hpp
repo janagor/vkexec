@@ -2,6 +2,7 @@
 #define VKEXEC_IMAGE_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
 #include <vk_mem_alloc.h>
@@ -30,7 +31,7 @@ struct image_create_info
 class image
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> result<image>;
+  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> detail::sync_sender_fn<image>;
 
   ~image();
 

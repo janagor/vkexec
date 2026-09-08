@@ -1,6 +1,7 @@
 #ifndef VKEXEC_BUFFER_HPP
 #define VKEXEC_BUFFER_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 
@@ -62,7 +63,7 @@ template<typename T> struct buffer_allocate_sender
         }
       }
 
-      if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
+      if (detail::result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
         ex::set_value(std::move(rcvr), detail::expected_take(allocated));
       } else {
         ex::set_error(std::move(rcvr), std::move(allocated.error()));
@@ -91,21 +92,6 @@ public:
   /// Async-object factory sender (same as `allocate`).
   [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
   { return allocate(ctx, count, std::move(fill)); }
-
-  /// Synchronous allocate: `sync_wait(allocate(...))`.
-  [[nodiscard]] static auto create_sync(context &ctx, std::size_t count, T fill = T{}) -> result<buffer<T>>
-  {
-#if VKEXEC_ENABLE_EXCEPTIONS
-    auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
-    if (!waited.has_value()) { return fail(errc::cancelled, "buffer allocate was stopped"); }
-    return std::get<0>(std::move(*waited));
-#else
-    auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
-    if (!waited) { return fail(waited); }
-    if (!waited->has_value()) { return fail(errc::cancelled, "buffer allocate was stopped"); }
-    return std::get<0>(std::move(**waited));
-#endif
-  }
 
   ~buffer()
   {
@@ -174,7 +160,7 @@ private:
     : ctx_(ctx), buffer_(handle), allocation_(allocation), mapped_(mapped), count_(count), name_(std::move(name))
   {}
 
-  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> result<buffer>
+  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> detail::result<buffer>
   {
     static_assert(std::is_trivially_copyable_v<T>);
     if (count == 0) { return fail(errc::invalid_argument, "vkexec::buffer count must be > 0"); }

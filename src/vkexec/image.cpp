@@ -1,7 +1,9 @@
 #include <vkexec/image.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
@@ -10,7 +12,7 @@
 namespace vkexec {
 namespace {
 
-  auto resolve_format(image_create_info const &info) -> result<VkFormat>
+  auto resolve_format(image_create_info const &info) -> detail::result<VkFormat>
   {
     if (info.format != VK_FORMAT_UNDEFINED) { return info.format; }
     switch (info.usage) {
@@ -22,7 +24,7 @@ namespace {
     return fail(errc::invalid_argument, "unknown image_usage");
   }
 
-  auto usage_flags(image_usage usage) -> result<VkImageUsageFlags>
+  auto usage_flags(image_usage usage) -> detail::result<VkImageUsageFlags>
   {
     switch (usage) {
     case image_usage::color_storage:
@@ -38,8 +40,9 @@ namespace {
 
 }// namespace
 
-auto image::create(context &ctx, image_create_info info) -> result<image>
+auto image::create(context &ctx, image_create_info info) -> detail::sync_sender_fn<image>
 {
+  return detail::make_sync_sender_fn<image>([&ctx, info]() -> detail::result<image> {
   if (info.width == 0 || info.height == 0) {
     return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
   }
@@ -76,6 +79,7 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
   return image{
     &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage
   };
+  });
 }
 
 image::image(context *ctx,

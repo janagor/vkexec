@@ -1,6 +1,7 @@
 #ifndef VKEXEC_RENDERING_HPP
 #define VKEXEC_RENDERING_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
@@ -36,8 +37,8 @@ struct rendering_info
   std::uint32_t layer_count{ 1 };
 };
 
-[[nodiscard]] auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> status;
-[[nodiscard]] auto cmd_end_rendering(VkCommandBuffer cmd) -> status;
+[[nodiscard]] auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> detail::status;
+[[nodiscard]] auto cmd_end_rendering(VkCommandBuffer cmd) -> detail::status;
 
 }// namespace vkexec
 
