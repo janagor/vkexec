@@ -9,9 +9,6 @@
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
-#include <vkexec_edsl/push_constant.hpp>
-#include <vkexec_edsl/trace.hpp>
-#include <vkexec_edsl/types.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
@@ -214,13 +211,6 @@ struct pass_graph_async_sender
   }
 };
 
-template<typename Params, typename Fun> struct compute_pass_closure
-{
-  std::uint32_t shape{};
-  Params params{};
-  Fun fun{};
-};
-
 struct prebuilt_compute_pass_closure
 {
   compute_bind bind{};
@@ -229,10 +219,6 @@ struct prebuilt_compute_pass_closure
   indirect_dispatch indirect{};
   bool is_indirect{ false };
 };
-
-template<typename Params, typename Fun>
-auto compute_pass(std::uint32_t shape, Params params, Fun fun) -> compute_pass_closure<Params, Fun>
-{ return compute_pass_closure<Params, Fun>{ shape, std::move(params), std::move(fun) }; }
 
 template<typename Params>
 auto compute_pass(compute_bind bind, Params const &params, dispatch groups) -> prebuilt_compute_pass_closure
@@ -270,31 +256,6 @@ auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &p
 
 namespace detail {
 
-  template<typename Params, typename Fun> auto make_traced_step(compute_pass_closure<Params, Fun> closure) -> pass_step
-  {
-    return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status {
-      edsl::trace_scope const scope;
-      edsl::Int const idx = edsl::Int::param_index();
-      auto push = edsl::push_constant<Params>::bind();
-      closure.fun(idx, push);
-
-      auto pipe = record_ctx.get_or_compile(scope, closure.shape);
-      if (!pipe) { return pipe.error(); }
-
-      std::vector<edsl::storage_trace> const buffers = scope.buffers();
-      auto const local = scope.local_size_x();
-      auto set = bind_or_allocate_set(record_ctx, pipe->get(), buffers, cleanup);
-      if (!set) { return set.error(); }
-
-      std::uint32_t const groups = (closure.shape + local - 1U) / local;
-      void const *push_ptr = pipe->get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
-      auto const push_bytes = static_cast<std::uint32_t>(pipe->get().push_bytes > 0 ? sizeof(Params) : 0);
-      record_pass(cmd, pipe->get(), detail::leaf_take(set), push_ptr, push_bytes, dispatch{ .x = groups });
-      return {};
-    } };
-  }
-
   auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step;
 
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
@@ -329,11 +290,7 @@ template<class Pred, class Closure, class Env>
   context *const ctx = sched.get_context();
   return ex::let_value(
     std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
-      if constexpr (std::is_same_v<std::remove_cvref_t<Closure>, prebuilt_compute_pass_closure>) {
-        return pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
-      } else {
-        return pass_graph_sender{ .ctx = ctx, .steps = { detail::make_traced_step(std::move(closure)) } };
-      }
+      return pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
     });
 }
 
@@ -357,39 +314,17 @@ template<class Pred, class Closure, class Env>
   context *const ctx = sched.get_context();
   return ex::let_value(
     std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_async_sender {
-      pass_graph_sender graph;
-      if constexpr (std::is_same_v<std::remove_cvref_t<Closure>, prebuilt_compute_pass_closure>) {
-        graph = pass_graph_sender{ .ctx = ctx, .steps = { detail::make_prebuilt_step(std::move(closure)) } };
-      } else {
-        graph = pass_graph_sender{ .ctx = ctx, .steps = { detail::make_traced_step(std::move(closure)) } };
-      }
+      pass_graph_sender graph{
+        .ctx = ctx,
+        .steps = { detail::make_prebuilt_step(std::move(closure)) },
+      };
       return pass_graph_async_sender{ std::move(graph) };
     });
 }
 
-template<typename Params, typename Fun>
-auto operator|(schedule_sender snd, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
-{ return pass_graph_sender{ .ctx = snd.ctx, .steps = { detail::make_traced_step(std::move(closure)) } }; }
-
-template<typename Params, typename Fun>
-auto operator|(pass_graph_sender graph, compute_pass_closure<Params, Fun> closure) -> pass_graph_sender
-{ return detail::append_step(std::move(graph), detail::make_traced_step(std::move(closure))); }
-
 auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
 
 auto operator|(pass_graph_sender graph, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
-
-template<vkexec_predecessor Pred, typename Params, typename Fun>
-  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>
-           && !std::same_as<std::remove_cvref_t<Pred>, pass_graph_sender>)
-[[nodiscard]] auto operator|(Pred &&pred, compute_pass_closure<Params, Fun> closure)
-  -> pass_adaptor_sender<std::remove_cvref_t<Pred>, compute_pass_closure<Params, Fun>>
-{
-  return pass_adaptor_sender<std::remove_cvref_t<Pred>, compute_pass_closure<Params, Fun>>{
-    .pred = std::forward<Pred>(pred),
-    .closure = std::move(closure),
-  };
-}
 
 template<vkexec_predecessor Pred>
   requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>

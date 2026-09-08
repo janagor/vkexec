@@ -15,6 +15,13 @@ enum class buffer_access : std::uint8_t { readonly, writeonly, readwrite };
 inline constexpr std::uint32_t k_default_local_size_x = 64;
 inline constexpr std::array<std::uint32_t, 3> k_default_local_size{ k_default_local_size_x, 1, 1 };
 
+struct storage_binding
+{
+  VkBuffer buffer{ VK_NULL_HANDLE };
+  VkDeviceSize byte_size{ 0 };
+  std::uint32_t binding{ 0 };
+};
+
 struct layout_desc
 {
   /// Binding index is the position in this list (0, 1, ...).

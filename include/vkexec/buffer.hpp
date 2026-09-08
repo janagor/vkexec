@@ -6,8 +6,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/sync_wait.hpp>
-#include <vkexec_edsl/trace.hpp>
-#include <vkexec_edsl/types.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vk_mem_alloc.h>
@@ -134,13 +132,11 @@ public:
     count_ = other.count_;
     name_ = std::move(other.name_);
     // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
-    binding_ = -1;
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;
     other.allocation_ = VK_NULL_HANDLE;
     other.mapped_ = nullptr;
     other.count_ = 0;
-    other.binding_ = -1;
     return *this;
   }
 
@@ -149,53 +145,6 @@ public:
   [[nodiscard]] auto size() const noexcept -> std::size_t { return count_; }
   [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return buffer_; }
   [[nodiscard]] auto name() const noexcept -> std::string const & { return name_; }
-
-  struct ref
-  {
-    buffer *owner;
-    edsl::Int index;
-
-    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
-    operator edsl::Float() const
-      requires(std::is_floating_point_v<T>)
-    { return load_float(); }
-    // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions) -- eDSL implicit load
-    operator edsl::Int() const
-      requires(std::is_integral_v<T>)
-    { return load_int(); }
-
-    auto operator=(edsl::Float value) -> ref &
-      requires(std::is_floating_point_v<T>)
-    {
-      store(value.id);
-      return *this;
-    }
-    auto operator=(edsl::Int value) -> ref &
-      requires(std::is_integral_v<T>)
-    {
-      store(value.id);
-      return *this;
-    }
-
-  private:
-    [[nodiscard]] auto ensure_binding() const -> int
-    {
-      return edsl::bind_storage_buffer(owner->buffer_,
-        owner->binding_,
-        owner->name_.c_str(),
-        owner->count_ * sizeof(T),
-        std::is_floating_point_v<T> ? "float" : "int",
-        owner->count_);
-    }
-
-    // cppcheck-suppress unusedPrivateFunction
-    [[nodiscard]] auto load_float() const -> edsl::Float { return edsl::load_buffer_float(ensure_binding(), index.id); }
-    // cppcheck-suppress unusedPrivateFunction
-    [[nodiscard]] auto load_int() const -> edsl::Int { return edsl::load_buffer_int(ensure_binding(), index.id); }
-    void store(int value_id) const { edsl::store_buffer(ensure_binding(), index.id, value_id); }
-  };
-
-  auto operator[](edsl::Int idx) -> ref { return ref{ this, idx }; }
 
 private:
   friend struct buffer_allocate_sender<T>;
@@ -263,7 +212,6 @@ private:
   void *mapped_{ nullptr };
   std::size_t count_{ 0 };
   std::string name_;
-  mutable int binding_{ -1 };
 };
 
 }// namespace vkexec

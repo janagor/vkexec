@@ -7,6 +7,7 @@ add_library(
   host_agent.cpp
   pipeline_cache.cpp
   compute_pipeline.cpp
+  spirv_compile.cpp
   push.cpp
   gpu_buffer.cpp
   timeline_semaphore.cpp
@@ -29,7 +30,6 @@ target_link_libraries(
   vkexec
   PUBLIC vkexec_options
          vkexec_warnings
-         vkexec::vkexec_edsl
          Boost::system
          Boost::leaf
          Vulkan::Vulkan

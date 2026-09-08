@@ -6,12 +6,10 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
-#include <vkexec_edsl/trace.hpp>
 
 #include "completion_waiter.hpp"
 #include "host_agent.hpp"
 #include "pipeline_cache.hpp"
-#include "vkexec_edsl/trace_access.hpp"
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -644,10 +642,6 @@ auto context::submit(queue_submit const &info) const -> status
   }
   return {};
 }
-
-auto context::get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count)
-  -> result<std::reference_wrapper<pipeline_resources>>
-{ return pipeline_cache_->get_or_compile(edsl::detail::trace_ast_access::get(trace), work_count); }
 
 auto context::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<std::reference_wrapper<pipeline_resources>>

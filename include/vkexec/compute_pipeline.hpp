@@ -15,12 +15,6 @@
 
 namespace vkexec {
 
-struct storage_binding
-{
-  VkBuffer buffer{ VK_NULL_HANDLE };
-  VkDeviceSize byte_size{ 0 };
-};
-
 /// Handle to a cached compute pipeline built from existing SPIR-V (hybrid / embed path).
 class compute_pipeline
 {

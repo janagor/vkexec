@@ -1,8 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <stdexec/__detail/__execution_fwd.hpp>
-#include <vkexec/buffer.hpp>
-#include <vkexec/bulk.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
@@ -10,31 +8,17 @@
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
-#include <vkexec_edsl/push_constant.hpp>
-#include <vkexec_edsl/types.hpp>
-
-#include <boost/describe/class.hpp>
 
 #include <stdexec/execution.hpp>
 
-#include <cmath>
 #include <concepts>
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <thread>
 
 namespace ex = stdexec;
-namespace edsl = vkexec::edsl;
 
 namespace {
-
-struct env_params
-{
-  float n;
-};
-// cppcheck-suppress unknownMacro
-BOOST_DESCRIBE_STRUCT(env_params, (), (n))
 
 auto skip_if_no_vulkan(vkexec::error const &err) -> void
 { SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
@@ -101,67 +85,10 @@ TEST_CASE("schedule_sender advertises completion domain", "[vkexec][scheduler][d
   STATIC_REQUIRE(std::same_as<decltype(sched.query(ex::get_domain_t{})), vkexec::domain>);
 }
 
-TEST_CASE("starts_on then bulk lowers via vkexec domain", "[vkexec][scheduler][domain][gpu]")
-{
-  constexpr std::uint32_t k_count = 8;
-  constexpr float k_initial = 1.0F;
-  constexpr float k_factor = 2.0F;
-  constexpr float k_epsilon = 1.0E-4F;
-
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = **ctx_result;
-
-  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
-  REQUIRE(values_result.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = vkexec::detail::leaf_get(values_result);
-
-  auto waited = vkexec::sync_wait(
-    ex::starts_on(ctx.get_scheduler(), ex::just())
-    | vkexec::bulk(
-      k_count, env_params{ .n = k_factor }, [&](edsl::Int idx, edsl::push_constant<env_params> push) -> void {
-        values[idx] = values[idx] * push.get<&env_params::n>();
-      }));
-  REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
-
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  REQUIRE(std::fabs(values.data()[0] - (k_initial * k_factor)) < k_epsilon);
-}
-
-TEST_CASE("bulk_sender advertises completion scheduler", "[vkexec][scheduler]")
-{
-  vkexec::scheduler const sched{ nullptr };
-  auto const sender =
-    ex::schedule(sched)
-    | vkexec::bulk(
-      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {});
-
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
-  REQUIRE(completion == sched);
-}
-
-TEST_CASE("bulk_async_sender advertises completion scheduler", "[vkexec][scheduler]")
-{
-  vkexec::scheduler const sched{ nullptr };
-  auto const sender =
-    ex::schedule(sched)
-    | vkexec::bulk(
-      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {})
-    | vkexec::submit;
-
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
-  REQUIRE(completion == sched);
-}
-
 TEST_CASE("pass_graph_sender advertises completion scheduler", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
-  auto const sender =
-    ex::schedule(sched)
-    | vkexec::compute_pass(
-      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {});
+  auto const sender = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
 
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
@@ -171,10 +98,7 @@ TEST_CASE("pass_graph_async_sender advertises completion scheduler", "[vkexec][s
 {
   vkexec::scheduler const sched{ nullptr };
   auto const sender =
-    ex::schedule(sched)
-    | vkexec::compute_pass(
-      1U, env_params{ .n = 1.0F }, [](edsl::Int /*idx*/, edsl::push_constant<env_params> /*push*/) -> void {})
-    | vkexec::submit;
+    ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }) | vkexec::submit;
 
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);

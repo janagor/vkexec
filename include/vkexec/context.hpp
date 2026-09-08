@@ -23,10 +23,6 @@
 #include <utility>
 #include <vector>
 
-namespace vkexec::edsl {
-class trace_scope;
-}
-
 namespace vkexec {
 
 class scheduler;
@@ -102,8 +98,6 @@ public:
   [[nodiscard]] auto api_version() const noexcept -> std::uint32_t { return api_version_; }
   [[nodiscard]] auto procs() const noexcept -> device_procs const & { return procs_; }
 
-  [[nodiscard]] auto get_or_compile(edsl::trace_scope const &trace, std::uint32_t work_count)
-    -> result<std::reference_wrapper<pipeline_resources>>;
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> result<std::reference_wrapper<pipeline_resources>>;
 

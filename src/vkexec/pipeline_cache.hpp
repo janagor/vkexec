@@ -12,10 +12,6 @@
 #include <span>
 #include <unordered_map>
 
-namespace vkexec::edsl {
-struct ASTContext;
-}
-
 namespace vkexec {
 
 class context;
@@ -31,8 +27,6 @@ public:
   pipeline_cache(pipeline_cache &&) = delete;
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
-  [[nodiscard]] auto get_or_compile(edsl::ASTContext const &ast, std::uint32_t work_count)
-    -> result<std::reference_wrapper<pipeline_resources>>;
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> result<std::reference_wrapper<pipeline_resources>>;
 

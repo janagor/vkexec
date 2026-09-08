@@ -4,7 +4,7 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec_edsl/spirv.hpp>
+#include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -28,7 +28,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
   -> result<compute_pipeline>
 {
   if (glsl.empty()) { return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
-  VKEXEC_LEAF_AUTO(spirv, edsl::compile_glsl_to_spirv(glsl, name, edsl::shader_kind::compute, ctx.api_version()));
+  VKEXEC_LEAF_AUTO(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
   return create(ctx, spirv, desc);
 }
 

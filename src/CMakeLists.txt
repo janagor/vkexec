@@ -1,4 +1,3 @@
-add_subdirectory(vkexec_edsl)
 add_subdirectory(vkexec)
 add_subdirectory(vkexec_graphics)
 if(vkexec_BUILD_EXAMPLES)

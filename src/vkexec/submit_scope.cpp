@@ -4,7 +4,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec_edsl/trace.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -26,33 +25,32 @@ auto descriptor_cleanup::release(context const &ctx) noexcept -> void
   sets.clear();
 }
 
-auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs) -> bool
+auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool
 {
   return lhs.size() == rhs.size()
          && std::equal(lhs.begin(),
            lhs.end(),
            rhs.begin(),
-           [](edsl::storage_trace const &left, edsl::storage_trace const &right) -> bool {
-             return left.vk_buffer == right.vk_buffer && left.byte_size == right.byte_size
+           [](storage_binding const &left, storage_binding const &right) -> bool {
+             return left.buffer == right.buffer && left.byte_size == right.byte_size
                     && left.binding == right.binding;
            });
 }
 
-auto write_storage_descriptors(VkDevice device,
-  VkDescriptorSet set,
-  std::span<edsl::storage_trace const> buffers) -> void
+auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
+  -> void
 {
   if (buffers.empty()) { return; }
   std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
   std::vector<VkWriteDescriptorSet> writes(buffers.size());
   std::size_t index = 0;
-  for (edsl::storage_trace const &buffer : buffers) {
-    buf_infos.at(index).buffer = static_cast<VkBuffer>(buffer.vk_buffer);
+  for (storage_binding const &buffer : buffers) {
+    buf_infos.at(index).buffer = buffer.buffer;
     buf_infos.at(index).offset = 0;
     buf_infos.at(index).range = buffer.byte_size;
     writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     writes.at(index).dstSet = set;
-    writes.at(index).dstBinding = static_cast<std::uint32_t>(buffer.binding);
+    writes.at(index).dstBinding = buffer.binding;
     writes.at(index).descriptorCount = 1;
     writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes.at(index).pBufferInfo = &buf_infos.at(index);
@@ -61,13 +59,9 @@ auto write_storage_descriptors(VkDevice device,
   vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
-auto write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers)
-  -> void
-{ write_storage_descriptors(device, set, buffers); }
-
 auto allocate_compute_set(context const &ctx,
   pipeline_resources &pipe,
-  std::span<edsl::storage_trace const> buffers) -> result<VkDescriptorSet>
+  std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
 {
   std::unique_lock const lock = ctx.lock_host();
   VkDescriptorSetAllocateInfo dsai{};
@@ -85,11 +79,11 @@ auto allocate_compute_set(context const &ctx,
 
 auto bind_or_allocate_set(context const &ctx,
   pipeline_resources &pipe,
-  std::span<edsl::storage_trace const> buffers,
+  std::span<storage_binding const> buffers,
   descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
 {
   if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-    if (storage_traces_equal(found->second.buffers, buffers)) { return found->second.set; }
+    if (storage_bindings_equal(found->second.buffers, buffers)) { return found->second.set; }
   }
 
   auto set = allocate_compute_set(ctx, pipe, buffers);

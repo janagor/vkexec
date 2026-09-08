@@ -10,8 +10,7 @@
 
 namespace vkexec {
 
-/// Host (non-traced) push constants: blob `T` onto the command buffer.
-/// Separate from `edsl::push_constant<T>::get<&...>()` used by `bulk()` / traced `compute_pass`.
+/// Host push constants: upload blob `T` onto the command buffer.
 auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, void const *data, std::uint32_t bytes)
   -> void;
 

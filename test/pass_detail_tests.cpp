@@ -1,43 +1,61 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/pipeline.hpp>
 #include <vkexec/submit_scope.hpp>
-#include <vkexec_edsl/trace.hpp>
+
+#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <span>
 
-namespace edsl = vkexec::edsl;
+namespace {
 
-TEST_CASE("storage_traces_equal compares buffer bindings", "[vkexec][pass]")
+constexpr VkDeviceSize k_byte_size = 64;
+
+[[nodiscard]] auto fake_buffer(void *storage) -> VkBuffer
+{ return static_cast<VkBuffer>(storage); }
+
+}// namespace
+
+TEST_CASE("storage_bindings_equal compares buffer bindings", "[vkexec][pass]")
 {
-  using vkexec::detail::storage_traces_equal;
+  using vkexec::detail::storage_bindings_equal;
 
   char buffer_left{};
   char buffer_right{};
-  edsl::storage_trace const left_trace{ .vk_buffer = &buffer_left, .byte_size = 64, .binding = 0 };
-  edsl::storage_trace const right_trace{ .vk_buffer = &buffer_right, .byte_size = 64, .binding = 0 };
-  edsl::storage_trace const left_copy = left_trace;
+  vkexec::storage_binding const left_binding{ .buffer = fake_buffer(&buffer_left), .byte_size = k_byte_size, .binding = 0 };
+  vkexec::storage_binding const right_binding{
+    .buffer = fake_buffer(&buffer_right),
+    .byte_size = k_byte_size,
+    .binding = 0,
+  };
+  vkexec::storage_binding const left_copy = left_binding;
 
-  REQUIRE(storage_traces_equal(std::span{ &left_trace, 1 }, std::span{ &left_copy, 1 }));
-  REQUIRE_FALSE(storage_traces_equal(std::span{ &left_trace, 1 }, std::span{ &right_trace, 1 }));
-  REQUIRE(storage_traces_equal(std::span<edsl::storage_trace const>{}, std::span<edsl::storage_trace const>{}));
+  REQUIRE(storage_bindings_equal(std::span{ &left_binding, 1 }, std::span{ &left_copy, 1 }));
+  REQUIRE_FALSE(storage_bindings_equal(std::span{ &left_binding, 1 }, std::span{ &right_binding, 1 }));
+  REQUIRE(storage_bindings_equal(std::span<vkexec::storage_binding const>{}, std::span<vkexec::storage_binding const>{}));
 
-  edsl::storage_trace const diff_binding{
-    .vk_buffer = left_trace.vk_buffer,
-    .byte_size = left_trace.byte_size,
+  vkexec::storage_binding const diff_binding{
+    .buffer = left_binding.buffer,
+    .byte_size = left_binding.byte_size,
     .binding = 1,
   };
-  edsl::storage_trace const diff_size_trace{
-    .vk_buffer = left_trace.vk_buffer,
-    .byte_size = left_trace.byte_size + 1,
-    .binding = left_trace.binding,
+  vkexec::storage_binding const diff_size_binding{
+    .buffer = left_binding.buffer,
+    .byte_size = left_binding.byte_size + 1,
+    .binding = left_binding.binding,
   };
 
-  REQUIRE_FALSE(storage_traces_equal(std::span{ &left_trace, 1 }, std::span{ &diff_size_trace, 1 }));
-  REQUIRE_FALSE(storage_traces_equal(std::span{ &left_trace, 1 }, std::span{ &diff_binding, 1 }));
+  REQUIRE_FALSE(storage_bindings_equal(std::span{ &left_binding, 1 }, std::span{ &diff_size_binding, 1 }));
+  REQUIRE_FALSE(storage_bindings_equal(std::span{ &left_binding, 1 }, std::span{ &diff_binding, 1 }));
 
-  std::array const traces{ left_trace, right_trace };
-  std::array const traces_reordered{ right_trace, left_trace };
-  REQUIRE_FALSE(storage_traces_equal(std::span{ traces }, std::span{ traces_reordered }));
-  REQUIRE(storage_traces_equal(std::span{ traces }, std::span{ traces }));
+  std::array const bindings{ left_binding, right_binding };
+  std::array const bindings_reordered{ right_binding, left_binding };
+  REQUIRE_FALSE(storage_bindings_equal(std::span{ bindings }, std::span{ bindings_reordered }));
+  REQUIRE(storage_bindings_equal(std::span{ bindings }, std::span{ bindings }));
+}
+
+TEST_CASE("write_storage_descriptors returns when no buffers are bound", "[vkexec][pass]")
+{
+  vkexec::detail::write_storage_descriptors(VK_NULL_HANDLE, VK_NULL_HANDLE, std::span<vkexec::storage_binding const>{});
 }

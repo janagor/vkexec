@@ -38,12 +38,8 @@ add_executable(
   tests.cpp
   pass_detail_tests.cpp
   dispatch_tests.cpp
-  edsl_emit_tests.cpp
-  edsl_types_tests.cpp
-  edsl_spirv_tests.cpp
+  spirv_compile_tests.cpp
   error_tests.cpp
-  push_constant_tests.cpp
-  bulk_tests.cpp
   buffer_tests.cpp
   gpu_buffer_tests.cpp
   timeline_semaphore_tests.cpp
@@ -65,13 +61,8 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_warnings
           vkexec::vkexec_options
           vkexec::vkexec
-          vkexec::vkexec_edsl
           vkexec::vkexec_graphics
           Catch2::Catch2WithMain)
-
-if(EXISTS "${CMAKE_SOURCE_DIR}/src/vkexec_edsl/glsl_emit.hpp")
-  target_include_directories(tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
-endif()
 
 vkexec_configure_linker(tests)
 
@@ -83,8 +74,6 @@ if(WIN32 AND BUILD_SHARED_LIBS)
     COMMAND_EXPAND_LISTS)
 endif()
 
-# automatically discover tests that are defined in catch based test files you can modify the unittests. Set TEST_PREFIX
-# to whatever you want, or use different for different binaries
 catch_discover_tests(
   tests
   TEST_PREFIX
@@ -98,7 +87,6 @@ catch_discover_tests(
   OUTPUT_SUFFIX
   .xml)
 
-# Add a file containing a set of constexpr tests
 add_executable(constexpr_tests constexpr_tests.cpp)
 target_link_libraries(constexpr_tests PRIVATE vkexec::vkexec_warnings vkexec::vkexec_options Catch2::Catch2WithMain)
 
@@ -117,8 +105,6 @@ catch_discover_tests(
   OUTPUT_SUFFIX
   .xml)
 
-# Disable the constexpr portion of the test, and build again this allows us to have an executable that we can debug when
-# things go wrong with the constexpr testing
 add_executable(relaxed_constexpr_tests constexpr_tests.cpp)
 target_link_libraries(relaxed_constexpr_tests PRIVATE vkexec::vkexec_warnings vkexec::vkexec_options
                                                       Catch2::Catch2WithMain)

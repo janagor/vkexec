@@ -1,10 +1,8 @@
 #ifndef VKEXEC_VKEXEC_HPP
 #define VKEXEC_VKEXEC_HPP
 
-
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
-#include <vkexec/bulk.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_heap.hpp>
@@ -24,11 +22,11 @@
 #include <vkexec/rendering.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/spirv_compile.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/timeline_semaphore.hpp>
 #include <vkexec/vulkan_requirements.hpp>
-#include <vkexec_edsl/edsl.hpp>
 
 namespace vkexec {
 // Public umbrella header for the vkexec stdexec Vulkan backend.

@@ -6,8 +6,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec_edsl/trace.hpp>
-
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
@@ -39,7 +37,7 @@ namespace detail {
 
     struct pipeline_set_entry
     {
-      std::vector<edsl::storage_trace> buffers;
+      std::vector<storage_binding> buffers;
       VkDescriptorSet set{ VK_NULL_HANDLE };
     };
 
@@ -55,23 +53,18 @@ namespace detail {
   // Compatibility alias used by pass graph recording.
   using pass_cleanup = descriptor_cleanup;
 
-  auto storage_traces_equal(std::span<edsl::storage_trace const> lhs, std::span<edsl::storage_trace const> rhs)
-    -> bool;
+  auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool;
 
-  auto write_storage_descriptors(VkDevice device,
-    VkDescriptorSet set,
-    std::span<edsl::storage_trace const> buffers) -> void;
-
-  auto
-    write_traced_descriptors(VkDevice device, VkDescriptorSet set, std::span<edsl::storage_trace const> buffers) -> void;
+  auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
+    -> void;
 
   auto allocate_compute_set(context const &ctx,
     pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers) -> result<VkDescriptorSet>;
+    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>;
 
   auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
-    std::span<edsl::storage_trace const> buffers,
+    std::span<storage_binding const> buffers,
     descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
 
   /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.

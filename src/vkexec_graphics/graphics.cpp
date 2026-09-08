@@ -4,7 +4,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec_edsl/trace.hpp>
+#include <vkexec/pipeline.hpp>
+#include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -14,9 +15,69 @@
 #include <cstdint>
 #include <iterator>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace vkexec {
+
+auto graphics_pipeline::destroy() noexcept -> void
+{
+  if (device_ == VK_NULL_HANDLE) { return; }
+  if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device_, pipeline_, nullptr); }
+  if (layout_ != VK_NULL_HANDLE) { vkDestroyPipelineLayout(device_, layout_, nullptr); }
+  if (set_layout_ != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device_, set_layout_, nullptr); }
+  if (descriptor_pool_ != VK_NULL_HANDLE) { vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr); }
+  release();
+}
+
+auto graphics_pipeline::release() noexcept -> void
+{
+  device_ = VK_NULL_HANDLE;
+  layout_ = VK_NULL_HANDLE;
+  pipeline_ = VK_NULL_HANDLE;
+  set_layout_ = VK_NULL_HANDLE;
+  descriptor_pool_ = VK_NULL_HANDLE;
+  descriptor_set_ = VK_NULL_HANDLE;
+}
+
+auto graphics_pipeline::create(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  std::span<storage_binding const> buffers) -> result<graphics_pipeline>
+{
+  if (vertex_spirv.empty() || fragment_spirv.empty()) {
+    return make_error(errc::invalid_argument, "graphics_pipeline::create requires non-empty SPIR-V");
+  }
+  graphics_pipeline pipe;
+  pipe.device_ = ctx.device();
+  pipe.cfg_ = cfg;
+  std::vector<std::uint32_t> const vs_spv(vertex_spirv.begin(), vertex_spirv.end());
+  std::vector<std::uint32_t> const fs_spv(fragment_spirv.begin(), fragment_spirv.end());
+  if (auto built = pipe.complete(ctx, render_pass, vs_spv, fs_spv, buffers); !built) {
+    pipe.destroy();
+    return built.error();
+  }
+  return pipe;
+}
+
+auto graphics_pipeline::create(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  std::span<storage_binding const> buffers) -> result<graphics_pipeline>
+{
+  if (vertex_glsl.empty() || fragment_glsl.empty()) {
+    return make_error(errc::invalid_argument, "graphics_pipeline::create requires non-empty GLSL");
+  }
+  VKEXEC_LEAF_AUTO(vertex_spirv,
+    compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
+  VKEXEC_LEAF_AUTO(fragment_spirv,
+    compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
+  return create(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, buffers);
+}
 
 auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) const -> result<VkShaderModule>
 {
@@ -35,15 +96,15 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   VkRenderPass render_pass,
   std::vector<std::uint32_t> const &vs_spv,
   std::vector<std::uint32_t> const &fs_spv,
-  std::span<edsl::storage_trace const> buffers) -> status
+  std::span<storage_binding const> buffers) -> status
 {
   buffers_.clear();
   buffers_.reserve(buffers.size());
-  std::ranges::transform(buffers, std::back_inserter(buffers_), [](edsl::storage_trace const &buffer) -> bound_buffer {
+  std::ranges::transform(buffers, std::back_inserter(buffers_), [](storage_binding const &buffer) -> bound_buffer {
     return bound_buffer{
-      .binding = static_cast<std::uint32_t>(buffer.binding),
-      .buffer = static_cast<VkBuffer>(buffer.vk_buffer),
-      .byte_size = static_cast<VkDeviceSize>(buffer.byte_size),
+      .binding = buffer.binding,
+      .buffer = buffer.buffer,
+      .byte_size = buffer.byte_size,
     };
   });
 
@@ -221,6 +282,66 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   vkDestroyShaderModule(device_, vert_module, nullptr);
   if (created != VK_SUCCESS) { return make_vk_error(created, "vkCreateGraphicsPipelines failed"); }
   return {};
+}
+
+auto graphics_pipeline::bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void
+{
+  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
+
+  if (descriptor_set_ != VK_NULL_HANDLE) {
+    std::vector<VkDescriptorBufferInfo> infos(buffers_.size());
+    std::vector<VkWriteDescriptorSet> writes(buffers_.size());
+    for (std::size_t index = 0; index < buffers_.size(); ++index) {
+      infos.at(index).buffer = buffers_.at(index).buffer;
+      infos.at(index).offset = 0;
+      infos.at(index).range = buffers_.at(index).byte_size;
+      writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      writes.at(index).dstSet = descriptor_set_;
+      writes.at(index).dstBinding = buffers_.at(index).binding;
+      writes.at(index).descriptorCount = 1;
+      writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      writes.at(index).pBufferInfo = &infos.at(index);
+    }
+    vkUpdateDescriptorSets(device_, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout_, 0, 1, &descriptor_set_, 0, nullptr);
+  }
+
+  VkViewport viewport{};
+  viewport.x = 0.0F;
+  viewport.y = 0.0F;
+  viewport.width = static_cast<float>(extent.width);
+  viewport.height = static_cast<float>(extent.height);
+  viewport.minDepth = 0.0F;
+  viewport.maxDepth = 1.0F;
+  vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+  VkRect2D scissor{};
+  scissor.offset = { .x = 0, .y = 0 };
+  scissor.extent = extent;
+  vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+
+auto graphics_pipeline::begin_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent) const -> void
+{
+  std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(cfg_);
+  VkRenderPassBeginInfo rp_begin{};
+  rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  rp_begin.renderPass = render_pass;
+  rp_begin.framebuffer = framebuffer;
+  rp_begin.renderArea.offset = { .x = 0, .y = 0 };
+  rp_begin.renderArea.extent = extent;
+  rp_begin.clearValueCount = k_graphics_clear_count;
+  rp_begin.pClearValues = clears.data();
+  vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
+{
+  bind_draw_state(cmd, extent);
+  vkCmdDraw(cmd, vertex_count, 1, 0, 0);
 }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void
