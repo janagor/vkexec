@@ -26,7 +26,7 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,
@@ -36,11 +36,11 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
       .usage = vkexec::image_usage::color_storage,
     });
   REQUIRE(img_result.has_value());
-  auto &img = vkexec::detail::leaf_get(img_result);
+  auto &img = vkexec::detail::expected_get(img_result);
 
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::leaf_take(cmd_result);
+  auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

@@ -168,10 +168,10 @@ namespace detail {
 
         auto opened = submit_scope::open(*ctx);
         if (!opened) {
-          ex::set_error(std::move(rcvr), to_error(opened.error()));
+          ex::set_error(std::move(rcvr), std::move(opened.error()));
           return;
         }
-        ex::set_value(std::move(rcvr), leaf_take(opened));
+        ex::set_value(std::move(rcvr), expected_take(opened));
       }
     };
 
@@ -204,7 +204,7 @@ namespace detail {
         context *const host = scope.ctx;
         if (auto submitted = host->submit_and_wait(scope.cmd); !submitted) {
           scope.release();
-          ex::set_error(std::move(receiver), to_error(submitted.error()));
+          ex::set_error(std::move(receiver), std::move(submitted.error()));
           return;
         }
         scope.release();
@@ -258,7 +258,7 @@ namespace detail {
         if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
           reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
           scope.release();
-          ex::set_error(std::move(rcvr), to_error(submitted.error()));
+          ex::set_error(std::move(rcvr), std::move(submitted.error()));
           return;
         }
 

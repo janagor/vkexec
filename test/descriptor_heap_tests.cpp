@@ -42,12 +42,12 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   REQUIRE(layout_result.has_value());
-  auto const &layout = vkexec::detail::leaf_get(layout_result);
+  auto const &layout = vkexec::detail::expected_get(layout_result);
   REQUIRE(layout.descriptor_stride > 0);
   REQUIRE(layout.buffer_descriptor_size > 0);
 
@@ -74,7 +74,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
 
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::leaf_take(cmd_result);
+  auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

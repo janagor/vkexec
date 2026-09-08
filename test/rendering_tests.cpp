@@ -31,6 +31,7 @@ auto skip_if_unavailable(vkexec::error const &err) -> void
 
 }// namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rendering][gpu]")
 {
   VkPhysicalDeviceVulkan13Features features_13{};
@@ -43,7 +44,7 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   requirements.require_extension_feature(features_13);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,
@@ -58,7 +59,7 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
 
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::leaf_take(cmd_result);
+  auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

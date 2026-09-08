@@ -2,8 +2,6 @@
 
 #include <vkexec/error.hpp>
 
-#include <boost/leaf/error.hpp>
-
 #include <vulkan/vulkan_core.h>
 
 #include <string>
@@ -11,12 +9,12 @@
 
 namespace vkexec {
 
-auto make_vk_error(VkResult result, std::string_view context) -> leaf::error_id
+auto make_vk_error(VkResult result, std::string_view context) -> error
 {
-  return detail::stash_error(error{
+  return error{
     .code = make_vk_error_code(static_cast<int>(result)),
     .detail = std::string(context),
-  });
+  };
 }
 
 }// namespace vkexec

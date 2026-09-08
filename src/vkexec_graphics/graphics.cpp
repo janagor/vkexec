@@ -48,7 +48,7 @@ auto graphics_pipeline::create(context &ctx,
   std::span<storage_binding const> buffers) -> result<graphics_pipeline>
 {
   if (vertex_spirv.empty() || fragment_spirv.empty()) {
-    return make_error(errc::invalid_argument, "graphics_pipeline::create requires non-empty SPIR-V");
+    return fail(errc::invalid_argument, "graphics_pipeline::create requires non-empty SPIR-V");
   }
   graphics_pipeline pipe;
   pipe.device_ = ctx.device();
@@ -57,7 +57,7 @@ auto graphics_pipeline::create(context &ctx,
   std::vector<std::uint32_t> const fs_spv(fragment_spirv.begin(), fragment_spirv.end());
   if (auto built = pipe.complete(ctx, render_pass, vs_spv, fs_spv, buffers); !built) {
     pipe.destroy();
-    return built.error();
+    return fail(built);
   }
   return pipe;
 }
@@ -70,11 +70,11 @@ auto graphics_pipeline::create(context &ctx,
   std::span<storage_binding const> buffers) -> result<graphics_pipeline>
 {
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
-    return make_error(errc::invalid_argument, "graphics_pipeline::create requires non-empty GLSL");
+    return fail(errc::invalid_argument, "graphics_pipeline::create requires non-empty GLSL");
   }
-  VKEXEC_LEAF_AUTO(vertex_spirv,
+  VKEXEC_TRY_ASSIGN(vertex_spirv,
     compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
-  VKEXEC_LEAF_AUTO(fragment_spirv,
+  VKEXEC_TRY_ASSIGN(fragment_spirv,
     compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
   return create(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, buffers);
 }
@@ -87,7 +87,7 @@ auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) c
   create_info.pCode = spirv.data();
   VkShaderModule module{ VK_NULL_HANDLE };
   if (VkResult const result = vkCreateShaderModule(device_, &create_info, nullptr, &module); result != VK_SUCCESS) {
-    return make_vk_error(result, "vkCreateShaderModule failed");
+    return fail(result, "vkCreateShaderModule failed");
   }
   return module;
 }
@@ -122,7 +122,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     dslci.pBindings = bindings.data();
     if (VkResult const result = vkCreateDescriptorSetLayout(device_, &dslci, nullptr, &set_layout_);
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vkCreateDescriptorSetLayout failed (graphics)");
+      return fail(result, "vkCreateDescriptorSetLayout failed (graphics)");
     }
 
     VkDescriptorPoolSize pool_size{};
@@ -135,7 +135,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     dpci.pPoolSizes = &pool_size;
     if (VkResult const result = vkCreateDescriptorPool(device_, &dpci, nullptr, &descriptor_pool_);
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vkCreateDescriptorPool failed (graphics)");
+      return fail(result, "vkCreateDescriptorPool failed (graphics)");
     }
 
     VkDescriptorSetAllocateInfo dsai{};
@@ -144,17 +144,17 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     dsai.descriptorSetCount = 1;
     dsai.pSetLayouts = &set_layout_;
     if (VkResult const result = vkAllocateDescriptorSets(device_, &dsai, &descriptor_set_); result != VK_SUCCESS) {
-      return make_vk_error(result, "vkAllocateDescriptorSets failed (graphics)");
+      return fail(result, "vkAllocateDescriptorSets failed (graphics)");
     }
   }
 
-  VKEXEC_LEAF_AUTO(vert_module, create_module(vs_spv));
+  VKEXEC_TRY_ASSIGN(vert_module, create_module(vs_spv));
   auto frag = create_module(fs_spv);
   if (!frag) {
     vkDestroyShaderModule(device_, vert_module, nullptr);
-    return frag.error();
+    return fail(frag);
   }
-  VkShaderModule frag_module = detail::leaf_take(frag);
+  VkShaderModule frag_module = detail::expected_take(frag);
 
   static constexpr std::size_t k_graphics_stage_count = 2;
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
@@ -259,7 +259,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     layout_result != VK_SUCCESS) {
     vkDestroyShaderModule(device_, frag_module, nullptr);
     vkDestroyShaderModule(device_, vert_module, nullptr);
-    return make_vk_error(layout_result, "vkCreatePipelineLayout failed");
+    return fail(layout_result, "vkCreatePipelineLayout failed");
   }
 
   VkGraphicsPipelineCreateInfo gpci{};
@@ -280,7 +280,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   VkResult const created = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &gpci, nullptr, &pipeline_);
   vkDestroyShaderModule(device_, frag_module, nullptr);
   vkDestroyShaderModule(device_, vert_module, nullptr);
-  if (created != VK_SUCCESS) { return make_vk_error(created, "vkCreateGraphicsPipelines failed"); }
+  if (created != VK_SUCCESS) { return fail(created, "vkCreateGraphicsPipelines failed"); }
   return {};
 }
 
@@ -364,7 +364,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   record_draw(cmd, extent, vertex_count);
   vkCmdEndRenderPass(cmd);
   if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return make_vk_error(result, "vkEndCommandBuffer failed");
+    return fail(result, "vkEndCommandBuffer failed");
   }
   return {};
 }
@@ -379,7 +379,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   record_draw(cmd, extent, drawn);
   vkCmdEndRenderPass(cmd);
   if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return make_vk_error(result, "vkEndCommandBuffer failed");
+    return fail(result, "vkEndCommandBuffer failed");
   }
   return {};
 }

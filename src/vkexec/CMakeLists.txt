@@ -30,8 +30,6 @@ target_link_libraries(
   vkexec
   PUBLIC vkexec_options
          vkexec_warnings
-         Boost::system
-         Boost::leaf
          Vulkan::Vulkan
          STDEXEC::stdexec
          vk-bootstrap::vk-bootstrap

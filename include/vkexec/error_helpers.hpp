@@ -13,14 +13,17 @@
 
 namespace vkexec {
 
-[[nodiscard]] auto make_vk_error(VkResult result, std::string_view context) -> leaf::error_id;
+[[nodiscard]] auto make_vk_error(VkResult result, std::string_view context) -> error;
+
+[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> std::unexpected<error>
+{ return fail(make_vk_error(result, context)); }
 
 template<typename T>
 [[nodiscard, clang::suppress]] auto vkb_take(vkb::Result<T> const &result) -> T
 { return *result; }
 
 template<typename T>
-[[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> leaf::error_id
+[[nodiscard]] inline auto make_error_from_vkb(vkb::Result<T> const &result, char const *what) -> error
 {
   std::string detail = what;
   detail += ": ";

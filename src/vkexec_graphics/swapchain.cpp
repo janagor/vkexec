@@ -19,12 +19,12 @@ namespace vkexec {
 
 auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapchain>
 {
-  if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "swapchain requires a VkDevice"); }
+  if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
   if (info.surface == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "swapchain requires a VkSurfaceKHR");
+    return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR");
   }
   if (ctx.present_queue() == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "swapchain requires a present queue");
+    return fail(errc::invalid_argument, "swapchain requires a present queue");
   }
 
   swapchain created;
@@ -34,7 +34,7 @@ auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapc
   created.preferred_color_space_ = info.preferred_color_space;
   created.present_mode_ = info.present_mode;
   if (auto created_swapchain = created.create_or_recreate(info.width, info.height); !created_swapchain) {
-    return created_swapchain.error();
+    return fail(created_swapchain);
   }
   return created;
 }
@@ -79,21 +79,21 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
   -> result<std::optional<std::uint32_t>>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "swapchain::acquire_next_image on empty swapchain");
+    return fail(errc::invalid_argument, "swapchain::acquire_next_image on empty swapchain");
   }
 
   std::uint32_t image_index = 0;
   VkResult const result =
     vkAcquireNextImageKHR(ctx_->device(), swapchain_.swapchain, timeout, image_available, VK_NULL_HANDLE, &image_index);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return std::optional<std::uint32_t>{}; }
-  if (result != VK_SUCCESS) { return make_vk_error(result, "vkAcquireNextImageKHR failed"); }
+  if (result != VK_SUCCESS) { return fail(result, "vkAcquireNextImageKHR failed"); }
   return image_index;
 }
 
 auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "swapchain::present on empty swapchain");
+    return fail(errc::invalid_argument, "swapchain::present on empty swapchain");
   }
 
   VkPresentInfoKHR present_info{};
@@ -106,13 +106,13 @@ auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> 
 
   VkResult const result = vkQueuePresentKHR(ctx_->present_queue(), &present_info);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return false; }
-  if (result != VK_SUCCESS) { return make_vk_error(result, "vkQueuePresentKHR failed"); }
+  if (result != VK_SUCCESS) { return fail(result, "vkQueuePresentKHR failed"); }
   return true;
 }
 
 auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) -> status
 {
-  if (width == 0 || height == 0) { return make_error(errc::invalid_argument, "swapchain extent must be > 0"); }
+  if (width == 0 || height == 0) { return fail(errc::invalid_argument, "swapchain extent must be > 0"); }
 
   destroy_views();
   images_.clear();
@@ -125,7 +125,7 @@ auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) ->
                    .set_old_swapchain(old_swapchain);
 
   auto const built = builder.build();
-  if (!built) { return make_error_from_vkb(built, "vk-bootstrap SwapchainBuilder"); }
+  if (!built) { return fail(make_error_from_vkb(built, "vk-bootstrap SwapchainBuilder")); }
   swapchain_ = built.value();
   if (old_swapchain.swapchain != VK_NULL_HANDLE) { vkb::destroy_swapchain(old_swapchain); }
 
@@ -133,11 +133,11 @@ auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) ->
   extent_ = swapchain_.extent;
 
   auto const got_images = swapchain_.get_images();
-  if (!got_images) { return make_error_from_vkb(got_images, "vk-bootstrap Swapchain::get_images"); }
+  if (!got_images) { return fail(make_error_from_vkb(got_images, "vk-bootstrap Swapchain::get_images")); }
   images_ = got_images.value();
 
   auto const got_views = swapchain_.get_image_views();
-  if (!got_views) { return make_error_from_vkb(got_views, "vk-bootstrap Swapchain::get_image_views"); }
+  if (!got_views) { return fail(make_error_from_vkb(got_views, "vk-bootstrap Swapchain::get_image_views")); }
   views_ = got_views.value();
   return {};
 }

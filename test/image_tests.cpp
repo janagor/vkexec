@@ -24,7 +24,7 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("image color_storage allocates a device-local target", "[vkexec][image][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,
@@ -43,7 +43,7 @@ TEST_CASE("image color_storage allocates a device-local target", "[vkexec][image
 TEST_CASE("image depth allocates a depth attachment", "[vkexec][image][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,
@@ -60,7 +60,7 @@ TEST_CASE("image depth allocates a depth attachment", "[vkexec][image][gpu]")
 TEST_CASE("image_view wraps a color image", "[vkexec][image][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto img_result = vkexec::image::create(ctx,

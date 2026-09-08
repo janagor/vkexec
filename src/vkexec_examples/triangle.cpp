@@ -1,5 +1,3 @@
-#include <boost/leaf/handle_errors.hpp>
-#include <boost/leaf/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -20,35 +18,28 @@ constexpr std::uint32_t k_window_height = 600;
 constexpr std::uint32_t k_triangle_vertices = 3;
 }// namespace
 
+// NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
 {
-  return vkexec::leaf::try_handle_all(
-    []() -> vkexec::leaf::result<int> {
-      VKEXEC_LEAF_AUTO(win,
-        vkexec::window::create({ .width = k_window_width,
-          .height = k_window_height,
-          .title = "vkexec triangle",
-          .validation_layers = true }));
+  try {
+    auto win = vkexec::value_or_throw(vkexec::window::create({ .width = k_window_width,
+      .height = k_window_height,
+      .title = "vkexec triangle",
+      .validation_layers = true }));
 
-      VKEXEC_LEAF_AUTO(pipeline,
-        vkexec::graphics_pipeline::create(
-          win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
+    auto pipeline = vkexec::value_or_throw(vkexec::graphics_pipeline::create(
+      win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
-      std::println("vkexec triangle (stdexec frame pipeline) - close the window to exit");
-      while (!win.should_close()) {
-        win.poll_events();
-        (void)vkexec::sync_wait(
-          ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices));
-      }
-      win.wait_idle();
-      return 0;
-    },
-    [](vkexec::error const &error) -> int {
-      std::println(stderr, "vkexec triangle example failed: {}", error.message());
-      return 1;
-    },
-    [] -> int {
-      std::println(stderr, "vkexec triangle example failed");
-      return 1;
-    });
+    std::println("vkexec triangle (stdexec frame pipeline) - close the window to exit");
+    while (!win.should_close()) {
+      win.poll_events();
+      (void)vkexec::sync_wait(
+        ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices));
+    }
+    win.wait_idle();
+    return 0;
+  } catch (vkexec::error const &error) {
+    std::println(stderr, "vkexec triangle example failed: {}", error.message());
+    return 1;
+  }
 }

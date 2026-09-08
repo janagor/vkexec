@@ -27,10 +27,10 @@ TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
 
 TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
 {
-  vkexec::error const with_detail = vkexec::to_error(vkexec::make_error(vkexec::errc::parse_error, "bad glsl"));
+  vkexec::error const with_detail = vkexec::make_error(vkexec::errc::parse_error, "bad glsl");
   REQUIRE(with_detail.message() == "bad glsl");
 
-  vkexec::error const without_detail = vkexec::to_error(vkexec::make_error(vkexec::errc::parse_error));
+  vkexec::error const without_detail = vkexec::make_error(vkexec::errc::parse_error);
   REQUIRE(without_detail.message() == "parse error");
 }
 
@@ -46,11 +46,11 @@ TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]
 
 TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vulkan]")
 {
-  vkexec::error const with_context = vkexec::to_error(vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, "submit failed"));
+  vkexec::error const with_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, "submit failed");
   REQUIRE(with_context.code == vkexec::make_vk_error_code(VK_ERROR_DEVICE_LOST));
   REQUIRE(with_context.message() == "submit failed");
 
-  vkexec::error const without_context = vkexec::to_error(vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, {}));
+  vkexec::error const without_context = vkexec::make_vk_error(VK_ERROR_DEVICE_LOST, {});
   REQUIRE(without_context.message() == "device lost");
 }
 
@@ -87,7 +87,7 @@ TEST_CASE("context::create returns unsupported when requirements cannot be met",
 
   auto created = vkexec::context::create({ .requirements = std::move(requirements) });
   REQUIRE_FALSE(created.has_value());
-  auto const err = vkexec::to_error(created.error());
+  vkexec::error const &err = created.error();
   REQUIRE(err.code == vkexec::make_error_code(vkexec::errc::unsupported));
   REQUIRE_FALSE(err.message().empty());
 }
@@ -96,7 +96,7 @@ TEST_CASE("context::create succeeds for default requirements", "[vkexec][error][
 {
   auto created = vkexec::context::create();
   if (!created.has_value()) {
-    SKIP(std::string("Vulkan unavailable: ") + std::string(vkexec::to_error(created.error()).message()));
+    SKIP(std::string("Vulkan unavailable: ") + std::string(created.error().message()));
   }
   REQUIRE((*created)->device() != VK_NULL_HANDLE);
 }

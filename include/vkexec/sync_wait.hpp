@@ -5,11 +5,9 @@
 
 #include <stdexec/execution.hpp>
 
-#include <exception>
-#include <optional>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef VKEXEC_ENABLE_EXCEPTIONS
+#define VKEXEC_ENABLE_EXCEPTIONS 1
+#endif
 
 namespace vkexec {
 
@@ -50,6 +48,7 @@ namespace detail {
       state->loop.finish();
     }
 
+    // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
     auto set_error(error &&err) noexcept -> void
     {
       state->wait_error.emplace(std::move(err));
@@ -96,7 +95,7 @@ namespace detail {
     ex::sender_in<CvSender, sync_wait_env> && ex::sender_to<CvSender, sync_wait_receiver_t<CvSender>>;
 
   template<sync_waitable_sender CvSender>
-  auto sync_wait_impl(CvSender &&sender) -> result<std::optional<sync_wait_value_tuple_t<CvSender>>>
+  auto sync_wait_expected_impl(CvSender &&sender) -> result<std::optional<sync_wait_value_tuple_t<CvSender>>>
   {
     sync_wait_state state{};
     std::optional<sync_wait_value_tuple_t<CvSender>> values{};
@@ -105,21 +104,29 @@ namespace detail {
     ex::start(operation);
     state.loop.run();
 
-    if (state.wait_error) { return leaf::new_error(std::move(*state.wait_error)); }
+    if (state.wait_error) { return std::unexpected(std::move(*state.wait_error)); }
     if (state.stopped) { return std::optional<sync_wait_value_tuple_t<CvSender>>{}; }
     return values;
   }
 
 }// namespace detail
 
-/// Exception-free blocking wait for vkexec senders using `set_error_t(vkexec::error)`.
-///
-/// - Success: `result` holds `optional` with the value tuple.
-/// - Stopped: `result` holds disengaged `optional` (not an error).
-/// - Failure: failed `leaf::result` carrying `vkexec::error`.
+#if VKEXEC_ENABLE_EXCEPTIONS
+
+/// Blocking wait using stdexec semantics: throws `vkexec::error` on `set_error`, disengaged optional on stop.
+template<ex::sender Sender>
+  requires ex::sender_to<Sender, detail::sync_wait_receiver_t<Sender>>
+[[nodiscard]] auto sync_wait(Sender &&sender) -> std::optional<detail::sync_wait_value_tuple_t<Sender>>
+{ return ex::sync_wait(std::forward<Sender>(sender)); }
+
+#else
+
+/// Non-throwing blocking wait for `-fno-exceptions` builds.
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto sync_wait(Sender &&sender) -> result<std::optional<detail::sync_wait_value_tuple_t<Sender>>>
-{ return detail::sync_wait_impl(std::forward<Sender>(sender)); }
+{ return detail::sync_wait_expected_impl(std::forward<Sender>(sender)); }
+
+#endif
 
 }// namespace vkexec
 

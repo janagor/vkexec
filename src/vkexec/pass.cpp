@@ -56,7 +56,7 @@ auto record_heap_pass(context const &ctx,
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
   if (!push.empty()) {
-    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed.error(); }
+    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return fail(pushed); }
   }
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
   return {};
@@ -70,7 +70,7 @@ auto record_heap_pass(context const &ctx,
 {
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
   if (!push.empty()) {
-    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return pushed.error(); }
+    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return fail(pushed); }
   }
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
   return {};
@@ -106,7 +106,7 @@ namespace detail {
   auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
   {
     for (pass_step const &step : steps) {
-      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) { return recorded.error(); }
+      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) { return fail(recorded); }
     }
     return scope.end_recording();
   }
@@ -114,11 +114,11 @@ namespace detail {
   auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>
   {
     auto opened = submit_scope::open(*ctx);
-    if (!opened) { return opened.error(); }
-    submit_scope scope = leaf_take(opened);
+    if (!opened) { return fail(opened); }
+    submit_scope scope = expected_take(opened);
     if (auto recorded = record_pass_steps(scope, steps); !recorded) {
       scope.release();
-      return recorded.error();
+      return fail(recorded);
     }
     return scope;
   }

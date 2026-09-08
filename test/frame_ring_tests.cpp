@@ -30,15 +30,15 @@ auto open_timeline_context() -> std::unique_ptr<vkexec::context>
   requirements.require_extension_feature(features_12);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
-  return vkexec::detail::leaf_take(ctx_result);
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
+  return vkexec::detail::expected_take(ctx_result);
 }
 
 auto record_empty(vkexec::context &ctx) -> VkCommandBuffer
 {
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::leaf_take(cmd_result);
+  auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -56,7 +56,7 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
   auto ring_result =
     vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 3 });
   REQUIRE(ring_result.has_value());
-  auto &ring = vkexec::detail::leaf_get(ring_result);
+  auto &ring = vkexec::detail::expected_get(ring_result);
   REQUIRE(ring.slot_count() == 2);
   REQUIRE(ring.image_count() == 3);
   auto const acquire0 = ring.acquire_semaphore(0);
@@ -81,7 +81,7 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
   auto ring_result =
     vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
   REQUIRE(ring_result.has_value());
-  auto &ring = vkexec::detail::leaf_get(ring_result);
+  auto &ring = vkexec::detail::expected_get(ring_result);
 
   // Prime the acquire semaphore so the wait is satisfied without a real swapchain acquire.
   {
@@ -122,7 +122,7 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
   auto ring_result =
     vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
   REQUIRE(ring_result.has_value());
-  auto &ring = vkexec::detail::leaf_get(ring_result);
+  auto &ring = vkexec::detail::expected_get(ring_result);
   auto const old_finished = ring.render_finished_semaphore(0);
   REQUIRE(old_finished.has_value());
 

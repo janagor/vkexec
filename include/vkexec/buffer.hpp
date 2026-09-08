@@ -3,6 +3,11 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
+
+#ifndef VKEXEC_ENABLE_EXCEPTIONS
+#define VKEXEC_ENABLE_EXCEPTIONS 1
+#endif
+
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/sync_wait.hpp>
@@ -58,9 +63,9 @@ template<typename T> struct buffer_allocate_sender
       }
 
       if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
-        ex::set_value(std::move(rcvr), detail::leaf_take(allocated));
+        ex::set_value(std::move(rcvr), detail::expected_take(allocated));
       } else {
-        ex::set_error(std::move(rcvr), to_error(allocated.error()));
+        ex::set_error(std::move(rcvr), std::move(allocated.error()));
       }
     }
   };
@@ -90,10 +95,16 @@ public:
   /// Synchronous allocate: `sync_wait(allocate(...))`.
   [[nodiscard]] static auto create_sync(context &ctx, std::size_t count, T fill = T{}) -> result<buffer<T>>
   {
+#if VKEXEC_ENABLE_EXCEPTIONS
     auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
-    if (!waited) { return waited.error(); }
-    if (!waited->has_value()) { return make_error(errc::cancelled, "buffer allocate was stopped"); }
+    if (!waited.has_value()) { return fail(errc::cancelled, "buffer allocate was stopped"); }
+    return std::get<0>(std::move(*waited));
+#else
+    auto waited = sync_wait(allocate(ctx, count, std::move(fill)));
+    if (!waited) { return fail(waited); }
+    if (!waited->has_value()) { return fail(errc::cancelled, "buffer allocate was stopped"); }
     return std::get<0>(std::move(**waited));
+#endif
   }
 
   ~buffer()
@@ -166,7 +177,7 @@ private:
   [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> result<buffer>
   {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (count == 0) { return make_error(errc::invalid_argument, "vkexec::buffer count must be > 0"); }
+    if (count == 0) { return fail(errc::invalid_argument, "vkexec::buffer count must be > 0"); }
 
     auto const bytes = static_cast<VkDeviceSize>(count * sizeof(T));
 
@@ -186,11 +197,11 @@ private:
     VmaAllocationInfo ainfo{};
     if (VkResult const created = vmaCreateBuffer(ctx.allocator(), &bci, &aci, &handle, &allocation, &ainfo);
       created != VK_SUCCESS) {
-      return make_vk_error(created, "vmaCreateBuffer failed");
+      return fail(created, "vmaCreateBuffer failed");
     }
     if (ainfo.pMappedData == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), handle, allocation);
-      return make_error(errc::io_error, "vmaCreateBuffer did not map host-visible memory");
+      return fail(errc::io_error, "vmaCreateBuffer did not map host-visible memory");
     }
 
     auto *const elems = static_cast<T *>(ainfo.pMappedData);

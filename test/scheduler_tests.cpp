@@ -38,7 +38,7 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
 TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto const caller = std::this_thread::get_id();
@@ -49,7 +49,6 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
   auto waited = vkexec::sync_wait(
     ex::schedule(ctx.get_scheduler()) | ex::then([&]() -> void { completed_on = std::this_thread::get_id(); }));
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 
   REQUIRE(completed_on == agent);
   REQUIRE(completed_on != caller);
@@ -58,7 +57,7 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
 TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][scheduler][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto const caller = std::this_thread::get_id();
@@ -68,7 +67,6 @@ TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][schedu
   auto waited = vkexec::sync_wait(
     ex::starts_on(ctx.get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 
   REQUIRE(ran_on == agent);
   REQUIRE(ran_on != caller);

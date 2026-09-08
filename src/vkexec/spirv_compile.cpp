@@ -109,7 +109,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
     detail += name;
     detail += ":\n";
     detail += shader.getInfoLog();
-    return make_error(errc::parse_error, detail);
+    return fail(errc::parse_error, detail);
   }
 
   glslang::TProgram program;
@@ -119,7 +119,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
     detail += name;
     detail += ":\n";
     detail += program.getInfoLog();
-    return make_error(errc::parse_error, detail);
+    return fail(errc::parse_error, detail);
   }
 
   std::vector<std::uint32_t> spirv;
@@ -128,7 +128,7 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
   options.disableOptimizer = false;
   options.optimizeSize = false;
   glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
-  if (spirv.empty()) { return make_error(errc::empty_result, "SPIR-V emission produced empty module"); }
+  if (spirv.empty()) { return fail(errc::empty_result, "SPIR-V emission produced empty module"); }
   return spirv;
 }
 

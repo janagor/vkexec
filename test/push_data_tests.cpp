@@ -38,14 +38,14 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   requirements.require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   REQUIRE(ctx.procs().cmd_push_data != nullptr);
 
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::leaf_take(cmd_result);
+  auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

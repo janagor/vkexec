@@ -51,7 +51,7 @@ TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec]
   requirements.require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto pipe = vkexec::compute_pipeline::create(ctx,
@@ -84,7 +84,7 @@ TEST_CASE("compute_pass records bindless push data for heap pipelines", "[vkexec
   requirements.require_extension_feature(features_heap);
 
   auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto pipe = vkexec::compute_pipeline::create(ctx,
@@ -103,5 +103,4 @@ TEST_CASE("compute_pass records bindless push data for heap pipelines", "[vkexec
   auto waited =
     vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, k_work_count));
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 }

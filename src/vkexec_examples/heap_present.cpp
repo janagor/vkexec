@@ -1,4 +1,3 @@
-#include <boost/leaf/handle_errors.hpp>
 #include <vkexec/barrier.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
@@ -22,15 +21,15 @@
 
 #include <stdexec/execution.hpp>
 
-#include <boost/leaf/result.hpp>
-
 #include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <print>
 #include <string_view>
+#include <utility>
 
 namespace ex = stdexec;
 namespace {
@@ -89,19 +88,19 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
       .height = k_height,
       .usage = vkexec::image_usage::color_storage,
     });
-  if (!img_result) { return img_result.error(); }
-  auto &img = vkexec::detail::leaf_get(img_result);
+  if (!img_result) { return std::unexpected(std::move(img_result.error())); }
+  auto &img = vkexec::detail::expected_get(img_result);
   auto view_result = vkexec::image_view::create(ctx, img);
-  if (!view_result) { return view_result.error(); }
+  if (!view_result) { return std::unexpected(std::move(view_result.error())); }
 
   auto cmd_result = ctx.allocate_command_buffer();
-  if (!cmd_result) { return cmd_result.error(); }
-  auto *cmd = vkexec::detail::leaf_take(cmd_result);
+  if (!cmd_result) { return std::unexpected(std::move(cmd_result.error())); }
+  auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-    return vkexec::make_vk_error(VK_ERROR_UNKNOWN, "vkBeginCommandBuffer failed (dynamic rendering)");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkBeginCommandBuffer failed (dynamic rendering)");
   }
 
   vkexec::image_barrier(cmd,
@@ -127,16 +126,16 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
         });
     !began) {
     ctx.free_command_buffer(cmd);
-    return began.error();
+    return std::unexpected(std::move(began.error()));
   }
   if (auto ended = vkexec::cmd_end_rendering(cmd); !ended) {
     ctx.free_command_buffer(cmd);
-    return ended.error();
+    return std::unexpected(std::move(ended.error()));
   }
 
   if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);
-    return vkexec::make_vk_error(VK_ERROR_UNKNOWN, "vkEndCommandBuffer failed");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkEndCommandBuffer failed");
   }
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
 
@@ -145,7 +144,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   VkFence fence{ VK_NULL_HANDLE };
   if (vkCreateFence(ctx.device(), &fence_info, nullptr, &fence) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);
-    return vkexec::make_vk_error(VK_ERROR_UNKNOWN, "vkCreateFence failed (dynamic rendering)");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkCreateFence failed (dynamic rendering)");
   }
 
   if (auto submitted = ctx.submit(vkexec::queue_submit{
@@ -156,12 +155,12 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
     !submitted) {
     vkDestroyFence(ctx.device(), fence, nullptr);
     ctx.free_command_buffer(cmd);
-    return submitted.error();
+    return std::unexpected(std::move(submitted.error()));
   }
   if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
     vkDestroyFence(ctx.device(), fence, nullptr);
     ctx.free_command_buffer(cmd);
-    return vkexec::make_vk_error(VK_ERROR_UNKNOWN, "vkWaitForFences failed (dynamic rendering)");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkWaitForFences failed (dynamic rendering)");
   }
   vkDestroyFence(ctx.device(), fence, nullptr);
   ctx.free_command_buffer(cmd);
@@ -174,7 +173,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
 
   auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   if (!layout_result) { return false; }
-  auto const &layout = vkexec::detail::leaf_get(layout_result);
+  auto const &layout = vkexec::detail::expected_get(layout_result);
   auto storage_result = vkexec::gpu_buffer::create(ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
@@ -210,7 +209,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
   heap_push const params{ .count = k_work_count };
   auto waited =
     vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, params, k_work_count));
-  return waited.has_value() && waited->has_value();
+  return waited.has_value();
 }
 
 auto present_frames(vkexec::window &win, vkexec::graphics_pipeline &pipeline) -> void
@@ -223,43 +222,37 @@ auto present_frames(vkexec::window &win, vkexec::graphics_pipeline &pipeline) ->
 
 }// namespace
 
+// NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
 {
-  return vkexec::leaf::try_handle_all(
-    []() -> vkexec::leaf::result<int> {
-      VKEXEC_LEAF_AUTO(win,
-        vkexec::window::headless(vkexec::window::config{
-          .width = k_width,
-          .height = k_height,
-          .title = "vkexec heap_present",
-          .headless = true,
-          .requirements = make_requirements(),
-        }));
+  try {
+    auto win = vkexec::value_or_throw(vkexec::window::headless(vkexec::window::config{
+      .width = k_width,
+      .height = k_height,
+      .title = "vkexec heap_present",
+      .headless = true,
+      .requirements = make_requirements(),
+    }));
 
-      std::println("heap_present: window ready");
-      if (auto rendered = run_dynamic_rendering(win.ctx()); !rendered) { return rendered.error(); }
-      std::println("heap_present: dynamic rendering ok");
-      if (run_heap_compute(win.ctx())) {
-        std::println("heap_present: bindless heap compute ok");
-      } else {
-        std::println("heap_present: skipped bindless heap compute (extension PFNs unavailable)");
-      }
+    std::println("heap_present: window ready");
+    // NOLINTNEXTLINE(hicpp-exception-baseclass)
+    if (auto rendered = run_dynamic_rendering(win.ctx()); !rendered) { throw std::move(rendered.error()); }
+    std::println("heap_present: dynamic rendering ok");
+    if (run_heap_compute(win.ctx())) {
+      std::println("heap_present: bindless heap compute ok");
+    } else {
+      std::println("heap_present: skipped bindless heap compute (extension PFNs unavailable)");
+    }
 
-      VKEXEC_LEAF_AUTO(pipeline,
-        vkexec::graphics_pipeline::create(
-          win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
+    auto pipeline = vkexec::value_or_throw(vkexec::graphics_pipeline::create(
+      win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
-      present_frames(win, pipeline);
-      win.wait_idle();
-      std::println("heap_present: completed ({} headless frames)", k_present_frames);
-      return 0;
-    },
-    [](vkexec::error const &error) -> int {
-      std::println(stderr, "vkexec heap_present example failed: {}", error.message());
-      return 1;
-    },
-    [] -> int {
-      std::println(stderr, "vkexec heap_present example failed");
-      return 1;
-    });
+    present_frames(win, pipeline);
+    win.wait_idle();
+    std::println("heap_present: completed ({} headless frames)", k_present_frames);
+    return 0;
+  } catch (vkexec::error const &error) {
+    std::println(stderr, "vkexec heap_present example failed: {}", error.message());
+    return 1;
+  }
 }

@@ -10,7 +10,7 @@ namespace vkexec {
 
 auto sampler::create(context &ctx, sampler_create_info info) -> result<sampler>
 {
-  if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "sampler requires a VkDevice"); }
+  if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "sampler requires a VkDevice"); }
 
   VkSamplerCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -32,7 +32,7 @@ auto sampler::create(context &ctx, sampler_create_info info) -> result<sampler>
 
   VkSampler sampler_handle{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateSampler(ctx.device(), &create_info, nullptr, &sampler_handle);
-  if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateSampler failed"); }
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSampler failed"); }
   return sampler{ &ctx, sampler_handle };
 }
 

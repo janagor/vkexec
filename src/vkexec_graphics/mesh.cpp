@@ -42,12 +42,12 @@ namespace {
     if (VkResult const result = vmaCreateBuffer(
           ctx.allocator(), &buffer_info, &alloc_info, &created.buffer, &created.allocation, &mapped_info);
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vmaCreateBuffer failed (mesh)");
+      return fail(result, "vmaCreateBuffer failed (mesh)");
     }
     created.mapped = mapped_info.pMappedData;
     if (created.mapped == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), created.buffer, created.allocation);
-      return make_error(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
+      return fail(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
     }
     return created;
   }
@@ -55,7 +55,7 @@ namespace {
   auto count_as_uint32(std::size_t count, char const *what) -> result<std::uint32_t>
   {
     if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) {
-      return make_error(errc::invalid_argument, what);
+      return fail(errc::invalid_argument, what);
     }
     return static_cast<std::uint32_t>(count);
   }
@@ -66,22 +66,22 @@ auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span
   -> result<mesh>
 {
   mesh created;
-  if (auto initialized = created.init(ctx, vertices, indices); !initialized) { return initialized.error(); }
+  if (auto initialized = created.init(ctx, vertices, indices); !initialized) { return fail(initialized); }
   return created;
 }
 
 auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
 {
-  VKEXEC_LEAF_AUTO(
+  VKEXEC_TRY_ASSIGN(
     vertices_count, count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]"));
-  VKEXEC_LEAF_AUTO(
+  VKEXEC_TRY_ASSIGN(
     indices_count, count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]"));
 
   ctx_ = &ctx;
   vertex_count_ = vertices_count;
   index_count_ = indices_count;
 
-  VKEXEC_LEAF_AUTO(vertex,
+  VKEXEC_TRY_ASSIGN(vertex,
     create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
   vertex_buffer_ = vertex.buffer;
   vertex_allocation_ = vertex.allocation;
@@ -96,9 +96,9 @@ auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<s
     ctx_ = nullptr;
     vertex_count_ = 0;
     index_count_ = 0;
-    return index.error();
+    return fail(index);
   }
-  auto const &index_buf = detail::leaf_get(index);
+  auto const &index_buf = detail::expected_get(index);
   index_buffer_ = index_buf.buffer;
   index_allocation_ = index_buf.allocation;
   std::memcpy(index_buf.mapped, indices.data(), indices.size_bytes());

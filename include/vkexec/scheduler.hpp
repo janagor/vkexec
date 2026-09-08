@@ -64,7 +64,7 @@ struct schedule_sender
       auto state = std::make_shared<shared_state>(std::move(receiver));
       if (status enqueued = ctx->enqueue_host([state]() mutable -> void { ex::set_value(std::move(state->receiver)); });
         !enqueued) {
-        ex::set_error(std::move(state->receiver), to_error(enqueued.error()));
+        ex::set_error(std::move(state->receiver), std::move(enqueued.error()));
       }
     }
   };

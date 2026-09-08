@@ -70,13 +70,13 @@ TEST_CASE("bulk factory stores shape and params", "[vkexec][bulk]")
 TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = vkexec::detail::leaf_get(values_result);
+  auto &values = vkexec::detail::expected_get(values_result);
 
   auto pipeline =
     ex::schedule(ctx.get_scheduler())
@@ -86,7 +86,6 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
       });
   auto waited = vkexec::sync_wait(pipeline);
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::uint32_t index = 0; index < k_work_count; ++index) {
@@ -98,7 +97,7 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
 TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto sender =
@@ -113,19 +112,18 @@ TEST_CASE("bulk traces kernels with no storage buffers", "[vkexec][bulk][gpu]")
   REQUIRE(sender.shape == k_work_count);
   auto waited = vkexec::sync_wait(sender);
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 }
 
 TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = vkexec::detail::leaf_get(values_result);
+  auto &values = vkexec::detail::expected_get(values_result);
 
   auto pipeline = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(k_work_count,
@@ -136,7 +134,6 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
                   | vkexec::submit;
   auto waited = vkexec::sync_wait(pipeline);
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(values.data()[0] - (k_initial + k_add)) <= k_epsilon);
@@ -146,15 +143,15 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
 TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto left_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(left_result.has_value());
   auto right_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(right_result.has_value());
-  auto &left = vkexec::detail::leaf_get(left_result);
-  auto &right = vkexec::detail::leaf_get(right_result);
+  auto &left = vkexec::detail::expected_get(left_result);
+  auto &right = vkexec::detail::expected_get(right_result);
 
   auto make_async = [&](vkexec::buffer<float> &values) -> auto {
     return ex::schedule(ctx.get_scheduler())
@@ -168,7 +165,6 @@ TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu
 
   auto waited = vkexec::sync_wait(ex::when_all(make_async(left), make_async(right)));
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(std::fabs(left.data()[0] - (k_initial + k_add)) <= k_epsilon);
@@ -190,20 +186,19 @@ TEST_CASE("submit completes with set_stopped when stop is already requested", "[
 
   auto const waited =
     vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
-  REQUIRE(waited.has_value());
-  REQUIRE_FALSE(waited->has_value());
+  REQUIRE_FALSE(waited.has_value());
 }
 
 TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vkexec][bulk][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
   auto &ctx = **ctx_result;
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = vkexec::detail::leaf_get(values_result);
+  auto &values = vkexec::detail::expected_get(values_result);
 
   ex::inplace_stop_source source;
   auto pipeline = ex::schedule(ctx.get_scheduler())

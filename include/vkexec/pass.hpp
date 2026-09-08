@@ -134,11 +134,11 @@ struct pass_graph_sender
 
       auto prepared = detail::open_and_record_pass(ctx, steps);
       if (!prepared) {
-        ex::set_error(std::move(rcvr), to_error(prepared.error()));
+        ex::set_error(std::move(rcvr), std::move(prepared.error()));
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_and_wait(detail::leaf_take(prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_and_wait(detail::expected_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };
@@ -191,11 +191,11 @@ struct pass_graph_async_sender
 
       auto prepared = detail::open_and_record_pass(ctx, steps);
       if (!prepared) {
-        ex::set_error(std::move(rcvr), to_error(prepared.error()));
+        ex::set_error(std::move(rcvr), std::move(prepared.error()));
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_fence(detail::leaf_take(prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_fence(detail::expected_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };

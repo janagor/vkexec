@@ -71,7 +71,7 @@ auto allocate_compute_set(context const &ctx,
   dsai.pSetLayouts = &pipe.set_layout;
   VkDescriptorSet set{ VK_NULL_HANDLE };
   if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-    return make_vk_error(result, "vkAllocateDescriptorSets failed");
+    return fail(result, "vkAllocateDescriptorSets failed");
   }
   write_storage_descriptors(ctx.device(), set, buffers);
   return set;
@@ -87,8 +87,8 @@ auto bind_or_allocate_set(context const &ctx,
   }
 
   auto set = allocate_compute_set(ctx, pipe, buffers);
-  if (!set) { return set.error(); }
-  auto *allocated = leaf_take(set);
+  if (!set) { return fail(set); }
+  auto *allocated = expected_take(set);
   cleanup.sets.insert_or_assign(
     &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
   cleanup.track(pipe.descriptor_pool, allocated);
@@ -98,15 +98,15 @@ auto bind_or_allocate_set(context const &ctx,
 auto submit_scope::open(context &host) -> result<submit_scope>
 {
   auto cmd = host.allocate_command_buffer();
-  if (!cmd) { return cmd.error(); }
-  auto *cmd_buf = leaf_take(cmd);
+  if (!cmd) { return fail(cmd); }
+  auto *cmd_buf = expected_take(cmd);
 
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
     host.free_command_buffer(cmd_buf);
-    return make_vk_error(result, "vkBeginCommandBuffer failed");
+    return fail(result, "vkBeginCommandBuffer failed");
   }
 
   submit_scope scope;
@@ -118,9 +118,9 @@ auto submit_scope::open(context &host) -> result<submit_scope>
 // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
 auto submit_scope::end_recording() -> status
 {
-  if (cmd == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "submit_scope has no command buffer"); }
+  if (cmd == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "submit_scope has no command buffer"); }
   if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return make_vk_error(result, "vkEndCommandBuffer failed");
+    return fail(result, "vkEndCommandBuffer failed");
   }
   return {};
 }

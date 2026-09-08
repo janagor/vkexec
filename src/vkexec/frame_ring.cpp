@@ -23,7 +23,7 @@ namespace {
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VkSemaphore semaphore{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateSemaphore(device, &info, nullptr, &semaphore);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateSemaphore (binary) failed"); }
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSemaphore (binary) failed"); }
     return semaphore;
   }
 
@@ -31,10 +31,10 @@ namespace {
 
 auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
 {
-  if (ctx.device() == VK_NULL_HANDLE) { return make_error(errc::invalid_argument, "frame_ring requires a VkDevice"); }
-  if (info.slot_count == 0) { return make_error(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
+  if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }
+  if (info.slot_count == 0) { return fail(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
 
-  VKEXEC_LEAF_AUTO(timeline_sem, timeline_semaphore::create(ctx, 0));
+  VKEXEC_TRY_ASSIGN(timeline_sem, timeline_semaphore::create(ctx, 0));
   frame_ring ring{ &ctx, std::move(timeline_sem) };
   ring.acquire_.resize(info.slot_count, VK_NULL_HANDLE);
   ring.slot_timeline_value_.assign(info.slot_count, 0);
@@ -48,12 +48,12 @@ auto frame_ring::create(context &ctx, create_info info) -> result<frame_ring>
           ring.acquire_.at(index) = VK_NULL_HANDLE;
         }
       }
-      return semaphore_result.error();
+      return fail(semaphore_result);
     }
-    ring.acquire_.at(slot) = detail::leaf_take(semaphore_result);
+    ring.acquire_.at(slot) = detail::expected_take(semaphore_result);
   }
 
-  VKEXEC_LEAF_CHECK(ring.create_image_semaphores(info.image_count));
+  VKEXEC_TRY(ring.create_image_semaphores(info.image_count));
   return ring;
 }
 
@@ -104,25 +104,25 @@ auto frame_ring::reset_completion_tracking() -> void
 
 auto frame_ring::acquire_semaphore(std::size_t slot) const -> result<VkSemaphore>
 {
-  VKEXEC_LEAF_CHECK(check_slot(slot));
+  VKEXEC_TRY(check_slot(slot));
   return acquire_.at(slot);
 }
 
 auto frame_ring::render_finished_semaphore(std::size_t image_index) const -> result<VkSemaphore>
 {
-  VKEXEC_LEAF_CHECK(check_image(image_index));
+  VKEXEC_TRY(check_image(image_index));
   return render_finished_.at(image_index);
 }
 
 auto frame_ring::wait_slot(std::size_t slot) const -> status
 {
-  VKEXEC_LEAF_CHECK(check_slot(slot));
+  VKEXEC_TRY(check_slot(slot));
   return timeline_.wait(slot_timeline_value_.at(slot));
 }
 
 auto frame_ring::wait_image(std::size_t image_index) const -> status
 {
-  VKEXEC_LEAF_CHECK(check_image(image_index));
+  VKEXEC_TRY(check_image(image_index));
   return timeline_.wait(image_timeline_value_.at(image_index));
 }
 
@@ -134,8 +134,8 @@ auto frame_ring::allocate_signal_value() -> std::uint64_t
 
 auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> status
 {
-  VKEXEC_LEAF_CHECK(check_slot(slot));
-  VKEXEC_LEAF_CHECK(check_image(image_index));
+  VKEXEC_TRY(check_slot(slot));
+  VKEXEC_TRY(check_image(image_index));
   slot_timeline_value_.at(slot) = signal_value;
   image_timeline_value_.at(image_index) = signal_value;
   return {};
@@ -148,10 +148,10 @@ auto frame_ring::make_submit_sync(std::size_t slot,
   VkPipelineStageFlags acquire_wait_stage) const -> result<frame_ring_submit_sync>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  VKEXEC_LEAF_CHECK(check_slot(slot));
-  VKEXEC_LEAF_CHECK(check_image(image_index));
+  VKEXEC_TRY(check_slot(slot));
+  VKEXEC_TRY(check_image(image_index));
   if (signal_value == 0) {
-    return make_error(errc::invalid_argument, "frame_ring::make_submit_sync requires signal_value > 0");
+    return fail(errc::invalid_argument, "frame_ring::make_submit_sync requires signal_value > 0");
   }
 
   frame_ring_submit_sync sync{};
@@ -208,23 +208,23 @@ auto frame_ring::create_image_semaphores(std::size_t image_count) -> status
     auto semaphore_result = create_binary_semaphore(ctx_->device());
     if (!semaphore_result) {
       destroy_image_semaphores();
-      return semaphore_result.error();
+      return fail(semaphore_result);
     }
-    render_finished_.at(index) = detail::leaf_take(semaphore_result);
+    render_finished_.at(index) = detail::expected_take(semaphore_result);
   }
   return {};
 }
 
 auto frame_ring::check_slot(std::size_t slot) const -> status
 {
-  if (slot >= acquire_.size()) { return make_error(errc::out_of_range, "frame_ring slot index out of range"); }
+  if (slot >= acquire_.size()) { return fail(errc::out_of_range, "frame_ring slot index out of range"); }
   return {};
 }
 
 auto frame_ring::check_image(std::size_t image_index) const -> status
 {
   if (image_index >= render_finished_.size()) {
-    return make_error(errc::out_of_range, "frame_ring image index out of range");
+    return fail(errc::out_of_range, "frame_ring image index out of range");
   }
   return {};
 }

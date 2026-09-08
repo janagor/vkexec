@@ -52,7 +52,7 @@ namespace {
       vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
       if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) { return format; }
     }
-    return make_error(errc::unsupported, "no supported depth format");
+    return fail(errc::unsupported, "no supported depth format");
   }
 
   auto format_has_stencil(VkFormat format) -> bool
@@ -82,7 +82,7 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
 auto window::create(config cfg) -> result<window>
 {
   window created;
-  if (auto initialized = created.init(std::move(cfg)); !initialized) { return initialized.error(); }
+  if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
   return created;
 }
 
@@ -131,12 +131,12 @@ auto window::init(config cfg) -> status
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       std::vector<char const *>{ surface_exts.begin(), surface_exts.end() }));
-    if (auto headless_surface = create_headless_surface(); !headless_surface) { return headless_surface.error(); }
+    if (auto headless_surface = create_headless_surface(); !headless_surface) { return fail(headless_surface); }
   } else {
     g_glfw_error.clear();
     glfwSetErrorCallback(glfw_error_callback);
     if (glfwInit() != GLFW_TRUE) {
-      return make_error(
+      return fail(
         errc::io_error, g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -146,7 +146,7 @@ auto window::init(config cfg) -> status
       static_cast<int>(cfg_.width), static_cast<int>(cfg_.height), cfg_.title.c_str(), nullptr, nullptr);
     if (glfw_ == nullptr) {
       glfwTerminate();
-      return make_error(errc::io_error, "glfwCreateWindow failed");
+      return fail(errc::io_error, "glfwCreateWindow failed");
     }
     glfwSetWindowUserPointer(glfw_, this);
     glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
@@ -154,7 +154,7 @@ auto window::init(config cfg) -> status
     std::uint32_t ext_count = 0;
     char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
     if (glfw_exts == nullptr || ext_count == 0) {
-      return make_error(errc::unsupported, "glfwGetRequiredInstanceExtensions failed (no presentation support?)");
+      return fail(errc::unsupported, "glfwGetRequiredInstanceExtensions failed (no presentation support?)");
     }
     std::vector<char const *> instance_exts;
     instance_exts.reserve(ext_count);
@@ -165,15 +165,15 @@ auto window::init(config cfg) -> status
     ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
       scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
       instance_exts));
-    if (auto created_surface = create_surface(); !created_surface) { return created_surface.error(); }
+    if (auto created_surface = create_surface(); !created_surface) { return fail(created_surface); }
   }
 
-  if (auto completed = ctx_->complete_for_surface(surface_); !completed) { return completed.error(); }
-  if (auto swapchain = create_swapchain(); !swapchain) { return swapchain.error(); }
-  if (auto pass = create_render_pass(); !pass) { return pass.error(); }
-  if (auto depth = create_depth_resources(); !depth) { return depth.error(); }
-  if (auto framebuffers = create_framebuffers(); !framebuffers) { return framebuffers.error(); }
-  if (auto frames = create_frame_resources(); !frames) { return frames.error(); }
+  if (auto completed = ctx_->complete_for_surface(surface_); !completed) { return fail(completed); }
+  if (auto swapchain = create_swapchain(); !swapchain) { return fail(swapchain); }
+  if (auto pass = create_render_pass(); !pass) { return fail(pass); }
+  if (auto depth = create_depth_resources(); !depth) { return fail(depth); }
+  if (auto framebuffers = create_framebuffers(); !framebuffers) { return fail(framebuffers); }
+  if (auto frames = create_frame_resources(); !frames) { return fail(frames); }
   return {};
 }
 
@@ -229,7 +229,7 @@ auto window::create_surface() -> status
 {
   if (VkResult const result = glfwCreateWindowSurface(ctx_->instance(), glfw_, nullptr, &surface_);
     result != VK_SUCCESS) {
-    return make_vk_error(result, "glfwCreateWindowSurface failed");
+    return fail(result, "glfwCreateWindowSurface failed");
   }
   return {};
 }
@@ -239,12 +239,12 @@ auto window::create_headless_surface() -> status
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
     vkGetInstanceProcAddr(ctx_->instance(), "vkCreateHeadlessSurfaceEXT"));
-  if (create_fn == nullptr) { return make_error(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
+  if (create_fn == nullptr) { return fail(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
 
   VkHeadlessSurfaceCreateInfoEXT create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
   if (VkResult const result = create_fn(ctx_->instance(), &create_info, nullptr, &surface_); result != VK_SUCCESS) {
-    return make_vk_error(result, "vkCreateHeadlessSurfaceEXT failed");
+    return fail(result, "vkCreateHeadlessSurfaceEXT failed");
   }
   return {};
 }
@@ -268,10 +268,10 @@ auto window::create_swapchain() -> status
         .width = framebuffer_width,
         .height = framebuffer_height,
       });
-    if (!created) { return created.error(); }
-    swapchain_ = detail::leaf_take(created);
+    if (!created) { return fail(created); }
+    swapchain_ = detail::expected_take(created);
   } else if (auto recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
-    return recreated.error();
+    return fail(recreated);
   }
   return create_swapchain_sync();
 }
@@ -280,8 +280,8 @@ auto window::create_render_pass() -> status
 {
   if (depth_format_ == VK_FORMAT_UNDEFINED) {
     auto format = pick_depth_format(ctx_->physical_device());
-    if (!format) { return format.error(); }
-    depth_format_ = detail::leaf_take(format);
+    if (!format) { return fail(format); }
+    depth_format_ = detail::expected_take(format);
   }
 
   VkAttachmentDescription const color{
@@ -364,7 +364,7 @@ auto window::create_render_pass() -> status
   };
   if (VkResult const result = vkCreateRenderPass(ctx_->device(), &render_pass_info, nullptr, &render_pass_);
     result != VK_SUCCESS) {
-    return make_vk_error(result, "vkCreateRenderPass failed");
+    return fail(result, "vkCreateRenderPass failed");
   }
   return {};
 }
@@ -391,7 +391,7 @@ auto window::create_depth_resources() -> status
   if (VkResult const result =
         vmaCreateImage(ctx_->allocator(), &image_info, &alloc_info, &depth_image_, &depth_allocation_, nullptr);
     result != VK_SUCCESS) {
-    return make_vk_error(result, "vmaCreateImage failed (depth)");
+    return fail(result, "vmaCreateImage failed (depth)");
   }
 
   VkImageViewCreateInfo view_info{};
@@ -406,7 +406,7 @@ auto window::create_depth_resources() -> status
   view_info.subresourceRange.layerCount = k_depth_array_layers;
   if (VkResult const result = vkCreateImageView(ctx_->device(), &view_info, nullptr, &depth_view_);
     result != VK_SUCCESS) {
-    return make_vk_error(result, "vkCreateImageView failed (depth)");
+    return fail(result, "vkCreateImageView failed (depth)");
   }
   return {};
 }
@@ -427,7 +427,7 @@ auto window::destroy_depth_resources() noexcept -> void
 
 auto window::create_framebuffers() -> status
 {
-  if (!swapchain_) { return make_error(errc::invalid_argument, "create_framebuffers requires a swapchain"); }
+  if (!swapchain_) { return fail(errc::invalid_argument, "create_framebuffers requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
   auto const views = active_swapchain.image_views();
   framebuffers_.resize(views.size());
@@ -445,7 +445,7 @@ auto window::create_framebuffers() -> status
     if (VkResult const result =
           vkCreateFramebuffer(ctx_->device(), &framebuffer_info, nullptr, &framebuffers_.at(index));
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vkCreateFramebuffer failed");
+      return fail(result, "vkCreateFramebuffer failed");
     }
   }
   return {};
@@ -462,7 +462,7 @@ auto window::create_frame_resources() -> status
     if (VkResult const result =
           vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &frames_.at(frame_index).image_available);
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vkCreateSemaphore failed");
+      return fail(result, "vkCreateSemaphore failed");
     }
 
     VkFenceCreateInfo fence_info{};
@@ -470,19 +470,19 @@ auto window::create_frame_resources() -> status
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     if (VkResult const result = vkCreateFence(ctx_->device(), &fence_info, nullptr, &frames_.at(frame_index).in_flight);
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vkCreateFence failed");
+      return fail(result, "vkCreateFence failed");
     }
 
     auto cmd = ctx_->allocate_command_buffer();
-    if (!cmd) { return cmd.error(); }
-    command_buffers_.at(frame_index) = detail::leaf_take(cmd);
+    if (!cmd) { return fail(cmd); }
+    command_buffers_.at(frame_index) = detail::expected_take(cmd);
   }
   return {};
 }
 
 auto window::create_swapchain_sync() -> status
 {
-  if (!swapchain_) { return make_error(errc::invalid_argument, "create_swapchain_sync requires a swapchain"); }
+  if (!swapchain_) { return fail(errc::invalid_argument, "create_swapchain_sync requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
   destroy_swapchain_sync();
 
@@ -495,7 +495,7 @@ auto window::create_swapchain_sync() -> status
   for (VkSemaphore &render_finished : render_finished_) {
     if (VkResult const result = vkCreateSemaphore(ctx_->device(), &semaphore_info, nullptr, &render_finished);
       result != VK_SUCCESS) {
-      return make_vk_error(result, "vkCreateSemaphore failed (render_finished)");
+      return fail(result, "vkCreateSemaphore failed (render_finished)");
     }
   }
   return {};
@@ -546,28 +546,28 @@ auto window::recreate_swapchain() -> status
   framebuffers_.clear();
   destroy_depth_resources();
 
-  if (auto swapchain = create_swapchain(); !swapchain) { return swapchain.error(); }
-  if (auto depth = create_depth_resources(); !depth) { return depth.error(); }
-  if (auto framebuffers = create_framebuffers(); !framebuffers) { return framebuffers.error(); }
+  if (auto swapchain = create_swapchain(); !swapchain) { return fail(swapchain); }
+  if (auto depth = create_depth_resources(); !depth) { return fail(depth); }
+  if (auto framebuffers = create_framebuffers(); !framebuffers) { return fail(framebuffers); }
   return {};
 }
 
 auto window::begin_frame() -> result<std::optional<frame>>
 {
-  if (frame_open_) { return make_error(errc::invalid_argument, "begin_frame called while a frame is already open"); }
-  if (!swapchain_) { return make_error(errc::invalid_argument, "begin_frame requires a swapchain"); }
+  if (frame_open_) { return fail(errc::invalid_argument, "begin_frame called while a frame is already open"); }
+  if (!swapchain_) { return fail(errc::invalid_argument, "begin_frame requires a swapchain"); }
   swapchain &active_swapchain = *swapchain_;
 
   auto &sync = frames_.at(frame_index_);
   if (VkResult const wait_result = vkWaitForFences(ctx_->device(), 1, &sync.in_flight, VK_TRUE, UINT64_MAX);
     wait_result != VK_SUCCESS) {
-    return make_vk_error(wait_result, "vkWaitForFences failed");
+    return fail(wait_result, "vkWaitForFences failed");
   }
 
   auto acquired = active_swapchain.acquire_next_image(sync.image_available);
-  if (!acquired) { return acquired.error(); }
+  if (!acquired) { return fail(acquired); }
   if (!acquired->has_value()) {
-    if (auto recreated = recreate_swapchain(); !recreated) { return recreated.error(); }
+    if (auto recreated = recreate_swapchain(); !recreated) { return fail(recreated); }
     return std::optional<frame>{};
   }
   std::uint32_t const image_index = **acquired;
@@ -576,13 +576,13 @@ auto window::begin_frame() -> result<std::optional<frame>>
     if (VkResult const wait_result =
           vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX);
       wait_result != VK_SUCCESS) {
-      return make_vk_error(wait_result, "vkWaitForFences failed (swapchain image in flight)");
+      return fail(wait_result, "vkWaitForFences failed (swapchain image in flight)");
     }
   }
   images_in_flight_.at(image_index) = sync.in_flight;
 
   if (VkResult const reset_result = vkResetFences(ctx_->device(), 1, &sync.in_flight); reset_result != VK_SUCCESS) {
-    return make_vk_error(reset_result, "vkResetFences failed");
+    return fail(reset_result, "vkResetFences failed");
   }
 
   VkCommandBuffer cmd = command_buffers_.at(frame_index_);
@@ -590,7 +590,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
   VkCommandBufferBeginInfo begin_info{};
   begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   if (VkResult const begin_result = vkBeginCommandBuffer(cmd, &begin_info); begin_result != VK_SUCCESS) {
-    return make_vk_error(begin_result, "vkBeginCommandBuffer failed");
+    return fail(begin_result, "vkBeginCommandBuffer failed");
   }
 
   current_image_index_ = image_index;
@@ -602,8 +602,8 @@ auto window::begin_frame() -> result<std::optional<frame>>
 
 auto window::end_frame(frame const &drawn) -> result<VkFence>
 {
-  if (!frame_open_) { return make_error(errc::invalid_argument, "end_frame called without begin_frame"); }
-  if (!swapchain_) { return make_error(errc::invalid_argument, "end_frame requires a swapchain"); }
+  if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
+  if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }
   swapchain &active_swapchain = *swapchain_;
   (void)drawn;
 
@@ -622,16 +622,16 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   submit_info.pSignalSemaphores = &render_finished_.at(current_image_index_);
   if (VkResult const submit_result = vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight);
     submit_result != VK_SUCCESS) {
-    return make_vk_error(submit_result, "vkQueueSubmit failed");
+    return fail(submit_result, "vkQueueSubmit failed");
   }
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
   auto present_result = active_swapchain.present(current_image_index_, wait_semaphores);
-  if (!present_result) { return present_result.error(); }
+  if (!present_result) { return fail(present_result); }
   bool const needs_recreate = !*present_result || framebuffer_resized_;
   if (needs_recreate) {
     framebuffer_resized_ = false;
-    if (auto recreated = recreate_swapchain(); !recreated) { return recreated.error(); }
+    if (auto recreated = recreate_swapchain(); !recreated) { return fail(recreated); }
   }
 
   VkFence submitted = sync.in_flight;

@@ -19,7 +19,7 @@ namespace {
     case image_usage::depth:
       return VK_FORMAT_D32_SFLOAT;
     }
-    return make_error(errc::invalid_argument, "unknown image_usage");
+    return fail(errc::invalid_argument, "unknown image_usage");
   }
 
   auto usage_flags(image_usage usage) -> result<VkImageUsageFlags>
@@ -33,7 +33,7 @@ namespace {
     case image_usage::depth:
       return VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     }
-    return make_error(errc::invalid_argument, "unknown image_usage");
+    return fail(errc::invalid_argument, "unknown image_usage");
   }
 
 }// namespace
@@ -41,14 +41,14 @@ namespace {
 auto image::create(context &ctx, image_create_info info) -> result<image>
 {
   if (info.width == 0 || info.height == 0) {
-    return make_error(errc::invalid_argument, "vkexec::image extent must be > 0");
+    return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
   }
   if (ctx.allocator() == VK_NULL_HANDLE) {
-    return make_error(errc::invalid_argument, "vkexec::image requires a VMA allocator");
+    return fail(errc::invalid_argument, "vkexec::image requires a VMA allocator");
   }
 
-  VKEXEC_LEAF_AUTO(vk_format, resolve_format(info));
-  VKEXEC_LEAF_AUTO(usg_flags, usage_flags(info.usage));
+  VKEXEC_TRY_ASSIGN(vk_format, resolve_format(info));
+  VKEXEC_TRY_ASSIGN(usg_flags, usage_flags(info.usage));
 
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   VkImageCreateInfo image_info{};
@@ -71,7 +71,7 @@ auto image::create(context &ctx, image_create_info info) -> result<image>
   VmaAllocation allocation{ VK_NULL_HANDLE };
   VkResult const create_result =
     vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
-  if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vmaCreateImage failed"); }
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateImage failed"); }
 
   return image{
     &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage

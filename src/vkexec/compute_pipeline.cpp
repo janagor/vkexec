@@ -20,15 +20,15 @@ namespace vkexec {
 auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<compute_pipeline>
 {
-  VKEXEC_LEAF_AUTO(cached, ctx.get_or_create_from_spirv(spirv, desc));
+  VKEXEC_TRY_ASSIGN(cached, ctx.get_or_create_from_spirv(spirv, desc));
   return compute_pipeline{ &ctx, &cached.get() };
 }
 
 auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
   -> result<compute_pipeline>
 {
-  if (glsl.empty()) { return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
-  VKEXEC_LEAF_AUTO(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
+  if (glsl.empty()) { return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
+  VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
   return create(ctx, spirv, desc);
 }
 
@@ -41,14 +41,14 @@ auto compute_pipeline::allocate_set() -> result<VkDescriptorSet>
   dsai.pSetLayouts = &resources_->set_layout;
   VkDescriptorSet set{ VK_NULL_HANDLE };
   VkResult const allocate_result = vkAllocateDescriptorSets(ctx_->device(), &dsai, &set);
-  if (allocate_result != VK_SUCCESS) { return make_vk_error(allocate_result, "vkAllocateDescriptorSets failed"); }
+  if (allocate_result != VK_SUCCESS) { return fail(allocate_result, "vkAllocateDescriptorSets failed"); }
   return set;
 }
 
 auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) -> status
 {
   if (buffers.size() != resources_->binding_count) {
-    return make_error(errc::invalid_argument, "update_set buffer count must match layout_desc.bindings");
+    return fail(errc::invalid_argument, "update_set buffer count must match layout_desc.bindings");
   }
   if (buffers.empty()) { return {}; }
 

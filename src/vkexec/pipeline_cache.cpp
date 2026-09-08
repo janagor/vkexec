@@ -72,7 +72,7 @@ namespace {
     module_info.pCode = spirv.data();
     VkShaderModule shader{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateShaderModule(device, &module_info, nullptr, &shader);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateShaderModule failed"); }
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateShaderModule failed"); }
     return shader;
   }
 
@@ -92,7 +92,7 @@ namespace {
     layout_info.pBindings = bindings.data();
     VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateDescriptorSetLayout(device, &layout_info, nullptr, &set_layout);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateDescriptorSetLayout failed"); }
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateDescriptorSetLayout failed"); }
     return set_layout;
   }
 
@@ -114,7 +114,7 @@ namespace {
     }
     VkPipelineLayout layout{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreatePipelineLayout(device, &pipeline_layout_info, nullptr, &layout);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreatePipelineLayout failed"); }
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreatePipelineLayout failed"); }
     return layout;
   }
 
@@ -141,7 +141,7 @@ namespace {
     VkPipeline pipeline{ VK_NULL_HANDLE };
     VkResult const create_result =
       vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_info, nullptr, &pipeline);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateComputePipelines failed"); }
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateComputePipelines failed"); }
     return pipeline;
   }
 
@@ -159,7 +159,7 @@ namespace {
     pool_info.pPoolSizes = &pool_size;
     VkDescriptorPool pool{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateDescriptorPool(device, &pool_info, nullptr, &pool);
-    if (create_result != VK_SUCCESS) { return make_vk_error(create_result, "vkCreateDescriptorPool failed"); }
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateDescriptorPool failed"); }
     return pool;
   }
 
@@ -180,7 +180,7 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   -> result<std::reference_wrapper<pipeline_resources>>
 {
   if (spirv.empty()) {
-    return make_error(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V");
+    return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V");
   }
   std::size_t const key = hash_spirv_layout(spirv, desc);
   {
@@ -190,10 +190,10 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
 
   if (desc.descriptor_heap) {
     if (!desc.bindings.empty()) {
-      return make_error(errc::invalid_argument, "descriptor_heap pipelines must not declare descriptor-set bindings");
+      return fail(errc::invalid_argument, "descriptor_heap pipelines must not declare descriptor-set bindings");
     }
     if (desc.push_constant_size != 0) {
-      return make_error(errc::invalid_argument, "descriptor_heap pipelines use push data, not push constants");
+      return fail(errc::invalid_argument, "descriptor_heap pipelines use push data, not push constants");
     }
   }
 
@@ -221,45 +221,45 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   VkDevice device = ctx_->device();
 
   auto shader_result = create_shader_module(device, spirv);
-  if (!shader_result) { return shader_result.error(); }
-  resources->shader = detail::leaf_take(shader_result);
+  if (!shader_result) { return fail(shader_result); }
+  resources->shader = detail::expected_take(shader_result);
 
   if (desc.descriptor_heap) {
     auto pipeline_result = create_compute_pipeline(device, resources->shader, VK_NULL_HANDLE, spec_ptr, true);
     if (!pipeline_result) {
       destroy_resources(*ctx_, *resources);
-      return pipeline_result.error();
+      return fail(pipeline_result);
     }
-    resources->pipeline = detail::leaf_take(pipeline_result);
+    resources->pipeline = detail::expected_take(pipeline_result);
   } else {
     auto set_layout_result = create_set_layout(device, resources->binding_count);
     if (!set_layout_result) {
       destroy_resources(*ctx_, *resources);
-      return set_layout_result.error();
+      return fail(set_layout_result);
     }
-    resources->set_layout = detail::leaf_take(set_layout_result);
+    resources->set_layout = detail::expected_take(set_layout_result);
 
     auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
     if (!pipeline_layout_result) {
       destroy_resources(*ctx_, *resources);
-      return pipeline_layout_result.error();
+      return fail(pipeline_layout_result);
     }
-    resources->pipeline_layout = detail::leaf_take(pipeline_layout_result);
+    resources->pipeline_layout = detail::expected_take(pipeline_layout_result);
 
     auto pipeline_result =
       create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr, false);
     if (!pipeline_result) {
       destroy_resources(*ctx_, *resources);
-      return pipeline_result.error();
+      return fail(pipeline_result);
     }
-    resources->pipeline = detail::leaf_take(pipeline_result);
+    resources->pipeline = detail::expected_take(pipeline_result);
 
     auto pool_result = create_descriptor_pool(device, resources->binding_count);
     if (!pool_result) {
       destroy_resources(*ctx_, *resources);
-      return pool_result.error();
+      return fail(pool_result);
     }
-    resources->descriptor_pool = detail::leaf_take(pool_result);
+    resources->descriptor_pool = detail::expected_take(pool_result);
   }
 
   std::scoped_lock const lock(mutex_);

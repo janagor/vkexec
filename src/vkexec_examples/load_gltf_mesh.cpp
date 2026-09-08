@@ -240,9 +240,9 @@ namespace {
 
   auto accessor_at(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<tg3_accessor const *>
   {
-    if (accessor_index < 0) { return make_error(errc::out_of_range, "gltf accessor index out of range"); }
+    if (accessor_index < 0) { return fail(errc::out_of_range, "gltf accessor index out of range"); }
     if (std::cmp_greater_equal(accessor_index, model.accessors_count)) {
-      return make_error(errc::out_of_range, "gltf accessor index out of range");
+      return fail(errc::out_of_range, "gltf accessor index out of range");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     return &model.accessors[static_cast<std::size_t>(accessor_index)];
@@ -250,9 +250,9 @@ namespace {
 
   auto buffer_view_at(tg3_model const &model, std::int32_t buffer_view_index) -> vkexec::result<tg3_buffer_view const *>
   {
-    if (buffer_view_index < 0) { return make_error(errc::out_of_range, "gltf buffer view index out of range"); }
+    if (buffer_view_index < 0) { return fail(errc::out_of_range, "gltf buffer view index out of range"); }
     if (std::cmp_greater_equal(buffer_view_index, model.buffer_views_count)) {
-      return make_error(errc::out_of_range, "gltf buffer view index out of range");
+      return fail(errc::out_of_range, "gltf buffer view index out of range");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     return &model.buffer_views[static_cast<std::size_t>(buffer_view_index)];
@@ -260,9 +260,9 @@ namespace {
 
   auto buffer_at(tg3_model const &model, std::int32_t buffer_index) -> vkexec::result<tg3_buffer const *>
   {
-    if (buffer_index < 0) { return make_error(errc::out_of_range, "gltf buffer index out of range"); }
+    if (buffer_index < 0) { return fail(errc::out_of_range, "gltf buffer index out of range"); }
     if (std::cmp_greater_equal(buffer_index, model.buffers_count)) {
-      return make_error(errc::out_of_range, "gltf buffer index out of range");
+      return fail(errc::out_of_range, "gltf buffer index out of range");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     return &model.buffers[static_cast<std::size_t>(buffer_index)];
@@ -272,19 +272,19 @@ namespace {
     -> vkexec::result<std::span<std::uint8_t const>>
   {
     if (accessor_index < 0 || std::cmp_greater_equal(accessor_index, model.accessors_count)) {
-      return make_error(errc::out_of_range, "gltf accessor index out of range");
+      return fail(errc::out_of_range, "gltf accessor index out of range");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     tg3_accessor const &accessor = model.accessors[static_cast<std::size_t>(accessor_index)];
-    if (accessor.buffer_view < 0) { return make_error(errc::parse_error, "gltf accessor missing buffer view"); }
+    if (accessor.buffer_view < 0) { return fail(errc::parse_error, "gltf accessor missing buffer view"); }
     if (std::cmp_greater_equal(accessor.buffer_view, model.buffer_views_count)) {
-      return make_error(errc::out_of_range, "gltf buffer view index out of range");
+      return fail(errc::out_of_range, "gltf buffer view index out of range");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     tg3_buffer_view const &view = model.buffer_views[static_cast<std::size_t>(accessor.buffer_view)];
-    if (view.buffer < 0) { return make_error(errc::parse_error, "gltf buffer view missing buffer"); }
+    if (view.buffer < 0) { return fail(errc::parse_error, "gltf buffer view missing buffer"); }
     if (std::cmp_greater_equal(view.buffer, model.buffers_count)) {
-      return make_error(errc::out_of_range, "gltf buffer index out of range");
+      return fail(errc::out_of_range, "gltf buffer index out of range");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     tg3_buffer const &buffer = model.buffers[static_cast<std::size_t>(view.buffer)];
@@ -293,12 +293,12 @@ namespace {
     int const component_size = tg3_component_size(accessor.component_type);
     int const component_count = tg3_num_components(accessor.type);
     if (component_size < 0 || component_count < 0) {
-      return make_error(errc::parse_error, "gltf accessor has invalid component layout");
+      return fail(errc::parse_error, "gltf accessor has invalid component layout");
     }
     std::size_t const byte_length = static_cast<std::size_t>(accessor.count) * static_cast<std::size_t>(component_size)
                                     * static_cast<std::size_t>(component_count);
     if (offset + byte_length > buffer.data.count) {
-      return make_error(errc::parse_error, "gltf accessor exceeds buffer bounds");
+      return fail(errc::parse_error, "gltf accessor exceeds buffer bounds");
     }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     return std::span<std::uint8_t const>{ buffer.data.data + offset, byte_length };
@@ -307,26 +307,26 @@ namespace {
   auto read_vec3_positions(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::vector<vec3>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
-    if (!accessor_result) { return accessor_result.error(); }
+    if (!accessor_result) { return fail(accessor_result); }
     tg3_accessor const &accessor = *accessor_result.value();
 
     if (accessor.type != k_gltf_type_vec3 || accessor.component_type != k_gltf_component_float) {
-      return make_error(errc::parse_error, "gltf POSITION accessor must be VEC3/float");
+      return fail(errc::parse_error, "gltf POSITION accessor must be VEC3/float");
     }
     if (accessor.buffer_view < 0) {
-      return make_error(errc::parse_error, "gltf POSITION accessor missing buffer view");
+      return fail(errc::parse_error, "gltf POSITION accessor missing buffer view");
     }
     auto view_result = buffer_view_at(model, accessor.buffer_view);
-    if (!view_result) { return view_result.error(); }
+    if (!view_result) { return fail(view_result); }
     tg3_buffer_view const &view = *view_result.value();
 
-    if (view.buffer < 0) { return make_error(errc::parse_error, "gltf POSITION buffer view missing buffer"); }
+    if (view.buffer < 0) { return fail(errc::parse_error, "gltf POSITION buffer view missing buffer"); }
     auto buffer_result = buffer_at(model, view.buffer);
-    if (!buffer_result) { return buffer_result.error(); }
+    if (!buffer_result) { return fail(buffer_result); }
     tg3_buffer const &buffer = *buffer_result.value();
 
     int const stride = tg3_accessor_byte_stride(&accessor, &view);
-    if (stride <= 0) { return make_error(errc::parse_error, "gltf POSITION accessor has invalid byte stride"); }
+    if (stride <= 0) { return fail(errc::parse_error, "gltf POSITION accessor has invalid byte stride"); }
 
     std::span<std::uint8_t const> const bytes(buffer.data.data, buffer.data.count);
     std::size_t const base_offset =
@@ -336,7 +336,7 @@ namespace {
       std::array<float, k_mesh_vertex_components> values{};
       std::size_t const byte_offset = base_offset + (index * static_cast<std::size_t>(stride));
       if (byte_offset + sizeof(values) > bytes.size()) {
-        return make_error(errc::parse_error, "gltf POSITION accessor exceeds buffer bounds");
+        return fail(errc::parse_error, "gltf POSITION accessor exceeds buffer bounds");
       }
       std::memcpy(values.data(), bytes.subspan(byte_offset, sizeof(values)).data(), sizeof(values));
       positions.at(index) = vec3{ .x = values.at(0), .y = values.at(1), .z = values.at(2) };
@@ -349,24 +349,24 @@ namespace {
     -> vkexec::result<std::vector<vec3>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
-    if (!accessor_result) { return accessor_result.error(); }
+    if (!accessor_result) { return fail(accessor_result); }
     tg3_accessor const &accessor = *accessor_result.value();
 
     if (accessor.type != k_gltf_type_vec3 || accessor.component_type != k_gltf_component_float) {
-      return make_error(errc::parse_error, "gltf NORMAL accessor must be VEC3/float");
+      return fail(errc::parse_error, "gltf NORMAL accessor must be VEC3/float");
     }
-    if (accessor.buffer_view < 0) { return make_error(errc::parse_error, "gltf NORMAL accessor missing buffer view"); }
+    if (accessor.buffer_view < 0) { return fail(errc::parse_error, "gltf NORMAL accessor missing buffer view"); }
     auto view_result = buffer_view_at(model, accessor.buffer_view);
-    if (!view_result) { return view_result.error(); }
+    if (!view_result) { return fail(view_result); }
     tg3_buffer_view const &view = *view_result.value();
 
-    if (view.buffer < 0) { return make_error(errc::parse_error, "gltf NORMAL buffer view missing buffer"); }
+    if (view.buffer < 0) { return fail(errc::parse_error, "gltf NORMAL buffer view missing buffer"); }
     auto buffer_result = buffer_at(model, view.buffer);
-    if (!buffer_result) { return buffer_result.error(); }
+    if (!buffer_result) { return fail(buffer_result); }
     tg3_buffer const &buffer = *buffer_result.value();
 
     int const stride = tg3_accessor_byte_stride(&accessor, &view);
-    if (stride <= 0) { return make_error(errc::parse_error, "gltf NORMAL accessor has invalid byte stride"); }
+    if (stride <= 0) { return fail(errc::parse_error, "gltf NORMAL accessor has invalid byte stride"); }
 
     std::span<std::uint8_t const> const bytes(buffer.data.data, buffer.data.count);
     std::size_t const base_offset =
@@ -377,7 +377,7 @@ namespace {
       std::array<float, k_mesh_vertex_components> values{};
       std::size_t const byte_offset = base_offset + (index * static_cast<std::size_t>(stride));
       if (byte_offset + sizeof(values) > bytes.size()) {
-        return make_error(errc::parse_error, "gltf NORMAL accessor exceeds buffer bounds");
+        return fail(errc::parse_error, "gltf NORMAL accessor exceeds buffer bounds");
       }
       std::memcpy(values.data(), bytes.subspan(byte_offset, sizeof(values)).data(), sizeof(values));
       normals.at(index) = vec3{ .x = values.at(0), .y = values.at(1), .z = values.at(2) };
@@ -388,14 +388,14 @@ namespace {
   auto read_indices(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::vector<std::uint32_t>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
-    if (!accessor_result) { return accessor_result.error(); }
+    if (!accessor_result) { return fail(accessor_result); }
     tg3_accessor const &accessor = *accessor_result.value();
 
     if (accessor.type != k_gltf_type_scalar || accessor.component_type != k_gltf_component_unsigned_int) {
-      return make_error(errc::parse_error, "gltf indices accessor must be SCALAR/unsigned int");
+      return fail(errc::parse_error, "gltf indices accessor must be SCALAR/unsigned int");
     }
     auto bytes_result = accessor_bytes(model, accessor_index);
-    if (!bytes_result) { return bytes_result.error(); }
+    if (!bytes_result) { return fail(bytes_result); }
     std::span<std::uint8_t const> const bytes = bytes_result.value();
 
     std::vector<std::uint32_t> indices(static_cast<std::size_t>(accessor.count));
@@ -424,15 +424,15 @@ namespace {
     if (mode != k_gltf_mode_triangles) { return {}; }
 
     std::int32_t const position_accessor = find_primitive_attribute(primitive, "POSITION");
-    if (position_accessor < 0) { return make_error(errc::parse_error, "gltf primitive missing POSITION"); }
-    if (primitive.indices < 0) { return make_error(errc::parse_error, "gltf primitive missing indices"); }
+    if (position_accessor < 0) { return fail(errc::parse_error, "gltf primitive missing POSITION"); }
+    if (primitive.indices < 0) { return fail(errc::parse_error, "gltf primitive missing indices"); }
 
     auto local_positions_result = read_vec3_positions(model, position_accessor);
-    if (!local_positions_result) { return local_positions_result.error(); }
+    if (!local_positions_result) { return fail(local_positions_result); }
     std::vector<vec3> const &local_positions = local_positions_result.value();
 
     auto local_indices_result = read_indices(model, primitive.indices);
-    if (!local_indices_result) { return local_indices_result.error(); }
+    if (!local_indices_result) { return fail(local_indices_result); }
     std::vector<std::uint32_t> const &local_indices = local_indices_result.value();
 
     std::array<float, k_mesh_vertex_components> const base_color = material_color(model, primitive.material);
@@ -441,7 +441,7 @@ namespace {
     std::vector<vec3> local_normals;
     if (normal_accessor >= 0) {
       auto local_normals_result = read_vec3_normals(model, normal_accessor, local_positions.size());
-      if (!local_normals_result) { return local_normals_result.error(); }
+      if (!local_normals_result) { return fail(local_normals_result); }
       local_normals = std::move(local_normals_result.value());
     }
     bool const has_normals = local_normals.size() == local_positions.size();
@@ -482,7 +482,7 @@ namespace {
     for (std::uint32_t primitive_index = 0; primitive_index < mesh.primitives_count; ++primitive_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       if (auto status = append_primitive(model, mesh.primitives[primitive_index], world, vertices, indices); !status) {
-        return status.error();
+        return fail(status);
       }
     }
     return {};
@@ -501,11 +501,11 @@ namespace {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     tg3_node const &node = model.nodes[static_cast<std::size_t>(node_index)];
     mat4 const world = multiply(parent, node_local_matrix(node));
-    if (auto status = append_mesh(model, node.mesh, world, vertices, indices); !status) { return status.error(); }
+    if (auto status = append_mesh(model, node.mesh, world, vertices, indices); !status) { return fail(status); }
     for (std::uint32_t child_index = 0; child_index < node.children_count; ++child_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       if (auto status = traverse_nodes(model, node.children[child_index], world, vertices, indices); !status) {
-        return status.error();
+        return fail(status);
       }
     }
     return {};
@@ -570,17 +570,17 @@ auto load_gltf_mesh(std::string const &path) -> vkexec::result<gltf_mesh_data>
   tg3_error_code const parse_error =
     tg3_parse_file(model.get(), errors.get(), path.c_str(), static_cast<std::uint32_t>(path.size()), &options);
   if (parse_error != TG3_OK || errors.has_error()) {
-    return make_error(
+    return fail(
       errc::io_error, std::format("tinygltf failed to load {}: {}", path, format_tg3_errors(errors.get())));
   }
 
   tg3_model const &gltf = *model.get();
   gltf_mesh_data mesh_data{};
   mat4 const identity = identity_matrix();
-  if (gltf.scenes_count == 0) { return make_error(errc::parse_error, "gltf file has no scenes"); }
+  if (gltf.scenes_count == 0) { return fail(errc::parse_error, "gltf file has no scenes"); }
   int const scene_index = gltf.default_scene >= 0 ? gltf.default_scene : 0;
   if (std::cmp_greater_equal(scene_index, gltf.scenes_count)) {
-    return make_error(errc::parse_error, "gltf default scene index out of range");
+    return fail(errc::parse_error, "gltf default scene index out of range");
   }
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   tg3_scene const &scene = gltf.scenes[static_cast<std::size_t>(scene_index)];
@@ -588,12 +588,12 @@ auto load_gltf_mesh(std::string const &path) -> vkexec::result<gltf_mesh_data>
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     if (auto status = traverse_nodes(gltf, scene.nodes[node_index], identity, mesh_data.vertices, mesh_data.indices);
       !status) {
-      return status.error();
+      return fail(status);
     }
   }
 
   if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
-    return make_error(errc::empty_result, "gltf file contained no triangle geometry");
+    return fail(errc::empty_result, "gltf file contained no triangle geometry");
   }
   fit_mesh_to_clip_space(mesh_data.vertices);
   return mesh_data;

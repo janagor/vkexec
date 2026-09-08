@@ -63,7 +63,7 @@ auto host_agent::enqueue(task_fn task) -> status
 
   {
     std::scoped_lock const lock(mutex_);
-    if (shutting_down_) { return make_error(errc::invalid_argument, "host_agent enqueue after shutdown"); }
+    if (shutting_down_) { return fail(errc::invalid_argument, "host_agent enqueue after shutdown"); }
     pending_.push_back(std::move(task));
   }
   cv_.notify_one();

@@ -34,14 +34,13 @@ auto skip_if_no_vulkan(vkexec::error const &err) -> void
 TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = *vkexec::detail::expected_get(ctx_result);
 
   auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(ctx, k_count, k_fill));
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = std::move(**waited);
+  auto [values] = std::move(*waited);
   REQUIRE(values.size() == k_count);
   REQUIRE(values.vk_buffer() != VK_NULL_HANDLE);
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -53,27 +52,26 @@ TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][bu
 TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = *vkexec::detail::expected_get(ctx_result);
 
   auto waited = vkexec::sync_wait(vkexec::buffer<std::uint32_t>::create(ctx, k_count, k_int_fill));
   REQUIRE(waited.has_value());
-  REQUIRE(waited->has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto [values] = std::move(**waited);
+  auto [values] = std::move(*waited);
   REQUIRE(values.size() == k_count);
 }
 
 TEST_CASE("buffer::create_sync allocates synchronously", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = *vkexec::detail::expected_get(ctx_result);
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_fill);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = vkexec::detail::leaf_get(values_result);
+  auto &values = vkexec::detail::expected_get(values_result);
   REQUIRE(values.size() == k_count);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(values.data()[0] == k_fill);
@@ -88,15 +86,14 @@ TEST_CASE("buffer::allocate completes with set_stopped when stop is already requ
   auto sender = vkexec::buffer_allocate_sender<float>{ .ctx = no_ctx, .count = k_count, .fill = k_fill };
   auto const waited =
     vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
-  REQUIRE(waited.has_value());
-  REQUIRE_FALSE(waited->has_value());
+  REQUIRE_FALSE(waited.has_value());
 }
 
 TEST_CASE("buffer allocate advertises completion scheduler", "[vkexec][buffer][scheduler]")
 {
   auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
+  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
+  auto &ctx = *vkexec::detail::expected_get(ctx_result);
 
   auto const sender = vkexec::buffer<float>::allocate(ctx, k_count);
   auto const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));

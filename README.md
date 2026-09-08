@@ -46,37 +46,48 @@ int main() {
         velocities[idx] = v;
       });
 
-  if (auto waited = vkexec::sync_wait(pipeline); !waited || !waited->has_value()) { return 1; }
+  if (auto waited = vkexec::sync_wait(pipeline); !waited.has_value()) { return 1; }
 
   // Several compute kernels in one command buffer:
   auto graph = ex::schedule(ctx->get_scheduler())
     | vkexec::compute_pass(10000, params, /* kernel */)
     | vkexec::barrier::compute_to_compute()
     | vkexec::compute_pass(10000, params, /* kernel */);
-  if (auto waited = vkexec::sync_wait(std::move(graph)); !waited || !waited->has_value()) { return 1; }
+  if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
 }
 ```
 
 ### Error model
 
-vkexec is **exception-free**. Factory functions and GPU setup return `vkexec::result<T>` (`std::expected<T, vkexec::error>`) or `vkexec::status` (`std::expected<void, vkexec::error>`).
+Senders complete with `set_error(vkexec::error)` — the same custom error channel stdexec uses. Factory and setup APIs return `vkexec::result<T>` (`std::expected<T, vkexec::error>`) or `vkexec::status`.
 
-- **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
+- **`vkexec::error`** carries a `std::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
 - **Vulkan failures** use `vkexec::make_vk_error_code(VkResult)` / `vkexec::make_vk_error(...)`.
-- **Blocking waits** use `vkexec::sync_wait(sender)` instead of `stdexec::sync_wait`. It returns `result<std::optional<value_tuple>>`:
-  - success: engaged inner `optional` with the value tuple
-  - stopped: disengaged inner `optional` (not an error)
-  - failure: `unexpected(error)`
+- **`VKEXEC_TRY` / `VKEXEC_TRY_ASSIGN`** propagate `std::expected` failures (`return fail(...)`).
+
+**Sync boundary (`VKEXEC_ENABLE_EXCEPTIONS`, default ON):** `vkexec::sync_wait(sender)` delegates to `stdexec::sync_wait` and **throws `vkexec::error`** on sender failure. A disengaged `std::optional` means `set_stopped()` (not an error).
+
+```cpp
+try {
+  auto ctx = vkexec::value_or_throw(vkexec::context::create({ .requirements = reqs }));
+  auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, n, fill));
+  if (!waited.has_value()) { /* stopped */ }
+  auto [buf] = std::move(*waited);
+} catch (vkexec::error const &err) {
+  std::println("{}", err.message());
+}
+```
+
+**`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `result<std::optional<tuple<...>>>` instead of throwing. Use explicit `if (!waited)` / `if (!waited->has_value())` checks.
 
 ```cpp
 auto ctx_result = vkexec::context::create({ .requirements = reqs });
 if (!ctx_result) {
-  // errc::unsupported when no device matches requirements
   std::println("{}", ctx_result.error().message());
 }
 
-auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(ctx, n, fill));
+auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx_result, n, fill));
 if (!waited) { /* sender failed with vkexec::error */ }
 if (!waited->has_value()) { /* stopped */ }
 auto [buf] = std::move(**waited);
@@ -93,7 +104,8 @@ Common entry points:
 | `graphics_pipeline::create` | `result<graphics_pipeline>` |
 | `mesh::create` | `result<mesh>` |
 | `gpu_buffer::create`, `image::create`, … | `result<...>` |
-| `vkexec::sync_wait(sender)` | `result<std::optional<tuple<...>>>` |
+| `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
+| `sync_wait` (exceptions OFF) | `result<std::optional<tuple<...>>>` |
 
 ### Existing SPIR-V (hybrid)
 
@@ -113,7 +125,7 @@ if (!pipe) { /* handle pipe.error() */ }
 auto set_result = pipe->allocate_set();
 pipe->update_set(*set_result, buffers);
 if (auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, *set_result, push, splat_count));
-    !waited || !waited->has_value()) { /* failed or stopped */ }
+    !waited.has_value()) { /* stopped */ }
 // or, with your own command buffer:
 vkexec::upload_push_constants(cmd, *pipe, push);
 ```
