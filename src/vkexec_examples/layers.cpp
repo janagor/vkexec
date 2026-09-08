@@ -7,7 +7,8 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 #include <string_view>
 
 namespace ex = stdexec;
@@ -82,7 +83,7 @@ static auto run() -> int
   auto foreground = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
     win.ctx(), win.render_pass(), foreground_cfg, k_foreground_vert, k_tinted_frag));
 
-  std::println("vkexec layers (two graphics pipelines) - close the window to exit");
+  std::cout << std::format("vkexec layers (two graphics pipelines) - close the window to exit\n");
 
   while (!win.should_close()) {
     win.poll_events();

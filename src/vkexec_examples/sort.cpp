@@ -14,7 +14,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 #include <random>
 #include <string_view>
 #include <utility>
@@ -110,12 +111,12 @@ static auto run() -> int
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::size_t index = 0; index < k_element_count; ++index) {
     if (std::fabs(data.data()[index] - expected.at(index)) > k_epsilon) {
-      std::println(stderr, "sort mismatch at {}: got {} expected {}", index, data.data()[index], expected.at(index));
+      std::cerr << std::format("sort mismatch at {}: got {} expected {}\n", index, data.data()[index], expected.at(index));
       vkexec::examples::fail_check("sort result mismatch");
     }
   }
 
-  std::println("vkexec sort ok: N={} first={} mid={} last={}",
+  std::cout << std::format("vkexec sort ok: N={} first={} mid={} last={}\n",
     k_element_count,
     data.data()[0],
     data.data()[k_element_count / 2],

@@ -14,7 +14,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 #include <string_view>
 
 namespace ex = stdexec;
@@ -98,11 +99,11 @@ static auto run() -> int
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::size_t index = 0; index < k_element_count; ++index) {
     if (std::fabs(output.data()[index] - expected) > k_epsilon) {
-      std::println(stderr, "spirv pass mismatch at {}: got {} expected {}", index, output.data()[index], expected);
+      std::cerr << std::format("spirv pass mismatch at {}: got {} expected {}\n", index, output.data()[index], expected);
       vkexec::examples::fail_check("spirv pass result mismatch");
     }
   }
-  std::println("vkexec spirv pass ok: N={} result={}", k_element_count, output.data()[0]);
+  std::cout << std::format("vkexec spirv pass ok: N={} result={}\n", k_element_count, output.data()[0]);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   return 0;
 }

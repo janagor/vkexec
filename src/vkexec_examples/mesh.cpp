@@ -9,7 +9,8 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 #include <string_view>
 
 namespace ex = stdexec;
@@ -60,7 +61,7 @@ static auto run() -> int
   auto pipeline = vkexec::examples::sync_wait_value(
     vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), cfg, k_mesh_vert, k_mesh_frag));
 
-  std::println("vkexec indexed mesh (gltf: {}) - close the window to exit", k_gltf_path);
+  std::cout << std::format("vkexec indexed mesh (gltf: {}) - close the window to exit\n", k_gltf_path);
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, drawn));

@@ -28,7 +28,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 #include <string_view>
 #include <utility>
 
@@ -229,7 +230,7 @@ static auto run() -> int
     .requirements = make_requirements(),
   }));
 
-  std::println("heap_present: window ready");
+  std::cout << std::format("heap_present: window ready\n");
   if (auto rendered = run_dynamic_rendering(win.ctx()); !rendered) {
 #if VKEXEC_ENABLE_EXCEPTIONS
     // NOLINTNEXTLINE(hicpp-exception-baseclass)
@@ -238,11 +239,11 @@ static auto run() -> int
     vkexec::examples::abort_with_error(rendered.error());
 #endif
   }
-  std::println("heap_present: dynamic rendering ok");
+  std::cout << std::format("heap_present: dynamic rendering ok\n");
   if (run_heap_compute(win.ctx())) {
-    std::println("heap_present: bindless heap compute ok");
+    std::cout << std::format("heap_present: bindless heap compute ok\n");
   } else {
-    std::println("heap_present: skipped bindless heap compute (extension PFNs unavailable)");
+    std::cout << std::format("heap_present: skipped bindless heap compute (extension PFNs unavailable)\n");
   }
 
   auto pipeline = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
@@ -250,7 +251,7 @@ static auto run() -> int
 
   present_frames(win, pipeline);
   win.wait_idle();
-  std::println("heap_present: completed ({} headless frames)", k_present_frames);
+  std::cout << std::format("heap_present: completed ({} headless frames)\n", k_present_frames);
   return 0;
 }
 

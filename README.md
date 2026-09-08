@@ -69,7 +69,7 @@ int main() {
       | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000);
     if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
   } catch (vkexec::error const& err) {
-    std::println(stderr, "{}", err.message());
+    std::cerr << std::format("{}\n", err.message());
     return 1;
   }
 }
@@ -98,7 +98,7 @@ try {
   if (!waited.has_value()) { /* stopped */ }
   auto buf = vkexec::detail::take_sync_value(std::move(*waited));
 } catch (vkexec::error const &err) {
-  std::println("{}", err.message());
+  std::cout << std::format("{}\n", err.message());
 }
 ```
 
@@ -107,7 +107,7 @@ try {
 ```cpp
 auto outcome = vkexec::sync_wait(vkexec::context::create({ .requirements = reqs }));
 if (outcome.failed()) {
-  std::println("{}", outcome.take_error().message());
+  std::cout << std::format("{}\n", outcome.take_error().message());
   return;
 }
 if (outcome.stopped || !outcome.values.has_value()) { /* stopped */ return; }

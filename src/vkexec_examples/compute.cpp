@@ -12,7 +12,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 #include <string_view>
 
 namespace ex = stdexec;
@@ -93,8 +94,7 @@ static auto run() -> int
   for (std::size_t const index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
     if (std::fabs(velocities.data()[index] - expected_v) > k_epsilon
         || std::fabs(positions.data()[index] - expected_p) > k_epsilon) {
-      std::println(stderr,
-        "mismatch at {}: p={} v={} (expected p={} v={})",
+      std::cerr << std::format("mismatch at {}: p={} v={} (expected p={} v={})\n",
         index,
         positions.data()[index],
         velocities.data()[index],
@@ -104,7 +104,7 @@ static auto run() -> int
     }
   }
 
-  std::println("vkexec sim ok: p[0]={} v[0]={}", positions.data()[0], velocities.data()[0]);
+  std::cout << std::format("vkexec sim ok: p[0]={} v[0]={}\n", positions.data()[0], velocities.data()[0]);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   return 0;
 }

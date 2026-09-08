@@ -8,7 +8,8 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
-#include <print>
+#include <format>
+#include <iostream>
 
 namespace ex = stdexec;
 
@@ -29,7 +30,7 @@ static auto run() -> int
   auto pipeline = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
-  std::println("vkexec triangle (stdexec frame pipeline) - close the window to exit");
+  std::cout << std::format("vkexec triangle (stdexec frame pipeline) - close the window to exit\n");
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(
