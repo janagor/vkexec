@@ -1,7 +1,6 @@
 #include "load_gltf_mesh.hpp"
+#include "sync_wait_helpers.hpp"
 
-#include <vkexec/error.hpp>
-#include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
@@ -47,30 +46,27 @@ void main() {
 }// namespace
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
-auto main() -> int
+static auto run() -> int
 {
-  try {
-    auto win = vkexec::value_or_throw(vkexec::window::create(
-      { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true }));
-    auto mesh_data = vkexec::value_or_throw(vkexec::examples::load_gltf_mesh(k_gltf_path));
-    auto drawn = vkexec::value_or_throw(vkexec::mesh::create(win.ctx(), mesh_data.vertices, mesh_data.indices));
+  auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true }));
+  auto mesh_data = vkexec::examples::sync_wait_value(vkexec::examples::load_gltf_mesh(k_gltf_path));
+  auto drawn = vkexec::examples::sync_wait_value(vkexec::mesh::create(win.ctx(), mesh_data.vertices, mesh_data.indices));
 
-    vkexec::graphics_pipeline_config const cfg{
-      .depth_test = true,
-      .use_mesh_vertices = true,
-    };
-    auto pipeline = vkexec::value_or_throw(
-      vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), cfg, k_mesh_vert, k_mesh_frag));
+  vkexec::graphics_pipeline_config const cfg{
+    .depth_test = true,
+    .use_mesh_vertices = true,
+  };
+  auto pipeline = vkexec::examples::sync_wait_value(
+    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), cfg, k_mesh_vert, k_mesh_frag));
 
-    std::println("vkexec indexed mesh (gltf: {}) - close the window to exit", k_gltf_path);
-    while (!win.should_close()) {
-      win.poll_events();
-      (void)vkexec::sync_wait(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, drawn));
-    }
-    win.wait_idle();
-    return 0;
-  } catch (vkexec::error const &error) {
-    std::println(stderr, "vkexec mesh example failed: {}", error.message());
-    return 1;
+  std::println("vkexec indexed mesh (gltf: {}) - close the window to exit", k_gltf_path);
+  while (!win.should_close()) {
+    win.poll_events();
+    vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, drawn));
   }
+  win.wait_idle();
+  return 0;
 }
+
+auto main() -> int { return vkexec::examples::run_example(run); }

@@ -1,15 +1,14 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/sync_wait.hpp>
+#include "sync_wait_helpers.hpp"
+
+#include <stdexec/execution.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/window.hpp>
-
-#include <stdexec/execution.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -21,7 +20,6 @@
 #include <print>
 #include <random>
 #include <string_view>
-#include <utility>
 
 namespace ex = stdexec;
 
@@ -101,23 +99,22 @@ struct particle_params
 }// namespace
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
-auto main() -> int
+static auto run() -> int
 {
-  try {
-    auto win = vkexec::value_or_throw(vkexec::window::create({ .width = k_window_width,
+  auto win = vkexec::examples::sync_wait_value(vkexec::window::create({ .width = k_window_width,
       .height = k_window_height,
       .title = "vkexec particles",
       .validation_layers = true }));
     auto &ctx = win.ctx();
 
-    auto pos_x = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto pos_y = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto vel_x = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto vel_y = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto col_r = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto col_g = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto col_b = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
-    auto col_a = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(ctx, k_particle_count));
+    auto pos_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto pos_y = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto vel_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto vel_y = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto col_r = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto col_g = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto col_b = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+    auto col_a = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
 
     {
       // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
@@ -151,7 +148,7 @@ auto main() -> int
     }
 
     using enum vkexec::buffer_access;
-    auto compute_pipe = vkexec::value_or_throw(vkexec::compute_pipeline::create(ctx,
+    auto compute_pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(ctx,
       k_particle_update_glsl,
       vkexec::layout_desc{
         .bindings = { readwrite, readwrite, readwrite, readwrite },
@@ -161,7 +158,6 @@ auto main() -> int
       },
       "particle_update.comp"));
 
-    auto *compute_set = vkexec::value_or_throw(compute_pipe.allocate_set());
     std::array<vkexec::storage_binding, 4> const compute_buffers{
       vkexec::storage_binding{
         .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)) },
@@ -172,9 +168,7 @@ auto main() -> int
       vkexec::storage_binding{
         .buffer = vel_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_y.size() * sizeof(float)) },
     };
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    if (auto updated = compute_pipe.update_set(compute_set, compute_buffers); !updated) { throw std::move(updated.error()); }
+    auto compute_bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(compute_pipe, compute_buffers));
 
     vkexec::graphics_pipeline_config graphics_cfg{};
     graphics_cfg.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
@@ -198,7 +192,7 @@ auto main() -> int
         .buffer = col_a.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_a.size() * sizeof(float)) },
     };
 
-    auto gfx = vkexec::value_or_throw(vkexec::graphics_pipeline::create(
+    auto gfx = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
       ctx, win.render_pass(), graphics_cfg, k_particle_vert, k_particle_frag, draw_buffers));
 
     auto last = std::chrono::steady_clock::now();
@@ -213,16 +207,18 @@ auto main() -> int
       delta_time = std::min(delta_time, k_max_delta_seconds);
       particle_params const params{ delta_time };
 
-      (void)vkexec::sync_wait(ex::schedule(ctx.get_scheduler())
-                              | vkexec::compute_pass(compute_pipe, compute_set, params, k_particle_count));
+      vkexec::examples::sync_wait_graph(ex::schedule(ctx.get_scheduler())
+                                        | vkexec::compute_pass(compute_bound.pipe,
+                                          compute_bound.set,
+                                          params,
+                                          k_particle_count));
 
-      (void)vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
+      vkexec::examples::sync_wait_graph(
+        ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
     }
 
     win.wait_idle();
     return 0;
-  } catch (vkexec::error const &error) {
-    std::println(stderr, "vkexec particles example failed: {}", error.message());
-    return 1;
-  }
 }
+
+auto main() -> int { return vkexec::examples::run_example(run); }

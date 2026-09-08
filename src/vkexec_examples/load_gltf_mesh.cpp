@@ -1,7 +1,9 @@
 #include "load_gltf_mesh.hpp"
 
 #include <utility>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec_graphics/mesh.hpp>
 
 #include <tiny_gltf_v3.h>
@@ -238,7 +240,7 @@ namespace {
     return color;
   }
 
-  auto accessor_at(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<tg3_accessor const *>
+  auto accessor_at(tg3_model const &model, std::int32_t accessor_index) -> vkexec::detail::result<tg3_accessor const *>
   {
     if (accessor_index < 0) { return fail(errc::out_of_range, "gltf accessor index out of range"); }
     if (std::cmp_greater_equal(accessor_index, model.accessors_count)) {
@@ -248,7 +250,7 @@ namespace {
     return &model.accessors[static_cast<std::size_t>(accessor_index)];
   }
 
-  auto buffer_view_at(tg3_model const &model, std::int32_t buffer_view_index) -> vkexec::result<tg3_buffer_view const *>
+  auto buffer_view_at(tg3_model const &model, std::int32_t buffer_view_index) -> vkexec::detail::result<tg3_buffer_view const *>
   {
     if (buffer_view_index < 0) { return fail(errc::out_of_range, "gltf buffer view index out of range"); }
     if (std::cmp_greater_equal(buffer_view_index, model.buffer_views_count)) {
@@ -258,7 +260,7 @@ namespace {
     return &model.buffer_views[static_cast<std::size_t>(buffer_view_index)];
   }
 
-  auto buffer_at(tg3_model const &model, std::int32_t buffer_index) -> vkexec::result<tg3_buffer const *>
+  auto buffer_at(tg3_model const &model, std::int32_t buffer_index) -> vkexec::detail::result<tg3_buffer const *>
   {
     if (buffer_index < 0) { return fail(errc::out_of_range, "gltf buffer index out of range"); }
     if (std::cmp_greater_equal(buffer_index, model.buffers_count)) {
@@ -269,7 +271,7 @@ namespace {
   }
 
   auto accessor_bytes(tg3_model const &model, std::int32_t accessor_index)
-    -> vkexec::result<std::span<std::uint8_t const>>
+    -> vkexec::detail::result<std::span<std::uint8_t const>>
   {
     if (accessor_index < 0 || std::cmp_greater_equal(accessor_index, model.accessors_count)) {
       return fail(errc::out_of_range, "gltf accessor index out of range");
@@ -304,7 +306,7 @@ namespace {
     return std::span<std::uint8_t const>{ buffer.data.data + offset, byte_length };
   }
 
-  auto read_vec3_positions(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::vector<vec3>>
+  auto read_vec3_positions(tg3_model const &model, std::int32_t accessor_index) -> vkexec::detail::result<std::vector<vec3>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
     if (!accessor_result) { return fail(accessor_result); }
@@ -346,7 +348,7 @@ namespace {
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   auto read_vec3_normals(tg3_model const &model, std::int32_t accessor_index, std::size_t expected_count)
-    -> vkexec::result<std::vector<vec3>>
+    -> vkexec::detail::result<std::vector<vec3>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
     if (!accessor_result) { return fail(accessor_result); }
@@ -385,7 +387,7 @@ namespace {
     return normals;
   }
 
-  auto read_indices(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::vector<std::uint32_t>>
+  auto read_indices(tg3_model const &model, std::int32_t accessor_index) -> vkexec::detail::result<std::vector<std::uint32_t>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
     if (!accessor_result) { return fail(accessor_result); }
@@ -418,7 +420,7 @@ namespace {
     tg3_primitive const &primitive,
     mat4 const &world,
     std::vector<mesh_vertex> &vertices,
-    std::vector<std::uint32_t> &indices) -> vkexec::status
+    std::vector<std::uint32_t> &indices) -> vkexec::detail::status
   {
     int const mode = primitive.mode < 0 ? k_gltf_mode_triangles : primitive.mode;
     if (mode != k_gltf_mode_triangles) { return {}; }
@@ -473,7 +475,7 @@ namespace {
     std::int32_t mesh_index,
     mat4 const &world,
     std::vector<mesh_vertex> &vertices,
-    std::vector<std::uint32_t> &indices) -> vkexec::status
+    std::vector<std::uint32_t> &indices) -> vkexec::detail::status
   {
     if (mesh_index < 0) { return {}; }
     if (std::cmp_greater_equal(mesh_index, model.meshes_count)) { return {}; }
@@ -493,7 +495,7 @@ namespace {
     std::int32_t node_index,
     mat4 const &parent,
     std::vector<mesh_vertex> &vertices,
-    std::vector<std::uint32_t> &indices) -> vkexec::status
+    std::vector<std::uint32_t> &indices) -> vkexec::detail::status
   {
     if (node_index < 0) { return {}; }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -560,8 +562,9 @@ namespace {
 
 }// namespace
 
-auto load_gltf_mesh(std::string const &path) -> vkexec::result<gltf_mesh_data>
+auto load_gltf_mesh(std::string const &path) -> vkexec::detail::sync_sender_fn<gltf_mesh_data>
 {
+  return vkexec::detail::make_sync_sender_fn<gltf_mesh_data>([path]() -> vkexec::detail::result<gltf_mesh_data> {
   tinygltf3::Model model;
   tinygltf3::ErrorStack errors;
   tg3_parse_options options{};
@@ -597,6 +600,7 @@ auto load_gltf_mesh(std::string const &path) -> vkexec::result<gltf_mesh_data>
   }
   fit_mesh_to_clip_space(mesh_data.vertices);
   return mesh_data;
+  });
 }
 
 }// namespace vkexec::examples

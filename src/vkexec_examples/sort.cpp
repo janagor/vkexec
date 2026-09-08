@@ -2,10 +2,9 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/sync_wait.hpp>
+#include "sync_wait_helpers.hpp"
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -61,11 +60,10 @@ struct sort_params
 }// namespace
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
-auto main() -> int
+static auto run() -> int
 {
-  try {
-    auto ctx = vkexec::value_or_throw(vkexec::context::create({ .validation_layers = true }));
-    auto data = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(*ctx, k_element_count, 0.0F));
+  auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .validation_layers = true }));
+    auto data = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
 
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 rng{ k_rng_seed };
@@ -81,7 +79,7 @@ auto main() -> int
     std::ranges::sort(expected);
 
     using enum vkexec::buffer_access;
-    auto pipe = vkexec::value_or_throw(vkexec::compute_pipeline::create(*ctx,
+    auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
       k_sort_glsl,
       vkexec::layout_desc{
         .bindings = { readwrite },
@@ -91,16 +89,14 @@ auto main() -> int
       },
       "sort.comp"));
 
-    auto *set = vkexec::value_or_throw(pipe.allocate_set());
     std::array<vkexec::storage_binding, 1> const buffers{ vkexec::storage_binding{
       .buffer = data.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(data.size() * sizeof(float)) } };
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    if (auto updated = pipe.update_set(set, buffers); !updated) { throw std::move(updated.error()); }
+    auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
     auto make_phase = [&](std::size_t phase) -> auto {
       sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
-      return vkexec::compute_pass(pipe,
-        set,
+      return vkexec::compute_pass(bound.pipe,
+        bound.set,
         params,
         static_cast<std::uint32_t>(k_element_count / 2));
     };
@@ -109,28 +105,23 @@ auto main() -> int
     for (std::size_t phase = 1; phase < k_element_count; ++phase) {
       graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
     }
-    auto waited = vkexec::sync_wait(std::move(graph));
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    if (!waited.has_value()) { throw vkexec::make_error(vkexec::errc::cancelled, "pipeline was stopped"); }
+  vkexec::examples::sync_wait_graph(std::move(graph));
 
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    for (std::size_t index = 0; index < k_element_count; ++index) {
-      if (std::fabs(data.data()[index] - expected.at(index)) > k_epsilon) {
-        std::println(stderr, "sort mismatch at {}: got {} expected {}", index, data.data()[index], expected.at(index));
-        // NOLINTNEXTLINE(hicpp-exception-baseclass)
-        throw vkexec::make_error(vkexec::errc::unsupported, "sort result mismatch");
-      }
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  for (std::size_t index = 0; index < k_element_count; ++index) {
+    if (std::fabs(data.data()[index] - expected.at(index)) > k_epsilon) {
+      std::println(stderr, "sort mismatch at {}: got {} expected {}", index, data.data()[index], expected.at(index));
+      vkexec::examples::fail_check("sort result mismatch");
     }
-
-    std::println("vkexec sort ok: N={} first={} mid={} last={}",
-      k_element_count,
-      data.data()[0],
-      data.data()[k_element_count / 2],
-      data.data()[k_element_count - 1]);
-    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    return 0;
-  } catch (vkexec::error const &error) {
-    std::println(stderr, "vkexec sort example failed: {}", error.message());
-    return 1;
   }
+
+  std::println("vkexec sort ok: N={} first={} mid={} last={}",
+    k_element_count,
+    data.data()[0],
+    data.data()[k_element_count / 2],
+    data.data()[k_element_count - 1]);
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  return 0;
 }
+
+auto main() -> int { return vkexec::examples::run_example(run); }
