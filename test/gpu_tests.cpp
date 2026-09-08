@@ -1,14 +1,15 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/submit.hpp>
-#include <vkexec/sync_wait.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -18,7 +19,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <utility>
 
@@ -76,9 +76,6 @@ struct pass_params
   float value;
 };
 
-auto skip_if_no_vulkan(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
-
 auto make_one_buffer_layout() -> vkexec::layout_desc
 {
   return vkexec::layout_desc{
@@ -110,20 +107,11 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   constexpr float k_damping = 0.99F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto positions_result = vkexec::buffer<float>::create_sync(ctx, k_count, 0.0F);
-  REQUIRE(positions_result.has_value());
-  auto velocities_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial_velocity);
-  REQUIRE(velocities_result.has_value());
-  auto &positions = vkexec::detail::expected_get(positions_result);
-  auto &velocities = vkexec::detail::expected_get(velocities_result);
-
-  auto pipe_result = vkexec::compute_pipeline::create(ctx, k_sim_glsl, make_sim_layout(), "sim.comp");
-  REQUIRE(pipe_result.has_value());
-  auto &pipe = vkexec::detail::expected_get(pipe_result);
+  auto ctx = vkexec::test::require_context();
+  auto positions = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F));
+  auto velocities = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity));
+  auto pipe = vkexec::test::sync_wait_value(
+    vkexec::compute_pipeline::create(*ctx, k_sim_glsl, make_sim_layout(), "sim.comp"));
 
   auto set_result = pipe.allocate_set();
   REQUIRE(set_result.has_value());
@@ -135,9 +123,9 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   REQUIRE(pipe.update_set(set, bindings));
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
-  auto waited = vkexec::sync_wait(
-    ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(pipe, set, params, static_cast<std::uint32_t>(k_count)));
-  REQUIRE(waited.has_value());
+  auto waited = vkexec::test::sync_wait_sender(
+    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(pipe, set, params, static_cast<std::uint32_t>(k_count)));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;
@@ -156,20 +144,12 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   constexpr float k_scale = 2.0F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
-  REQUIRE(values_result.has_value());
-  auto &values = vkexec::detail::expected_get(values_result);
-
-  auto add_pipe_result = vkexec::compute_pipeline::create(ctx, k_add_glsl, make_one_buffer_layout(), "add.comp");
-  auto scale_pipe_result = vkexec::compute_pipeline::create(ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp");
-  REQUIRE(add_pipe_result.has_value());
-  REQUIRE(scale_pipe_result.has_value());
-  auto &add_pipe = vkexec::detail::expected_get(add_pipe_result);
-  auto &scale_pipe = vkexec::detail::expected_get(scale_pipe_result);
+  auto ctx = vkexec::test::require_context();
+  auto values = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial));
+  auto add_pipe = vkexec::test::sync_wait_value(
+    vkexec::compute_pipeline::create(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
+  auto scale_pipe = vkexec::test::sync_wait_value(
+    vkexec::compute_pipeline::create(*ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp"));
 
   auto set_result = add_pipe.allocate_set();
   REQUIRE(set_result.has_value());
@@ -182,13 +162,13 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   REQUIRE(add_pipe.update_set(set, std::span{ &binding, 1 }));
   REQUIRE(scale_pipe.update_set(set, std::span{ &binding, 1 }));
 
-  auto graph = ex::schedule(ctx.get_scheduler())
+  auto graph = ex::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
                | vkexec::barrier::compute_to_compute()
                | vkexec::compute_pass(
                  scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
-  auto waited = vkexec::sync_wait(std::move(graph));
-  REQUIRE(waited.has_value());
+  auto waited = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   float const expected = (k_initial + k_add) * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -207,20 +187,12 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   constexpr float k_scale = 2.0F;
   constexpr float k_epsilon = 1.0E-4F;
 
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
-  REQUIRE(values_result.has_value());
-  auto &values = vkexec::detail::expected_get(values_result);
-
-  auto add_pipe_result = vkexec::compute_pipeline::create(ctx, k_add_glsl, make_one_buffer_layout(), "add.comp");
-  auto scale_pipe_result = vkexec::compute_pipeline::create(ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp");
-  REQUIRE(add_pipe_result.has_value());
-  REQUIRE(scale_pipe_result.has_value());
-  auto &add_pipe = vkexec::detail::expected_get(add_pipe_result);
-  auto &scale_pipe = vkexec::detail::expected_get(scale_pipe_result);
+  auto ctx = vkexec::test::require_context();
+  auto values = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial));
+  auto add_pipe = vkexec::test::sync_wait_value(
+    vkexec::compute_pipeline::create(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
+  auto scale_pipe = vkexec::test::sync_wait_value(
+    vkexec::compute_pipeline::create(*ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp"));
 
   auto set_result = add_pipe.allocate_set();
   REQUIRE(set_result.has_value());
@@ -233,14 +205,14 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   REQUIRE(add_pipe.update_set(set, std::span{ &binding, 1 }));
   REQUIRE(scale_pipe.update_set(set, std::span{ &binding, 1 }));
 
-  auto graph = ex::schedule(ctx.get_scheduler())
+  auto graph = ex::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
                | vkexec::barrier::compute_to_compute()
                | vkexec::compute_pass(
                  scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count))
                | vkexec::submit;
-  auto waited = vkexec::sync_wait(graph);
-  REQUIRE(waited.has_value());
+  auto waited = vkexec::test::sync_wait_sender(graph);
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   float const expected = (k_initial + k_add) * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -259,7 +231,7 @@ TEST_CASE("pass graph submit completes with set_stopped when stop is already req
   auto sender = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 })
                 | vkexec::submit;
 
-  auto const waited =
-    vkexec::sync_wait(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
-  REQUIRE_FALSE(waited.has_value());
+  auto const waited = vkexec::test::sync_wait_sender(
+    ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }

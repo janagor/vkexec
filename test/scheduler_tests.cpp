@@ -1,29 +1,21 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <stdexec/__detail/__execution_fwd.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
-#include <vkexec/sync_wait.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <concepts>
 #include <memory>
-#include <string>
 #include <thread>
 
 namespace ex = stdexec;
-
-namespace {
-
-auto skip_if_no_vulkan(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
-
-}// namespace
 
 TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler]")
 {
@@ -37,18 +29,16 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
 
 TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][gpu]")
 {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
+  auto ctx = vkexec::test::require_context();
 
   auto const caller = std::this_thread::get_id();
-  auto const agent = ctx.host_agent_thread_id();
+  auto const agent = ctx->host_agent_thread_id();
   REQUIRE(agent != caller);
 
   std::thread::id completed_on{};
-  auto waited = vkexec::sync_wait(
-    ex::schedule(ctx.get_scheduler()) | ex::then([&]() -> void { completed_on = std::this_thread::get_id(); }));
-  REQUIRE(waited.has_value());
+  auto waited = vkexec::test::sync_wait_sender(
+    ex::schedule(ctx->get_scheduler()) | ex::then([&]() -> void { completed_on = std::this_thread::get_id(); }));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   REQUIRE(completed_on == agent);
   REQUIRE(completed_on != caller);
@@ -56,17 +46,15 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
 
 TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][scheduler][gpu]")
 {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
+  auto ctx = vkexec::test::require_context();
 
   auto const caller = std::this_thread::get_id();
-  auto const agent = ctx.host_agent_thread_id();
+  auto const agent = ctx->host_agent_thread_id();
 
   std::thread::id ran_on{};
-  auto waited = vkexec::sync_wait(
-    ex::starts_on(ctx.get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
-  REQUIRE(waited.has_value());
+  auto waited = vkexec::test::sync_wait_sender(
+    ex::starts_on(ctx->get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   REQUIRE(ran_on == agent);
   REQUIRE(ran_on != caller);

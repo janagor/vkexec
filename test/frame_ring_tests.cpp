@@ -1,22 +1,20 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/frame_ring.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 namespace {
-
-auto skip_if_unavailable(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 auto open_timeline_context() -> std::unique_ptr<vkexec::context>
 {
@@ -29,9 +27,7 @@ auto open_timeline_context() -> std::unique_ptr<vkexec::context>
   requirements.api_version_minor = 2;
   requirements.require_extension_feature(features_12);
 
-  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
-  return vkexec::detail::expected_take(ctx_result);
+  return vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
 }
 
 auto record_empty(vkexec::context &ctx) -> VkCommandBuffer
@@ -53,10 +49,8 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
 {
   auto ctx = open_timeline_context();
 
-  auto ring_result =
-    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 3 });
-  REQUIRE(ring_result.has_value());
-  auto &ring = vkexec::detail::expected_get(ring_result);
+  auto ring = vkexec::test::sync_wait_value(
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 3 }));
   REQUIRE(ring.slot_count() == 2);
   REQUIRE(ring.image_count() == 3);
   auto const acquire0 = ring.acquire_semaphore(0);
@@ -78,10 +72,8 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
 {
   auto ctx = open_timeline_context();
 
-  auto ring_result =
-    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
-  REQUIRE(ring_result.has_value());
-  auto &ring = vkexec::detail::expected_get(ring_result);
+  auto ring = vkexec::test::sync_wait_value(
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 }));
 
   // Prime the acquire semaphore so the wait is satisfied without a real swapchain acquire.
   {
@@ -119,10 +111,8 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
 {
   auto ctx = open_timeline_context();
 
-  auto ring_result =
-    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 });
-  REQUIRE(ring_result.has_value());
-  auto &ring = vkexec::detail::expected_get(ring_result);
+  auto ring = vkexec::test::sync_wait_value(
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 2, .image_count = 2 }));
   auto const old_finished = ring.render_finished_semaphore(0);
   REQUIRE(old_finished.has_value());
 

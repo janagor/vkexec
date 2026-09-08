@@ -1,7 +1,9 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/push_data.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
@@ -9,7 +11,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 
 namespace {
@@ -19,9 +20,6 @@ struct push_payload
   float x;
   std::uint32_t y;
 };
-
-auto skip_if_unavailable(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
 
 }// namespace
 
@@ -37,13 +35,11 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
-  auto &ctx = **ctx_result;
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
 
-  REQUIRE(ctx.procs().cmd_push_data != nullptr);
+  REQUIRE(ctx->procs().cmd_push_data != nullptr);
 
-  auto cmd_result = ctx.allocate_command_buffer();
+  auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
   auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
@@ -52,8 +48,8 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
   push_payload const payload{ .x = 1.5F, .y = 9U };
-  REQUIRE(vkexec::cmd_push_data(ctx, cmd, payload));
+  REQUIRE(vkexec::cmd_push_data(*ctx, cmd, payload));
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
-  ctx.free_command_buffer(cmd);
+  ctx->free_command_buffer(cmd);
 }

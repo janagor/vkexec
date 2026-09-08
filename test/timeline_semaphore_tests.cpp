@@ -1,3 +1,5 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -5,19 +7,17 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/timeline_semaphore.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 namespace {
 
-auto skip_if_unavailable(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan feature set unavailable: ") + std::string(err.message())); }
+constexpr std::uint64_t k_signal_value = 7;
 
 }// namespace
 
@@ -32,13 +32,8 @@ TEST_CASE("timeline_semaphore create and wait for initial value", "[vkexec][time
   requirements.api_version_minor = 2;
   requirements.require_extension_feature(features_12);
 
-  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto timeline_result = vkexec::timeline_semaphore::create(ctx, 3);
-  REQUIRE(timeline_result.has_value());
-  auto &timeline = vkexec::detail::expected_get(timeline_result);
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto timeline = vkexec::test::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 3));
   REQUIRE(timeline.handle() != VK_NULL_HANDLE);
   REQUIRE(timeline.wait(3));
   REQUIRE(timeline.wait(0));
@@ -55,15 +50,10 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
   requirements.api_version_minor = 2;
   requirements.require_extension_feature(features_12);
 
-  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_unavailable(ctx_result.error()); }
-  auto &ctx = **ctx_result;
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto timeline = vkexec::test::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
 
-  auto timeline_result = vkexec::timeline_semaphore::create(ctx, 0);
-  REQUIRE(timeline_result.has_value());
-  auto &timeline = vkexec::detail::expected_get(timeline_result);
-
-  auto cmd_result = ctx.allocate_command_buffer();
+  auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
   auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
@@ -72,17 +62,16 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
 
-  constexpr std::uint64_t k_signal_value = 7;
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
   std::array<vkexec::semaphore_submit, 1> const signals{ vkexec::semaphore_submit{
     .semaphore = timeline.handle(),
     .value = k_signal_value,
   } };
 
-  REQUIRE(ctx.submit(vkexec::queue_submit{
+  REQUIRE(ctx->submit(vkexec::queue_submit{
     .command_buffers = cmds,
     .signals = signals,
   }));
   REQUIRE(timeline.wait(k_signal_value));
-  ctx.free_command_buffer(cmd);
+  ctx->free_command_buffer(cmd);
 }

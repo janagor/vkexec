@@ -1,8 +1,10 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/queue_submit.hpp>
 
@@ -11,34 +13,25 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <string>
 
 namespace {
 
 constexpr std::uint32_t k_width = 32;
 constexpr std::uint32_t k_height = 32;
 
-auto skip_if_no_vulkan(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
-
 }// namespace
 
 TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image][gpu]")
 {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto img_result = vkexec::image::create(ctx,
+  auto ctx = vkexec::test::require_context();
+  auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,
     vkexec::image_create_info{
       .width = k_width,
       .height = k_height,
       .usage = vkexec::image_usage::color_storage,
-    });
-  REQUIRE(img_result.has_value());
-  auto &img = vkexec::detail::expected_get(img_result);
+    }));
 
-  auto cmd_result = ctx.allocate_command_buffer();
+  auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
   auto *cmd = vkexec::detail::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
@@ -60,6 +53,6 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
-  REQUIRE(ctx.submit(vkexec::queue_submit{ .command_buffers = cmds }));
-  ctx.free_command_buffer(cmd);
+  REQUIRE(ctx->submit(vkexec::queue_submit{ .command_buffers = cmds }));
+  ctx->free_command_buffer(cmd);
 }

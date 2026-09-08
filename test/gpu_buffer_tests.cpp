@@ -1,7 +1,8 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
@@ -9,7 +10,6 @@
 
 #include <cstddef>
 #include <memory>
-#include <string>
 #include <utility>
 
 namespace {
@@ -17,20 +17,13 @@ namespace {
 constexpr VkDeviceSize k_bytes = 256;
 constexpr std::byte k_marker{ static_cast<unsigned char>(0xAB) };
 
-auto skip_if_no_vulkan(vkexec::error const &err) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + std::string(err.message())); }
-
 }// namespace
 
 TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::host_visible);
-  REQUIRE(buffer_result.has_value());
-  auto &buffer = vkexec::detail::expected_get(buffer_result);
+  auto ctx = vkexec::test::require_context();
+  auto buffer = vkexec::test::sync_wait_value(
+    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::host_visible));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.size() == k_bytes);
   auto const mapped = buffer.mapped();
@@ -43,13 +36,9 @@ TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 
 TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gpu_buffer][gpu]")
 {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::device_local);
-  REQUIRE(buffer_result.has_value());
-  auto &buffer = vkexec::detail::expected_get(buffer_result);
+  auto ctx = vkexec::test::require_context();
+  auto buffer = vkexec::test::sync_wait_value(
+    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::device_local));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.size() == k_bytes);
   REQUIRE(buffer.mapped().empty());
@@ -57,13 +46,9 @@ TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gp
 
 TEST_CASE("gpu_buffer staging is host-mapped", "[vkexec][gpu_buffer][gpu]")
 {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::staging);
-  REQUIRE(buffer_result.has_value());
-  auto &buffer = vkexec::detail::expected_get(buffer_result);
+  auto ctx = vkexec::test::require_context();
+  auto buffer = vkexec::test::sync_wait_value(
+    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::staging));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
 }
@@ -84,13 +69,9 @@ TEST_CASE("gpu_buffer descriptor_heap allocates when extension is available", "[
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::descriptor_heap);
-  REQUIRE(buffer_result.has_value());
-  auto &buffer = vkexec::detail::expected_get(buffer_result);
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto buffer = vkexec::test::sync_wait_value(
+    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::descriptor_heap));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
   auto const addr_result = buffer.device_address();
@@ -109,18 +90,14 @@ TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[
   requirements.api_version_minor = 2;
   requirements.require_extension_feature(features_12);
 
-  auto ctx_result = vkexec::context::create({ .requirements = std::move(requirements) });
-  if (!ctx_result) { skip_if_no_vulkan(ctx_result.error()); }
-  auto &ctx = **ctx_result;
-
-  auto buffer_result = vkexec::gpu_buffer::create(ctx,
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto buffer = vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_bytes,
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
-    });
-  REQUIRE(buffer_result.has_value());
-  auto const addr_result = buffer_result->device_address();
+    }));
+  auto const addr_result = buffer.device_address();
   REQUIRE(addr_result.has_value());
   REQUIRE(*addr_result != 0);
 }

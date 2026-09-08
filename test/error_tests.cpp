@@ -1,8 +1,11 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -85,18 +88,15 @@ TEST_CASE("context::create returns unsupported when requirements cannot be met",
   vkexec::vulkan_requirements requirements{};
   requirements.device_extensions = { "VK_VKEXEC_does_not_exist_EXT" };
 
-  auto created = vkexec::context::create({ .requirements = std::move(requirements) });
-  REQUIRE_FALSE(created.has_value());
-  vkexec::error const &err = created.error();
+  auto outcome = vkexec::try_sync_wait(vkexec::context::create({ .requirements = std::move(requirements) }));
+  REQUIRE(outcome.failed());
+  vkexec::error const err = outcome.take_error();
   REQUIRE(err.code == vkexec::make_error_code(vkexec::errc::unsupported));
   REQUIRE_FALSE(err.message().empty());
 }
 
 TEST_CASE("context::create succeeds for default requirements", "[vkexec][error][gpu]")
 {
-  auto created = vkexec::context::create();
-  if (!created.has_value()) {
-    SKIP(std::string("Vulkan unavailable: ") + std::string(created.error().message()));
-  }
-  REQUIRE((*created)->device() != VK_NULL_HANDLE);
+  auto ctx = vkexec::test::require_context();
+  REQUIRE(ctx->device() != VK_NULL_HANDLE);
 }

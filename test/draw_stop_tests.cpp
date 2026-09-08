@@ -1,6 +1,8 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/error.hpp>
+#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -12,7 +14,6 @@
 #include <stdexec/stop_token.hpp>
 
 #include <cstdint>
-#include <string>
 #include <thread>
 #include <utility>
 
@@ -28,22 +29,17 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_headless_window() -> vkexec::window
 {
-  auto result =
-    vkexec::window::headless({ .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" });
-  if (!result) {
-    SKIP(std::string("Headless surface unavailable: ") + std::string(result.error().message()));
-  }
-  return vkexec::detail::expected_take(result);
+  auto outcome = vkexec::try_sync_wait(
+    vkexec::window::headless({ .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" }));
+  if (outcome.failed()) { vkexec::test::skip_if_no_vulkan(outcome.take_error()); }
+  if (outcome.stopped || !outcome.values.has_value()) { FAIL("window::headless stopped unexpectedly"); }
+  return vkexec::detail::take_sync_value(std::move(*outcome.values));
 }
 
 [[nodiscard]] auto make_triangle_pipeline(vkexec::window &win) -> vkexec::graphics_pipeline
 {
-  auto result = vkexec::graphics_pipeline::create(
-    win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag);
-  if (!result) {
-    FAIL(std::string("graphics pipeline creation failed: ") + std::string(result.error().message()));
-  }
-  return vkexec::detail::expected_take(result);
+  return vkexec::test::sync_wait_value(vkexec::graphics_pipeline::create(
+    win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 }
 
 struct headless_fixture
@@ -70,8 +66,8 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
 
   auto env_sender =
     ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
-  auto const waited = vkexec::sync_wait(std::move(env_sender));
-  REQUIRE_FALSE(waited.has_value());
+  auto const waited = vkexec::test::sync_wait_sender(std::move(env_sender));
+  REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
 
 TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion", "[vkexec][draw][gpu]")
@@ -85,11 +81,11 @@ TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion
 
   std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
 
-  (void)vkexec::sync_wait(std::move(env_sender));
+  (void)vkexec::test::sync_wait_sender(std::move(env_sender));
 
   for (int frame = 0; frame < k_post_stop_frames; ++frame) {
-    auto const retry = vkexec::sync_wait(fixture.draw_submit_sender());
-    REQUIRE(retry.has_value());
+    auto const retry = vkexec::test::sync_wait_sender(fixture.draw_submit_sender());
+    REQUIRE(vkexec::test::sync_wait_completed(retry));
   }
 }
 
@@ -98,8 +94,8 @@ TEST_CASE("draw | submit presents multiple headless frames without leaking frame
   headless_fixture fixture;
 
   for (int frame = 0; frame < k_frame_slots + k_post_stop_frames; ++frame) {
-    auto const waited = vkexec::sync_wait(fixture.draw_submit_sender());
-    REQUIRE(waited.has_value());
+    auto const waited = vkexec::test::sync_wait_sender(fixture.draw_submit_sender());
+    REQUIRE(vkexec::test::sync_wait_completed(waited));
   }
 
   fixture.win.wait_idle();
