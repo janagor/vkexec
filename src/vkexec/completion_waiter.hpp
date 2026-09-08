@@ -1,6 +1,7 @@
 #ifndef VKEXEC_COMPLETION_WAITER_HPP
 #define VKEXEC_COMPLETION_WAITER_HPP
 
+#include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 
@@ -8,7 +9,6 @@
 
 #include <condition_variable>
 #include <cstdint>
-#include <functional>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -22,8 +22,8 @@ namespace vkexec::detail {
 class completion_waiter
 {
 public:
-  using done_fn = std::move_only_function<void(std::optional<error> failure, bool stopped)>;
-  using stop_fn = std::move_only_function<bool()>;
+  using done_fn = move_only_function<void(std::optional<error> failure, bool stopped)>;
+  using stop_fn = move_only_function<bool()>;
 
   completion_waiter(VkDevice device, VkQueue fallback_queue);
   ~completion_waiter();

@@ -1,6 +1,7 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
+#include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
@@ -14,7 +15,6 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -119,32 +119,32 @@ public:
   [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done)
     -> detail::status
   {
-    std::move_only_function<bool()> stop_requested;
+    detail::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
     return do_enqueue_fence_wait(semaphore,
       fence,
       std::move(stop_requested),
-      std::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
+      detail::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
   }
 
   /// Wait for a caller-owned fence on the completion agent (does not destroy the fence).
   template<class StopToken, class Done>
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> detail::status
   {
-    std::move_only_function<bool()> stop_requested;
+    detail::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       stop_requested = [token]() -> bool { return token.stop_requested(); };
     }
     return do_enqueue_borrowed_fence_wait(fence,
       std::move(stop_requested),
-      std::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
+      detail::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
   }
 
   /// Run `task` on the context host agent (schedule completions land here).
   template<class Task> [[nodiscard]] auto enqueue_host(Task &&task) -> detail::status
-  { return do_enqueue_host(std::move_only_function<void()>{ std::forward<Task>(task) }); }
+  { return do_enqueue_host(detail::move_only_function<void()>{ std::forward<Task>(task) }); }
 
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
@@ -178,12 +178,12 @@ private:
   auto ensure_host_agent() -> detail::result<detail::host_agent *>;
   [[nodiscard]] auto do_enqueue_fence_wait(VkSemaphore semaphore,
     VkFence fence,
-    std::move_only_function<bool()> stop_requested,
-    std::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status;
+    detail::move_only_function<bool()> stop_requested,
+    detail::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status;
   [[nodiscard]] auto do_enqueue_borrowed_fence_wait(VkFence fence,
-    std::move_only_function<bool()> stop_requested,
-    std::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status;
-  [[nodiscard]] auto do_enqueue_host(std::move_only_function<void()> task) -> detail::status;
+    detail::move_only_function<bool()> stop_requested,
+    detail::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status;
+  [[nodiscard]] auto do_enqueue_host(detail::move_only_function<void()> task) -> detail::status;
 
   vulkan_requirements requirements_{};
   std::uint32_t api_version_{ VK_API_VERSION_1_0 };

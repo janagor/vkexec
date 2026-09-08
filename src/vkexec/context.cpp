@@ -1,3 +1,4 @@
+#include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
@@ -450,8 +451,8 @@ auto context::host_agent_thread_id() -> std::thread::id
 
 auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
   VkFence fence,
-  std::move_only_function<bool()> stop_requested,
-  std::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status
+  detail::move_only_function<bool()> stop_requested,
+  detail::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) {
@@ -469,8 +470,8 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
 }
 
 auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
-  std::move_only_function<bool()> stop_requested,
-  std::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status
+  detail::move_only_function<bool()> stop_requested,
+  detail::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) {
@@ -480,7 +481,7 @@ auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
   return detail::expected_take(waiter)->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
 }
 
-auto context::do_enqueue_host(std::move_only_function<void()> task) -> detail::status
+auto context::do_enqueue_host(detail::move_only_function<void()> task) -> detail::status
 {
   VKEXEC_TRY_ASSIGN(agent, ensure_host_agent());
   return agent->enqueue(std::move(task));
