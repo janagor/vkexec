@@ -17,6 +17,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
+#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/sync_wait.hpp>
 
 #include <stdexec/execution.hpp>
@@ -40,85 +41,95 @@ void main() {
 )";
 
 int main() {
-  auto ctx = vkexec::value_or_throw(vkexec::context::create());
-  auto positions = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(*ctx, 10000, 0.0f));
-  auto velocities = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(*ctx, 10000, 1.5f));
+  try {
+    auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create()));
+    auto positions = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 0.0f)));
+    auto velocities = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 1.5f)));
 
-  using enum vkexec::buffer_access;
-  auto pipe = vkexec::value_or_throw(vkexec::compute_pipeline::create(*ctx,
-    k_sim_glsl,
-    vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
-    "sim.comp"));
+    using enum vkexec::buffer_access;
+    auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
+      k_sim_glsl,
+      vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
+      "sim.comp")));
 
-  auto *set = vkexec::value_or_throw(pipe.allocate_set());
-  pipe.update_set(set, { { positions.vk_buffer(), positions.size() * sizeof(float) },
-                         { velocities.vk_buffer(), velocities.size() * sizeof(float) } });
+    auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
+      vkexec::compute_pipeline::bind_storage_sender(pipe, { positions, velocities })));
 
-  sim_params params{ 0.016f, 0.99f };
-  if (auto waited = vkexec::sync_wait(ex::schedule(ctx->get_scheduler())
-                                      | vkexec::compute_pass(pipe, set, params, 10000));
-      !waited.has_value()) {
+    sim_params params{ 0.016f, 0.99f };
+    if (auto waited = vkexec::sync_wait(ex::schedule(ctx->get_scheduler())
+                                        | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000));
+        !waited.has_value()) {
+      return 1;
+    }
+
+    // Several compute kernels in one command buffer:
+    auto graph = ex::schedule(ctx->get_scheduler())
+      | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000)
+      | vkexec::barrier::compute_to_compute()
+      | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000);
+    if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
+  } catch (vkexec::error const& err) {
+    std::println(stderr, "{}", err.message());
     return 1;
   }
-
-  // Several compute kernels in one command buffer:
-  auto graph = ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_pass(pipe, set, params, 10000)
-    | vkexec::barrier::compute_to_compute()
-    | vkexec::compute_pass(pipe, set, params, 10000);
-  if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
 }
 ```
 
 ### Error model
 
-Senders complete with `set_error(vkexec::error)` — the same custom error channel stdexec uses. Factory and setup APIs return `vkexec::result<T>` (`std::expected<T, vkexec::error>`) or `vkexec::status`.
+Public APIs are **senders** (stdexec). Completions follow stdexec semantics:
+
+- **`set_value(...)`** — success
+- **`set_error(vkexec::error)`** — failure (same error type everywhere async)
+- **`set_stopped()`** — cancellation (not an error)
+
+There is no public `std::expected`, `result<T>`, `status`, `value_or_throw`, or `create_sync`. Factory functions such as `context::create`, `buffer::allocate`, and `compute_pipeline::create` return senders; compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait`.
 
 - **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
 - **Vulkan failures** use `vkexec::make_vk_error_code(VkResult)` / `vkexec::make_vk_error(...)`.
-- **`VKEXEC_TRY` / `VKEXEC_TRY_ASSIGN`** propagate `std::expected` failures (`return fail(...)`).
 
-**Sync boundary (`VKEXEC_ENABLE_EXCEPTIONS`, default ON):** `vkexec::sync_wait(sender)` delegates to `stdexec::sync_wait` and **throws `vkexec::error`** on sender failure. A disengaged `std::optional` means `set_stopped()` (not an error).
+**Sync boundary (`VKEXEC_ENABLE_EXCEPTIONS`, default ON):** `vkexec::sync_wait(sender)` delegates to `stdexec::sync_wait` and **throws `vkexec::error`** on `set_error`. A disengaged `std::optional` means `set_stopped()` (not an error).
 
 ```cpp
 try {
-  auto ctx = vkexec::value_or_throw(vkexec::context::create({ .requirements = reqs }));
+  auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create({ .requirements = reqs })));
   auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, n, fill));
   if (!waited.has_value()) { /* stopped */ }
-  auto [buf] = std::move(*waited);
+  auto buf = vkexec::detail::take_sync_value(std::move(*waited));
 } catch (vkexec::error const &err) {
   std::println("{}", err.message());
 }
 ```
 
-**`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `result<std::optional<tuple<...>>>` instead of throwing. Use explicit `if (!waited)` / `if (!waited->has_value())` checks.
+**`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `vkexec::detail::sync_wait_outcome<...>` with `values`, `error`, and `stopped` fields — no throwing, no `std::expected`.
 
 ```cpp
-auto ctx_result = vkexec::context::create({ .requirements = reqs });
-if (!ctx_result) {
-  std::println("{}", ctx_result.error().message());
+auto outcome = vkexec::sync_wait(vkexec::context::create({ .requirements = reqs }));
+if (outcome.failed()) {
+  std::println("{}", outcome.take_error().message());
+  return;
 }
-
-auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx_result, n, fill));
-if (!waited) { /* sender failed with vkexec::error */ }
-if (!waited->has_value()) { /* stopped */ }
-auto [buf] = std::move(**waited);
+if (outcome.stopped || !outcome.values.has_value()) { /* stopped */ return; }
+auto ctx = vkexec::detail::take_sync_value(std::move(*outcome.values));
 ```
+
+For tests without exceptions, use `vkexec::try_sync_wait` (same `sync_wait_outcome` shape).
 
 Common entry points:
 
 | API | Returns |
 |-----|---------|
-| `context::create` / `context::adopt` | `result<std::unique_ptr<context>>` |
-| `buffer<T>::create_sync` | `result<buffer<T>>` |
-| `compute_pipeline::create` | `result<compute_pipeline>` |
-| `window::create` / `window::headless` | `result<window>` |
-| `graphics_pipeline::create` | `result<graphics_pipeline>` |
-| `mesh::create` | `result<mesh>` |
-| `gpu_buffer::create`, `image::create`, … | `result<...>` |
+| `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
+| `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
+| `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
+| `compute_pipeline::bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
+| `window::create` / `window::headless` | sender → `set_value(window)` |
+| `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` |
+| `mesh::create` | sender → `set_value(mesh)` |
+| `gpu_buffer::create`, `image::create`, … | sender → `set_value(...)` |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
-| `sync_wait` (exceptions OFF) | `result<std::optional<tuple<...>>>` |
+| `sync_wait` / `try_sync_wait` (exceptions OFF) | `sync_wait_outcome<tuple<...>>` |
 
 ### Existing SPIR-V (hybrid)
 
@@ -127,30 +138,29 @@ Keep hand-written shaders. vkexec caches the pipeline and records dispatch. Push
 ```cpp
 struct ProjectPush { float view[16]; float projection[16]; std::uint64_t gaussian_addr; std::uint32_t splat_count; };
 
-auto pipe = vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
+auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
   .bindings = { vkexec::buffer_access::readonly, vkexec::buffer_access::writeonly },
   .push_constant_size = sizeof(ProjectPush),
   .specialization = { splat_count },
   .local_size = { 64, 1, 1 },
-});
+}));
 // or create(ctx, spirv, layout) when you already have .spv
-if (!pipe) { /* handle pipe.error() */ }
-auto set_result = pipe->allocate_set();
-pipe->update_set(*set_result, buffers);
-if (auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(*pipe, *set_result, push, splat_count));
+auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::bind_storage_sender(pipe, buffers)));
+if (auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler())
+      | vkexec::compute_pass(bound.pipeline, bound.set, push, splat_count));
     !waited.has_value()) { /* stopped */ }
 // or, with your own command buffer:
-vkexec::upload_push_constants(cmd, *pipe, push);
+vkexec::upload_push_constants(cmd, pipe, push);
 ```
 
 ### Device requirements and adopt
 
-`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Use `context::create` when probing optional capabilities (`errc::unsupported` on mismatch).
+`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Use `context::create` when probing optional capabilities (sender completes with `set_error` / `errc::unsupported` on mismatch).
 
 Embedders that already own a Vulkan device (for example a Filament-like driver) can wrap it without transferring ownership:
 
 ```cpp
-auto ctx_result = vkexec::context::adopt({
+auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::adopt({
   .instance = instance,
   .physical_device = phys,
   .device = device,
@@ -159,9 +169,7 @@ auto ctx_result = vkexec::context::adopt({
   .compute_queue_family = compute_family,
   .graphics_queue = graphics_q,  // optional; defaults to compute
   .present_queue = present_q,    // optional; defaults to graphics
-});
-if (!ctx_result) { /* handle ctx_result.error() */ }
-auto ctx = std::move(*ctx_result);
+}));
 ```
 
 When extensions such as `VK_EXT_descriptor_heap` / `VK_EXT_shader_object` push-data are enabled, `context::procs()` caches the device PFNs (null when unavailable).
@@ -172,20 +180,18 @@ Hybrid apps can skip classic descriptor sets. Create a null-layout pipeline with
 
 ```cpp
 auto layout = vkexec::query_descriptor_heap_layout(ctx);
-auto heap_result = vkexec::gpu_buffer::create(ctx, {
+auto heap = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::gpu_buffer::create(ctx, {
   .size = vkexec::descriptor_heap_byte_size(layout, slot_count),
   .memory = vkexec::gpu_buffer_memory::descriptor_heap,
   .shader_device_address = true,
-});
-if (!heap_result) { /* ... */ }
-auto& heap = *heap_result;
+}));
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
 
-auto pipe = vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
+auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
   .descriptor_heap = true,
   .push_constant_size = sizeof(Push),
   .local_size = { 64, 1, 1 },
-});
+}));
 
 // In a recorded command buffer (or via bindless compute_pass):
 vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
@@ -216,14 +222,15 @@ cmake --build out/build/unixlike-clang-release -j12
 Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled at pipeline creation time. Each frame is a stdexec pipeline:
 
 ```cpp
+#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 #include <vkexec_graphics/window.hpp>
 
-auto win = vkexec::value_or_throw(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" }));
+auto win = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" })));
 
-auto pipeline = vkexec::value_or_throw(vkexec::graphics_pipeline::create(
+auto pipeline = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::graphics_pipeline::create(
   win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
 while (!win.should_close()) {
