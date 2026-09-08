@@ -18,12 +18,12 @@ namespace vkexec {
 
 namespace detail {
 
-[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> std::unexpected<error>
+[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> detail::unexpected<detail::error_type>
 { return fail(make_vk_error(result, context)); }
 
 }// namespace detail
 
-[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> std::unexpected<error>
+[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> detail::unexpected<detail::error_type>
 { return detail::fail(make_vk_error(result, context)); }
 
 template<typename T>
