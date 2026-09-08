@@ -2,6 +2,8 @@
 #define VKEXEC_GRAPHICS_MESH_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/result.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
 #include <array>
@@ -24,7 +26,8 @@ class mesh
 {
 public:
   [[nodiscard]] static auto
-    create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> result<mesh>;
+    create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+    -> detail::sync_sender_fn<mesh>;
 
   ~mesh();
 
@@ -42,7 +45,7 @@ public:
 private:
   mesh() = default;
 
-  auto init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status;
+  auto init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> detail::status;
   auto destroy() noexcept -> void;
 
   context *ctx_{ nullptr };

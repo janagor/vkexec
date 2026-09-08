@@ -1,6 +1,7 @@
 #ifndef VKEXEC_GRAPHICS_DRAW_HPP
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/scheduler.hpp>
@@ -26,9 +27,10 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  [[nodiscard]] inline auto try_begin_frame(window &win) -> result<std::optional<frame>> { return win.begin_frame(); }
+  [[nodiscard]] inline auto try_begin_frame(window &win) -> detail::result<std::optional<frame>>
+  { return win.begin_frame(); }
 
-  [[nodiscard]] inline auto try_end_frame(window &win, frame const &drawn) -> result<VkFence>
+  [[nodiscard]] inline auto try_end_frame(window &win, frame const &drawn) -> detail::result<VkFence>
   { return win.end_frame(drawn); }
 
   template<class Receiver> auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
@@ -203,7 +205,7 @@ struct draw_async_sender
       detail::start_draw_async(
         ctx,
         win,
-        [this](frame &drawn) -> result<VkFence> {
+        [this](frame &drawn) -> detail::result<VkFence> {
           if (auto draw_status =
                 pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
             !draw_status) {
@@ -324,7 +326,7 @@ struct draw_layers_async_sender
       detail::start_draw_async(
         ctx,
         win,
-        [this](frame &drawn_frame) -> result<VkFence> {
+        [this](frame &drawn_frame) -> detail::result<VkFence> {
           if (layers.empty()) { return fail(errc::invalid_argument, "draw_layers requires at least one layer"); }
           graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
           std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
@@ -461,7 +463,7 @@ struct draw_mesh_async_sender
       detail::start_draw_async(
         ctx,
         win,
-        [this](frame &drawn_frame) -> result<VkFence> {
+        [this](frame &drawn_frame) -> detail::result<VkFence> {
           if (auto draw_status = pipeline->draw(
                 drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
             !draw_status) {

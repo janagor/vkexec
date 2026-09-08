@@ -2,6 +2,8 @@
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/result.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 
@@ -58,28 +60,26 @@ public:
     graphics_pipeline_config cfg,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> result<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {})
-  { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
+    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> result<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {})
-  { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
+    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
   ~graphics_pipeline() { destroy(); }
 
@@ -119,13 +119,13 @@ public:
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    std::uint32_t vertex_count) const -> status;
+    std::uint32_t vertex_count) const -> detail::status;
 
   auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    mesh const &drawn) const -> status;
+    mesh const &drawn) const -> detail::status;
 
 private:
   struct bound_buffer
@@ -145,9 +145,9 @@ private:
     VkRenderPass render_pass,
     std::vector<std::uint32_t> const &vs_spv,
     std::vector<std::uint32_t> const &fs_spv,
-    std::span<storage_binding const> buffers) -> status;
+    std::span<storage_binding const> buffers) -> detail::status;
 
-  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> result<VkShaderModule>;
+  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> detail::result<VkShaderModule>;
 
   auto bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void;
 

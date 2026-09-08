@@ -2,6 +2,8 @@
 #define VKEXEC_GRAPHICS_SWAPCHAIN_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/result.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
 #include <VkBootstrap.h>
@@ -29,7 +31,7 @@ struct swapchain_create_info
 class swapchain
 {
 public:
-  [[nodiscard]] static auto create(context &ctx, swapchain_create_info info) -> result<swapchain>;
+  [[nodiscard]] static auto create(context &ctx, swapchain_create_info info) -> detail::sync_sender_fn<swapchain>;
 
   ~swapchain();
 
@@ -40,14 +42,14 @@ public:
   auto operator=(swapchain &&other) noexcept -> swapchain &;
 
   /// Recreate for a new extent. Destroys old image views and swapchain images.
-  auto recreate(std::uint32_t width, std::uint32_t height) -> status;
+  auto recreate(std::uint32_t width, std::uint32_t height) -> detail::status;
 
   /// Acquire the next image. Disengaged optional means the swapchain must be recreated.
   [[nodiscard]] auto acquire_next_image(VkSemaphore image_available, std::uint64_t timeout = UINT64_MAX)
-    -> result<std::optional<std::uint32_t>>;
+    -> detail::result<std::optional<std::uint32_t>>;
 
   /// Present `image_index`. `false` means the swapchain must be recreated.
-  [[nodiscard]] auto present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>;
+  [[nodiscard]] auto present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> detail::result<bool>;
 
   [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR { return swapchain_.swapchain; }
   [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
@@ -59,7 +61,7 @@ public:
 private:
   swapchain() = default;
 
-  auto create_or_recreate(std::uint32_t width, std::uint32_t height) -> status;
+  auto create_or_recreate(std::uint32_t width, std::uint32_t height) -> detail::status;
   auto destroy_views() noexcept -> void;
   auto destroy() noexcept -> void;
 

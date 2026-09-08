@@ -1,8 +1,12 @@
 #include <vkexec_graphics/window.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
+#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
@@ -40,7 +44,7 @@ namespace {
   constexpr std::uint32_t k_depth_mip_levels = 1;
   constexpr std::uint32_t k_depth_array_layers = 1;
 
-  auto pick_depth_format(VkPhysicalDevice phys) -> result<VkFormat>
+  auto pick_depth_format(VkPhysicalDevice phys) -> detail::result<VkFormat>
   {
     static constexpr std::array k_candidates{
       VK_FORMAT_D32_SFLOAT,
@@ -79,20 +83,22 @@ auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> vo
   if (self != nullptr) { self->framebuffer_resized_ = true; }
 }
 
-auto window::create(config cfg) -> result<window>
+auto window::create(config cfg) -> detail::sync_sender_fn<window>
 {
-  window created;
-  if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
-  return created;
+  return detail::make_sync_sender_fn<window>([cfg = std::move(cfg)]() mutable -> detail::result<window> {
+    window created;
+    if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
+    return created;
+  });
 }
 
-auto window::headless() -> result<window> { return headless(config{}); }
-
-auto window::headless(config cfg) -> result<window>
+auto window::headless(config cfg) -> detail::sync_sender_fn<window>
 {
   cfg.headless = true;
   return create(std::move(cfg));
 }
+
+auto window::headless() -> detail::sync_sender_fn<window> { return headless(config{}); }
 
 window::window(window &&other) noexcept
   : cfg_(std::move(other.cfg_)), headless_(other.headless_), glfw_(other.glfw_), ctx_(std::move(other.ctx_)),
@@ -121,7 +127,7 @@ auto window::operator=(window &&other) noexcept -> window &
   return *this;
 }
 
-auto window::init(config cfg) -> status
+auto window::init(config cfg) -> detail::status
 {
   cfg_ = std::move(cfg);
   headless_ = cfg_.headless;
@@ -225,7 +231,7 @@ auto window::wait_idle() -> void
   if (ctx_ && ctx_->device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_->device()); }
 }
 
-auto window::create_surface() -> status
+auto window::create_surface() -> detail::status
 {
   if (VkResult const result = glfwCreateWindowSurface(ctx_->instance(), glfw_, nullptr, &surface_);
     result != VK_SUCCESS) {
@@ -234,7 +240,7 @@ auto window::create_surface() -> status
   return {};
 }
 
-auto window::create_headless_surface() -> status
+auto window::create_headless_surface() -> detail::status
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
@@ -258,25 +264,28 @@ auto window::framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>
   return { static_cast<std::uint32_t>(framebuffer_width), static_cast<std::uint32_t>(framebuffer_height) };
 }
 
-auto window::create_swapchain() -> status
+auto window::create_swapchain() -> detail::status
 {
   auto const [framebuffer_width, framebuffer_height] = framebuffer_size();
   if (!swapchain_.has_value()) {
-    auto created = swapchain::create(*ctx_,
+    auto outcome = try_sync_wait(swapchain::create(*ctx_,
       swapchain_create_info{
         .surface = surface_,
         .width = framebuffer_width,
         .height = framebuffer_height,
-      });
-    if (!created) { return fail(created); }
-    swapchain_ = detail::expected_take(created);
+      }));
+    if (outcome.error.has_value()) { return fail(std::move(*outcome.error)); }
+    if (outcome.stopped || !outcome.values.has_value()) {
+      return fail(errc::cancelled, "swapchain create stopped");
+    }
+    swapchain_.emplace(detail::take_sync_value(std::move(*outcome.values)));
   } else if (auto recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
     return fail(recreated);
   }
   return create_swapchain_sync();
 }
 
-auto window::create_render_pass() -> status
+auto window::create_render_pass() -> detail::status
 {
   if (depth_format_ == VK_FORMAT_UNDEFINED) {
     auto format = pick_depth_format(ctx_->physical_device());
@@ -369,7 +378,7 @@ auto window::create_render_pass() -> status
   return {};
 }
 
-auto window::create_depth_resources() -> status
+auto window::create_depth_resources() -> detail::status
 {
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   VkImageCreateInfo image_info{};
@@ -425,7 +434,7 @@ auto window::destroy_depth_resources() noexcept -> void
   }
 }
 
-auto window::create_framebuffers() -> status
+auto window::create_framebuffers() -> detail::status
 {
   if (!swapchain_) { return fail(errc::invalid_argument, "create_framebuffers requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
@@ -451,7 +460,7 @@ auto window::create_framebuffers() -> status
   return {};
 }
 
-auto window::create_frame_resources() -> status
+auto window::create_frame_resources() -> detail::status
 {
   frames_.resize(static_cast<std::size_t>(k_frames));
   command_buffers_.resize(static_cast<std::size_t>(k_frames));
@@ -480,7 +489,7 @@ auto window::create_frame_resources() -> status
   return {};
 }
 
-auto window::create_swapchain_sync() -> status
+auto window::create_swapchain_sync() -> detail::status
 {
   if (!swapchain_) { return fail(errc::invalid_argument, "create_swapchain_sync requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
@@ -526,7 +535,7 @@ auto window::cleanup_swapchain() -> void
   swapchain_.reset();
 }
 
-auto window::recreate_swapchain() -> status
+auto window::recreate_swapchain() -> detail::status
 {
   if (!headless_) {
     int width = 0;
@@ -552,7 +561,7 @@ auto window::recreate_swapchain() -> status
   return {};
 }
 
-auto window::begin_frame() -> result<std::optional<frame>>
+auto window::begin_frame() -> detail::result<std::optional<frame>>
 {
   if (frame_open_) { return fail(errc::invalid_argument, "begin_frame called while a frame is already open"); }
   if (!swapchain_) { return fail(errc::invalid_argument, "begin_frame requires a swapchain"); }
@@ -600,7 +609,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
   };
 }
 
-auto window::end_frame(frame const &drawn) -> result<VkFence>
+auto window::end_frame(frame const &drawn) -> detail::result<VkFence>
 {
   if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
   if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }

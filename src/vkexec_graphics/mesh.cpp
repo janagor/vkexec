@@ -1,7 +1,9 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
@@ -24,7 +26,7 @@ namespace {
   };
 
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  auto create_host_buffer(context const &ctx, VkDeviceSize bytes, VkBufferUsageFlags usage) -> result<mapped_buffer>
+  auto create_host_buffer(context const &ctx, VkDeviceSize bytes, VkBufferUsageFlags usage) -> detail::result<mapped_buffer>
   {
     VkBufferCreateInfo buffer_info{};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -52,7 +54,7 @@ namespace {
     return created;
   }
 
-  auto count_as_uint32(std::size_t count, char const *what) -> result<std::uint32_t>
+  auto count_as_uint32(std::size_t count, char const *what) -> detail::result<std::uint32_t>
   {
     if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) {
       return fail(errc::invalid_argument, what);
@@ -63,14 +65,16 @@ namespace {
 }// namespace
 
 auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-  -> result<mesh>
+  -> detail::sync_sender_fn<mesh>
 {
-  mesh created;
-  if (auto initialized = created.init(ctx, vertices, indices); !initialized) { return fail(initialized); }
-  return created;
+  return detail::make_sync_sender_fn<mesh>([&ctx, vertices, indices]() -> detail::result<mesh> {
+    mesh created;
+    if (auto initialized = created.init(ctx, vertices, indices); !initialized) { return fail(initialized); }
+    return created;
+  });
 }
 
-auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
+auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> detail::status
 {
   VKEXEC_TRY_ASSIGN(
     vertices_count, count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]"));

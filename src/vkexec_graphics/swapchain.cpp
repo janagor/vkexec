@@ -1,7 +1,9 @@
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <VkBootstrap.h>
@@ -17,8 +19,9 @@
 
 namespace vkexec {
 
-auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapchain>
+auto swapchain::create(context &ctx, swapchain_create_info info) -> detail::sync_sender_fn<swapchain>
 {
+  return detail::make_sync_sender_fn<swapchain>([&ctx, info]() -> detail::result<swapchain> {
   if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
   if (info.surface == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR");
@@ -37,6 +40,7 @@ auto swapchain::create(context &ctx, swapchain_create_info info) -> result<swapc
     return fail(created_swapchain);
   }
   return created;
+  });
 }
 
 swapchain::~swapchain() { destroy(); }
@@ -72,11 +76,11 @@ auto swapchain::operator=(swapchain &&other) noexcept -> swapchain &
   return *this;
 }
 
-auto swapchain::recreate(std::uint32_t width, std::uint32_t height) -> status
+auto swapchain::recreate(std::uint32_t width, std::uint32_t height) -> detail::status
 { return create_or_recreate(width, height); }
 
 auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t timeout)
-  -> result<std::optional<std::uint32_t>>
+  -> detail::result<std::optional<std::uint32_t>>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "swapchain::acquire_next_image on empty swapchain");
@@ -90,7 +94,7 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
   return image_index;
 }
 
-auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>
+auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> detail::result<bool>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "swapchain::present on empty swapchain");
@@ -110,7 +114,7 @@ auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> 
   return true;
 }
 
-auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) -> status
+auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) -> detail::status
 {
   if (width == 0 || height == 0) { return fail(errc::invalid_argument, "swapchain extent must be > 0"); }
 
