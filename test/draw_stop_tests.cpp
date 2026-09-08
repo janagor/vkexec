@@ -34,7 +34,7 @@ constexpr int k_post_stop_frames = 4;
   if (!result) {
     SKIP(std::string("Headless surface unavailable: ") + std::string(vkexec::to_error(result.error()).message()));
   }
-  return std::move(*result);
+  return vkexec::detail::leaf_take(result);
 }
 
 [[nodiscard]] auto make_triangle_pipeline(vkexec::window &win) -> vkexec::graphics_pipeline
@@ -58,7 +58,7 @@ constexpr int k_post_stop_frames = 4;
   if (!result) {
     FAIL(std::string("graphics pipeline creation failed: ") + std::string(vkexec::to_error(result.error()).message()));
   }
-  return std::move(*result);
+  return vkexec::detail::leaf_take(result);
 }
 
 struct headless_fixture

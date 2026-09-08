@@ -125,7 +125,7 @@ namespace {
     builder.set_headless();
     auto const built = builder.build();
     if (!built) { return make_error_from_vkb(built, "vk-bootstrap InstanceBuilder"); }
-    return *built;
+    return vkb_take(built);
   }
 
   auto build_instance_with_extensions(scheduler_options const &opts,
@@ -137,7 +137,7 @@ namespace {
     builder.set_headless();
     auto const built = builder.build();
     if (!built) { return make_error_from_vkb(built, "vk-bootstrap InstanceBuilder"); }
-    return *built;
+    return vkb_take(built);
   }
 
   auto select_physical_device(vkb::Instance const &instance,
@@ -151,7 +151,7 @@ namespace {
     if (surface != VK_NULL_HANDLE) { selector.set_surface(surface); }
     auto const selected = selector.select();
     if (!selected) { return make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector"); }
-    vkb::PhysicalDevice physical_device = *selected;
+    vkb::PhysicalDevice physical_device = vkb_take(selected);
     apply_optional_device_requests(physical_device, requirements);
     return physical_device;
   }
@@ -160,7 +160,7 @@ namespace {
   {
     auto const built = vkb::DeviceBuilder{ physical_device }.build();
     if (!built) { return make_error_from_vkb(built, "vk-bootstrap DeviceBuilder"); }
-    out = *built;
+    out = vkb_take(built);
     return {};
   }
 
@@ -276,9 +276,9 @@ context::context(instance_only_tag tag,
   : requirements_(opts.requirements), api_version_(resolve_api_version(requirements_))
 {
   (void)tag;
-  auto const built_instance = build_instance_with_extensions(opts, api_version_, instance_extensions);
+  auto built_instance = build_instance_with_extensions(opts, api_version_, instance_extensions);
   if (!built_instance) { detail::contract_violation("context instance-only construction failed"); }
-  instance_ = *built_instance;
+  instance_ = detail::leaf_take(built_instance);
   has_instance_ = true;
   owns_instance_ = true;
 }

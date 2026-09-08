@@ -92,12 +92,13 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
       .usage = vkexec::image_usage::color_storage,
     });
   if (!img_result) { return img_result.error(); }
-  auto view_result = vkexec::image_view::create(ctx, *img_result);
+  auto &img = vkexec::detail::leaf_get(img_result);
+  auto view_result = vkexec::image_view::create(ctx, img);
   if (!view_result) { return view_result.error(); }
 
   auto cmd_result = ctx.allocate_command_buffer();
   if (!cmd_result) { return cmd_result.error(); }
-  VkCommandBuffer cmd = *cmd_result;
+  auto *cmd = vkexec::detail::leaf_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -107,7 +108,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 
   vkexec::image_barrier(cmd,
     {
-      .image = img_result->handle(),
+      .image = img.handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -123,7 +124,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   std::array<vkexec::color_attachment, 1> const colors{ color };
   if (auto began = vkexec::cmd_begin_rendering(cmd,
         vkexec::rendering_info{
-          .extent = img_result->extent(),
+          .extent = img.extent(),
           .color = colors,
         });
     !began) {
@@ -173,9 +174,9 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
 {
   if (ctx.procs().cmd_push_data == nullptr || ctx.procs().write_resource_descriptors == nullptr) { return false; }
 
-  auto const layout_result = vkexec::query_descriptor_heap_layout(ctx);
+  auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   if (!layout_result) { return false; }
-  auto const &layout = *layout_result;
+  auto const &layout = vkexec::detail::leaf_get(layout_result);
   auto storage_result = vkexec::gpu_buffer::create(ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,

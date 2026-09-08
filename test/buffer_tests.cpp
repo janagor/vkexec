@@ -35,7 +35,7 @@ TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][bu
 {
   auto ctx_result = vkexec::context::create();
   if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = **ctx_result;
+  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
 
   auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(ctx, k_count, k_fill));
   REQUIRE(waited.has_value());
@@ -54,7 +54,7 @@ TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
 {
   auto ctx_result = vkexec::context::create();
   if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = **ctx_result;
+  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
 
   auto waited = vkexec::sync_wait(vkexec::buffer<std::uint32_t>::create(ctx, k_count, k_int_fill));
   REQUIRE(waited.has_value());
@@ -68,12 +68,12 @@ TEST_CASE("buffer::create_sync allocates synchronously", "[vkexec][buffer][gpu]"
 {
   auto ctx_result = vkexec::context::create();
   if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = **ctx_result;
+  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
 
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_fill);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
   REQUIRE(values.size() == k_count);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(values.data()[0] == k_fill);
@@ -96,7 +96,7 @@ TEST_CASE("buffer allocate advertises completion scheduler", "[vkexec][buffer][s
 {
   auto ctx_result = vkexec::context::create();
   if (!ctx_result) { skip_if_no_vulkan(vkexec::to_error(ctx_result.error())); }
-  auto &ctx = **ctx_result;
+  auto &ctx = *vkexec::detail::leaf_get(ctx_result);
 
   auto const sender = vkexec::buffer<float>::allocate(ctx, k_count);
   auto const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));

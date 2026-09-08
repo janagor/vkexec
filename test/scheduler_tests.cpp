@@ -115,7 +115,7 @@ TEST_CASE("starts_on then bulk lowers via vkexec domain", "[vkexec][scheduler][d
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
 
   auto waited = vkexec::sync_wait(
     ex::starts_on(ctx.get_scheduler(), ex::just())

@@ -181,7 +181,7 @@ private:
       std::forward<VertexFn>(vertex_fn)(vertex_id, vertex_out);
       auto vertex_spirv = edsl::compile_vertex_spirv(vertex_trace, ctx.api_version());
       if (!vertex_spirv) { return vertex_spirv.error(); }
-      vs_spv = std::move(*vertex_spirv);
+      vs_spv = detail::leaf_take(vertex_spirv);
       vs_buffers = vertex_trace.buffers();
     }
 
@@ -192,7 +192,7 @@ private:
       std::forward<FragmentFn>(fragment_fn)(fragment_in, fragment_out);
       auto fragment_spirv = edsl::compile_fragment_spirv(fragment_trace, ctx.api_version());
       if (!fragment_spirv) { return fragment_spirv.error(); }
-      fs_spv = std::move(*fragment_spirv);
+      fs_spv = detail::leaf_take(fragment_spirv);
     }
 
     return complete(ctx, render_pass, vs_spv, fs_spv, vs_buffers);

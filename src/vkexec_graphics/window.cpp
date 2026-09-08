@@ -269,7 +269,7 @@ auto window::create_swapchain() -> status
         .height = framebuffer_height,
       });
     if (!created) { return created.error(); }
-    swapchain_ = std::move(*created);
+    swapchain_ = detail::leaf_take(created);
   } else if (auto recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
     return recreated.error();
   }
@@ -475,7 +475,7 @@ auto window::create_frame_resources() -> status
 
     auto cmd = ctx_->allocate_command_buffer();
     if (!cmd) { return cmd.error(); }
-    command_buffers_.at(frame_index) = *cmd;
+    command_buffers_.at(frame_index) = detail::leaf_take(cmd);
   }
   return {};
 }

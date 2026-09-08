@@ -178,7 +178,7 @@ namespace detail {
           ex::set_error(std::move(rcvr), to_error(opened.error()));
           return;
         }
-        ex::set_value(std::move(rcvr), std::move(*opened));
+        ex::set_value(std::move(rcvr), leaf_take(opened));
       }
     };
 

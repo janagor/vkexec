@@ -76,8 +76,8 @@ TEST_CASE("headless bulk compute updates buffers", "[vkexec][gpu]")
   REQUIRE(positions_result.has_value());
   auto velocities_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial_velocity);
   REQUIRE(velocities_result.has_value());
-  auto &positions = *positions_result;
-  auto &velocities = *velocities_result;
+  auto &positions = vkexec::detail::leaf_get(positions_result);
+  auto &velocities = vkexec::detail::leaf_get(velocities_result);
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto pipeline =
@@ -118,7 +118,7 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
 
   auto graph = ex::schedule(ctx.get_scheduler())
                | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
@@ -159,7 +159,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
 
   auto graph = ex::schedule(ctx.get_scheduler())
                | vkexec::compute_pass(static_cast<std::uint32_t>(k_count),
@@ -217,7 +217,7 @@ TEST_CASE("odd-even sort completes in one command buffer", "[vkexec][gpu]")
 
   auto data_result = vkexec::buffer<float>::create_sync(ctx, k_count, 0.0F);
   REQUIRE(data_result.has_value());
-  auto &data = *data_result;
+  auto &data = vkexec::detail::leaf_get(data_result);
 
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng{ k_rng_seed };

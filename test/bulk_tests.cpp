@@ -76,7 +76,7 @@ TEST_CASE("bulk kernel updates host-visible buffers", "[vkexec][bulk][gpu]")
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
 
   auto pipeline =
     ex::schedule(ctx.get_scheduler())
@@ -125,7 +125,7 @@ TEST_CASE("submit sender completes after GPU work", "[vkexec][bulk][gpu]")
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
 
   auto pipeline = ex::schedule(ctx.get_scheduler())
                   | vkexec::bulk(k_work_count,
@@ -153,8 +153,8 @@ TEST_CASE("submit overlaps two GPU dispatches via when_all", "[vkexec][bulk][gpu
   REQUIRE(left_result.has_value());
   auto right_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(right_result.has_value());
-  auto &left = *left_result;
-  auto &right = *right_result;
+  auto &left = vkexec::detail::leaf_get(left_result);
+  auto &right = vkexec::detail::leaf_get(right_result);
 
   auto make_async = [&](vkexec::buffer<float> &values) -> auto {
     return ex::schedule(ctx.get_scheduler())
@@ -203,7 +203,7 @@ TEST_CASE("submit reclaims resources when stop races with GPU completion", "[vke
   auto values_result = vkexec::buffer<float>::create_sync(ctx, k_work_count, k_initial);
   REQUIRE(values_result.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-  auto &values = *values_result;
+  auto &values = vkexec::detail::leaf_get(values_result);
 
   ex::inplace_stop_source source;
   auto pipeline = ex::schedule(ctx.get_scheduler())

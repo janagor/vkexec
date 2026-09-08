@@ -128,6 +128,9 @@ namespace detail {
   template<typename T> [[nodiscard, clang::suppress]] auto leaf_take(leaf::result<T> &result) -> T
   { return std::move(*result); }
 
+  template<typename T> [[nodiscard, clang::suppress]] auto leaf_take(leaf::result<T> const &result) -> T
+  { return *result; }
+
   template<typename T> [[nodiscard, clang::suppress]] auto leaf_get(leaf::result<T> &result) -> T & { return *result; }
 
 }// namespace detail

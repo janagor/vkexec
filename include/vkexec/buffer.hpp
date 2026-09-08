@@ -60,7 +60,7 @@ template<typename T> struct buffer_allocate_sender
       }
 
       if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
-        ex::set_value(std::move(rcvr), std::move(*allocated));
+        ex::set_value(std::move(rcvr), detail::leaf_take(allocated));
       } else {
         ex::set_error(std::move(rcvr), to_error(allocated.error()));
       }
@@ -109,8 +109,10 @@ public:
   auto operator=(buffer const &) -> buffer & = delete;
 
   buffer(buffer &&other) noexcept
+    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
     : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
       count_(other.count_), name_(std::move(other.name_))
+    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
   {
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;
@@ -124,12 +126,14 @@ public:
     if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
       vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);
     }
+    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
     ctx_ = other.ctx_;
     buffer_ = other.buffer_;
     allocation_ = other.allocation_;
     mapped_ = other.mapped_;
     count_ = other.count_;
     name_ = std::move(other.name_);
+    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
     binding_ = -1;
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;

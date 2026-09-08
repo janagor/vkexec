@@ -45,7 +45,7 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
 
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  VkCommandBuffer cmd = *cmd_result;
+  auto *cmd = vkexec::detail::leaf_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

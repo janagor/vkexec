@@ -141,7 +141,7 @@ struct pass_graph_sender
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_and_wait(std::move(*prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_and_wait(detail::leaf_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };
@@ -198,7 +198,7 @@ struct pass_graph_async_sender
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_fence(std::move(*prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_fence(detail::leaf_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };
@@ -290,7 +290,7 @@ namespace detail {
       std::uint32_t const groups = (closure.shape + local - 1U) / local;
       void const *push_ptr = pipe->get().push_bytes > 0 ? static_cast<void const *>(&closure.params) : nullptr;
       auto const push_bytes = static_cast<std::uint32_t>(pipe->get().push_bytes > 0 ? sizeof(Params) : 0);
-      record_pass(cmd, pipe->get(), *set, push_ptr, push_bytes, dispatch{ .x = groups });
+      record_pass(cmd, pipe->get(), detail::leaf_take(set), push_ptr, push_bytes, dispatch{ .x = groups });
       return {};
     } };
   }

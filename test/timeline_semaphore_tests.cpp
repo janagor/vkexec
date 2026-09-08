@@ -38,7 +38,7 @@ TEST_CASE("timeline_semaphore create and wait for initial value", "[vkexec][time
 
   auto timeline_result = vkexec::timeline_semaphore::create(ctx, 3);
   REQUIRE(timeline_result.has_value());
-  auto &timeline = *timeline_result;
+  auto &timeline = vkexec::detail::leaf_get(timeline_result);
   REQUIRE(timeline.handle() != VK_NULL_HANDLE);
   REQUIRE(timeline.wait(3));
   REQUIRE(timeline.wait(0));
@@ -61,11 +61,11 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
 
   auto timeline_result = vkexec::timeline_semaphore::create(ctx, 0);
   REQUIRE(timeline_result.has_value());
-  auto &timeline = *timeline_result;
+  auto &timeline = vkexec::detail::leaf_get(timeline_result);
 
   auto cmd_result = ctx.allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  VkCommandBuffer cmd = *cmd_result;
+  auto *cmd = vkexec::detail::leaf_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

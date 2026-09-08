@@ -60,7 +60,7 @@ namespace detail {
 
     auto set = allocate_compute_set(*scope.ctx, *traced->pipe, traced->buffers);
     if (!set) { return set.error(); }
-    VkDescriptorSet descriptor_set = *set;
+    auto *descriptor_set = leaf_take(set);
     scope.track_set(*traced->pipe, descriptor_set);
 
     vkCmdBindPipeline(scope.cmd, VK_PIPELINE_BIND_POINT_COMPUTE, traced->pipe->pipeline);
@@ -79,7 +79,7 @@ namespace detail {
   {
     auto opened = submit_scope::open(*ctx);
     if (!opened) { return opened.error(); }
-    submit_scope scope = std::move(*opened);
+    submit_scope scope = leaf_take(opened);
     if (auto recorded = record_bulk_into<Params>(scope, shape, params, fun); !recorded) {
       scope.release();
       return recorded.error();
@@ -147,7 +147,7 @@ template<typename Params, typename Fun> struct bulk_sender
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_and_wait(std::move(*prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_and_wait(detail::leaf_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };
@@ -237,7 +237,7 @@ template<typename Params, typename Fun> struct bulk_async_sender
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_fence(std::move(*prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_fence(detail::leaf_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };

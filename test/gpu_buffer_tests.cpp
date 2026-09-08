@@ -30,7 +30,7 @@ TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::host_visible);
   REQUIRE(buffer_result.has_value());
-  auto &buffer = *buffer_result;
+  auto &buffer = vkexec::detail::leaf_get(buffer_result);
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.size() == k_bytes);
   auto const mapped = buffer.mapped();
@@ -49,7 +49,7 @@ TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gp
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::device_local);
   REQUIRE(buffer_result.has_value());
-  auto &buffer = *buffer_result;
+  auto &buffer = vkexec::detail::leaf_get(buffer_result);
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.size() == k_bytes);
   REQUIRE(buffer.mapped().empty());
@@ -63,7 +63,7 @@ TEST_CASE("gpu_buffer staging is host-mapped", "[vkexec][gpu_buffer][gpu]")
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::staging);
   REQUIRE(buffer_result.has_value());
-  auto &buffer = *buffer_result;
+  auto &buffer = vkexec::detail::leaf_get(buffer_result);
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
 }
@@ -90,7 +90,7 @@ TEST_CASE("gpu_buffer descriptor_heap allocates when extension is available", "[
 
   auto buffer_result = vkexec::gpu_buffer::create(ctx, k_bytes, vkexec::gpu_buffer_memory::descriptor_heap);
   REQUIRE(buffer_result.has_value());
-  auto &buffer = *buffer_result;
+  auto &buffer = vkexec::detail::leaf_get(buffer_result);
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
   auto const addr_result = buffer.device_address();
