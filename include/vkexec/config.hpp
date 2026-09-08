@@ -6,7 +6,7 @@
 
 namespace vkexec::detail {
 
-/// Unrecoverable API misuse (e.g. eDSL called outside an active trace scope).
+/// Unrecoverable internal invariant violation (debug builds assert first).
 [[noreturn]] inline auto contract_violation(char const *message) noexcept -> void
 {
   assert(message != nullptr && false);

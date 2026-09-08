@@ -6,53 +6,66 @@
 
 ## About
 
-`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with a tracing eDSL, plus bindless (descriptor-heap) and optional GLFW graphics helpers suitable for embedding:
+`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with prebuilt GLSL/SPIR-V shaders, plus bindless (descriptor-heap) and optional GLFW graphics helpers suitable for embedding:
 
-1. Trace C++ operators on `vkexec::Float` / `vkexec::Int` into an AST
-2. Emit GLSL, compile to SPIR-V via glslang, and cache `VkPipeline`s
-3. Dispatch with `vkexec::bulk`, or sequence several `compute_pass`es plus barriers in one submit
+1. Author shaders as GLSL strings or embedded SPIR-V
+2. Build and cache `VkPipeline`s via `compute_pipeline` / `graphics_pipeline`
+3. Dispatch with `compute_pass` (and chain barriers / multiple passes in one submit)
 
 ```cpp
-#include <vkexec/vkexec.hpp>
+#include <vkexec/buffer.hpp>
+#include <vkexec/compute_pipeline.hpp>
+#include <vkexec/context.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/sync_wait.hpp>
 
 #include <stdexec/execution.hpp>
 
 namespace ex = stdexec;
 
-struct SimParams { float dt; float damping; };
-BOOST_DESCRIBE_STRUCT(SimParams, (), (dt, damping))
+struct sim_params { float dt; float damping; };
+
+constexpr std::string_view k_sim_glsl = R"(
+#version 450
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) buffer Positions { float data[]; } positions;
+layout(set = 0, binding = 1) buffer Velocities { float data[]; } velocities;
+layout(push_constant) uniform Push { float dt; float damping; } pc;
+void main() {
+  uint i = gl_GlobalInvocationID.x;
+  float v = velocities.data[i] * pc.damping;
+  positions.data[i] = positions.data[i] + v * pc.dt;
+  velocities.data[i] = v;
+}
+)";
 
 int main() {
-  auto ctx_result = vkexec::context::create();
-  if (!ctx_result) { return 1; }
-  auto ctx = std::move(*ctx_result);
+  auto ctx = vkexec::value_or_throw(vkexec::context::create());
+  auto positions = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(*ctx, 10000, 0.0f));
+  auto velocities = vkexec::value_or_throw(vkexec::buffer<float>::create_sync(*ctx, 10000, 1.5f));
 
-  auto positions_result = vkexec::buffer<float>::create_sync(*ctx, 10000, 0.0f);
-  auto velocities_result = vkexec::buffer<float>::create_sync(*ctx, 10000, 1.5f);
-  if (!positions_result || !velocities_result) { return 1; }
-  auto& positions = *positions_result;
-  auto& velocities = *velocities_result;
+  using enum vkexec::buffer_access;
+  auto pipe = vkexec::value_or_throw(vkexec::compute_pipeline::create(*ctx,
+    k_sim_glsl,
+    vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
+    "sim.comp"));
 
-  SimParams params{ 0.016f, 0.99f };
+  auto *set = vkexec::value_or_throw(pipe.allocate_set());
+  pipe.update_set(set, { { positions.vk_buffer(), positions.size() * sizeof(float) },
+                         { velocities.vk_buffer(), velocities.size() * sizeof(float) } });
 
-  auto pipeline = ex::schedule(ctx->get_scheduler())
-    | vkexec::bulk(10000, params, [&](vkexec::Int idx, vkexec::PushConstant<SimParams> pc) {
-        vkexec::Float p = positions[idx];
-        vkexec::Float v = velocities[idx];
-        v = v * pc.get<&SimParams::damping>();
-        p = p + (v * pc.get<&SimParams::dt>());
-        positions[idx] = p;
-        velocities[idx] = v;
-      });
-
-  if (auto waited = vkexec::sync_wait(pipeline); !waited.has_value()) { return 1; }
+  sim_params params{ 0.016f, 0.99f };
+  if (auto waited = vkexec::sync_wait(ex::schedule(ctx->get_scheduler())
+                                      | vkexec::compute_pass(pipe, set, params, 10000));
+      !waited.has_value()) {
+    return 1;
+  }
 
   // Several compute kernels in one command buffer:
   auto graph = ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_pass(10000, params, /* kernel */)
+    | vkexec::compute_pass(pipe, set, params, 10000)
     | vkexec::barrier::compute_to_compute()
-    | vkexec::compute_pass(10000, params, /* kernel */);
+    | vkexec::compute_pass(pipe, set, params, 10000);
   if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
 }
 ```
@@ -109,7 +122,7 @@ Common entry points:
 
 ### Existing SPIR-V (hybrid)
 
-Keep hand-written shaders. vkexec caches the pipeline and records dispatch. Push constants are a host POD (`upload_push_constants` / `compute_pass`) — not `push_constant<T>::get<&...>()`:
+Keep hand-written shaders. vkexec caches the pipeline and records dispatch. Push constants are a host POD (`upload_push_constants` / `compute_pass`):
 
 ```cpp
 struct ProjectPush { float view[16]; float projection[16]; std::uint64_t gaussian_addr; std::uint32_t splat_count; };
@@ -188,8 +201,8 @@ Build and run the sample:
 nix develop
 cmake --preset unixlike-clang-release
 cmake --build out/build/unixlike-clang-release -j12
-./out/build/unixlike-clang-release/src/vkexec_example/vkexec_example
-./out/build/unixlike-clang-release/src/vkexec_sort_example/vkexec_sort_example
+./out/build/unixlike-clang-release/src/vkexec_examples/compute
+./out/build/unixlike-clang-release/src/vkexec_examples/sort
 ./out/build/unixlike-clang-release/src/vkexec_examples/passes
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
 ./out/build/unixlike-clang-release/src/vkexec_examples/triangle
@@ -200,26 +213,24 @@ cmake --build out/build/unixlike-clang-release -j12
 
 ### Triangle window
 
-Requires `vkexec_graphics` (GLFW + swapchain). Shaders are traced from C++. Each frame is a stdexec pipeline (same shape as compute `bulk`):
+Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled at pipeline creation time. Each frame is a stdexec pipeline:
 
 ```cpp
 #include <vkexec/sync_wait.hpp>
-#include <vkexec_graphics/vkexec_graphics.hpp>
+#include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/triangle_shaders.hpp>
+#include <vkexec_graphics/window.hpp>
 
-auto win_result = vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" });
-if (!win_result) { return 1; }
-auto win = std::move(*win_result);
+auto win = vkexec::value_or_throw(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" }));
 
-auto pipeline_result = vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(),
-  [](vkexec::Int vid, vkexec::VertexWriter out) { /* ... */ },
-  [](vkexec::FragmentReader in, vkexec::FragmentWriter out) { /* ... */ });
-if (!pipeline_result) { return 1; }
+auto pipeline = vkexec::value_or_throw(vkexec::graphics_pipeline::create(
+  win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
 while (!win.should_close()) {
   win.poll_events();
   vkexec::sync_wait(
     ex::schedule(win.ctx().get_scheduler())
-    | vkexec::draw(win, *pipeline_result, 3));
+    | vkexec::draw(win, pipeline, 3));
 }
 ```
 

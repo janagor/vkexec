@@ -13,7 +13,7 @@
 
 namespace vkexec {
 
-/// Memory / usage preset for untyped GPU buffers (non-eDSL path).
+/// Memory / usage preset for untyped GPU buffers.
 enum class gpu_buffer_memory : std::uint8_t {
   /// Host-visible storage; persistently mapped for sequential host writes.
   host_visible,
@@ -33,7 +33,7 @@ struct gpu_buffer_create_info
   bool shader_device_address{ false };
 };
 
-/// Untyped VMA buffer for hybrid / embedders (e.g. vkgsplat). Distinct from eDSL `buffer<T>`.
+/// Untyped VMA buffer for hybrid / embedders (e.g. vkgsplat). Distinct from typed `buffer<T>`.
 class gpu_buffer
 {
 public:

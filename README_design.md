@@ -69,8 +69,7 @@ headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA;
 
 ## Libraries
 
-* `vkexec` — compute runtime (`context`, `buffer`, `bulk`, `compute_pipeline`)
-* `vkexec_edsl` — shader tracing / GLSL / SPIR-V (`vkexec::edsl`)
+* `vkexec` — compute runtime (`context`, `buffer`, `compute_pipeline`, `compute_pass`)
 * `vkexec_graphics` — optional GLFW window, graphics pipelines, and `draw` senders
 
 ## Testing
