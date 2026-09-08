@@ -61,7 +61,7 @@ int main() {
 
 Senders complete with `set_error(vkexec::error)` — the same custom error channel stdexec uses. Factory and setup APIs return `vkexec::result<T>` (`std::expected<T, vkexec::error>`) or `vkexec::status`.
 
-- **`vkexec::error`** carries a `std::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
+- **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
 - **Vulkan failures** use `vkexec::make_vk_error_code(VkResult)` / `vkexec::make_vk_error(...)`.
 - **`VKEXEC_TRY` / `VKEXEC_TRY_ASSIGN`** propagate `std::expected` failures (`return fail(...)`).

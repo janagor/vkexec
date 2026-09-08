@@ -1,39 +1,23 @@
 #include <vkexec/error.hpp>
 
-#include <system_error>
+#include <boost/system/detail/error_category.hpp>
+#include <boost/system/detail/error_code.hpp>
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstddef>
 #include <string>
 #include <utility>
 
 namespace vkexec {
 
-auto vkexec_error_category::message(int error_value) const -> std::string
+auto vulkan_error_category::message(int error_value) const -> std::string
 {
-  switch (static_cast<errc>(error_value)) {
-  case errc::invalid_argument:
-    return "invalid argument";
-  case errc::io_error:
-    return "I/O error";
-  case errc::parse_error:
-    return "parse error";
-  case errc::unsupported:
-    return "unsupported operation";
-  case errc::out_of_range:
-    return "out of range";
-  case errc::empty_result:
-    return "empty result";
-  case errc::cancelled:
-    return "cancelled";
-  case errc::vulkan:
-    return "vulkan error";
-  default:
-    return "unknown vkexec error";
-  }
+  return message(error_value, nullptr, 0);
 }
 
-auto vulkan_error_category::message(int error_value) const -> std::string
+auto vulkan_error_category::message(int error_value, char * /*buffer*/, std::size_t /*len*/) const noexcept
+  -> char const *
 {
   switch (static_cast<VkResult>(error_value)) {
   case VK_SUCCESS:
@@ -99,26 +83,26 @@ auto vulkan_error_category::message(int error_value) const -> std::string
   }
 }
 
-auto category() noexcept -> std::error_category const &
+auto category() noexcept -> sys::error_category const &
 {
   static vkexec_error_category const k_instance{};
   return k_instance;
 }
 
-auto vulkan_category() noexcept -> std::error_category const &
+auto vulkan_category() noexcept -> sys::error_category const &
 {
   static vulkan_error_category const k_instance{};
   return k_instance;
 }
 
-auto make_error_code(errc error) noexcept -> std::error_code
+auto make_error_code(errc error) noexcept -> sys::error_code
 {
-  return std::error_code{ static_cast<int>(error), category() };
+  return sys::error_code{ static_cast<int>(error), category() };
 }
 
-auto make_vk_error_code(int vk_result) noexcept -> std::error_code
+auto make_vk_error_code(int vk_result) noexcept -> sys::error_code
 {
-  return std::error_code{ vk_result, vulkan_category() };
+  return sys::error_code{ vk_result, vulkan_category() };
 }
 
 auto make_error(errc code, std::string detail) -> error
