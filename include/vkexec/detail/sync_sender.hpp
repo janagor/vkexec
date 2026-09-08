@@ -50,9 +50,16 @@ struct sync_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
-    return op_state<Receiver>{ .factory = std::forward_like<decltype(self)>(self.factory), .receiver = std::move(receiver) };
+    return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) };
   }
 };
 
@@ -94,9 +101,16 @@ struct sync_void_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
-    return op_state<Receiver>{ .factory = std::forward_like<decltype(self)>(self.factory), .receiver = std::move(receiver) };
+    return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) };
   }
 };
 

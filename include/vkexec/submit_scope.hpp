@@ -176,9 +176,15 @@ namespace detail {
       }
     };
 
+    template<class Receiver>
     // cppcheck-suppress functionStatic
-    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
-    { return op_state<Receiver>{ self.ctx, std::move(receiver) }; }
+    [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+    { return op_state<Receiver>{ ctx, std::move(receiver) }; }
+
+    template<class Receiver>
+    // cppcheck-suppress functionStatic
+    [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    { return op_state<Receiver>{ ctx, std::move(receiver) }; }
   };
 
   [[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
@@ -213,11 +219,23 @@ namespace detail {
       }
     };
 
+    template<class Receiver>
     // cppcheck-suppress functionStatic
-    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
+    [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
     {
       return op_state<Receiver>{
-        std::forward_like<decltype(self)>(self.scope),
+        scope,
+        std::move(receiver),
+      };
+    }
+
+    template<class Receiver>
+    // cppcheck-suppress functionStatic
+    [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    {
+      return op_state<Receiver>{
+        std::move(scope),
         std::move(receiver),
       };
     }
@@ -275,11 +293,23 @@ namespace detail {
       }
     };
 
+    template<class Receiver>
     // cppcheck-suppress functionStatic
-    template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
+    [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
     {
       return op_state<Receiver>{
-        std::forward_like<decltype(self)>(self.scope),
+        scope,
+        std::move(receiver),
+      };
+    }
+
+    template<class Receiver>
+    // cppcheck-suppress functionStatic
+    [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    {
+      return op_state<Receiver>{
+        std::move(scope),
         std::move(receiver),
       };
     }

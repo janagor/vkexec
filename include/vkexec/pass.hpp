@@ -144,11 +144,23 @@ struct pass_graph_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = self.ctx,
-      .steps = std::forward_like<decltype(self)>(self.steps),
+      .ctx = ctx,
+      .steps = steps,
+      .receiver = std::move(receiver),
+      .submit_op = std::nullopt,
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .steps = std::move(steps),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };
@@ -201,11 +213,23 @@ struct pass_graph_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = self.ctx,
-      .steps = std::forward_like<decltype(self)>(self.steps),
+      .ctx = ctx,
+      .steps = steps,
+      .receiver = std::move(receiver),
+      .submit_op = std::nullopt,
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .steps = std::move(steps),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };

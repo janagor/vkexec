@@ -71,12 +71,24 @@ template<typename T> struct buffer_allocate_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      self.ctx,
-      self.count,
-      std::forward_like<decltype(self)>(self.fill),
+      ctx,
+      count,
+      fill,
+      std::move(receiver),
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      ctx,
+      count,
+      std::move(fill),
       std::move(receiver),
     };
   }

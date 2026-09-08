@@ -217,13 +217,26 @@ struct draw_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = self.ctx,
-      .win = self.win,
-      .pipeline = self.pipeline,
-      .vertex_count = self.vertex_count,
+      .ctx = ctx,
+      .win = win,
+      .pipeline = pipeline,
+      .vertex_count = vertex_count,
+      .receiver = std::move(receiver),
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .pipeline = pipeline,
+      .vertex_count = vertex_count,
       .receiver = std::move(receiver),
     };
   }
@@ -354,12 +367,24 @@ struct draw_layers_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = self.ctx,
-      .win = self.win,
-      .layers = std::forward_like<decltype(self)>(self.layers),
+      .ctx = ctx,
+      .win = win,
+      .layers = layers,
+      .receiver = std::move(receiver),
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .layers = std::move(layers),
       .receiver = std::move(receiver),
     };
   }
@@ -475,13 +500,26 @@ struct draw_mesh_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(this auto &&self, Receiver receiver) -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = self.ctx,
-      .win = self.win,
-      .pipeline = self.pipeline,
-      .drawn = self.drawn,
+      .ctx = ctx,
+      .win = win,
+      .pipeline = pipeline,
+      .drawn = drawn,
+      .receiver = std::move(receiver),
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .pipeline = pipeline,
+      .drawn = drawn,
       .receiver = std::move(receiver),
     };
   }
