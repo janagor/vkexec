@@ -95,6 +95,39 @@ auto write_storage_buffer_descriptor(context const &ctx,
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
+auto write_storage_image_descriptor(context const &ctx,
+  VkImageViewCreateInfo const &view_info,
+  VkImageLayout layout,
+  std::span<std::byte> destination) -> detail::status
+// NOLINTEND(bugprone-easily-swappable-parameters)
+{
+  if (ctx.procs().write_resource_descriptors == nullptr) {
+    return fail(errc::unsupported, "vkWriteResourceDescriptorsEXT is unavailable");
+  }
+  if (destination.empty()) {
+    return fail(errc::invalid_argument, "write_storage_image_descriptor destination is empty");
+  }
+
+  VkImageDescriptorInfoEXT image_info{};
+  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT;
+  image_info.pView = &view_info;
+  image_info.layout = layout;
+
+  VkResourceDescriptorInfoEXT resource_info{};
+  resource_info.sType = VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT;
+  resource_info.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+  resource_info.data.pImage = &image_info;
+
+  VkHostAddressRangeEXT host_range{};
+  host_range.address = destination.data();
+  host_range.size = destination.size();
+
+  VkResult const write_result = ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
+  if (write_result != VK_SUCCESS) { return fail(write_result, "vkWriteResourceDescriptorsEXT failed"); }
+  return {};
+}
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto cmd_bind_resource_heap(context const &ctx,
   VkCommandBuffer cmd,
   VkDeviceAddress heap_address,

@@ -37,6 +37,14 @@ struct descriptor_heap_layout
   std::span<std::byte> destination) -> detail::status;
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
+/// Host write of a storage-image descriptor into a slot-sized destination span.
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+[[nodiscard]] auto write_storage_image_descriptor(context const &ctx,
+  VkImageViewCreateInfo const &view_info,
+  VkImageLayout layout,
+  std::span<std::byte> destination) -> detail::status;
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
 /// Bind a resource descriptor heap buffer for subsequent bindless dispatches/draws.
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] auto cmd_bind_resource_heap(context const &ctx,

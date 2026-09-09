@@ -6,12 +6,14 @@
 #include <vkexec/descriptor_heap.hpp>
 #include <vkexec/detail/result.hpp>
 #include <vkexec/gpu_buffer.hpp>
+#include <vkexec/image.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -20,6 +22,7 @@ namespace {
 
 constexpr std::size_t k_slot_count = 2;
 constexpr VkDeviceSize k_storage_bytes = 256;
+constexpr std::uint32_t k_image_extent = 64;
 
 }// namespace
 // NOLINTBEGIN(readability-function-cognitive-complexity)
@@ -90,3 +93,50 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   ctx->free_command_buffer(cmd);
 }
 // NOLINTEND(readability-function-cognitive-complexity)
+
+TEST_CASE("write_storage_image_descriptor fills a heap slot", "[vkexec][descriptor_heap][gpu]")
+{
+  VkPhysicalDeviceVulkan12Features features_12{};
+  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+  features_12.bufferDeviceAddress = VK_TRUE;
+
+  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
+  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
+  features_heap.descriptorHeap = VK_TRUE;
+
+  vkexec::vulkan_requirements requirements{};
+  requirements.api_version_major = 1;
+  requirements.api_version_minor = 4;
+  requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
+  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
+
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+
+  auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
+  REQUIRE(layout_result.has_value());
+  auto const &layout = vkexec::detail::expected_get(layout_result);
+  REQUIRE(layout.image_descriptor_size > 0);
+
+  auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,
+    vkexec::image_create_info{
+      .width = k_image_extent,
+      .height = k_image_extent,
+      .usage = vkexec::image_usage::color_storage,
+    }));
+
+  VkImageViewCreateInfo view_info{};
+  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_info.image = img.handle();
+  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_info.format = img.format();
+  view_info.subresourceRange = {
+    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel = 0,
+    .levelCount = 1,
+    .baseArrayLayer = 0,
+    .layerCount = 1,
+  };
+
+  std::vector<std::byte> slot(layout.image_descriptor_size);
+  REQUIRE(vkexec::write_storage_image_descriptor(*ctx, view_info, VK_IMAGE_LAYOUT_GENERAL, slot));
+}
