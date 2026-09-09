@@ -1,4 +1,5 @@
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/procs.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
@@ -69,7 +70,8 @@ auto write_storage_buffer_descriptor(context const &ctx,
   std::span<std::byte> destination) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  if (ctx.procs().write_resource_descriptors == nullptr) {
+  auto const &procs = descriptor_heap_procs_for(ctx);
+  if (procs.write_resource_descriptors == nullptr) {
     return fail(errc::unsupported, "vkWriteResourceDescriptorsEXT is unavailable");
   }
   if (destination.empty()) {
@@ -89,7 +91,7 @@ auto write_storage_buffer_descriptor(context const &ctx,
   host_range.address = destination.data();
   host_range.size = destination.size();
 
-  VkResult const write_result = ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
+  VkResult const write_result = procs.write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
   if (write_result != VK_SUCCESS) { return fail(write_result, "vkWriteResourceDescriptorsEXT failed"); }
   return {};
 }
@@ -101,7 +103,8 @@ auto write_storage_image_descriptor(context const &ctx,
   std::span<std::byte> destination) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  if (ctx.procs().write_resource_descriptors == nullptr) {
+  auto const &procs = descriptor_heap_procs_for(ctx);
+  if (procs.write_resource_descriptors == nullptr) {
     return fail(errc::unsupported, "vkWriteResourceDescriptorsEXT is unavailable");
   }
   if (destination.empty()) {
@@ -122,7 +125,7 @@ auto write_storage_image_descriptor(context const &ctx,
   host_range.address = destination.data();
   host_range.size = destination.size();
 
-  VkResult const write_result = ctx.procs().write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
+  VkResult const write_result = procs.write_resource_descriptors(ctx.device(), 1, &resource_info, &host_range);
   if (write_result != VK_SUCCESS) { return fail(write_result, "vkWriteResourceDescriptorsEXT failed"); }
   return {};
 }
@@ -136,7 +139,8 @@ auto cmd_bind_resource_heap(context const &ctx,
   VkDeviceSize reserved_range_size) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  if (ctx.procs().cmd_bind_resource_heap == nullptr) {
+  auto const &procs = descriptor_heap_procs_for(ctx);
+  if (procs.cmd_bind_resource_heap == nullptr) {
     return fail(errc::unsupported, "vkCmdBindResourceHeapEXT is unavailable");
   }
 
@@ -146,7 +150,7 @@ auto cmd_bind_resource_heap(context const &ctx,
   bind_info.heapRange.size = heap_size;
   bind_info.reservedRangeOffset = reserved_range_offset;
   bind_info.reservedRangeSize = reserved_range_size;
-  ctx.procs().cmd_bind_resource_heap(cmd, &bind_info);
+  procs.cmd_bind_resource_heap(cmd, &bind_info);
   return {};
 }
 

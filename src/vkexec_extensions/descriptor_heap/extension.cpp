@@ -1,4 +1,5 @@
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/descriptor_heap/procs.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -8,9 +9,7 @@
 namespace vkexec::ext {
 
 auto extension_traits<descriptor_heap>::available(context const &ctx) -> bool
-{
-  return ctx.procs().write_resource_descriptors != nullptr && ctx.procs().cmd_push_data != nullptr;
-}
+{ return descriptor_heap_available(descriptor_heap_procs_for(ctx)); }
 
 auto extension_traits<descriptor_heap>::configure(vulkan_requirements &req) -> void
 {
