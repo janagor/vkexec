@@ -196,7 +196,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII: `gpu_buffer`, `image` / `image_view` / `sampler`, `timeline_semaphore`, `frame_ring` (WSI slot/image gating), plus `vkexec_graphics::swapchain` for borrowed surfaces.
+Supporting RAII in core: `gpu_buffer`, `image` / `image_view` / `sampler`. Optional sync/present helpers (`timeline_semaphore`, `frame_ring`) live in `vkexec::ext_timeline_semaphore`; see extensions table below.
 
 ### Promoted features (`vkexec_features`)
 
@@ -226,9 +226,9 @@ if (vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx)) { /* ... */ 
 
 ### Optional extensions (`vkexec_extensions`)
 
-Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. **True extensions** (always a named `VK_*_EXTENSION_NAME`) live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need.
+Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. Optional capability **implementations** (Layer 1 commands + Layer 2 RAII) live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need. Enable capabilities first with [`vkexec_features`](include/vkexec_features/feature.hpp) (`feat::configure` / `feat::available`).
 
-Each extension is a **tag type** with `extension_traits` providing `name()`, `available(ctx)`, and `configure(req)`. Use the helpers in [`extension.hpp`](include/vkexec_extensions/extension.hpp):
+True Vulkan extensions (`VK_EXT_*`) also expose `ext::configure` / `ext::available` via [`extension.hpp`](include/vkexec_extensions/extension.hpp):
 
 ```cpp
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
@@ -247,14 +247,25 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 }
 ```
 
-| Extension | CMake target | Include | Requires |
-|-----------|--------------|---------|----------|
-| Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `VK_EXT_descriptor_heap`, `bufferDeviceAddress` |
-| Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` + rendering helpers |
+| Module | CMake target | Include | Gated by |
+|--------|--------------|---------|----------|
+| Timeline sync | `vkexec::ext_timeline_semaphore` | `<vkexec_extensions/timeline_semaphore.hpp>` | `feat::timeline_semaphore` |
+| Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
+| Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
 **Layer 1 — free functions** (adopt-everything embedders): proc lookup (`descriptor_heap_procs_for`), descriptor writes, `cmd_bind_resource_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
 
-**Layer 2 — RAII types** (vkexec-native apps): `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
+**Layer 2 — RAII types** (vkexec-native apps): `timeline_semaphore`, `frame_ring`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
+
+**Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores or a present frame ring:
+
+```cpp
+#include <vkexec_features/timeline_semaphore.hpp>
+#include <vkexec_extensions/timeline_semaphore.hpp>
+
+vkexec::feat::configure<vkexec::feat::timeline_semaphore>(req);
+auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
+```
 
 **Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline with `heap_compute_pipeline`, allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data:
 
