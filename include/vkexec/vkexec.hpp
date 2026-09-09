@@ -11,7 +11,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/frame_ring.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
@@ -25,7 +24,6 @@
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/sync_wait_outcome.hpp>
-#include <vkexec/timeline_semaphore.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 namespace vkexec {

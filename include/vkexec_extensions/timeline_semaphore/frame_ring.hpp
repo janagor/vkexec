@@ -1,12 +1,12 @@
-#ifndef VKEXEC_FRAME_RING_HPP
-#define VKEXEC_FRAME_RING_HPP
+#ifndef VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_RING_HPP
+#define VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_RING_HPP
 
 #include <vkexec/context.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
-#include <vkexec/timeline_semaphore.hpp>
+#include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -102,4 +102,4 @@ private:
 
 }// namespace vkexec
 
-#endif// VKEXEC_FRAME_RING_HPP
+#endif// VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_RING_HPP

@@ -64,6 +64,7 @@ target_link_libraries(
           vkexec::vkexec_options
           vkexec::vkexec
           vkexec::features
+          vkexec::ext_timeline_semaphore
           vkexec::ext_descriptor_heap
           vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics

@@ -10,8 +10,6 @@ add_library(
   spirv_compile.cpp
   push.cpp
   gpu_buffer.cpp
-  timeline_semaphore.cpp
-  frame_ring.cpp
   barrier.cpp
   copy.cpp
   image.cpp

@@ -3,7 +3,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/frame_ring.hpp>
+#include <vkexec_extensions/timeline_semaphore/frame_ring.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 

@@ -13,6 +13,7 @@ target_link_libraries(
   PUBLIC vkexec_options
          vkexec_warnings
          vkexec::vkexec
+         vkexec::ext_timeline_semaphore
          glfw
   PRIVATE vk-bootstrap::vk-bootstrap)
 

@@ -1,4 +1,7 @@
-#include <vkexec/timeline_semaphore.hpp>
+#include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
+
+#include <vkexec_features/feature.hpp>
+#include <vkexec_features/timeline_semaphore.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
@@ -19,6 +22,9 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
 {
   if (ctx.device() == VK_NULL_HANDLE) {
     return detail::fail(errc::invalid_argument, "timeline_semaphore requires a VkDevice");
+  }
+  if (!feat::available<feat::timeline_semaphore>(ctx)) {
+    return detail::fail(errc::unsupported, "timeline_semaphore requires feat::timeline_semaphore");
   }
 
   VkSemaphoreTypeCreateInfo type_info{};
