@@ -354,16 +354,6 @@ auto context::load_device_procs() -> void
       vkGetDeviceProcAddr(device_.device, "vkGetBufferDeviceAddressKHR"));
   }
 
-  procs_.write_resource_descriptors = reinterpret_cast<PFN_vkWriteResourceDescriptorsEXT>(
-    vkGetDeviceProcAddr(device_.device, "vkWriteResourceDescriptorsEXT"));
-  procs_.write_sampler_descriptors = reinterpret_cast<PFN_vkWriteSamplerDescriptorsEXT>(
-    vkGetDeviceProcAddr(device_.device, "vkWriteSamplerDescriptorsEXT"));
-  procs_.cmd_bind_resource_heap =
-    reinterpret_cast<PFN_vkCmdBindResourceHeapEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdBindResourceHeapEXT"));
-  procs_.cmd_bind_sampler_heap =
-    reinterpret_cast<PFN_vkCmdBindSamplerHeapEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdBindSamplerHeapEXT"));
-  procs_.cmd_push_data =
-    reinterpret_cast<PFN_vkCmdPushDataEXT>(vkGetDeviceProcAddr(device_.device, "vkCmdPushDataEXT"));
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
 }
 

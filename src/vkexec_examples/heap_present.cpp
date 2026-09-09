@@ -3,6 +3,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -168,7 +169,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 
 auto run_heap_compute(vkexec::context &ctx) -> bool
 {
-  if (ctx.procs().cmd_push_data == nullptr || ctx.procs().write_resource_descriptors == nullptr) { return false; }
+  if (!vkexec::descriptor_heap_available(vkexec::descriptor_heap_procs_for(ctx))) { return false; }
 
   auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   if (!layout_result) { return false; }

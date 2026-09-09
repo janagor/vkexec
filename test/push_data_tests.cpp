@@ -4,6 +4,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec_extensions/descriptor_heap/procs.hpp>
 #include <vkexec_extensions/descriptor_heap/push_data.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
@@ -37,7 +38,7 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
 
-  REQUIRE(ctx->procs().cmd_push_data != nullptr);
+  REQUIRE(vkexec::descriptor_heap_available(vkexec::descriptor_heap_procs_for(*ctx)));
 
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());

@@ -7,6 +7,8 @@
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/extension.hpp>
 
 #include "../../sync_wait_helpers.hpp"
 
@@ -60,7 +62,7 @@ auto run() -> int
   auto ctx = vkexec::examples::sync_wait_value(
     vkexec::context::create({ .requirements = make_requirements() }));
 
-  if (ctx->procs().cmd_push_data == nullptr || ctx->procs().write_resource_descriptors == nullptr) {
+  if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
     std::cout << std::format("descriptor_heap: skipped (extension PFNs unavailable)\n");
     return 0;
   }

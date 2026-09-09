@@ -42,9 +42,6 @@ TEST_CASE("context can require Vulkan 1.4 features and extension feature structs
   REQUIRE(ctx->device() != VK_NULL_HANDLE);
   REQUIRE(VK_API_VERSION_MAJOR(ctx->api_version()) == 1);
   REQUIRE(VK_API_VERSION_MINOR(ctx->api_version()) == 4);
-  REQUIRE(ctx->procs().write_resource_descriptors != nullptr);
-  REQUIRE(ctx->procs().cmd_bind_resource_heap != nullptr);
-  REQUIRE(ctx->procs().cmd_push_data != nullptr);
 }
 
 TEST_CASE("context can require bufferDeviceAddress and dynamicRendering", "[vkexec][vulkan][gpu]")
