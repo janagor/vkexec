@@ -3,11 +3,13 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/copy.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <vulkan/vulkan_core.h>
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <utility>
@@ -100,4 +102,17 @@ TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[
   auto const addr_result = buffer.device_address();
   REQUIRE(addr_result.has_value());
   REQUIRE(*addr_result != 0);
+}
+
+TEST_CASE("upload_to_device copies staging bytes into device-local buffer", "[vkexec][gpu_buffer][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto staging = vkexec::test::sync_wait_value(
+    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::staging));
+  auto device = vkexec::test::sync_wait_value(
+    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::device_local));
+
+  std::array<std::byte, k_bytes> payload{};
+  payload.fill(k_marker);
+  REQUIRE(vkexec::upload_to_device(*ctx, staging, device, payload));
 }

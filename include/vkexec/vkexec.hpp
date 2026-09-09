@@ -5,6 +5,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/copy.hpp>
 #include <vkexec/descriptor_heap.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/domain.hpp>

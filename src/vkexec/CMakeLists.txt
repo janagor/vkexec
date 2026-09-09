@@ -14,6 +14,7 @@ add_library(
   frame_ring.cpp
   descriptor_heap.cpp
   barrier.cpp
+  copy.cpp
   image.cpp
   image_view.cpp
   rendering.cpp
