@@ -83,6 +83,21 @@ auto record_pass(VkCommandBuffer cmd,
   std::span<std::byte const> push,
   indirect_dispatch groups) -> detail::status;
 
+/// Embedder alias for bindless `record_heap_pass` (bind + push-data + dispatch).
+[[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  std::span<std::byte const> push,
+  dispatch groups) -> detail::status
+{ return record_heap_pass(ctx, cmd, bind, push, groups); }
+
+[[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  std::span<std::byte const> push,
+  indirect_dispatch groups) -> detail::status
+{ return record_heap_pass(ctx, cmd, bind, push, groups); }
+
 auto record_pass(VkCommandBuffer cmd,
   pipeline_resources const &pipe,
   VkDescriptorSet set,
