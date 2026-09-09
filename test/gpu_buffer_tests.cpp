@@ -55,32 +55,6 @@ TEST_CASE("gpu_buffer staging is host-mapped", "[vkexec][gpu_buffer][gpu]")
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
 }
 
-TEST_CASE("gpu_buffer descriptor_heap allocates when extension is available", "[vkexec][gpu_buffer][gpu]")
-{
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
-  vkexec::vulkan_requirements requirements{};
-  requirements.api_version_major = 1;
-  requirements.api_version_minor = 4;
-  requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
-
-  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  auto buffer = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::descriptor_heap));
-  REQUIRE(buffer.handle() != VK_NULL_HANDLE);
-  REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
-  auto const addr_result = buffer.device_address();
-  REQUIRE(addr_result.has_value());
-  REQUIRE(*addr_result != 0);
-}
-
 TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[vkexec][gpu_buffer][gpu]")
 {
   VkPhysicalDeviceVulkan12Features features_12{};

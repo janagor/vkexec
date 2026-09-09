@@ -23,8 +23,6 @@ enum class gpu_buffer_memory : std::uint8_t {
   device_local,
   /// Host-visible transfer destination for GPU→CPU readback.
   staging,
-  /// Host-visible descriptor-heap buffer (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
-  descriptor_heap,
 };
 
 struct gpu_buffer_create_info

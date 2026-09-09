@@ -1,6 +1,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/procs.hpp>
@@ -181,8 +182,8 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::examples::sync_wait_value(vkexec::gpu_buffer::create(
-    ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots), vkexec::gpu_buffer_memory::descriptor_heap));
+  auto heap = vkexec::examples::sync_wait_value(
+    vkexec::descriptor_heap_buffer::create(ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { return false; }

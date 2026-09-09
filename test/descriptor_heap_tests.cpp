@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/gpu_buffer.hpp>
@@ -59,8 +60,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, heap_bytes, vkexec::gpu_buffer_memory::descriptor_heap));
+  auto heap = vkexec::test::sync_wait_value(vkexec::descriptor_heap_buffer::create(*ctx, heap_bytes));
 
   std::vector<std::byte> slot(layout.buffer_descriptor_size);
   auto const storage_addr = storage.device_address();

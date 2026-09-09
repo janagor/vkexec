@@ -29,10 +29,6 @@ namespace {
     }
     case gpu_buffer_memory::staging:
       return VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    case gpu_buffer_memory::descriptor_heap:
-      // NOLINTBEGIN(hicpp-signed-bitwise)
-      return VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-      // NOLINTEND(hicpp-signed-bitwise)
     }
     return fail(errc::invalid_argument, "unknown gpu_buffer_memory");
   }
@@ -59,22 +55,9 @@ namespace {
       aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
       aci.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
       break;
-    case gpu_buffer_memory::descriptor_heap:
-      aci.usage = VMA_MEMORY_USAGE_AUTO;
-      // NOLINTBEGIN(hicpp-signed-bitwise)
-      // Persistently mapped heaps are written at arbitrary slot offsets; dedicated +
-      // 4 KiB alignment matches ANV bindless heap addressing.
-      aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
-                  | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-      // NOLINTEND(hicpp-signed-bitwise)
-      aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-      aci.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-      break;
     }
     return aci;
   }
-
-  constexpr VkDeviceSize k_heap_device_address_alignment = 4096;
 
 }// namespace
 
@@ -86,7 +69,7 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> detail::sy
     return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
   }
 
-  bool const want_device_address = info.shader_device_address || info.memory == gpu_buffer_memory::descriptor_heap;
+  bool const want_device_address = info.shader_device_address;
   if (want_device_address && ctx.procs().get_buffer_device_address == nullptr) {
     return fail(errc::unsupported,
       "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
@@ -106,15 +89,11 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> detail::sy
   VmaAllocation allocation{ VK_NULL_HANDLE };
   VmaAllocationInfo ainfo{};
   VkResult const create_result =
-    info.memory == gpu_buffer_memory::descriptor_heap
-      ? vmaCreateBufferWithAlignment(
-          ctx.allocator(), &bci, &aci, k_heap_device_address_alignment, &buffer_handle, &allocation, &ainfo)
-      : vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
+    vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
   if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBuffer failed"); }
 
   void *mapped_ptr = nullptr;
-  if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging
-      || info.memory == gpu_buffer_memory::descriptor_heap) {
+  if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging) {
     mapped_ptr = ainfo.pMappedData;
     if (mapped_ptr == nullptr) {
       vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);

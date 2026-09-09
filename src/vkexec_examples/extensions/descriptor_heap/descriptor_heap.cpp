@@ -5,6 +5,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
@@ -79,8 +80,8 @@ auto run() -> int
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::examples::sync_wait_value(vkexec::gpu_buffer::create(
-    *ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots), vkexec::gpu_buffer_memory::descriptor_heap));
+  auto heap = vkexec::examples::sync_wait_value(vkexec::descriptor_heap_buffer::create(
+    *ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { vkexec::examples::fail_check("storage buffer device address unavailable"); }

@@ -2,6 +2,7 @@ add_library(vkexec_ext_descriptor_heap
   descriptor_heap/descriptor_heap.cpp
   descriptor_heap/extension.cpp
   descriptor_heap/procs.cpp
+  descriptor_heap/buffer.cpp
   descriptor_heap/push_data.cpp
   descriptor_heap/pass.cpp
   descriptor_heap/compute_pipeline.cpp)
