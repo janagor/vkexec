@@ -22,24 +22,13 @@ namespace vkexec::examples {
 
 template<class Sender> [[nodiscard]] auto sync_wait_value(Sender &&sender)
 {
-  auto outcome = try_sync_wait(std::forward<Sender>(sender));
-  if (outcome.failed()) {
 #if VKEXEC_ENABLE_EXCEPTIONS
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    throw outcome.take_error();
+  return vkexec::sync_wait_value(std::forward<Sender>(sender));
 #else
-    abort_with_error(outcome.take_error());
+  auto outcome = vkexec::try_sync_wait_value(std::forward<Sender>(sender));
+  if (!outcome) { abort_with_error(outcome.error()); }
+  return std::move(*outcome);
 #endif
-  }
-  if (outcome.stopped || !outcome.values.has_value()) {
-#if VKEXEC_ENABLE_EXCEPTIONS
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    throw make_error(errc::cancelled, "sender completed with set_stopped");
-#else
-    abort_stopped();
-#endif
-  }
-  return detail::take_sync_value(std::move(*outcome.values));
 }
 
 template<class Sender> auto sync_wait_graph(Sender &&sender) -> void

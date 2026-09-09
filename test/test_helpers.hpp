@@ -23,10 +23,9 @@ inline auto skip_if_unavailable(error const &err) -> void
 template<class Sender>
 [[nodiscard]] auto sync_wait_value(Sender &&sender)
 {
-  auto outcome = try_sync_wait(std::forward<Sender>(sender));
-  if (outcome.failed()) { skip_if_no_vulkan(outcome.take_error()); }
-  if (outcome.stopped || !outcome.values.has_value()) { FAIL("sender stopped unexpectedly"); }
-  return detail::take_sync_value(std::move(*outcome.values));
+  auto outcome = vkexec::try_sync_wait_value(std::forward<Sender>(sender));
+  if (!outcome) { skip_if_no_vulkan(outcome.error()); }
+  return std::move(*outcome);
 }
 
 template<class... Values>
