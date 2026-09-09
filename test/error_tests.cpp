@@ -25,7 +25,7 @@ TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
   REQUIRE(vkexec::make_error_code(vkexec::errc::unsupported).message() == "unsupported operation");
   REQUIRE(vkexec::make_error_code(vkexec::errc::out_of_range).message() == "out of range");
   REQUIRE(vkexec::make_error_code(vkexec::errc::empty_result).message() == "empty result");
-  REQUIRE(vkexec::make_error_code(static_cast<vkexec::errc>(999)).message() == "unknown vkexec error");
+  REQUIRE(boost::system::error_code(999, vkexec::category()).message() == "unknown vkexec error");
 }
 
 TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
