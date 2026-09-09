@@ -4,7 +4,7 @@
 
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/pass.hpp>
+#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
@@ -89,6 +89,6 @@ TEST_CASE("compute_pass records bindless push data for heap pipelines", "[vkexec
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(pipe, params, k_work_count));
+    ex::schedule(ctx->get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }

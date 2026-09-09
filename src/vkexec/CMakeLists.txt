@@ -12,12 +12,10 @@ add_library(
   gpu_buffer.cpp
   timeline_semaphore.cpp
   frame_ring.cpp
-  descriptor_heap.cpp
   barrier.cpp
   copy.cpp
   image.cpp
   image_view.cpp
-  push_data.cpp
   submit_scope.cpp
   pass.cpp
   vulkan_requirements.cpp

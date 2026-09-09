@@ -21,7 +21,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project(
   vkexec
   VERSION 0.1.0
-  DESCRIPTION "stdexec Vulkan compute backend with bindless and graphics helpers"
+  DESCRIPTION "stdexec Vulkan compute backend with optional extensions and graphics helpers"
   HOMEPAGE_URL "https://github.com/janagor/vkexec"
   LANGUAGES CXX C)
 
@@ -103,7 +103,7 @@ vkexec_package_project(TARGETS vkexec_options vkexec_warnings)
 # add_subdirectory / CPM for full target propagation until deps are packaged.
 include(GNUInstallDirs)
 install(
-  TARGETS vkexec vkexec_ext_dynamic_rendering vkexec_graphics
+  TARGETS vkexec vkexec_ext_descriptor_heap vkexec_ext_dynamic_rendering vkexec_graphics
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")

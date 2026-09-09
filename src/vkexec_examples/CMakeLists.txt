@@ -30,6 +30,7 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
+          vkexec::ext_descriptor_heap
           vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics)
 

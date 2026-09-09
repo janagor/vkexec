@@ -3,17 +3,14 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/result.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
-#include <vkexec/push_data.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
 
-#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <utility>
@@ -47,34 +44,6 @@ auto record_pass(VkCommandBuffer cmd,
   }
   if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
-}
-
-auto record_heap_pass(context const &ctx,
-  VkCommandBuffer cmd,
-  compute_bind bind,
-  std::span<std::byte const> push,
-  dispatch groups) -> status
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) {
-    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return fail(pushed); }
-  }
-  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
-  return {};
-}
-
-auto record_heap_pass(context const &ctx,
-  VkCommandBuffer cmd,
-  compute_bind bind,
-  std::span<std::byte const> push,
-  indirect_dispatch groups) -> status
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (!push.empty()) {
-    if (auto pushed = cmd_push_data(ctx, cmd, push); !pushed) { return fail(pushed); }
-  }
-  vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
-  return {};
 }
 
 auto record_pass(VkCommandBuffer cmd,
@@ -129,16 +98,7 @@ namespace detail {
   auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
   {
     return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-      std::span<std::byte const> const push_bytes{ closure.push };
-      bool const use_push_data = closure.bind.layout == VK_NULL_HANDLE;
-      if (use_push_data) {
-        if (closure.is_indirect) {
-          return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
-        }
-        return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
-      }
-
+                                  context & /*record_ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
       auto const push_size = static_cast<std::uint32_t>(closure.push.size());
       if (closure.is_indirect) {

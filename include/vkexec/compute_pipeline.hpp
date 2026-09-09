@@ -74,21 +74,6 @@ auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, Params cons
 auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
   -> prebuilt_compute_pass_closure;
 
-/// Bindless / descriptor-heap path: no descriptor set; push payload uses `cmd_push_data`.
-template<typename Params>
-auto compute_pass(compute_pipeline const &pipe, Params const &params, std::uint32_t work_count)
-  -> prebuilt_compute_pass_closure
-{ return compute_pass(pipe.bind(), params, pipe.groups_for(work_count)); }
-
-auto compute_pass(compute_pipeline const &pipe, std::uint32_t work_count) -> prebuilt_compute_pass_closure;
-
-template<typename Params>
-auto compute_pass(compute_pipeline const &pipe, Params const &params, indirect_dispatch groups)
-  -> prebuilt_compute_pass_closure
-{ return compute_pass(pipe.bind(), params, groups); }
-
-auto compute_pass(compute_pipeline const &pipe, indirect_dispatch groups) -> prebuilt_compute_pass_closure;
-
 template<typename T>
 auto upload_push_constants(VkCommandBuffer cmd, compute_pipeline const &pipe, T const &params) -> void
 { upload_push_constants(cmd, pipe.resources().pipeline_layout, params); }

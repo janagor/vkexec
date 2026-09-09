@@ -1,1 +1,2 @@
+add_subdirectory(descriptor_heap)
 add_subdirectory(dynamic_rendering)

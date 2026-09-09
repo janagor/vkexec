@@ -6,7 +6,7 @@
 
 ## About
 
-`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with prebuilt GLSL/SPIR-V shaders, plus bindless (descriptor-heap) and optional GLFW graphics helpers suitable for embedding:
+`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with prebuilt GLSL/SPIR-V shaders, plus optional bindless and GLFW graphics helpers suitable for embedding:
 
 1. Author shaders as GLSL strings or embedded SPIR-V
 2. Build and cache `VkPipeline`s via `compute_pipeline` / `graphics_pipeline`
@@ -191,36 +191,10 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 - Destroy the adopted `context` before tearing down the borrowed device/VMA — vkexec owns a command pool and pipeline cache on that device.
 - Prefer `context::procs()` over caching `vkGetDeviceProcAddr` results for descriptor-heap / push-data entry points.
 - Use `sync_wait_value` / `try_sync_wait_value` for factory senders when you are not composing stdexec graphs.
-- With your own command buffers, bindless compute uses `record_heap_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.
+- With your own command buffers, bindless compute (via `vkexec::ext_descriptor_heap`) uses `record_heap_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.
 - Keep vk-bootstrap (or your WSI layer) for surface/swapchain when you need app-specific present extensions; use `vkexec_graphics::swapchain` only when a borrowed-surface helper is enough.
 
 When extensions such as `VK_EXT_descriptor_heap` / push-data are enabled, `context::procs()` caches the device PFNs (null when unavailable).
-
-### Bindless (descriptor heap)
-
-Hybrid apps can skip classic descriptor sets. Create a null-layout pipeline with `layout_desc.descriptor_heap = true`, allocate a `gpu_buffer` with `gpu_buffer_memory::descriptor_heap` (optionally `shader_device_address`), write storage descriptors into host-mapped heap memory, then bind + push data on the command buffer:
-
-```cpp
-auto layout = vkexec::query_descriptor_heap_layout(ctx);
-auto heap = vkexec::sync_wait_value(vkexec::gpu_buffer::create(ctx, {
-  .size = vkexec::descriptor_heap_byte_size(layout, slot_count),
-  .memory = vkexec::gpu_buffer_memory::descriptor_heap,
-  .shader_device_address = true,
-}));
-vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
-vkexec::write_storage_image_descriptor(ctx, view_info, VK_IMAGE_LAYOUT_GENERAL, heap.mapped().subspan(...));
-
-auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
-  .descriptor_heap = true,
-  .push_constant_size = sizeof(Push),
-  .local_size = { 64, 1, 1 },
-}));
-
-// In a recorded command buffer (or via bindless compute_pass):
-vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
-  /* reserved_offset */, layout.min_resource_heap_reserved_range);
-vkexec::cmd_push_data(ctx, cmd, push);
-```
 
 Supporting RAII: `gpu_buffer`, `image` / `image_view` / `sampler`, `timeline_semaphore`, `frame_ring` (WSI slot/image gating), plus `vkexec_graphics::swapchain` for borrowed surfaces.
 
@@ -230,12 +204,38 @@ Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic d
 
 | Extension | CMake target | Include | Requires |
 |-----------|--------------|---------|----------|
+| Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `VK_EXT_descriptor_heap`, `bufferDeviceAddress` |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering/rendering.hpp>` | Vulkan 1.3 `dynamicRendering` |
+
+**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline with `layout_desc.descriptor_heap = true`, allocate a `gpu_buffer` with `gpu_buffer_memory::descriptor_heap`, write descriptors into host-mapped heap memory, then bind + push data:
+
+```cpp
+#include <vkexec_extensions/descriptor_heap.hpp>
+
+auto layout = vkexec::query_descriptor_heap_layout(ctx);
+auto heap = vkexec::sync_wait_value(vkexec::gpu_buffer::create(ctx, {
+  .size = vkexec::descriptor_heap_byte_size(layout, slot_count),
+  .memory = vkexec::gpu_buffer_memory::descriptor_heap,
+  .shader_device_address = true,
+}));
+vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
+
+// stdexec path:
+ex::schedule(ctx.get_scheduler()) | vkexec::compute_heap_pass(pipe, push, work_count);
+
+// manual command buffer:
+vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
+  reserved_offset, layout.min_resource_heap_reserved_range);
+vkexec::cmd_push_data(ctx, cmd, push);
+```
+
+Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
+
+**Dynamic rendering:**
 
 ```cpp
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 
-// After recording a command buffer:
 vkexec::cmd_begin_rendering(cmd, vkexec::rendering_info{ .extent = { w, h }, .color = color_attachments });
 vkexec::cmd_end_rendering(cmd);
 ```
@@ -254,8 +254,11 @@ cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
 ./out/build/unixlike-clang-release/src/vkexec_examples/triangle
 ./out/build/unixlike-clang-release/src/vkexec_examples/heap_present
+./out/build/unixlike-clang-release/src/vkexec_examples/extensions/descriptor_heap/descriptor_heap
 ./out/build/unixlike-clang-release/src/vkexec_examples/extensions/dynamic_rendering/dynamic_rendering
 ```
+
+`extensions/descriptor_heap` runs a bindless compute smoke test when `VK_EXT_descriptor_heap` is available.
 
 `extensions/dynamic_rendering` opens a window and presents an animated color clear each frame via dynamic rendering.
 

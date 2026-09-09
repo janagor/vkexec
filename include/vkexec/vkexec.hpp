@@ -6,7 +6,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/copy.hpp>
-#include <vkexec/descriptor_heap.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
@@ -19,7 +18,6 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
-#include <vkexec/push_data.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/scheduler.hpp>

@@ -1,9 +1,9 @@
-#ifndef VKEXEC_DESCRIPTOR_HEAP_HPP
-#define VKEXEC_DESCRIPTOR_HEAP_HPP
+#ifndef VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_DESCRIPTOR_HEAP_HPP
+#define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_DESCRIPTOR_HEAP_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -57,4 +57,4 @@ struct descriptor_heap_layout
 
 }// namespace vkexec
 
-#endif// VKEXEC_DESCRIPTOR_HEAP_HPP
+#endif// VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_DESCRIPTOR_HEAP_HPP

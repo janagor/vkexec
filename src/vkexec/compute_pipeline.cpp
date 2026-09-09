@@ -112,10 +112,4 @@ auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, std::uint32
   -> prebuilt_compute_pass_closure
 { return compute_pass(pipe.bind(set), pipe.groups_for(work_count)); }
 
-auto compute_pass(compute_pipeline const &pipe, std::uint32_t work_count) -> prebuilt_compute_pass_closure
-{ return compute_pass(pipe.bind(), pipe.groups_for(work_count)); }
-
-auto compute_pass(compute_pipeline const &pipe, indirect_dispatch groups) -> prebuilt_compute_pass_closure
-{ return compute_pass(pipe.bind(), groups); }
-
 }// namespace vkexec
