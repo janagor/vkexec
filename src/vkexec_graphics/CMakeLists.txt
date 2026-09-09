@@ -2,6 +2,7 @@ add_library(
   vkexec_graphics
   window.cpp
   swapchain.cpp
+  frame_present.cpp
   graphics.cpp
   mesh.cpp)
 

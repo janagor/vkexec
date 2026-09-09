@@ -2,6 +2,7 @@
 #define VKEXEC_GRAPHICS_VKEXEC_GRAPHICS_HPP
 
 #include <vkexec_graphics/draw.hpp>
+#include <vkexec_graphics/frame_present.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/swapchain.hpp>
