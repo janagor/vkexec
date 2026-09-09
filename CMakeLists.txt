@@ -103,7 +103,7 @@ vkexec_package_project(TARGETS vkexec_options vkexec_warnings)
 # add_subdirectory / CPM for full target propagation until deps are packaged.
 include(GNUInstallDirs)
 install(
-  TARGETS vkexec vkexec_ext_descriptor_heap vkexec_ext_dynamic_rendering vkexec_graphics
+  TARGETS vkexec vkexec_features vkexec_ext_descriptor_heap vkexec_ext_dynamic_rendering vkexec_graphics
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")

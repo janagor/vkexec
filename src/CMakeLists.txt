@@ -1,4 +1,5 @@
 add_subdirectory(vkexec)
+add_subdirectory(vkexec_features)
 add_subdirectory(vkexec_extensions)
 add_subdirectory(vkexec_graphics)
 if(vkexec_BUILD_EXAMPLES)
