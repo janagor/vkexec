@@ -4,7 +4,9 @@
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
-#include <vkexec_extensions/descriptor_heap/procs.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/dynamic_rendering/extension.hpp>
+#include <vkexec_extensions/extension.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -63,24 +65,14 @@ auto make_requirements() -> vkexec::vulkan_requirements
 {
   VkPhysicalDeviceVulkan12Features features_12{};
   features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
   features_12.timelineSemaphore = VK_TRUE;
-
-  VkPhysicalDeviceVulkan13Features features_13{};
-  features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-  features_13.dynamicRendering = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
 
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 3;
-  requirements.optional_device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12)
-    .require_extension_feature(features_13)
-    .enable_extension_feature_if_present(features_heap);
+  requirements.require_extension_feature(features_12);
+  vkexec::ext::configure<vkexec::ext::dynamic_rendering>(requirements);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
   return requirements;
 }
 
@@ -170,7 +162,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 
 auto run_heap_compute(vkexec::context &ctx) -> bool
 {
-  if (!vkexec::descriptor_heap_available(vkexec::descriptor_heap_procs_for(ctx))) { return false; }
+  if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
 
   auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   if (!layout_result) { return false; }

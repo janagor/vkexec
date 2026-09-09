@@ -2,7 +2,9 @@
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/dynamic_rendering/extension.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
+#include <vkexec_extensions/extension.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 #include <vkexec_graphics/window.hpp>
 
@@ -29,14 +31,10 @@ constexpr float k_phase_blue = 4.188790205F;// 4*pi/3
 
 auto make_requirements() -> vkexec::vulkan_requirements
 {
-  VkPhysicalDeviceVulkan13Features features_13{};
-  features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-  features_13.dynamicRendering = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 3;
-  requirements.require_extension_feature(features_13);
+  vkexec::ext::configure<vkexec::ext::dynamic_rendering>(requirements);
   return requirements;
 }
 

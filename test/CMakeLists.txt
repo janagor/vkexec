@@ -47,6 +47,7 @@ add_executable(
   push_data_tests.cpp
   descriptor_heap_tests.cpp
   descriptor_heap_pipeline_tests.cpp
+  extension_tests.cpp
   image_tests.cpp
   image_barrier_tests.cpp
   rendering_tests.cpp

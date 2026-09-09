@@ -42,19 +42,10 @@ struct heap_push
 
 auto make_requirements() -> vkexec::vulkan_requirements
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
-  requirements.optional_device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).enable_extension_feature_if_present(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
   return requirements;
 }
 
