@@ -47,7 +47,6 @@ namespace {
     hash = hash_combine(hash, desc.local_size.at(0));
     hash = hash_combine(hash, desc.local_size.at(1));
     hash = hash_combine(hash, desc.local_size.at(2));
-    hash = hash_combine(hash, desc.descriptor_heap ? 1U : 0U);
     return hash;
   }
 
@@ -189,15 +188,6 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
     if (auto cached = cache_.find(key); cached != cache_.end()) { return std::ref(*cached->second); }
   }
 
-  if (desc.descriptor_heap) {
-    if (!desc.bindings.empty()) {
-      return fail(errc::invalid_argument, "descriptor_heap pipelines must not declare descriptor-set bindings");
-    }
-    if (desc.push_constant_size != 0) {
-      return fail(errc::invalid_argument, "descriptor_heap pipelines use push data, not push constants");
-    }
-  }
-
   auto resources = std::make_unique<pipeline_resources>();
   resources->binding_count = static_cast<std::uint32_t>(desc.bindings.size());
   resources->push_bytes = desc.push_constant_size;
@@ -225,43 +215,34 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   if (!shader_result) { return fail(shader_result); }
   resources->shader = expected_take(shader_result);
 
-  if (desc.descriptor_heap) {
-    auto pipeline_result = create_compute_pipeline(device, resources->shader, VK_NULL_HANDLE, spec_ptr, true);
-    if (!pipeline_result) {
-      destroy_resources(*ctx_, *resources);
-      return fail(pipeline_result);
-    }
-    resources->pipeline = expected_take(pipeline_result);
-  } else {
-    auto set_layout_result = create_set_layout(device, resources->binding_count);
-    if (!set_layout_result) {
-      destroy_resources(*ctx_, *resources);
-      return fail(set_layout_result);
-    }
-    resources->set_layout = expected_take(set_layout_result);
-
-    auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
-    if (!pipeline_layout_result) {
-      destroy_resources(*ctx_, *resources);
-      return fail(pipeline_layout_result);
-    }
-    resources->pipeline_layout = expected_take(pipeline_layout_result);
-
-    auto pipeline_result =
-      create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr, false);
-    if (!pipeline_result) {
-      destroy_resources(*ctx_, *resources);
-      return fail(pipeline_result);
-    }
-    resources->pipeline = expected_take(pipeline_result);
-
-    auto pool_result = create_descriptor_pool(device, resources->binding_count);
-    if (!pool_result) {
-      destroy_resources(*ctx_, *resources);
-      return fail(pool_result);
-    }
-    resources->descriptor_pool = expected_take(pool_result);
+  auto set_layout_result = create_set_layout(device, resources->binding_count);
+  if (!set_layout_result) {
+    destroy_resources(*ctx_, *resources);
+    return fail(set_layout_result);
   }
+  resources->set_layout = expected_take(set_layout_result);
+
+  auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
+  if (!pipeline_layout_result) {
+    destroy_resources(*ctx_, *resources);
+    return fail(pipeline_layout_result);
+  }
+  resources->pipeline_layout = expected_take(pipeline_layout_result);
+
+  auto pipeline_result =
+    create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr, false);
+  if (!pipeline_result) {
+    destroy_resources(*ctx_, *resources);
+    return fail(pipeline_result);
+  }
+  resources->pipeline = expected_take(pipeline_result);
+
+  auto pool_result = create_descriptor_pool(device, resources->binding_count);
+  if (!pool_result) {
+    destroy_resources(*ctx_, *resources);
+    return fail(pool_result);
+  }
+  resources->descriptor_pool = expected_take(pool_result);
 
   std::scoped_lock const lock(mutex_);
   if (auto cached = cache_.find(key); cached != cache_.end()) {

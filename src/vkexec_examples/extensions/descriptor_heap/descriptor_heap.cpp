@@ -1,4 +1,4 @@
-#include <vkexec/compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/result.hpp>
@@ -92,15 +92,9 @@ auto run() -> int
     vkexec::examples::abort_with_error(written.error());
   }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::heap_compute_pipeline::create(*ctx,
     k_heap_glsl,
-    vkexec::layout_desc{
-      .bindings = {},
-      .push_constant_size = 0,
-      .specialization = {},
-      .local_size = vkexec::k_default_local_size,
-      .descriptor_heap = true,
-    },
+    vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "descriptor_heap.comp"));
 
   heap_push const params{ .count = k_work_count };
