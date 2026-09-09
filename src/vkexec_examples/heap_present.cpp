@@ -5,8 +5,8 @@
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
-#include <vkexec_extensions/dynamic_rendering/extension.hpp>
 #include <vkexec_extensions/extension.hpp>
+#include <vkexec_features/bundles/vulkan_13.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -63,15 +63,10 @@ struct heap_push
 
 auto make_requirements() -> vkexec::vulkan_requirements
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.timelineSemaphore = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 3;
-  requirements.require_extension_feature(features_12);
-  vkexec::ext::configure<vkexec::ext::dynamic_rendering>(requirements);
+  vkexec::feat::configure_vulkan_13(requirements);
   vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
   return requirements;
 }

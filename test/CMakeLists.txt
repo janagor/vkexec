@@ -48,6 +48,7 @@ add_executable(
   descriptor_heap_tests.cpp
   descriptor_heap_pipeline_tests.cpp
   extension_tests.cpp
+  feature_tests.cpp
   image_tests.cpp
   image_barrier_tests.cpp
   rendering_tests.cpp
@@ -62,6 +63,7 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_warnings
           vkexec::vkexec_options
           vkexec::vkexec
+          vkexec::features
           vkexec::ext_descriptor_heap
           vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics

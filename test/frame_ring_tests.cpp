@@ -13,19 +13,17 @@
 #include <vkexec/frame_ring.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_features/feature.hpp>
+#include <vkexec_features/timeline_semaphore.hpp>
 
 namespace {
 
 auto open_timeline_context() -> std::unique_ptr<vkexec::context>
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.timelineSemaphore = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 2;
-  requirements.require_extension_feature(features_12);
+  vkexec::feat::configure<vkexec::feat::timeline_semaphore>(requirements);
 
   return vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
 }

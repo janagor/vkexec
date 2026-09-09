@@ -3,6 +3,8 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstdint>
+
 namespace vkexec::feat::detail {
 
 auto physical_device_timeline_semaphore(VkPhysicalDevice physical_device, std::uint32_t api_version) -> bool

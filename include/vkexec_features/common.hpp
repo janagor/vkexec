@@ -16,6 +16,7 @@ struct promotion
   char const *khr_extension{ nullptr };
 };
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] constexpr auto api_at_least(vulkan_requirements const &req,
   std::uint32_t major,
   std::uint32_t minor) noexcept -> bool
@@ -31,6 +32,7 @@ struct promotion
   if (VK_API_VERSION_MAJOR(api_version) != major) { return VK_API_VERSION_MAJOR(api_version) > major; }
   return VK_API_VERSION_MINOR(api_version) >= minor;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 }// namespace vkexec::feat
 

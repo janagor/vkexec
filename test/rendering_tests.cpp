@@ -10,6 +10,8 @@
 #include <vkexec/queue_submit.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_features/dynamic_rendering.hpp>
+#include <vkexec_features/feature.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -32,14 +34,10 @@ constexpr float k_clear_a = 1.0F;
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rendering][gpu]")
 {
-  VkPhysicalDeviceVulkan13Features features_13{};
-  features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-  features_13.dynamicRendering = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 3;
-  requirements.require_extension_feature(features_13);
+  vkexec::feat::configure<vkexec::feat::dynamic_rendering>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
   auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,

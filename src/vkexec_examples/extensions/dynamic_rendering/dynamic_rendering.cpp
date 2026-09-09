@@ -2,9 +2,9 @@
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
-#include <vkexec_extensions/dynamic_rendering/extension.hpp>
+#include <vkexec_features/dynamic_rendering.hpp>
+#include <vkexec_features/feature.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
-#include <vkexec_extensions/extension.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 #include <vkexec_graphics/window.hpp>
 
@@ -34,7 +34,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 3;
-  vkexec::ext::configure<vkexec::ext::dynamic_rendering>(requirements);
+  vkexec::feat::configure<vkexec::feat::dynamic_rendering>(requirements);
   return requirements;
 }
 
