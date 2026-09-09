@@ -9,15 +9,14 @@ add_library(vkexec_ext_descriptor_heap
   descriptor_heap/heap_compute_pipeline.cpp)
 add_library(vkexec::ext_descriptor_heap ALIAS vkexec_ext_descriptor_heap)
 
-add_library(vkexec_ext_dynamic_rendering
-  dynamic_rendering/extension.cpp dynamic_rendering/rendering.cpp)
+add_library(vkexec_ext_dynamic_rendering dynamic_rendering/rendering.cpp)
 add_library(vkexec::ext_dynamic_rendering ALIAS vkexec_ext_dynamic_rendering)
 
 target_include_directories(
   vkexec_ext_descriptor_heap
   PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(vkexec_ext_descriptor_heap PUBLIC Vulkan::Vulkan vkexec::vkexec)
+target_link_libraries(vkexec_ext_descriptor_heap PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -33,7 +32,7 @@ target_include_directories(
   vkexec_ext_dynamic_rendering
   PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC Vulkan::Vulkan vkexec::vkexec)
+target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
 
 target_compile_features(vkexec_ext_dynamic_rendering PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 

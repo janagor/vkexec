@@ -1,7 +1,7 @@
 #ifndef VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_HPP
 #define VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_HPP
 
-#include <vkexec_extensions/dynamic_rendering/extension.hpp>
+#include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 
 #endif// VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_HPP

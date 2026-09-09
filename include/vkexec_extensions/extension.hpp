@@ -9,7 +9,6 @@
 namespace vkexec::ext {
 
 struct descriptor_heap;
-struct dynamic_rendering;
 
 template<typename Tag>
 struct extension_traits;
