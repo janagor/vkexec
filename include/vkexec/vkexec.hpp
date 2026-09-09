@@ -21,7 +21,6 @@
 #include <vkexec/push.hpp>
 #include <vkexec/push_data.hpp>
 #include <vkexec/queue_submit.hpp>
-#include <vkexec/rendering.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/spirv_compile.hpp>

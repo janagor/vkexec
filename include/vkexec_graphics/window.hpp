@@ -71,6 +71,10 @@ public:
   [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
   { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 
+  /// Borrowed swapchain (valid after `create` / `headless` completes).
+  [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const *
+  { return swapchain_ ? std::addressof(*swapchain_) : nullptr; }
+
   /// Acquire the next swapchain image and begin a primary command buffer.
   /// Disengaged optional means the swapchain was recreated (caller should retry next loop).
   [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;

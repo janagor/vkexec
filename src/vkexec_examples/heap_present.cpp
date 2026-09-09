@@ -11,7 +11,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
-#include <vkexec/rendering.hpp>
+#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include "sync_wait_helpers.hpp"

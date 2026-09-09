@@ -8,7 +8,7 @@
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/queue_submit.hpp>
-#include <vkexec/rendering.hpp>
+#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <vulkan/vulkan_core.h>

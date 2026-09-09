@@ -1,3 +1,5 @@
+add_subdirectory(extensions)
+
 add_executable(compute compute.cpp)
 add_executable(sort sort.cpp)
 add_executable(passes passes.cpp)
@@ -28,6 +30,7 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
+          vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics)
 
 target_link_libraries(

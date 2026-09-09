@@ -222,7 +222,25 @@ vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
 vkexec::cmd_push_data(ctx, cmd, push);
 ```
 
-Supporting RAII: `gpu_buffer`, `image` / `image_view` / `sampler`, `timeline_semaphore`, `frame_ring` (WSI slot/image gating), plus `vkexec_graphics::swapchain` for borrowed surfaces. Dynamic rendering helpers live in `rendering.hpp`.
+Supporting RAII: `gpu_buffer`, `image` / `image_view` / `sampler`, `timeline_semaphore`, `frame_ring` (WSI slot/image gating), plus `vkexec_graphics::swapchain` for borrowed surfaces.
+
+### Optional extensions (`vkexec_extensions`)
+
+Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. Vulkan feature/extension helpers that are not required for that baseline live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need.
+
+| Extension | CMake target | Include | Requires |
+|-----------|--------------|---------|----------|
+| Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering/rendering.hpp>` | Vulkan 1.3 `dynamicRendering` |
+
+```cpp
+#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
+
+// After recording a command buffer:
+vkexec::cmd_begin_rendering(cmd, vkexec::rendering_info{ .extent = { w, h }, .color = color_attachments });
+vkexec::cmd_end_rendering(cmd);
+```
+
+Example: [`src/vkexec_examples/extensions/dynamic_rendering/`](src/vkexec_examples/extensions/dynamic_rendering/) clears the swapchain each frame with dynamic rendering (`vkexec::ext_dynamic_rendering` + `vkexec_graphics` for the window).
 
 Build and run the sample:
 
@@ -236,7 +254,10 @@ cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
 ./out/build/unixlike-clang-release/src/vkexec_examples/triangle
 ./out/build/unixlike-clang-release/src/vkexec_examples/heap_present
+./out/build/unixlike-clang-release/src/vkexec_examples/extensions/dynamic_rendering/dynamic_rendering
 ```
+
+`extensions/dynamic_rendering` opens a window and presents an animated color clear each frame via dynamic rendering.
 
 `heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute, dynamic rendering to an offscreen color target, then a few swapchain present frames.
 

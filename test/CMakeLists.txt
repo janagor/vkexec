@@ -61,6 +61,7 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_warnings
           vkexec::vkexec_options
           vkexec::vkexec
+          vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics
           Catch2::Catch2WithMain)
 

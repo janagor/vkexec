@@ -1,5 +1,5 @@
-#ifndef VKEXEC_RENDERING_HPP
-#define VKEXEC_RENDERING_HPP
+#ifndef VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_RENDERING_HPP
+#define VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_RENDERING_HPP
 
 #include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
@@ -42,4 +42,4 @@ struct rendering_info
 
 }// namespace vkexec
 
-#endif// VKEXEC_RENDERING_HPP
+#endif// VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_RENDERING_HPP

@@ -17,7 +17,6 @@ add_library(
   copy.cpp
   image.cpp
   image_view.cpp
-  rendering.cpp
   push_data.cpp
   submit_scope.cpp
   pass.cpp
