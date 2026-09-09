@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_FRAME_PRESENT_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/frame_ring.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec_graphics/swapchain.hpp>
@@ -36,7 +36,7 @@ struct present_acquire_result
   swapchain &chain,
   std::size_t slot,
   VkPipelineStageFlags acquire_wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-  -> detail::result<present_acquire_result>;
+  -> result<present_acquire_result>;
 
 /// Submit recorded work with frame-ring sync, mark timeline completion, and present.
 /// Returns `false` when the swapchain must be recreated; `true` on success.
@@ -44,7 +44,7 @@ struct present_acquire_result
   frame_ring &ring,
   swapchain &chain,
   acquired_present_frame const &frame,
-  std::span<VkCommandBuffer const> command_buffers) -> detail::result<bool>;
+  std::span<VkCommandBuffer const> command_buffers) -> result<bool>;
 
 }// namespace vkexec
 

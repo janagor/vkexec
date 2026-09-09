@@ -3,7 +3,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_heap.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
@@ -82,7 +82,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
   return requirements;
 }
 
-auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::detail::status
+auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 {
   auto img = vkexec::examples::sync_wait_value(vkexec::image::create(ctx,
     vkexec::image_create_info{
@@ -94,7 +94,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::detail::status
 
   auto cmd_result = ctx.allocate_command_buffer();
   if (!cmd_result) { return vkexec::fail(std::move(cmd_result.error())); }
-  auto *cmd = vkexec::detail::expected_take(cmd_result);
+  auto *cmd = vkexec::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -172,7 +172,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
 
   auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   if (!layout_result) { return false; }
-  auto const &layout = vkexec::detail::expected_get(layout_result);
+  auto const &layout = vkexec::expected_get(layout_result);
 
   auto storage = vkexec::examples::sync_wait_value(vkexec::gpu_buffer::create(ctx,
     vkexec::gpu_buffer_create_info{

@@ -4,7 +4,7 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/queue_submit.hpp>
 
@@ -33,7 +33,7 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
 
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::expected_take(cmd_result);
+  auto *cmd = vkexec::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

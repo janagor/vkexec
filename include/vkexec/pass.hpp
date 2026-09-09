@@ -2,7 +2,7 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -75,27 +75,27 @@ auto record_pass(VkCommandBuffer cmd,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  dispatch groups) -> detail::status;
+  dispatch groups) -> status;
 
 [[nodiscard]] auto record_heap_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  indirect_dispatch groups) -> detail::status;
+  indirect_dispatch groups) -> status;
 
 /// Embedder alias for bindless `record_heap_pass` (bind + push-data + dispatch).
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  dispatch groups) -> detail::status
+  dispatch groups) -> status
 { return record_heap_pass(ctx, cmd, bind, push, groups); }
 
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   std::span<std::byte const> push,
-  indirect_dispatch groups) -> detail::status
+  indirect_dispatch groups) -> status
 { return record_heap_pass(ctx, cmd, bind, push, groups); }
 
 auto record_pass(VkCommandBuffer cmd,
@@ -107,14 +107,14 @@ auto record_pass(VkCommandBuffer cmd,
 
 struct pass_step
 {
-  std::function<detail::status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
+  std::function<status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
 };
 
 namespace detail {
 
-  [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> detail::status;
+  [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status;
 
-  [[nodiscard]] auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> detail::result<submit_scope>;
+  [[nodiscard]] auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>;
 
 }// namespace detail
 
@@ -154,7 +154,7 @@ struct pass_graph_sender
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_and_wait(detail::expected_take(prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_and_wait(expected_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };
@@ -223,7 +223,7 @@ struct pass_graph_async_sender
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_fence(detail::expected_take(prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_fence(expected_take(prepared)), std::move(rcvr)));
       ex::start(*submit_op);
     }
   };
@@ -300,7 +300,7 @@ namespace detail {
 
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
   {
-    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> detail::status {
+    return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       tag(cmd);
       return {};
     } };

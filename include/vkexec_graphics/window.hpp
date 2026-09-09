@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_WINDOW_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec_graphics/swapchain.hpp>
@@ -73,11 +73,11 @@ public:
 
   /// Acquire the next swapchain image and begin a primary command buffer.
   /// Disengaged optional means the swapchain was recreated (caller should retry next loop).
-  [[nodiscard]] auto begin_frame() -> detail::result<std::optional<frame>>;
+  [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
 
   /// Submit the recorded command buffer and present. The command buffer must already be ended.
   /// Returns the per-frame `in_flight` fence signaled by the submit (owned by the window).
-  [[nodiscard]] auto end_frame(frame const &drawn) -> detail::result<VkFence>;
+  [[nodiscard]] auto end_frame(frame const &drawn) -> result<VkFence>;
 
 private:
   struct frame_sync
@@ -88,20 +88,20 @@ private:
 
   window() = default;
 
-  auto init(config cfg) -> detail::status;
-  auto create_surface() -> detail::status;
-  auto create_headless_surface() -> detail::status;
+  auto init(config cfg) -> status;
+  auto create_surface() -> status;
+  auto create_headless_surface() -> status;
   [[nodiscard]] auto framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>;
-  auto create_swapchain() -> detail::status;
-  auto create_render_pass() -> detail::status;
-  auto create_depth_resources() -> detail::status;
+  auto create_swapchain() -> status;
+  auto create_render_pass() -> status;
+  auto create_depth_resources() -> status;
   auto destroy_depth_resources() noexcept -> void;
-  auto create_framebuffers() -> detail::status;
-  auto create_frame_resources() -> detail::status;
-  auto create_swapchain_sync() -> detail::status;
+  auto create_framebuffers() -> status;
+  auto create_frame_resources() -> status;
+  auto create_swapchain_sync() -> status;
   auto destroy_swapchain_sync() noexcept -> void;
   auto cleanup_swapchain() -> void;
-  auto recreate_swapchain() -> detail::status;
+  auto recreate_swapchain() -> status;
 
   config cfg_;
   bool headless_{ false };

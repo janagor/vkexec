@@ -4,7 +4,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_heap.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -46,7 +46,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
-  auto const &layout = vkexec::detail::expected_get(layout_result);
+  auto const &layout = vkexec::expected_get(layout_result);
   REQUIRE(layout.descriptor_stride > 0);
   REQUIRE(layout.buffer_descriptor_size > 0);
 
@@ -72,7 +72,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
 
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::detail::expected_take(cmd_result);
+  auto *cmd = vkexec::expected_take(cmd_result);
   VkCommandBufferBeginInfo begin{};
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -114,7 +114,7 @@ TEST_CASE("write_storage_image_descriptor fills a heap slot", "[vkexec][descript
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
-  auto const &layout = vkexec::detail::expected_get(layout_result);
+  auto const &layout = vkexec::expected_get(layout_result);
   REQUIRE(layout.image_descriptor_size > 0);
 
   auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,

@@ -6,7 +6,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/submit.hpp>
@@ -115,7 +115,7 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
 
   auto set_result = pipe.allocate_set();
   REQUIRE(set_result.has_value());
-  auto *set = vkexec::detail::expected_take(set_result);
+  auto *set = vkexec::expected_take(set_result);
   std::array const bindings{
     vkexec::storage_binding{ .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float), .binding = 0 },
     vkexec::storage_binding{ .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float), .binding = 1 },
@@ -153,7 +153,7 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
 
   auto set_result = add_pipe.allocate_set();
   REQUIRE(set_result.has_value());
-  auto *set = vkexec::detail::expected_take(set_result);
+  auto *set = vkexec::expected_take(set_result);
   vkexec::storage_binding const binding{
     .buffer = values.vk_buffer(),
     .byte_size = k_count * sizeof(float),
@@ -196,7 +196,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
 
   auto set_result = add_pipe.allocate_set();
   REQUIRE(set_result.has_value());
-  auto *set = vkexec::detail::expected_take(set_result);
+  auto *set = vkexec::expected_take(set_result);
   vkexec::storage_binding const binding{
     .buffer = values.vk_buffer(),
     .byte_size = k_count * sizeof(float),

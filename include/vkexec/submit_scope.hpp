@@ -2,7 +2,7 @@
 #define VKEXEC_SUBMIT_SCOPE_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -61,12 +61,12 @@ namespace detail {
 
   auto allocate_compute_set(context const &ctx,
     pipeline_resources &pipe,
-    std::span<storage_binding const> buffers) -> detail::result<VkDescriptorSet>;
+    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>;
 
   auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
     std::span<storage_binding const> buffers,
-    descriptor_cleanup &cleanup) -> detail::result<VkDescriptorSet>;
+    descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
 
   /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.
   struct submit_scope
@@ -102,10 +102,10 @@ namespace detail {
 
     ~submit_scope() { release(); }
 
-    [[nodiscard]] static auto open(context &host) -> detail::result<submit_scope>;
+    [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
 
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-    [[nodiscard]] auto end_recording() -> detail::status;
+    [[nodiscard]] auto end_recording() -> status;
 
     auto track_set(pipeline_resources const &pipe, VkDescriptorSet set) -> void
     { cleanup.track(pipe.descriptor_pool, set); }
@@ -172,7 +172,7 @@ namespace detail {
           ex::set_error(std::move(rcvr), std::move(opened.error()));
           return;
         }
-        ex::set_value(std::move(rcvr), detail::expected_take(opened));
+        ex::set_value(std::move(rcvr), expected_take(opened));
       }
     };
 

@@ -3,7 +3,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/image.hpp>
 
@@ -19,7 +19,7 @@ namespace {
 
 auto image_view::create(context &ctx, image const &img) -> detail::sync_sender_fn<image_view>
 {
-  return detail::make_sync_sender_fn<image_view>([&ctx, &img]() -> detail::result<image_view> {
+  return detail::make_sync_sender_fn<image_view>([&ctx, &img]() -> result<image_view> {
   if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
   if (img.handle() == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "image_view requires a valid image");

@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_MESH_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
@@ -45,7 +45,7 @@ public:
 private:
   mesh() = default;
 
-  auto init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> detail::status;
+  auto init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status;
   auto destroy() noexcept -> void;
 
   context *ctx_{ nullptr };

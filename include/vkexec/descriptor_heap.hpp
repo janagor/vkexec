@@ -2,7 +2,7 @@
 #define VKEXEC_DESCRIPTOR_HEAP_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
@@ -23,7 +23,7 @@ struct descriptor_heap_layout
   VkDeviceSize min_resource_heap_reserved_range{ 0 };
 };
 
-[[nodiscard]] auto query_descriptor_heap_layout(context const &ctx) -> detail::result<descriptor_heap_layout>;
+[[nodiscard]] auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_layout>;
 
 /// Bytes needed for `descriptor_count` slots plus the implementation reserved range.
 [[nodiscard]] auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t descriptor_count)
@@ -34,7 +34,7 @@ struct descriptor_heap_layout
 [[nodiscard]] auto write_storage_buffer_descriptor(context const &ctx,
   VkDeviceAddress buffer_address,
   VkDeviceSize buffer_size,
-  std::span<std::byte> destination) -> detail::status;
+  std::span<std::byte> destination) -> status;
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 /// Host write of a storage-image descriptor into a slot-sized destination span.
@@ -42,7 +42,7 @@ struct descriptor_heap_layout
 [[nodiscard]] auto write_storage_image_descriptor(context const &ctx,
   VkImageViewCreateInfo const &view_info,
   VkImageLayout layout,
-  std::span<std::byte> destination) -> detail::status;
+  std::span<std::byte> destination) -> status;
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 /// Bind a resource descriptor heap buffer for subsequent bindless dispatches/draws.
@@ -52,7 +52,7 @@ struct descriptor_heap_layout
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
-  VkDeviceSize reserved_range_size) -> detail::status;
+  VkDeviceSize reserved_range_size) -> status;
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 }// namespace vkexec

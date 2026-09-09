@@ -1,6 +1,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -25,7 +25,7 @@ auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv
   -> detail::sync_sender_fn<compute_pipeline>
 {
   return detail::make_sync_sender_fn<compute_pipeline>(
-    [&ctx, spirv, desc]() -> detail::result<compute_pipeline> {
+    [&ctx, spirv, desc]() -> result<compute_pipeline> {
       VKEXEC_TRY_ASSIGN(cached, ctx.get_or_create_from_spirv(spirv, desc));
       return compute_pipeline{ &ctx, &cached.get() };
     });
@@ -35,7 +35,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
   -> detail::sync_sender_fn<compute_pipeline>
 {
   return detail::make_sync_sender_fn<compute_pipeline>(
-    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> detail::result<compute_pipeline> {
+    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<compute_pipeline> {
       if (glsl.empty()) { return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
       VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
       VKEXEC_TRY_ASSIGN(cached, ctx.get_or_create_from_spirv(spirv, desc));
@@ -46,7 +46,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
 auto compute_pipeline::allocate_set_sender() const -> detail::sync_sender_fn<VkDescriptorSet>
 {
   return detail::make_sync_sender_fn<VkDescriptorSet>(
-    [this]() -> detail::result<VkDescriptorSet> { return allocate_set(); });
+    [this]() -> result<VkDescriptorSet> { return allocate_set(); });
 }
 
 auto compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
@@ -54,10 +54,10 @@ auto compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
   return detail::make_sync_void_sender_fn(
-    [this, set, owned = std::move(owned)]() -> detail::status { return update_set(set, owned); });
+    [this, set, owned = std::move(owned)]() -> status { return update_set(set, owned); });
 }
 
-auto compute_pipeline::allocate_set() const -> detail::result<VkDescriptorSet>
+auto compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
 {
   VkDescriptorSetAllocateInfo dsai{};
   dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -70,7 +70,7 @@ auto compute_pipeline::allocate_set() const -> detail::result<VkDescriptorSet>
   return set;
 }
 
-auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> detail::status
+auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status
 {
   if (buffers.size() != resources_->binding_count) {
     return fail(errc::invalid_argument, "update_set buffer count must match layout_desc.bindings");
@@ -101,7 +101,7 @@ auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
   return detail::make_sync_sender_fn<bound_compute_pipeline>(
-    [pipe, owned = std::move(owned)]() mutable -> detail::result<bound_compute_pipeline> {
+    [pipe, owned = std::move(owned)]() mutable -> result<bound_compute_pipeline> {
       VKEXEC_TRY_ASSIGN(set, pipe.allocate_set());
       VKEXEC_TRY(pipe.update_set(set, owned));
       return bound_compute_pipeline{ .pipe = pipe, .set = set };

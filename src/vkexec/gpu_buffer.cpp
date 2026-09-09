@@ -3,7 +3,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vk_mem_alloc.h>
@@ -15,7 +15,7 @@
 namespace vkexec {
 namespace {
 
-  auto usage_for(gpu_buffer_memory memory, bool shader_device_address) -> detail::result<VkBufferUsageFlags>
+  auto usage_for(gpu_buffer_memory memory, bool shader_device_address) -> result<VkBufferUsageFlags>
   {
     switch (memory) {
     case gpu_buffer_memory::host_visible:
@@ -80,7 +80,7 @@ namespace {
 
 auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> detail::sync_sender_fn<gpu_buffer>
 {
-  return detail::make_sync_sender_fn<gpu_buffer>([&ctx, info]() -> detail::result<gpu_buffer> {
+  return detail::make_sync_sender_fn<gpu_buffer>([&ctx, info]() -> result<gpu_buffer> {
   if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
   if (ctx.allocator() == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
@@ -182,7 +182,7 @@ auto gpu_buffer::mapped() const noexcept -> std::span<std::byte>
   return { static_cast<std::byte *>(mapped_), static_cast<std::size_t>(size_) };
 }
 
-auto gpu_buffer::device_address() const -> detail::result<VkDeviceAddress>
+auto gpu_buffer::device_address() const -> result<VkDeviceAddress>
 {
   if (!shader_device_address_) {
     return fail(errc::invalid_argument, "vkexec::gpu_buffer was not created with shader_device_address");

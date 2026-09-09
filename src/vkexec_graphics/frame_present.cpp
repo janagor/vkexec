@@ -1,7 +1,7 @@
 #include <vkexec_graphics/frame_present.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/frame_ring.hpp>
 #include <vkexec/queue_submit.hpp>
@@ -18,7 +18,7 @@ namespace vkexec {
 auto acquire_present_frame(frame_ring &ring,
   swapchain &chain,
   std::size_t slot,
-  VkPipelineStageFlags acquire_wait_stage) -> detail::result<present_acquire_result>
+  VkPipelineStageFlags acquire_wait_stage) -> result<present_acquire_result>
 {
   VKEXEC_TRY(ring.wait_slot(slot));
 
@@ -50,7 +50,7 @@ auto submit_and_present(context &ctx,
   frame_ring &ring,
   swapchain &chain,
   acquired_present_frame const &frame,
-  std::span<VkCommandBuffer const> command_buffers) -> detail::result<bool>
+  std::span<VkCommandBuffer const> command_buffers) -> result<bool>
 {
   VkQueue submit_queue =
     ctx.graphics_queue() != VK_NULL_HANDLE ? ctx.graphics_queue() : ctx.present_queue();

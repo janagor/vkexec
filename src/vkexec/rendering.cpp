@@ -1,7 +1,7 @@
 #include <vkexec/rendering.hpp>
 
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -10,7 +10,7 @@
 
 namespace vkexec {
 
-auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> detail::status
+auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> status
 {
   if (cmd == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "cmd_begin_rendering requires a command buffer");
@@ -64,7 +64,7 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> det
   return {};
 }
 
-auto cmd_end_rendering(VkCommandBuffer cmd) -> detail::status
+auto cmd_end_rendering(VkCommandBuffer cmd) -> status
 {
   if (cmd == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "cmd_end_rendering requires a command buffer");

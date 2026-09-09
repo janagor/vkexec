@@ -2,7 +2,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -22,7 +22,7 @@ namespace {
 
 }// namespace
 
-auto query_descriptor_heap_layout(context const &ctx) -> detail::result<descriptor_heap_layout>
+auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_layout>
 {
   if (ctx.physical_device() == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "query_descriptor_heap_layout requires a physical device");
@@ -66,7 +66,7 @@ auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t
 auto write_storage_buffer_descriptor(context const &ctx,
   VkDeviceAddress buffer_address,
   VkDeviceSize buffer_size,
-  std::span<std::byte> destination) -> detail::status
+  std::span<std::byte> destination) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (ctx.procs().write_resource_descriptors == nullptr) {
@@ -98,7 +98,7 @@ auto write_storage_buffer_descriptor(context const &ctx,
 auto write_storage_image_descriptor(context const &ctx,
   VkImageViewCreateInfo const &view_info,
   VkImageLayout layout,
-  std::span<std::byte> destination) -> detail::status
+  std::span<std::byte> destination) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (ctx.procs().write_resource_descriptors == nullptr) {
@@ -133,7 +133,7 @@ auto cmd_bind_resource_heap(context const &ctx,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
-  VkDeviceSize reserved_range_size) -> detail::status
+  VkDeviceSize reserved_range_size) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (ctx.procs().cmd_bind_resource_heap == nullptr) {

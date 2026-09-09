@@ -3,7 +3,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <stdexec/execution.hpp>
@@ -63,7 +63,7 @@ struct schedule_sender
       };
 
       auto state = std::make_shared<shared_state>(std::move(receiver));
-      if (detail::status enqueued = ctx->enqueue_host([state]() mutable -> void { ex::set_value(std::move(state->receiver)); });
+      if (status enqueued = ctx->enqueue_host([state]() mutable -> void { ex::set_value(std::move(state->receiver)); });
         !enqueued) {
         ex::set_error(std::move(state->receiver), std::move(enqueued.error()));
       }

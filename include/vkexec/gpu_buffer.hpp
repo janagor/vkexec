@@ -2,7 +2,7 @@
 #define VKEXEC_GPU_BUFFER_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
@@ -55,7 +55,7 @@ public:
   [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
   [[nodiscard]] auto memory() const noexcept -> gpu_buffer_memory { return memory_; }
   [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
-  [[nodiscard]] auto device_address() const -> detail::result<VkDeviceAddress>;
+  [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
 private:
   gpu_buffer(context *ctx,

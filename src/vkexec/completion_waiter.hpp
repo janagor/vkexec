@@ -2,7 +2,7 @@
 #define VKEXEC_COMPLETION_WAITER_HPP
 
 #include <vkexec/detail/move_only_function.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>

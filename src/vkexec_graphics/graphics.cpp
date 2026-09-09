@@ -4,7 +4,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/spirv_compile.hpp>
@@ -54,7 +54,7 @@ auto graphics_pipeline::create(context &ctx,
                       graphics_pipeline_config pipe_cfg,
                       std::vector<std::uint32_t> const &vs_spv,
                       std::vector<std::uint32_t> const &fs_spv,
-                      std::span<storage_binding const> pipe_buffers) -> detail::result<graphics_pipeline> {
+                      std::span<storage_binding const> pipe_buffers) -> result<graphics_pipeline> {
     if (vs_spv.empty() || fs_spv.empty()) {
       return fail(errc::invalid_argument, "graphics_pipeline::create requires non-empty SPIR-V");
     }
@@ -74,7 +74,7 @@ auto graphics_pipeline::create(context &ctx,
                                                          vertex_spirv = std::vector(vertex_spirv.begin(), vertex_spirv.end()),
                                                          fragment_spirv = std::vector(fragment_spirv.begin(), fragment_spirv.end()),
                                                          owned = std::vector(buffers.begin(), buffers.end()),
-                                                         make]() mutable -> detail::result<graphics_pipeline> {
+                                                         make]() mutable -> result<graphics_pipeline> {
     return make(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, owned);
   });
 }
@@ -93,7 +93,7 @@ auto graphics_pipeline::create(context &ctx,
                       graphics_pipeline_config pipe_cfg,
                       std::vector<std::uint32_t> const &vs_spv,
                       std::vector<std::uint32_t> const &fs_spv,
-                      std::span<storage_binding const> pipe_buffers) -> detail::result<graphics_pipeline> {
+                      std::span<storage_binding const> pipe_buffers) -> result<graphics_pipeline> {
     if (vs_spv.empty() || fs_spv.empty()) {
       return fail(errc::invalid_argument, "graphics_pipeline::create requires non-empty SPIR-V");
     }
@@ -113,7 +113,7 @@ auto graphics_pipeline::create(context &ctx,
                                                          vertex_glsl = std::string(vertex_glsl),
                                                          fragment_glsl = std::string(fragment_glsl),
                                                          owned = std::vector(buffers.begin(), buffers.end()),
-                                                         make]() mutable -> detail::result<graphics_pipeline> {
+                                                         make]() mutable -> result<graphics_pipeline> {
     if (vertex_glsl.empty() || fragment_glsl.empty()) {
       return fail(errc::invalid_argument, "graphics_pipeline::create requires non-empty GLSL");
     }
@@ -145,7 +145,7 @@ auto graphics_pipeline::create(context &ctx,
   return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers);
 }
 
-auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) const -> detail::result<VkShaderModule>
+auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) const -> result<VkShaderModule>
 {
   VkShaderModuleCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -162,7 +162,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
   VkRenderPass render_pass,
   std::vector<std::uint32_t> const &vs_spv,
   std::vector<std::uint32_t> const &fs_spv,
-  std::span<storage_binding const> buffers) -> detail::status
+  std::span<storage_binding const> buffers) -> status
 {
   buffers_.clear();
   buffers_.reserve(buffers.size());
@@ -220,7 +220,7 @@ auto graphics_pipeline::complete([[maybe_unused]] context &ctx,
     vkDestroyShaderModule(device_, vert_module, nullptr);
     return fail(frag);
   }
-  VkShaderModule frag_module = detail::expected_take(frag);
+  VkShaderModule frag_module = expected_take(frag);
 
   static constexpr std::size_t k_graphics_stage_count = 2;
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
@@ -424,7 +424,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
-  std::uint32_t vertex_count) const -> detail::status
+  std::uint32_t vertex_count) const -> status
 {
   begin_pass(cmd, render_pass, framebuffer, extent);
   record_draw(cmd, extent, vertex_count);
@@ -439,7 +439,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
-  mesh const &drawn) const -> detail::status
+  mesh const &drawn) const -> status
 {
   begin_pass(cmd, render_pass, framebuffer, extent);
   record_draw(cmd, extent, drawn);

@@ -1,7 +1,7 @@
 #ifndef VKEXEC_BUFFER_HPP
 #define VKEXEC_BUFFER_HPP
 
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 
@@ -63,8 +63,8 @@ template<typename T> struct buffer_allocate_sender
         }
       }
 
-      if (detail::result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
-        ex::set_value(std::move(rcvr), detail::expected_take(allocated));
+      if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
+        ex::set_value(std::move(rcvr), expected_take(allocated));
       } else {
         ex::set_error(std::move(rcvr), std::move(allocated.error()));
       }
@@ -172,7 +172,7 @@ private:
     : ctx_(ctx), buffer_(handle), allocation_(allocation), mapped_(mapped), count_(count), name_(std::move(name))
   {}
 
-  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> detail::result<buffer>
+  [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> result<buffer>
   {
     static_assert(std::is_trivially_copyable_v<T>);
     if (count == 0) { return fail(errc::invalid_argument, "vkexec::buffer count must be > 0"); }

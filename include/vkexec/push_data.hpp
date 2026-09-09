@@ -2,7 +2,7 @@
 #define VKEXEC_PUSH_DATA_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan.h>
@@ -16,12 +16,12 @@ namespace vkexec {
 /// Record `vkCmdPushDataEXT` for a host-visible byte range.
 [[nodiscard]] auto
   cmd_push_data(context const &ctx, VkCommandBuffer cmd, std::span<std::byte const> bytes, std::uint32_t offset = 0)
-    -> detail::status;
+    -> status;
 
 /// Record `vkCmdPushDataEXT` for a trivially copyable POD.
 template<typename T>
 [[nodiscard]] auto cmd_push_data(context const &ctx, VkCommandBuffer cmd, T const &value, std::uint32_t offset = 0)
-  -> detail::status
+  -> status
 {
   static_assert(std::is_trivially_copyable_v<T>);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)

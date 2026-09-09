@@ -2,7 +2,7 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/gpu_buffer.hpp>
 
@@ -17,7 +17,7 @@
 namespace vkexec {
 
 auto upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &device, std::span<std::byte const> bytes)
-  -> detail::status
+  -> status
 {
   if (staging.memory() != gpu_buffer_memory::staging && staging.memory() != gpu_buffer_memory::host_visible) {
     return fail(errc::invalid_argument, "upload_to_device staging buffer must be host-visible");

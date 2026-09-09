@@ -2,7 +2,7 @@
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -118,7 +118,7 @@ namespace {
     }
   }
 
-  auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> detail::result<vkb::Instance>
+  auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> result<vkb::Instance>
   {
     vkb::InstanceBuilder builder{};
     configure_instance_builder(builder, opts, api_version, {});
@@ -130,7 +130,7 @@ namespace {
 
   auto build_instance_with_extensions(scheduler_options const &opts,
     std::uint32_t api_version,
-    std::vector<char const *> const &extra_instance_extensions) -> detail::result<vkb::Instance>
+    std::vector<char const *> const &extra_instance_extensions) -> result<vkb::Instance>
   {
     vkb::InstanceBuilder builder{};
     configure_instance_builder(builder, opts, api_version, extra_instance_extensions);
@@ -144,7 +144,7 @@ namespace {
     vulkan_requirements const &requirements,
     std::uint32_t api_version,
     VkSurfaceKHR surface,
-    bool want_present) -> detail::result<vkb::PhysicalDevice>
+    bool want_present) -> result<vkb::PhysicalDevice>
   {
     vkb::PhysicalDeviceSelector selector{ instance };
     configure_device_selector(selector, requirements, api_version, want_present);
@@ -156,7 +156,7 @@ namespace {
     return physical_device;
   }
 
-  auto build_device_into(vkb::PhysicalDevice const &physical_device, vkb::Device &out) -> detail::status
+  auto build_device_into(vkb::PhysicalDevice const &physical_device, vkb::Device &out) -> status
   {
     auto const built = vkb::DeviceBuilder{ physical_device }.build();
     if (!built) { return fail(make_error_from_vkb(built, "vk-bootstrap DeviceBuilder")); }
@@ -170,7 +170,7 @@ context::context([[maybe_unused]] uninitialized_tag tag) noexcept {}
 
 auto context::create(scheduler_options const &opts) -> detail::sync_sender_fn<std::unique_ptr<context>>
 {
-  return detail::make_sync_sender_fn<std::unique_ptr<context>>([opts]() -> detail::result<std::unique_ptr<context>> {
+  return detail::make_sync_sender_fn<std::unique_ptr<context>>([opts]() -> result<std::unique_ptr<context>> {
     auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_headless(opts));
     return ctx;
@@ -179,14 +179,14 @@ auto context::create(scheduler_options const &opts) -> detail::sync_sender_fn<st
 
 auto context::adopt(context_adopt_info const &info) -> detail::sync_sender_fn<std::unique_ptr<context>>
 {
-  return detail::make_sync_sender_fn<std::unique_ptr<context>>([info]() -> detail::result<std::unique_ptr<context>> {
+  return detail::make_sync_sender_fn<std::unique_ptr<context>>([info]() -> result<std::unique_ptr<context>> {
     auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_adopted(info));
     return ctx;
   });
 }
 
-auto context::init_common_resources() -> detail::status
+auto context::init_common_resources() -> status
 {
   load_device_procs();
   VKEXEC_TRY(create_command_pool());
@@ -197,7 +197,7 @@ auto context::init_common_resources() -> detail::status
   return {};
 }
 
-auto context::init_headless(scheduler_options const &opts) -> detail::status
+auto context::init_headless(scheduler_options const &opts) -> status
 {
   requirements_ = opts.requirements;
   api_version_ = resolve_api_version(requirements_);
@@ -220,7 +220,7 @@ auto context::init_headless(scheduler_options const &opts) -> detail::status
   return init_common_resources();
 }
 
-auto context::init_adopted(context_adopt_info const &info) -> detail::status
+auto context::init_adopted(context_adopt_info const &info) -> status
 {
   if (info.device == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "context::adopt requires a VkDevice");
@@ -282,12 +282,12 @@ context::context(instance_only_tag tag,
   (void)tag;
   auto built_instance = build_instance_with_extensions(opts, api_version_, instance_extensions);
   if (!built_instance) { detail::contract_violation("context instance-only construction failed"); }
-  instance_ = detail::expected_take(built_instance);
+  instance_ = expected_take(built_instance);
   has_instance_ = true;
   owns_instance_ = true;
 }
 
-auto context::complete_for_surface(VkSurfaceKHR surface) -> detail::status
+auto context::complete_for_surface(VkSurfaceKHR surface) -> status
 {
   if (surface == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "complete_for_surface requires a surface");
@@ -307,7 +307,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> detail::status
   return {};
 }
 
-auto context::fetch_queues(bool want_present) -> detail::status
+auto context::fetch_queues(bool want_present) -> status
 {
   if (auto graphics = device_.get_queue_and_index(vkb::QueueType::graphics)) {
     graphics_queue_ = graphics->first;
@@ -395,7 +395,7 @@ context::~context()
   }
 }
 
-auto context::create_command_pool() -> detail::status
+auto context::create_command_pool() -> status
 {
   VkCommandPoolCreateInfo pool_info{};
   pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -407,7 +407,7 @@ auto context::create_command_pool() -> detail::status
   return {};
 }
 
-auto context::create_allocator() -> detail::status
+auto context::create_allocator() -> status
 {
   VmaAllocatorCreateInfo allocator_info{};
   allocator_info.physicalDevice = physical_device_.physical_device;
@@ -425,7 +425,7 @@ auto context::create_allocator() -> detail::status
 
 auto context::lock_host() const -> std::unique_lock<std::mutex> { return std::unique_lock{ host_mutex_ }; }
 
-auto context::ensure_completion_waiter() -> detail::result<detail::completion_waiter *>
+auto context::ensure_completion_waiter() -> result<detail::completion_waiter *>
 {
   if (!completion_waiter_) {
     if (device_.device == VK_NULL_HANDLE) {
@@ -436,7 +436,7 @@ auto context::ensure_completion_waiter() -> detail::result<detail::completion_wa
   return completion_waiter_.get();
 }
 
-auto context::ensure_host_agent() -> detail::result<detail::host_agent *>
+auto context::ensure_host_agent() -> result<detail::host_agent *>
 {
   if (!host_agent_) { host_agent_ = std::make_unique<detail::host_agent>(); }
   return host_agent_.get();
@@ -452,7 +452,7 @@ auto context::host_agent_thread_id() -> std::thread::id
 auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
   VkFence fence,
   detail::move_only_function<bool()> stop_requested,
-  detail::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status
+  detail::move_only_function<void(std::optional<error>, bool)> on_done) -> status
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) {
@@ -466,28 +466,28 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
     if (on_done) { on_done(waiter.error(), false); }
     return fail(waiter);
   }
-  return detail::expected_take(waiter)->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
+  return expected_take(waiter)->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
 }
 
 auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
   detail::move_only_function<bool()> stop_requested,
-  detail::move_only_function<void(std::optional<error>, bool)> on_done) -> detail::status
+  detail::move_only_function<void(std::optional<error>, bool)> on_done) -> status
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) {
     if (on_done) { on_done(waiter.error(), false); }
     return fail(waiter);
   }
-  return detail::expected_take(waiter)->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
+  return expected_take(waiter)->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
 }
 
-auto context::do_enqueue_host(detail::move_only_function<void()> task) -> detail::status
+auto context::do_enqueue_host(detail::move_only_function<void()> task) -> status
 {
   VKEXEC_TRY_ASSIGN(agent, ensure_host_agent());
   return agent->enqueue(std::move(task));
 }
 
-auto context::allocate_command_buffer() -> detail::result<VkCommandBuffer>
+auto context::allocate_command_buffer() -> result<VkCommandBuffer>
 {
   std::scoped_lock const lock(host_mutex_);
   VkCommandBufferAllocateInfo alloc_info{};
@@ -508,7 +508,7 @@ auto context::free_command_buffer(VkCommandBuffer cmd) -> void
   vkFreeCommandBuffers(device_.device, command_pool_, 1, &cmd);
 }
 
-auto context::submit_and_wait(VkCommandBuffer cmd) -> detail::status
+auto context::submit_and_wait(VkCommandBuffer cmd) -> status
 {
   VkFenceCreateInfo fence_info{};
   fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -539,7 +539,7 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> detail::status
   return {};
 }
 
-auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence) -> detail::status
+auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence) -> status
 {
   if (out_semaphore == nullptr) { return fail(errc::invalid_argument, "submit_async requires out_semaphore"); }
 
@@ -582,7 +582,7 @@ auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFe
   return {};
 }
 
-auto context::submit(queue_submit const &info) const -> detail::status
+auto context::submit(queue_submit const &info) const -> status
 {
   if (info.command_buffers.empty()) {
     return fail(errc::invalid_argument, "queue_submit requires at least one command buffer");
@@ -650,7 +650,7 @@ auto context::submit(queue_submit const &info) const -> detail::status
 }
 
 auto context::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> detail::result<std::reference_wrapper<pipeline_resources>>
+  -> result<std::reference_wrapper<pipeline_resources>>
 { return pipeline_cache_->get_or_create_from_spirv(spirv, desc); }
 
 }// namespace vkexec

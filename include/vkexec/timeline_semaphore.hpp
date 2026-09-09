@@ -2,7 +2,7 @@
 #define VKEXEC_TIMELINE_SEMAPHORE_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 
@@ -38,10 +38,10 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkSemaphore { return semaphore_; }
 
   /// Host wait until the semaphore reaches at least `value` (no-op when value == 0).
-  [[nodiscard]] auto wait(std::uint64_t value) const -> detail::status;
+  [[nodiscard]] auto wait(std::uint64_t value) const -> status;
 
 private:
-  friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> detail::result<timeline_semaphore>;
+  friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>;
 
   timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;
   auto destroy() noexcept -> void;

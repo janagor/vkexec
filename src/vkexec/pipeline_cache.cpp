@@ -2,7 +2,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 
@@ -65,7 +65,7 @@ namespace {
     if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
   }
 
-  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> detail::result<VkShaderModule>
+  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> result<VkShaderModule>
   {
     VkShaderModuleCreateInfo module_info{};
     module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -77,7 +77,7 @@ namespace {
     return shader;
   }
 
-  auto create_set_layout(VkDevice device, std::uint32_t binding_count) -> detail::result<VkDescriptorSetLayout>
+  auto create_set_layout(VkDevice device, std::uint32_t binding_count) -> result<VkDescriptorSetLayout>
   {
     std::vector<VkDescriptorSetLayoutBinding> bindings(binding_count);
     for (std::uint32_t index = 0; index < binding_count; ++index) {
@@ -98,7 +98,7 @@ namespace {
   }
 
   auto create_pipeline_layout(VkDevice device, VkDescriptorSetLayout set_layout, std::size_t push_bytes)
-    -> detail::result<VkPipelineLayout>
+    -> result<VkPipelineLayout>
   {
     VkPushConstantRange push_range{};
     push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -123,7 +123,7 @@ namespace {
     VkShaderModule shader,
     VkPipelineLayout layout,
     VkSpecializationInfo const *specialization,
-    bool descriptor_heap) -> detail::result<VkPipeline>
+    bool descriptor_heap) -> result<VkPipeline>
   {
     VkPipelineCreateFlags2CreateInfo flags2{};
     flags2.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
@@ -146,7 +146,7 @@ namespace {
     return pipeline;
   }
 
-  auto create_descriptor_pool(VkDevice device, std::uint32_t binding_count) -> detail::result<VkDescriptorPool>
+  auto create_descriptor_pool(VkDevice device, std::uint32_t binding_count) -> result<VkDescriptorPool>
   {
     VkDescriptorPoolSize pool_size{};
     pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -178,7 +178,7 @@ pipeline_cache::~pipeline_cache()
 }
 
 auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> detail::result<std::reference_wrapper<pipeline_resources>>
+  -> result<std::reference_wrapper<pipeline_resources>>
 {
   if (spirv.empty()) {
     return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V");
@@ -223,7 +223,7 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
 
   auto shader_result = create_shader_module(device, spirv);
   if (!shader_result) { return fail(shader_result); }
-  resources->shader = detail::expected_take(shader_result);
+  resources->shader = expected_take(shader_result);
 
   if (desc.descriptor_heap) {
     auto pipeline_result = create_compute_pipeline(device, resources->shader, VK_NULL_HANDLE, spec_ptr, true);
@@ -231,21 +231,21 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
       destroy_resources(*ctx_, *resources);
       return fail(pipeline_result);
     }
-    resources->pipeline = detail::expected_take(pipeline_result);
+    resources->pipeline = expected_take(pipeline_result);
   } else {
     auto set_layout_result = create_set_layout(device, resources->binding_count);
     if (!set_layout_result) {
       destroy_resources(*ctx_, *resources);
       return fail(set_layout_result);
     }
-    resources->set_layout = detail::expected_take(set_layout_result);
+    resources->set_layout = expected_take(set_layout_result);
 
     auto pipeline_layout_result = create_pipeline_layout(device, resources->set_layout, desc.push_constant_size);
     if (!pipeline_layout_result) {
       destroy_resources(*ctx_, *resources);
       return fail(pipeline_layout_result);
     }
-    resources->pipeline_layout = detail::expected_take(pipeline_layout_result);
+    resources->pipeline_layout = expected_take(pipeline_layout_result);
 
     auto pipeline_result =
       create_compute_pipeline(device, resources->shader, resources->pipeline_layout, spec_ptr, false);
@@ -253,14 +253,14 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
       destroy_resources(*ctx_, *resources);
       return fail(pipeline_result);
     }
-    resources->pipeline = detail::expected_take(pipeline_result);
+    resources->pipeline = expected_take(pipeline_result);
 
     auto pool_result = create_descriptor_pool(device, resources->binding_count);
     if (!pool_result) {
       destroy_resources(*ctx_, *resources);
       return fail(pool_result);
     }
-    resources->descriptor_pool = detail::expected_take(pool_result);
+    resources->descriptor_pool = expected_take(pool_result);
   }
 
   std::scoped_lock const lock(mutex_);

@@ -1,7 +1,7 @@
 #ifndef VKEXEC_SPIRV_COMPILE_HPP
 #define VKEXEC_SPIRV_COMPILE_HPP
 
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -18,7 +18,7 @@ enum class shader_kind : std::uint8_t { compute, vertex, fragment };
 auto compile_glsl_to_spirv(std::string_view glsl_source,
   std::string_view name = "vkexec",
   shader_kind kind = shader_kind::compute,
-  std::uint32_t vulkan_api_version = VK_API_VERSION_1_0) -> detail::result<std::vector<std::uint32_t>>;
+  std::uint32_t vulkan_api_version = VK_API_VERSION_1_0) -> result<std::vector<std::uint32_t>>;
 
 }// namespace vkexec
 

@@ -29,11 +29,11 @@ template<class Sender>
 }
 
 template<class... Values>
-[[nodiscard]] inline auto sync_wait_completed(detail::sync_wait_outcome<Values...> const &outcome) -> bool
+[[nodiscard]] inline auto sync_wait_completed(sync_wait_outcome<Values...> const &outcome) -> bool
 { return !outcome.failed() && outcome.values.has_value() && !outcome.stopped; }
 
 template<class... Values>
-[[nodiscard]] inline auto sync_wait_stopped(detail::sync_wait_outcome<Values...> const &outcome) -> bool
+[[nodiscard]] inline auto sync_wait_stopped(sync_wait_outcome<Values...> const &outcome) -> bool
 { return !outcome.failed() && (outcome.stopped || !outcome.values.has_value()); }
 
 template<class Sender> [[nodiscard]] auto sync_wait_sender(Sender &&sender)

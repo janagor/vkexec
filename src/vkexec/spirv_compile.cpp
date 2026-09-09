@@ -1,6 +1,6 @@
 #include <vkexec/spirv_compile.hpp>
 
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 
 #include <glslang/Include/ResourceLimits.h>
@@ -88,7 +88,7 @@ namespace {
 auto compile_glsl_to_spirv(std::string_view glsl_source,
   std::string_view name,
   shader_kind kind,
-  std::uint32_t vulkan_api_version) -> detail::result<std::vector<std::uint32_t>>
+  std::uint32_t vulkan_api_version) -> result<std::vector<std::uint32_t>>
 {
   ensure_glslang();
 

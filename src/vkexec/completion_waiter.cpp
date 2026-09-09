@@ -38,7 +38,8 @@ completion_waiter::completion_waiter(VkDevice device, VkQueue fallback_queue)
 
 completion_waiter::~completion_waiter() { shutdown(); }
 
-auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> detail::status
+auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done)
+  -> detail::status
 {
   {
     std::scoped_lock const lock(mutex_);
@@ -47,7 +48,7 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
       if (on_done) {
         on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false);
       }
-      return fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
+      return detail::fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
     }
     pending_.push_back(job{
       .semaphore = semaphore,
@@ -62,7 +63,7 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
   return {};
 }
 
-auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> detail::status
+auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
 {
   {
     std::scoped_lock const lock(mutex_);
@@ -70,7 +71,7 @@ auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, 
       if (on_done) {
         on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false);
       }
-      return fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
+      return detail::fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
     }
     pending_.push_back(job{
       .semaphore = VK_NULL_HANDLE,

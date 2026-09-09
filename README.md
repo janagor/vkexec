@@ -17,7 +17,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
-#include <vkexec/detail/sync_wait_outcome.hpp>
+#include <vkexec/sync_wait_outcome.hpp>
 #include <vkexec/sync_wait.hpp>
 
 #include <stdexec/execution.hpp>
@@ -102,7 +102,7 @@ try {
 }
 ```
 
-**`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `vkexec::detail::sync_wait_outcome<...>` with `values`, `error`, and `stopped` fields — no throwing, no `std::expected`.
+**`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `vkexec::sync_wait_outcome<...>` with `values`, `error`, and `stopped` fields — no throwing, no `std::expected`.
 
 ```cpp
 auto outcome = vkexec::sync_wait(vkexec::context::create({ .requirements = reqs }));
@@ -127,7 +127,7 @@ if (auto heap = vkexec::try_sync_wait_value(vkexec::gpu_buffer::create(*ctx, inf
 }
 ```
 
-`sync_wait_value` throws `vkexec::error` on failure or stop (when exceptions are enabled). `try_sync_wait_value` returns `detail::result<T>` instead.
+`sync_wait_value` throws `vkexec::error` on failure or stop (when exceptions are enabled). `try_sync_wait_value` returns `vkexec::result<T>` instead.
 
 Common entry points:
 
@@ -245,7 +245,7 @@ cmake --build out/build/unixlike-clang-release -j12
 Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled at pipeline creation time. Each frame is a stdexec pipeline:
 
 ```cpp
-#include <vkexec/detail/sync_wait_outcome.hpp>
+#include <vkexec/sync_wait_outcome.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>

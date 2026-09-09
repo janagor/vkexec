@@ -2,7 +2,7 @@
 #define VKEXEC_COPY_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/gpu_buffer.hpp>
 
 #include <vulkan/vulkan.h>
@@ -33,7 +33,7 @@ inline auto cmd_copy_buffer(VkCommandBuffer cmd,
 [[nodiscard]] auto upload_to_device(context &ctx,
   gpu_buffer &staging,
   gpu_buffer const &device,
-  std::span<std::byte const> bytes) -> detail::status;
+  std::span<std::byte const> bytes) -> status;
 
 }// namespace vkexec
 

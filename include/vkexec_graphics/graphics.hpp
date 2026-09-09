@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
@@ -119,13 +119,13 @@ public:
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    std::uint32_t vertex_count) const -> detail::status;
+    std::uint32_t vertex_count) const -> status;
 
   auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
-    mesh const &drawn) const -> detail::status;
+    mesh const &drawn) const -> status;
 
 private:
   struct bound_buffer
@@ -145,9 +145,9 @@ private:
     VkRenderPass render_pass,
     std::vector<std::uint32_t> const &vs_spv,
     std::vector<std::uint32_t> const &fs_spv,
-    std::span<storage_binding const> buffers) -> detail::status;
+    std::span<storage_binding const> buffers) -> status;
 
-  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> detail::result<VkShaderModule>;
+  [[nodiscard]] auto create_module(std::vector<std::uint32_t> const &spirv) const -> result<VkShaderModule>;
 
   auto bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void;
 

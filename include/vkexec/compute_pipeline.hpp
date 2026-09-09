@@ -47,8 +47,8 @@ public:
   [[nodiscard]] auto update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
     -> detail::sync_void_sender_fn;
 
-  [[nodiscard]] auto allocate_set() const -> detail::result<VkDescriptorSet>;
-  [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> detail::status;
+  [[nodiscard]] auto allocate_set() const -> result<VkDescriptorSet>;
+  [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status;
 
 private:
   compute_pipeline(context *ctx, pipeline_resources *pipe) noexcept : ctx_(ctx), resources_(pipe) {}

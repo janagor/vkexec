@@ -129,20 +129,4 @@ template<typename T> [[nodiscard]] auto expected_get(result<T> const &value) -> 
 
 }// namespace vkexec::detail
 
-namespace vkexec {
-using detail::fail;
-}// namespace vkexec
-
-// NOLINTBEGIN(cppcoreguidelines-macro-usage,bugprone-macro-parentheses)
-#define VKEXEC_TRY_ASSIGN(v, r)                                                                   \
-  auto vkexec_try_tmp_##v = (r);                                                                 \
-  if (!vkexec_try_tmp_##v) { return ::vkexec::detail::unexpected(std::move(vkexec_try_tmp_##v.error())); } \
-  auto &v = ::vkexec::detail::expected_get(vkexec_try_tmp_##v)
-
-#define VKEXEC_TRY(r)                                                                             \
-  if (auto vkexec_try_chk = (r); !vkexec_try_chk) {                                               \
-    return ::vkexec::detail::unexpected(std::move(vkexec_try_chk.error()));                       \
-  }
-// NOLINTEND(cppcoreguidelines-macro-usage,bugprone-macro-parentheses)
-
 #endif// VKEXEC_DETAIL_RESULT_HPP
