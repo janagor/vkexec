@@ -1,4 +1,8 @@
-add_library(vkexec_features query.cpp)
+add_library(vkexec_features
+  query.cpp
+  timeline_semaphore.cpp
+  buffer_device_address.cpp
+  dynamic_rendering.cpp)
 add_library(vkexec::features ALIAS vkexec_features)
 
 target_include_directories(
