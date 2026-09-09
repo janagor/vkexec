@@ -198,19 +198,47 @@ Core `context::procs()` exposes only baseline device entry points (e.g. buffer d
 
 Supporting RAII: `gpu_buffer`, `image` / `image_view` / `sampler`, `timeline_semaphore`, `frame_ring` (WSI slot/image gating), plus `vkexec_graphics::swapchain` for borrowed surfaces.
 
+### Promoted features (`vkexec_features`)
+
+Vulkan capabilities that were promoted from KHR extensions into core versions (or are core-only from some version up) live in [`include/vkexec_features/`](include/vkexec_features/) as **`vkexec::features`**. Use tag types with `feature_traits` via [`feature.hpp`](include/vkexec_features/feature.hpp):
+
+```cpp
+#include <vkexec_features/bundles/vulkan_13.hpp>
+#include <vkexec_features/feature.hpp>
+
+vkexec::vulkan_requirements req{};
+req.api_version_major = 1;
+req.api_version_minor = 3;
+vkexec::feat::configure_vulkan_13(req);  // timeline + BDA + dynamic rendering
+// or: vkexec::feat::configure<vkexec::feat::timeline_semaphore>(req);
+
+auto ctx = vkexec::sync_wait_value(vkexec::context::create({ .requirements = req }));
+if (vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx)) { /* ... */ }
+```
+
+| Feature | Tag | Core version | KHR below core |
+|---------|-----|--------------|----------------|
+| Timeline semaphore | `feat::timeline_semaphore` | Vulkan 1.2 | `VK_KHR_timeline_semaphore` |
+| Buffer device address | `feat::buffer_device_address` | Vulkan 1.2 | `VK_KHR_buffer_device_address` |
+| Dynamic rendering | `feat::dynamic_rendering` | Vulkan 1.3 | `VK_KHR_dynamic_rendering` |
+
+`feat::configure` picks the core or KHR path from the requested API version. `feat::available` queries physical-device feature bits on the live context.
+
 ### Optional extensions (`vkexec_extensions`)
 
-Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. Vulkan feature/extension helpers that are not required for that baseline live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need.
+Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. **True extensions** (always a named `VK_*_EXTENSION_NAME`) live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need.
 
 Each extension is a **tag type** with `extension_traits` providing `name()`, `available(ctx)`, and `configure(req)`. Use the helpers in [`extension.hpp`](include/vkexec_extensions/extension.hpp):
 
 ```cpp
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/extension.hpp>
+#include <vkexec_features/bundles/vulkan_12.hpp>
 
 vkexec::vulkan_requirements req{};
 req.api_version_major = 1;
 req.api_version_minor = 4;
+vkexec::feat::configure_vulkan_12(req);
 vkexec::ext::configure<vkexec::ext::descriptor_heap>(req);
 auto ctx = vkexec::sync_wait_value(vkexec::context::create({ .requirements = req }));
 
@@ -222,7 +250,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Extension | CMake target | Include | Requires |
 |-----------|--------------|---------|----------|
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `VK_EXT_descriptor_heap`, `bufferDeviceAddress` |
-| Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering/rendering.hpp>` | Vulkan 1.3 `dynamicRendering` |
+| Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` + rendering helpers |
 
 **Layer 1 — free functions** (adopt-everything embedders): proc lookup (`descriptor_heap_procs_for`), descriptor writes, `cmd_bind_resource_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
 
@@ -252,16 +280,18 @@ vkexec::cmd_push_data(ctx, cmd, push);
 
 Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
 
-**Dynamic rendering:**
+**Dynamic rendering:** enable with `feat::configure<feat::dynamic_rendering>` (or `configure_vulkan_13`), then use Layer 1 helpers from the extensions target:
 
 ```cpp
+#include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 
+vkexec::feat::configure<vkexec::feat::dynamic_rendering>(req);
 vkexec::cmd_begin_rendering(cmd, vkexec::rendering_info{ .extent = { w, h }, .color = color_attachments });
 vkexec::cmd_end_rendering(cmd);
 ```
 
-Example: [`src/vkexec_examples/extensions/dynamic_rendering/`](src/vkexec_examples/extensions/dynamic_rendering/) clears the swapchain each frame with dynamic rendering (`vkexec::ext_dynamic_rendering` + `vkexec_graphics` for the window).
+Example: [`src/vkexec_examples/extensions/dynamic_rendering/`](src/vkexec_examples/extensions/dynamic_rendering/) clears the swapchain each frame with dynamic rendering (`vkexec::features` + `vkexec::ext_dynamic_rendering` + `vkexec_graphics` for the window).
 
 Build and run the sample:
 
