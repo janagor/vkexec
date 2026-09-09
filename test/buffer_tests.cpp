@@ -6,6 +6,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/sync_wait.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -47,10 +48,18 @@ TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
 TEST_CASE("sync_wait_value completes buffer::allocate", "[vkexec][buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_fill));
+  auto values = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_fill));
   REQUIRE(values.size() == k_count);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(values.data()[0] == k_fill);
+}
+
+TEST_CASE("try_sync_wait_value completes buffer::allocate", "[vkexec][buffer][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto values = vkexec::try_sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_fill));
+  REQUIRE(values.has_value());
+  REQUIRE(values->size() == k_count);
 }
 
 TEST_CASE("buffer::allocate completes with set_stopped when stop is already requested", "[vkexec][buffer]")

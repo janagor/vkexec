@@ -1,10 +1,13 @@
 #ifndef VKEXEC_SYNC_WAIT_HPP
 #define VKEXEC_SYNC_WAIT_HPP
 
+#include <vkexec/detail/result.hpp>
 #include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error.hpp>
 
 #include <stdexec/execution.hpp>
+
+#include <cstdlib>
 
 #ifndef VKEXEC_ENABLE_EXCEPTIONS
 #define VKEXEC_ENABLE_EXCEPTIONS 1
@@ -139,6 +142,36 @@ template<detail::sync_waitable_sender Sender>
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto try_sync_wait(Sender &&sender) -> detail::sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
 { return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
+
+/// Blocking wait that returns the sender's single completion value, or `detail::result` on failure/stop.
+template<detail::sync_waitable_sender Sender>
+[[nodiscard]] auto try_sync_wait_value(Sender &&sender)
+  -> detail::result<detail::sync_unwrapped_value_t<detail::sync_wait_value_tuple_t<Sender>>>
+{
+  auto outcome = try_sync_wait(std::forward<Sender>(sender));
+  if (outcome.failed()) { return detail::unexpected(outcome.take_error()); }
+  if (outcome.stopped || !outcome.values.has_value()) {
+    return detail::fail(errc::cancelled, "sender completed with set_stopped");
+  }
+  return detail::take_sync_value(std::move(*outcome.values));
+}
+
+/// Blocking wait that returns the sender's single completion value; throws `vkexec::error` on failure/stop.
+template<detail::sync_waitable_sender Sender>
+[[nodiscard]] auto sync_wait_value(Sender &&sender)
+  -> detail::sync_unwrapped_value_t<detail::sync_wait_value_tuple_t<Sender>>
+{
+  auto outcome = try_sync_wait_value(std::forward<Sender>(sender));
+  if (!outcome) {
+#if VKEXEC_ENABLE_EXCEPTIONS
+    // NOLINTNEXTLINE(hicpp-exception-baseclass)
+    throw std::move(outcome.error());
+#else
+    std::terminate();
+#endif
+  }
+  return std::move(*outcome);
+}
 
 }// namespace vkexec
 

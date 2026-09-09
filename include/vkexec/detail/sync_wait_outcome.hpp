@@ -25,6 +25,18 @@ template<class... Values> struct sync_wait_outcome
   }
 };
 
+template<class Value> struct sync_unwrapped_value
+{
+  using type = Value;
+};
+
+template<class Head, class... Rest> struct sync_unwrapped_value<std::tuple<Head, Rest...>>
+{
+  using type = sync_unwrapped_value<Head>::type;
+};
+
+template<class Value> using sync_unwrapped_value_t = sync_unwrapped_value<Value>::type;
+
 template<class Value> [[nodiscard]] inline auto take_sync_value(Value &&value) -> decltype(auto)
 {
   if constexpr (requires { std::get<0>(value); }) {
