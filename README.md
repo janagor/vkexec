@@ -116,6 +116,19 @@ auto ctx = vkexec::detail::take_sync_value(std::move(*outcome.values));
 
 For tests without exceptions, use `vkexec::try_sync_wait` (same `sync_wait_outcome` shape).
 
+Embedders that do not use stdexec pipes can block on factory senders directly:
+
+```cpp
+auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({ /* borrowed handles */ }));
+auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(*ctx, spirv, layout));
+
+if (auto heap = vkexec::try_sync_wait_value(vkexec::gpu_buffer::create(*ctx, info)); heap) {
+  // use *heap
+}
+```
+
+`sync_wait_value` throws `vkexec::error` on failure or stop (when exceptions are enabled). `try_sync_wait_value` returns `detail::result<T>` instead.
+
 Common entry points:
 
 | API | Returns |
@@ -128,6 +141,7 @@ Common entry points:
 | `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` |
 | `mesh::create` | sender → `set_value(mesh)` |
 | `gpu_buffer::create`, `image::create`, … | sender → `set_value(...)` |
+| `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
 | `sync_wait` / `try_sync_wait` (exceptions OFF) | `sync_wait_outcome<tuple<...>>` |
 
@@ -138,14 +152,14 @@ Keep hand-written shaders. vkexec caches the pipeline and records dispatch. Push
 ```cpp
 struct ProjectPush { float view[16]; float projection[16]; std::uint64_t gaussian_addr; std::uint32_t splat_count; };
 
-auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
+auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
   .bindings = { vkexec::buffer_access::readonly, vkexec::buffer_access::writeonly },
   .push_constant_size = sizeof(ProjectPush),
   .specialization = { splat_count },
   .local_size = { 64, 1, 1 },
 }));
 // or create(ctx, spirv, layout) when you already have .spv
-auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::bind_storage_sender(pipe, buffers)));
+auto bound = vkexec::sync_wait_value(vkexec::compute_pipeline::bind_storage_sender(pipe, buffers));
 if (auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler())
       | vkexec::compute_pass(bound.pipeline, bound.set, push, splat_count));
     !waited.has_value()) { /* stopped */ }
@@ -160,7 +174,7 @@ vkexec::upload_push_constants(cmd, pipe, push);
 Embedders that already own a Vulkan device (for example a Filament-like driver) can wrap it without transferring ownership:
 
 ```cpp
-auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::adopt({
+auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
   .instance = instance,
   .physical_device = phys,
   .device = device,
@@ -172,7 +186,15 @@ auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::a
 }));
 ```
 
-When extensions such as `VK_EXT_descriptor_heap` / `VK_EXT_shader_object` push-data are enabled, `context::procs()` caches the device PFNs (null when unavailable).
+**Embedder notes:**
+
+- Destroy the adopted `context` before tearing down the borrowed device/VMA — vkexec owns a command pool and pipeline cache on that device.
+- Prefer `context::procs()` over caching `vkGetDeviceProcAddr` results for descriptor-heap / push-data entry points.
+- Use `sync_wait_value` / `try_sync_wait_value` for factory senders when you are not composing stdexec graphs.
+- With your own command buffers, bindless compute uses `record_heap_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.
+- Keep vk-bootstrap (or your WSI layer) for surface/swapchain when you need app-specific present extensions; use `vkexec_graphics::swapchain` only when a borrowed-surface helper is enough.
+
+When extensions such as `VK_EXT_descriptor_heap` / push-data are enabled, `context::procs()` caches the device PFNs (null when unavailable).
 
 ### Bindless (descriptor heap)
 
@@ -180,14 +202,15 @@ Hybrid apps can skip classic descriptor sets. Create a null-layout pipeline with
 
 ```cpp
 auto layout = vkexec::query_descriptor_heap_layout(ctx);
-auto heap = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::gpu_buffer::create(ctx, {
+auto heap = vkexec::sync_wait_value(vkexec::gpu_buffer::create(ctx, {
   .size = vkexec::descriptor_heap_byte_size(layout, slot_count),
   .memory = vkexec::gpu_buffer_memory::descriptor_heap,
   .shader_device_address = true,
 }));
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
+vkexec::write_storage_image_descriptor(ctx, view_info, VK_IMAGE_LAYOUT_GENERAL, heap.mapped().subspan(...));
 
-auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
+auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
   .descriptor_heap = true,
   .push_constant_size = sizeof(Push),
   .local_size = { 64, 1, 1 },
@@ -228,9 +251,9 @@ Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled
 #include <vkexec_graphics/triangle_shaders.hpp>
 #include <vkexec_graphics/window.hpp>
 
-auto win = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" })));
+auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" }));
 
-auto pipeline = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::graphics_pipeline::create(
+auto pipeline = vkexec::sync_wait_value(vkexec::graphics_pipeline::create(
   win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
 while (!win.should_close()) {
