@@ -17,6 +17,8 @@ namespace vkexec {
 
 class context;
 
+// Thread-safe cache of compute `pipeline_resources` keyed by SPIR-V + layout hash.
+// Entries live until the owning context destroys the cache.
 class pipeline_cache
 {
 public:
@@ -28,6 +30,8 @@ public:
   pipeline_cache(pipeline_cache &&) = delete;
   auto operator=(pipeline_cache &&) -> pipeline_cache & = delete;
 
+  // Returns a stable reference into the cache. Creates the pipeline under the
+  // mutex only after a miss; a racing insert destroys the duplicate build.
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> result<std::reference_wrapper<pipeline_resources>>;
 

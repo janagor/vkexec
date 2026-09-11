@@ -16,9 +16,9 @@
 namespace vkexec::detail {
 namespace {
 
-  constexpr std::uint64_t k_poll_timeout_ns = 1'000'000ULL;// 1 ms
+  constexpr std::uint64_t k_poll_timeout_ns = 1'000'000ULL;// 1 ms; short so stop tokens stay responsive
 
-  /// Always wait for the GPU (or queue idle), then destroy semaphore/fence.
+  // Always wait for the GPU (or queue idle), then destroy owned semaphore/fence.
   auto reclaim_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept -> void
   {
     if (fence != VK_NULL_HANDLE) {
@@ -95,6 +95,7 @@ auto completion_waiter::shutdown() -> void
 
 auto completion_waiter::finish_job(job item, std::optional<error> const &failure) -> void
 {
+  // Reclaim (or wait) before the callback so senders can free command buffers safely.
   if (item.destroy_sync) {
     reclaim_sync(device_, fallback_queue_, item.semaphore, item.fence);
   } else if (item.fence != VK_NULL_HANDLE) {
@@ -128,6 +129,7 @@ auto completion_waiter::collect_fences(std::vector<job> const &jobs, std::vector
 auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> std::optional<error>
 {
   if (fences.empty()) { return std::nullopt; }
+  // VK_FALSE: wake when any fence signals so overlapping submits complete independently.
   VkResult const wait_result =
     vkWaitForFences(device_, static_cast<std::uint32_t>(fences.size()), fences.data(), VK_FALSE, k_poll_timeout_ns);
   if (wait_result == VK_SUCCESS || wait_result == VK_TIMEOUT) { return std::nullopt; }
@@ -136,6 +138,7 @@ auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> st
 
 auto completion_waiter::complete_without_fences(std::vector<job> &jobs) -> void
 {
+  // Jobs without fences fall back to queue idle (should be rare after submit_async).
   if (vkQueueWaitIdle(fallback_queue_) != VK_SUCCESS) {
     finish_all(jobs, make_vk_error(VK_ERROR_UNKNOWN, "vkQueueWaitIdle failed"));
     return;
@@ -177,6 +180,7 @@ auto completion_waiter::run() -> void
   while (true) {
     {
       std::unique_lock lock(mutex_);
+      // Stay awake while work is active so we can keep polling fences and stop tokens.
       cv_.wait(lock, [this, &active]() -> bool { return shutting_down_ || !pending_.empty() || !active.empty(); });
       if (!pending_.empty()) {
         active.insert(active.end(), std::make_move_iterator(pending_.begin()), std::make_move_iterator(pending_.end()));

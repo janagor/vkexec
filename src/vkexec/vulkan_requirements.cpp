@@ -28,6 +28,10 @@ auto required_presentation_device_extensions() noexcept -> std::span<char const 
   return k_exts;
 }
 
-auto required_features() noexcept -> VkPhysicalDeviceFeatures { return {}; }
+auto required_features() noexcept -> VkPhysicalDeviceFeatures
+{
+  // No core feature bits required yet; extension features are requested via vulkan_requirements.
+  return {};
+}
 
 }// namespace vkexec::vulkan_library

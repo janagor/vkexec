@@ -17,8 +17,8 @@
 
 namespace vkexec::detail {
 
-/// Context-owned agent that waits on GPU fences and delivers completions.
-/// Multiple outstanding fences are polled together so overlapped submits stay concurrent.
+// Context-owned agent that waits on GPU fences and delivers sender completions.
+// Multiple outstanding fences are polled together so overlapped submits stay concurrent.
 class completion_waiter
 {
 public:
@@ -33,13 +33,13 @@ public:
   completion_waiter(completion_waiter &&) = delete;
   auto operator=(completion_waiter &&) -> completion_waiter & = delete;
 
-  /// Always waits for the GPU and destroys `semaphore`/`fence` before invoking `on_done`.
+  // Always waits for the GPU and destroys `semaphore`/`fence` before invoking `on_done`.
   auto enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> status;
 
-  /// Wait for a caller-owned fence; never destroys it. Used for window frame fences.
+  // Waits for a caller-owned fence; never destroys it (window per-frame fences).
   auto enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> status;
 
-  /// Drain outstanding waits and join the agent thread. Safe to call once.
+  // Drains outstanding waits and joins the agent thread. Safe to call more than once.
   auto shutdown() -> void;
 
 private:
@@ -50,6 +50,7 @@ private:
     stop_fn stop_requested;
     done_fn on_done;
     bool stop_seen{ false };
+    // When false, wait for the fence but leave destruction to the caller.
     bool destroy_sync{ true };
   };
 
@@ -64,6 +65,7 @@ private:
   static auto collect_fences(std::vector<job> const &jobs, std::vector<VkFence> &fences) -> void;
 
   VkDevice device_{ VK_NULL_HANDLE };
+  // Used when a job has no fence (legacy path / reclaim without a fence).
   VkQueue fallback_queue_{ VK_NULL_HANDLE };
   std::mutex mutex_;
   std::condition_variable cv_;

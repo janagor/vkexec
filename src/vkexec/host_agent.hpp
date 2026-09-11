@@ -13,7 +13,7 @@
 
 namespace vkexec::detail {
 
-/// Context-owned host run queue: `schedule` posts completions here.
+// Context-owned host run queue. `scheduler::schedule` posts value completions here.
 class host_agent
 {
 public:
@@ -27,16 +27,17 @@ public:
   host_agent(host_agent &&) = delete;
   auto operator=(host_agent &&) -> host_agent & = delete;
 
-  /// Run `task` on the agent thread. Runs inline if already on that thread.
+  // Runs `task` on the agent thread. Runs inline when already on that thread to
+  // avoid self-deadlock if a completion enqueues more work.
   auto enqueue(task_fn task) -> status;
 
-  /// Drain remaining tasks and join the agent thread. Safe to call once.
+  // Drains remaining tasks and joins the agent thread. Safe to call more than once.
   auto shutdown() -> void;
 
   [[nodiscard]] auto on_agent_thread() const noexcept -> bool;
   [[nodiscard]] auto thread_id() const noexcept -> std::thread::id;
 
-  /// Agent currently executing a task on this thread, or null.
+  // Agent currently executing a task on this thread, or null.
   [[nodiscard]] static auto current() noexcept -> host_agent *;
 
 private:

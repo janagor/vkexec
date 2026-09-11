@@ -31,6 +31,7 @@ namespace {
   auto hash_combine(std::size_t seed, std::size_t value) -> std::size_t
   { return seed ^ (value + k_hash_golden_ratio + (seed << k_hash_shift_left) + (seed >> k_hash_shift_right)); }
 
+  // Cache key covers SPIR-V words and the full layout_desc (bindings, push, specs, local size).
   auto hash_spirv_layout(std::span<std::uint32_t const> spirv, layout_desc const &desc) -> std::size_t
   {
     std::size_t hash = k_spirv_cache_tag;
@@ -124,6 +125,7 @@ namespace {
     VkSpecializationInfo const *specialization,
     bool descriptor_heap) -> result<VkPipeline>
   {
+    // Heap pipelines need FLAGS_2; classic compute leaves pNext null.
     VkPipelineCreateFlags2CreateInfo flags2{};
     flags2.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
     flags2.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
@@ -191,6 +193,7 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   resources->push_bytes = desc.push_constant_size;
   resources->local_size = desc.local_size;
 
+  // Build outside the lock so concurrent first-users can race; loser discards below.
   std::vector<VkSpecializationMapEntry> spec_entries(desc.specialization.size());
   for (std::size_t index = 0; index < desc.specialization.size(); ++index) {
     spec_entries.at(index).constantID = static_cast<std::uint32_t>(index);
@@ -243,6 +246,7 @@ auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spi
   resources->descriptor_pool = expected_take(pool_result);
 
   std::scoped_lock const lock(mutex_);
+  // Another thread may have inserted while we built; keep the winner and free ours.
   if (auto cached = cache_.find(key); cached != cache_.end()) {
     destroy_resources(*ctx_, *resources);
     return std::ref(*cached->second);

@@ -35,6 +35,7 @@ namespace vkexec {
 
 namespace {
 
+  // Raise the request to the library floor so selectors never ask for less than vkexec needs.
   auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
   {
     auto const requested = VK_MAKE_API_VERSION(0, requirements.api_version_major, requirements.api_version_minor, 0);
@@ -45,6 +46,7 @@ namespace {
 
   auto append_unique(std::vector<char const *> &dst, std::span<char const *const> src) -> void
   {
+    // Pointer identity is enough: callers pass string literals / stable extension name macros.
     for (char const *extension : src) {
       if (extension == nullptr) { continue; }
       bool const exists = std::ranges::any_of(
@@ -56,6 +58,7 @@ namespace {
   auto merge_instance_extensions(vulkan_requirements const &requirements,
     std::span<char const *const> extra_instance_extensions) -> std::vector<char const *>
   {
+    // Library baselines first, then user extras; never remove required floors.
     std::vector<char const *> merged;
     append_unique(merged, vulkan_library::required_instance_extensions());
     append_unique(merged, requirements.instance_extensions);
@@ -188,6 +191,7 @@ auto context::adopt(context_adopt_info const &info) -> detail::sync_sender_fn<st
 
 auto context::init_common_resources() -> status
 {
+  // Shared path for create() and window surface completion after the device exists.
   load_device_procs();
   VKEXEC_TRY(create_command_pool());
   VKEXEC_TRY(create_allocator());
@@ -222,6 +226,7 @@ auto context::init_headless(scheduler_options const &opts) -> status
 
 auto context::init_adopted(context_adopt_info const &info) -> status
 {
+  // Borrowed handles: never set owns_* for instance/device; allocator only if we create it.
   if (info.device == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "context::adopt requires a VkDevice"); }
   if (info.compute_queue == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "context::adopt requires a compute VkQueue");
@@ -240,6 +245,7 @@ auto context::init_adopted(context_adopt_info const &info) -> status
     graphics_queue_ = info.graphics_queue;
     graphics_family_ = info.graphics_queue_family;
   } else {
+    // Fall back to compute so graphics helpers can still query a queue.
     graphics_queue_ = compute_queue_;
     graphics_family_ = queue_family_;
   }
@@ -287,6 +293,7 @@ context::context(instance_only_tag tag,
 
 auto context::complete_for_surface(VkSurfaceKHR surface) -> status
 {
+  // Second-phase init used by window: instance already exists; select a present-capable device.
   if (surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "complete_for_surface requires a surface"); }
 
   VKEXEC_TRY_ASSIGN(selected_physical, select_physical_device(instance_, requirements_, api_version_, surface, true));
@@ -305,6 +312,7 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
 
 auto context::fetch_queues(bool want_present) -> status
 {
+  // Prefer dedicated compute; otherwise share the graphics queue (common on mobile / iGPUs).
   if (auto graphics = device_.get_queue_and_index(vkb::QueueType::graphics)) {
     graphics_queue_ = graphics->first;
     graphics_family_ = graphics->second;
@@ -355,6 +363,7 @@ auto context::load_device_procs() -> void
 
 context::~context()
 {
+  // Agents first so outstanding completions finish before tearing down Vulkan objects.
   host_agent_.reset();
   completion_waiter_.reset();
   pipeline_cache_.reset();
@@ -442,6 +451,7 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
 {
   auto waiter = ensure_completion_waiter();
   if (!waiter) {
+    // Fail closed: reclaim owned sync objects before delivering the error to on_done.
     if (fence != VK_NULL_HANDLE) {
       (void)vkWaitForFences(device(), 1, &fence, VK_TRUE, UINT64_MAX);
     } else if (compute_queue() != VK_NULL_HANDLE) {
@@ -608,6 +618,7 @@ auto context::submit(queue_submit const &info) const -> status
     std::ranges::any_of(info.waits, [](semaphore_submit const &entry) -> bool { return entry.value != 0; })
     || std::ranges::any_of(info.signals, [](semaphore_submit const &entry) -> bool { return entry.value != 0; });
 
+  // Any non-zero value implies timeline; binary-only submits omit the pNext chain.
   VkTimelineSemaphoreSubmitInfo timeline_info{};
   timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
   if (use_timeline) {

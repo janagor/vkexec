@@ -13,9 +13,11 @@
 namespace vkexec::detail {
 namespace {
 
+  // Identifies which host_agent is running on this thread (for nested enqueue).
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
   thread_local host_agent *tls_current_agent{ nullptr };
 
+  // Restores the previous TLS agent when leaving a task (supports nested enqueue).
   struct current_agent_guard
   {
     host_agent *previous;
@@ -35,6 +37,7 @@ namespace {
 
 host_agent::host_agent()
 {
+  // Publish thread_id_ before the constructor returns so enqueue can detect the agent thread.
   std::promise<void> ready;
   std::future<void> const started = ready.get_future();
   thread_ = std::jthread([this, signal = std::move(ready)](std::stop_token const & /*token*/) mutable -> void {
@@ -56,6 +59,7 @@ auto host_agent::thread_id() const noexcept -> std::thread::id { return thread_i
 auto host_agent::enqueue(task_fn task) -> detail::status
 {
   if (!task) { return {}; }
+  // Inline execution avoids deadlock when a completion enqueues more work on the same agent.
   if (on_agent_thread()) {
     current_agent_guard const guard{ this };
     std::move(task)();
@@ -79,6 +83,7 @@ auto host_agent::shutdown() -> void
     shutting_down_ = true;
   }
   cv_.notify_all();
+  // Assigning an empty jthread joins the previous worker after it observes shutting_down_.
   thread_ = std::jthread{};
 }
 
@@ -86,6 +91,7 @@ auto host_agent::run() -> void
 {
   current_agent_guard const guard{ this };
 
+  // Swap under the lock, then run outside so enqueued work can proceed without contention.
   std::vector<task_fn> local;
   for (;;) {
     {
