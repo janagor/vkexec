@@ -20,6 +20,7 @@ namespace {
     switch (memory) {
     case gpu_buffer_memory::host_visible:
     case gpu_buffer_memory::device_local: {
+      // Storage + transfer + indirect covers typical compute/hybrid upload paths.
       // NOLINTBEGIN(hicpp-signed-bitwise)
       VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
                                  | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
@@ -48,6 +49,7 @@ namespace {
       aci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
       break;
     case gpu_buffer_memory::staging:
+      // Readback-friendly mapping: random host access, prefer coherent if available.
       aci.usage = VMA_MEMORY_USAGE_AUTO;
       // NOLINTBEGIN(hicpp-signed-bitwise)
       aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;

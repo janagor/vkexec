@@ -33,6 +33,7 @@ namespace {
 
   auto targets_for_vulkan_api(std::uint32_t vulkan_api_version) -> glslang_targets
   {
+    // Match SPIR-V / GLSL dialect to the negotiated device API so newer builtins compile.
     auto const major = VK_API_VERSION_MAJOR(vulkan_api_version);
     auto const minor = VK_API_VERSION_MINOR(vulkan_api_version);
     if (major < 1) { return {}; }
@@ -64,6 +65,7 @@ namespace {
 
   auto ensure_glslang() -> void
   {
+    // Process-wide init; glslang is not safe to InitializeProcess repeatedly.
     // NOLINTNEXTLINE(misc-const-correctness)
     static std::once_flag once;
     std::call_once(once, []() -> void { glslang::InitializeProcess(); });

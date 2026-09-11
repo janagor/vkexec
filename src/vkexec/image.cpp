@@ -14,6 +14,7 @@ namespace {
 
   auto resolve_format(image_create_info const &info) -> result<VkFormat>
   {
+    // Defaults bias toward HDR storage / 32-bit depth when the caller leaves format unset.
     if (info.format != VK_FORMAT_UNDEFINED) { return info.format; }
     switch (info.usage) {
     case image_usage::color_storage:

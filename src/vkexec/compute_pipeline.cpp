@@ -35,6 +35,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
 {
   return detail::make_sync_sender_fn<compute_pipeline>(
     [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<compute_pipeline> {
+      // Capture by value: the sender may outlive the caller's string_views.
       if (glsl.empty()) { return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty GLSL"); }
       VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
       VKEXEC_TRY_ASSIGN(cached, ctx.get_or_create_from_spirv(spirv, desc));
