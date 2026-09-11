@@ -1,6 +1,9 @@
 #ifndef VKEXEC_FEATURES_COMMON_HPP
 #define VKEXEC_FEATURES_COMMON_HPP
 
+//! \file
+//! Shared helpers for feature promotion (core version vs KHR extension).
+
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -9,6 +12,11 @@
 
 namespace vkexec::feat {
 
+/**
+ * Describes when a feature is core vs available via a KHR extension name.
+ *
+ * @see api_at_least
+ */
 struct promotion
 {
   std::uint32_t core_major{ 1 };
@@ -16,6 +24,9 @@ struct promotion
   char const *khr_extension{ nullptr };
 };
 
+/**
+ * Returns whether `req` requests at least Vulkan `major`.`minor`.
+ */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] constexpr auto
   api_at_least(vulkan_requirements const &req, std::uint32_t major, std::uint32_t minor) noexcept -> bool
@@ -24,6 +35,9 @@ struct promotion
   return req.api_version_minor >= minor;
 }
 
+/**
+ * Returns whether packed `api_version` is at least Vulkan `major`.`minor`.
+ */
 [[nodiscard]] constexpr auto api_at_least(std::uint32_t api_version, std::uint32_t major, std::uint32_t minor) noexcept
   -> bool
 {

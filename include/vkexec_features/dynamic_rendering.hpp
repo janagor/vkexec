@@ -5,6 +5,11 @@
 
 namespace vkexec::feat {
 
+/**
+ * Feature tag for dynamic rendering (core 1.3 / `VK_KHR_dynamic_rendering`).
+ *
+ * @see feature_traits, configure, available
+ */
 struct dynamic_rendering
 {
 };

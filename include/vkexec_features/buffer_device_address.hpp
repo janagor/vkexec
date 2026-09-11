@@ -5,6 +5,11 @@
 
 namespace vkexec::feat {
 
+/**
+ * Feature tag for buffer device address (core 1.2 / `VK_KHR_buffer_device_address`).
+ *
+ * @see feature_traits, configure, available, gpu_buffer
+ */
 struct buffer_device_address
 {
 };

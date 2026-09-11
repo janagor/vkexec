@@ -1,6 +1,9 @@
 #ifndef VKEXEC_FEATURES_FEATURES_HPP
 #define VKEXEC_FEATURES_FEATURES_HPP
 
+//! \file
+//! Umbrella header for the vkexec feature-tag registry and concrete features.
+
 #include <vkexec_features/buffer_device_address.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>

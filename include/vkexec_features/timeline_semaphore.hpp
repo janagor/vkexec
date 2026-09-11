@@ -5,6 +5,11 @@
 
 namespace vkexec::feat {
 
+/**
+ * Feature tag for Vulkan timeline semaphores (core 1.2 / `VK_KHR_timeline_semaphore`).
+ *
+ * @see feature_traits, configure, available
+ */
 struct timeline_semaphore
 {
 };
