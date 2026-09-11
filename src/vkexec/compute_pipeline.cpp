@@ -1,11 +1,11 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -24,11 +24,10 @@ namespace vkexec {
 auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> detail::sync_sender_fn<compute_pipeline>
 {
-  return detail::make_sync_sender_fn<compute_pipeline>(
-    [&ctx, spirv, desc]() -> result<compute_pipeline> {
-      VKEXEC_TRY_ASSIGN(cached, ctx.get_or_create_from_spirv(spirv, desc));
-      return compute_pipeline{ &ctx, &cached.get() };
-    });
+  return detail::make_sync_sender_fn<compute_pipeline>([&ctx, spirv, desc]() -> result<compute_pipeline> {
+    VKEXEC_TRY_ASSIGN(cached, ctx.get_or_create_from_spirv(spirv, desc));
+    return compute_pipeline{ &ctx, &cached.get() };
+  });
 }
 
 auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
@@ -45,8 +44,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
 
 auto compute_pipeline::allocate_set_sender() const -> detail::sync_sender_fn<VkDescriptorSet>
 {
-  return detail::make_sync_sender_fn<VkDescriptorSet>(
-    [this]() -> result<VkDescriptorSet> { return allocate_set(); });
+  return detail::make_sync_sender_fn<VkDescriptorSet>([this]() -> result<VkDescriptorSet> { return allocate_set(); });
 }
 
 auto compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const

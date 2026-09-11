@@ -1,12 +1,12 @@
-#include <vkexec/detail/move_only_function.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
+#include <vkexec/detail/move_only_function.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include "completion_waiter.hpp"
@@ -222,9 +222,7 @@ auto context::init_headless(scheduler_options const &opts) -> status
 
 auto context::init_adopted(context_adopt_info const &info) -> status
 {
-  if (info.device == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "context::adopt requires a VkDevice");
-  }
+  if (info.device == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "context::adopt requires a VkDevice"); }
   if (info.compute_queue == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "context::adopt requires a compute VkQueue");
   }
@@ -289,9 +287,7 @@ context::context(instance_only_tag tag,
 
 auto context::complete_for_surface(VkSurfaceKHR surface) -> status
 {
-  if (surface == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "complete_for_surface requires a surface");
-  }
+  if (surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "complete_for_surface requires a surface"); }
 
   VKEXEC_TRY_ASSIGN(selected_physical, select_physical_device(instance_, requirements_, api_version_, surface, true));
   physical_device_ = std::move(selected_physical);

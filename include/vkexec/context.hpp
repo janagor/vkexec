@@ -5,9 +5,9 @@
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <VkBootstrap.h>
@@ -117,8 +117,7 @@ public:
   /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
   /// Choose `set_stopped` / `set_value` / `set_error` only after reclaiming cmd/descriptor loans too.
   template<class StopToken, class Done>
-  [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done)
-    -> status
+  [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
     detail::move_only_function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {

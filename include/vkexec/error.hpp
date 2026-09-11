@@ -36,10 +36,7 @@ public:
   [[nodiscard]] auto name() const noexcept -> char const * override { return "vkexec"; }
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] auto message(int error_value) const -> std::string override
-  {
-    return message(error_value, nullptr, 0);
-  }
+  [[nodiscard]] auto message(int error_value) const -> std::string override { return message(error_value, nullptr, 0); }
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
   [[nodiscard]] auto message(int error_value, char * /*buffer*/, std::size_t /*len*/) const noexcept
@@ -80,8 +77,7 @@ public:
   [[nodiscard]] auto message(int error_value) const -> std::string override;
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] auto message(int error_value, char *buffer, std::size_t len) const noexcept
-    -> char const * override;
+  [[nodiscard]] auto message(int error_value, char *buffer, std::size_t len) const noexcept -> char const * override;
 
   // VkResult: negative values are errors; non-negative includes success and status codes.
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)

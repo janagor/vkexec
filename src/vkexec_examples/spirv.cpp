@@ -1,9 +1,9 @@
+#include "sync_wait_helpers.hpp"
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include "sync_wait_helpers.hpp"
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -64,42 +64,43 @@ static_assert(offsetof(host_push, count) == k_count_offset);
 static auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .validation_layers = true }));
-    auto input = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, k_initial));
-    auto output = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
+  auto input = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, k_initial));
+  auto output = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
 
-    using enum vkexec::buffer_access;
-    auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
-      k_scale_glsl,
-      vkexec::layout_desc{
-        .bindings = { readonly, writeonly },
-        .push_constant_size = sizeof(host_push),
-        .specialization = {},
-        .local_size = { k_local_size_x, 1, 1 },
-      },
-      "scale.comp"));
+  using enum vkexec::buffer_access;
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
+    k_scale_glsl,
+    vkexec::layout_desc{
+      .bindings = { readonly, writeonly },
+      .push_constant_size = sizeof(host_push),
+      .specialization = {},
+      .local_size = { k_local_size_x, 1, 1 },
+    },
+    "scale.comp"));
 
-    std::array<vkexec::storage_binding, 2> const buffers{
-      vkexec::storage_binding{
-        .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = output.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
-    };
-    auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
+  std::array<vkexec::storage_binding, 2> const buffers{
+    vkexec::storage_binding{
+      .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = output.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)) },
+  };
+  auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
-    host_push push{};
-    push.xform.at(0) = k_scale;
-    push.addr = k_placeholder_bda;
-    push.count = static_cast<std::uint32_t>(k_element_count);
+  host_push push{};
+  push.xform.at(0) = k_scale;
+  push.addr = k_placeholder_bda;
+  push.count = static_cast<std::uint32_t>(k_element_count);
 
-    auto graph = ex::schedule(ctx->get_scheduler())
-                 | vkexec::compute_pass(bound.pipe, bound.set, push, static_cast<std::uint32_t>(k_element_count));
+  auto graph = ex::schedule(ctx->get_scheduler())
+               | vkexec::compute_pass(bound.pipe, bound.set, push, static_cast<std::uint32_t>(k_element_count));
   vkexec::examples::sync_wait_graph(std::move(graph));
 
   float const expected = k_initial * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::size_t index = 0; index < k_element_count; ++index) {
     if (std::fabs(output.data()[index] - expected) > k_epsilon) {
-      std::cerr << std::format("spirv pass mismatch at {}: got {} expected {}\n", index, output.data()[index], expected);
+      std::cerr << std::format(
+        "spirv pass mismatch at {}: got {} expected {}\n", index, output.data()[index], expected);
       vkexec::examples::fail_check("spirv pass result mismatch");
     }
   }

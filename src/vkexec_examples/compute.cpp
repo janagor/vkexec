@@ -1,9 +1,9 @@
+#include "sync_wait_helpers.hpp"
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include "sync_wait_helpers.hpp"
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -82,11 +82,9 @@ static auto run() -> int
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
-  vkexec::examples::sync_wait_graph(ex::schedule(ctx->get_scheduler())
-                                     | vkexec::compute_pass(bound.pipe,
-                                       bound.set,
-                                       params,
-                                       static_cast<std::uint32_t>(k_element_count)));
+  vkexec::examples::sync_wait_graph(
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::compute_pass(bound.pipe, bound.set, params, static_cast<std::uint32_t>(k_element_count)));
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;

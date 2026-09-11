@@ -22,10 +22,8 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create({ .width = k_window_width,
-    .height = k_window_height,
-    .title = "vkexec triangle",
-    .validation_layers = true }));
+  auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec triangle", .validation_layers = true }));
 
   auto pipeline = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));

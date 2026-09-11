@@ -2,8 +2,8 @@
 #define VKEXEC_HOST_AGENT_HPP
 
 #include <vkexec/detail/move_only_function.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <condition_variable>
 #include <mutex>

@@ -3,9 +3,9 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/image.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -20,26 +20,24 @@ namespace {
 auto image_view::create(context &ctx, image const &img) -> detail::sync_sender_fn<image_view>
 {
   return detail::make_sync_sender_fn<image_view>([&ctx, &img]() -> result<image_view> {
-  if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
-  if (img.handle() == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "image_view requires a valid image");
-  }
+    if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
+    if (img.handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
 
-  VkImageViewCreateInfo view_info{};
-  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_info.image = img.handle();
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = img.format();
-  view_info.subresourceRange.aspectMask = aspect_for(img.usage());
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = 1;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = 1;
+    VkImageViewCreateInfo view_info{};
+    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    view_info.image = img.handle();
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = img.format();
+    view_info.subresourceRange.aspectMask = aspect_for(img.usage());
+    view_info.subresourceRange.baseMipLevel = 0;
+    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount = 1;
 
-  VkImageView view{ VK_NULL_HANDLE };
-  VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
-  if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateImageView failed"); }
-  return image_view{ &ctx, view };
+    VkImageView view{ VK_NULL_HANDLE };
+    VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateImageView failed"); }
+    return image_view{ &ctx, view };
   });
 }
 

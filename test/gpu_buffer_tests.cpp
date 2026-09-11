@@ -24,8 +24,8 @@ constexpr std::byte k_marker{ static_cast<unsigned char>(0xAB) };
 TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto buffer = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::host_visible));
+  auto buffer =
+    vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::host_visible));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.size() == k_bytes);
   auto const mapped = buffer.mapped();
@@ -39,8 +39,8 @@ TEST_CASE("gpu_buffer host_visible is mapped", "[vkexec][gpu_buffer][gpu]")
 TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto buffer = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::device_local));
+  auto buffer =
+    vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::device_local));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.size() == k_bytes);
   REQUIRE(buffer.mapped().empty());
@@ -49,8 +49,8 @@ TEST_CASE("gpu_buffer device_local allocates without host mapping", "[vkexec][gp
 TEST_CASE("gpu_buffer staging is host-mapped", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto buffer = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::staging));
+  auto buffer =
+    vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::staging));
   REQUIRE(buffer.handle() != VK_NULL_HANDLE);
   REQUIRE(buffer.mapped().size() == static_cast<std::size_t>(k_bytes));
 }
@@ -81,10 +81,10 @@ TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[
 TEST_CASE("upload_to_device copies staging bytes into device-local buffer", "[vkexec][gpu_buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto staging = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::staging));
-  auto device = vkexec::test::sync_wait_value(
-    vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::device_local));
+  auto staging =
+    vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::staging));
+  auto device =
+    vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx, k_bytes, vkexec::gpu_buffer_memory::device_local));
 
   std::array<std::byte, k_bytes> payload{};
   payload.fill(k_marker);

@@ -31,10 +31,9 @@ class heap_compute_pipeline
 public:
   [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
     -> detail::sync_sender_fn<heap_compute_pipeline>;
-  [[nodiscard]] static auto create(context &ctx,
-    std::string_view glsl,
-    heap_layout_desc const &desc,
-    std::string_view name = "heap.comp") -> detail::sync_sender_fn<heap_compute_pipeline>;
+  [[nodiscard]] static auto
+    create(context &ctx, std::string_view glsl, heap_layout_desc const &desc, std::string_view name = "heap.comp")
+      -> detail::sync_sender_fn<heap_compute_pipeline>;
 
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
 

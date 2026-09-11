@@ -6,9 +6,9 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/submit.hpp>
 
 #include <stdexec/execution.hpp>
@@ -110,8 +110,8 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   auto ctx = vkexec::test::require_context();
   auto positions = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F));
   auto velocities = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity));
-  auto pipe = vkexec::test::sync_wait_value(
-    vkexec::compute_pipeline::create(*ctx, k_sim_glsl, make_sim_layout(), "sim.comp"));
+  auto pipe =
+    vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(*ctx, k_sim_glsl, make_sim_layout(), "sim.comp"));
 
   auto set_result = pipe.allocate_set();
   REQUIRE(set_result.has_value());
@@ -162,11 +162,11 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   REQUIRE(add_pipe.update_set(set, std::span{ &binding, 1 }));
   REQUIRE(scale_pipe.update_set(set, std::span{ &binding, 1 }));
 
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
-               | vkexec::barrier::compute_to_compute()
-               | vkexec::compute_pass(
-                 scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
+  auto graph =
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
+    | vkexec::barrier::compute_to_compute()
+    | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -205,12 +205,12 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   REQUIRE(add_pipe.update_set(set, std::span{ &binding, 1 }));
   REQUIRE(scale_pipe.update_set(set, std::span{ &binding, 1 }));
 
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
-               | vkexec::barrier::compute_to_compute()
-               | vkexec::compute_pass(
-                 scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count))
-               | vkexec::submit;
+  auto graph =
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
+    | vkexec::barrier::compute_to_compute()
+    | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count))
+    | vkexec::submit;
   auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -228,10 +228,10 @@ TEST_CASE("pass graph submit completes with set_stopped when stop is already req
   ex::inplace_stop_source source;
   source.request_stop();
 
-  auto sender = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 })
-                | vkexec::submit;
+  auto sender =
+    ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }) | vkexec::submit;
 
-  auto const waited = vkexec::test::sync_wait_sender(
-    ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  auto const waited =
+    vkexec::test::sync_wait_sender(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }

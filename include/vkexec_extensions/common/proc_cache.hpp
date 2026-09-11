@@ -9,8 +9,7 @@
 
 namespace vkexec::ext::detail {
 
-template<typename Procs, typename Loader>
-[[nodiscard]] auto cached_procs(VkDevice device, Loader load) -> Procs const &
+template<typename Procs, typename Loader> [[nodiscard]] auto cached_procs(VkDevice device, Loader load) -> Procs const &
 {
   static std::mutex mutex;
   static std::unordered_map<VkDevice, Procs> cache;

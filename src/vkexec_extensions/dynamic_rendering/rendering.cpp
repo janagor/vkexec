@@ -12,9 +12,7 @@ namespace vkexec {
 
 auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> status
 {
-  if (cmd == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "cmd_begin_rendering requires a command buffer");
-  }
+  if (cmd == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "cmd_begin_rendering requires a command buffer"); }
   if (info.extent.width == 0 || info.extent.height == 0) {
     return fail(errc::invalid_argument, "cmd_begin_rendering requires a non-zero extent");
   }
@@ -25,9 +23,7 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> sta
   std::vector<VkRenderingAttachmentInfo> color_infos;
   color_infos.reserve(info.color.size());
   for (color_attachment const &attachment : info.color) {
-    if (attachment.view == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "color attachment view is null");
-    }
+    if (attachment.view == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "color attachment view is null"); }
     VkRenderingAttachmentInfo color{};
     color.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     color.imageView = attachment.view;
@@ -41,9 +37,7 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> sta
   VkRenderingAttachmentInfo depth_info{};
   depth_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
   if (info.depth != nullptr) {
-    if (info.depth->view == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "depth attachment view is null");
-    }
+    if (info.depth->view == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "depth attachment view is null"); }
     depth_info.imageView = info.depth->view;
     depth_info.imageLayout = info.depth->layout;
     depth_info.loadOp = info.depth->load_op;
@@ -66,9 +60,7 @@ auto cmd_begin_rendering(VkCommandBuffer cmd, rendering_info const &info) -> sta
 
 auto cmd_end_rendering(VkCommandBuffer cmd) -> status
 {
-  if (cmd == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "cmd_end_rendering requires a command buffer");
-  }
+  if (cmd == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "cmd_end_rendering requires a command buffer"); }
   vkCmdEndRendering(cmd);
   return {};
 }

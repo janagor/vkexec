@@ -2,9 +2,9 @@
 #define VKEXEC_GRAPHICS_WINDOW_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>

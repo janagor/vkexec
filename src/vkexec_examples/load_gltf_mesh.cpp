@@ -315,9 +315,7 @@ namespace {
     if (accessor.type != k_gltf_type_vec3 || accessor.component_type != k_gltf_component_float) {
       return fail(errc::parse_error, "gltf POSITION accessor must be VEC3/float");
     }
-    if (accessor.buffer_view < 0) {
-      return fail(errc::parse_error, "gltf POSITION accessor missing buffer view");
-    }
+    if (accessor.buffer_view < 0) { return fail(errc::parse_error, "gltf POSITION accessor missing buffer view"); }
     auto view_result = buffer_view_at(model, accessor.buffer_view);
     if (!view_result) { return fail(view_result); }
     tg3_buffer_view const &view = *view_result.value();
@@ -565,41 +563,40 @@ namespace {
 auto load_gltf_mesh(std::string const &path) -> vkexec::detail::sync_sender_fn<gltf_mesh_data>
 {
   return vkexec::detail::make_sync_sender_fn<gltf_mesh_data>([path]() -> vkexec::result<gltf_mesh_data> {
-  tinygltf3::Model model;
-  tinygltf3::ErrorStack errors;
-  tg3_parse_options options{};
-  tg3_parse_options_init(&options);
+    tinygltf3::Model model;
+    tinygltf3::ErrorStack errors;
+    tg3_parse_options options{};
+    tg3_parse_options_init(&options);
 
-  tg3_error_code const parse_error =
-    tg3_parse_file(model.get(), errors.get(), path.c_str(), static_cast<std::uint32_t>(path.size()), &options);
-  if (parse_error != TG3_OK || errors.has_error()) {
-    return fail(
-      errc::io_error, std::format("tinygltf failed to load {}: {}", path, format_tg3_errors(errors.get())));
-  }
-
-  tg3_model const &gltf = *model.get();
-  gltf_mesh_data mesh_data{};
-  mat4 const identity = identity_matrix();
-  if (gltf.scenes_count == 0) { return fail(errc::parse_error, "gltf file has no scenes"); }
-  int const scene_index = gltf.default_scene >= 0 ? gltf.default_scene : 0;
-  if (std::cmp_greater_equal(scene_index, gltf.scenes_count)) {
-    return fail(errc::parse_error, "gltf default scene index out of range");
-  }
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  tg3_scene const &scene = gltf.scenes[static_cast<std::size_t>(scene_index)];
-  for (std::uint32_t node_index = 0; node_index < scene.nodes_count; ++node_index) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (auto status = traverse_nodes(gltf, scene.nodes[node_index], identity, mesh_data.vertices, mesh_data.indices);
-      !status) {
-      return fail(status);
+    tg3_error_code const parse_error =
+      tg3_parse_file(model.get(), errors.get(), path.c_str(), static_cast<std::uint32_t>(path.size()), &options);
+    if (parse_error != TG3_OK || errors.has_error()) {
+      return fail(errc::io_error, std::format("tinygltf failed to load {}: {}", path, format_tg3_errors(errors.get())));
     }
-  }
 
-  if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
-    return fail(errc::empty_result, "gltf file contained no triangle geometry");
-  }
-  fit_mesh_to_clip_space(mesh_data.vertices);
-  return mesh_data;
+    tg3_model const &gltf = *model.get();
+    gltf_mesh_data mesh_data{};
+    mat4 const identity = identity_matrix();
+    if (gltf.scenes_count == 0) { return fail(errc::parse_error, "gltf file has no scenes"); }
+    int const scene_index = gltf.default_scene >= 0 ? gltf.default_scene : 0;
+    if (std::cmp_greater_equal(scene_index, gltf.scenes_count)) {
+      return fail(errc::parse_error, "gltf default scene index out of range");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_scene const &scene = gltf.scenes[static_cast<std::size_t>(scene_index)];
+    for (std::uint32_t node_index = 0; node_index < scene.nodes_count; ++node_index) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      if (auto status = traverse_nodes(gltf, scene.nodes[node_index], identity, mesh_data.vertices, mesh_data.indices);
+        !status) {
+        return fail(status);
+      }
+    }
+
+    if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
+      return fail(errc::empty_result, "gltf file contained no triangle geometry");
+    }
+    fit_mesh_to_clip_space(mesh_data.vertices);
+    return mesh_data;
   });
 }
 

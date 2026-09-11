@@ -2,10 +2,10 @@
 #define VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_RING_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
 
 #include <vulkan/vulkan.h>

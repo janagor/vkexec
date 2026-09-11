@@ -1,14 +1,14 @@
-#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/extension.hpp>
 
 #include "../../sync_wait_helpers.hpp"
@@ -51,8 +51,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
 
 auto run() -> int
 {
-  auto ctx = vkexec::examples::sync_wait_value(
-    vkexec::context::create({ .requirements = make_requirements() }));
+  auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .requirements = make_requirements() }));
 
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
     std::cout << std::format("descriptor_heap: skipped (extension PFNs unavailable)\n");
@@ -60,9 +59,7 @@ auto run() -> int
   }
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
-  if (!layout_result) {
-    vkexec::examples::abort_with_error(layout_result.error());
-  }
+  if (!layout_result) { vkexec::examples::abort_with_error(layout_result.error()); }
   auto const &layout = vkexec::expected_get(layout_result);
 
   auto storage = vkexec::examples::sync_wait_value(vkexec::gpu_buffer::create(*ctx,
@@ -71,8 +68,8 @@ auto run() -> int
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::examples::sync_wait_value(vkexec::descriptor_heap_buffer::create(
-    *ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+  auto heap = vkexec::examples::sync_wait_value(
+    vkexec::descriptor_heap_buffer::create(*ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { vkexec::examples::fail_check("storage buffer device address unavailable"); }
@@ -89,8 +86,8 @@ auto run() -> int
     "descriptor_heap.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome = vkexec::try_sync_wait(
-    ex::schedule(ctx->get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
+  auto outcome =
+    vkexec::try_sync_wait(ex::schedule(ctx->get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
   if (outcome.failed() || outcome.stopped || !outcome.values.has_value()) {
     vkexec::examples::fail_check("bindless compute dispatch failed");
   }

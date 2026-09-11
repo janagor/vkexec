@@ -1,8 +1,8 @@
 #ifndef VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_RENDERING_HPP
 #define VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_RENDERING_HPP
 
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan.h>
 

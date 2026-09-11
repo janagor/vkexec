@@ -21,9 +21,7 @@ namespace {
 }// namespace
 
 auto feature_traits<dynamic_rendering>::available(context const &ctx) -> bool
-{
-  return detail::physical_device_dynamic_rendering(ctx.physical_device(), ctx.api_version());
-}
+{ return detail::physical_device_dynamic_rendering(ctx.physical_device(), ctx.api_version()); }
 
 auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> void
 {

@@ -4,11 +4,11 @@
 #include <vkexec_features/timeline_semaphore.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/detail/result.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -44,10 +44,9 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
 
 auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> detail::sync_sender_fn<timeline_semaphore>
 {
-  return detail::make_sync_sender_fn<timeline_semaphore>(
-    [&ctx, initial_value]() -> result<timeline_semaphore> {
-      return detail::make_timeline_semaphore(ctx, initial_value);
-    });
+  return detail::make_sync_sender_fn<timeline_semaphore>([&ctx, initial_value]() -> result<timeline_semaphore> {
+    return detail::make_timeline_semaphore(ctx, initial_value);
+  });
 }
 
 timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept : ctx_(ctx), semaphore_(semaphore)
@@ -76,9 +75,7 @@ auto timeline_semaphore::operator=(timeline_semaphore &&other) noexcept -> timel
 auto timeline_semaphore::wait(std::uint64_t value) const -> status
 {
   if (value == 0 || semaphore_ == VK_NULL_HANDLE) { return {}; }
-  if (ctx_ == nullptr) {
-    return fail(errc::invalid_argument, "timeline_semaphore::wait requires a live context");
-  }
+  if (ctx_ == nullptr) { return fail(errc::invalid_argument, "timeline_semaphore::wait requires a live context"); }
 
   std::array<VkSemaphore, 1> const semaphores{ semaphore_ };
   std::array<std::uint64_t, 1> const values{ value };

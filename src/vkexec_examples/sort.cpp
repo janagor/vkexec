@@ -1,10 +1,10 @@
+#include "sync_wait_helpers.hpp"
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include "sync_wait_helpers.hpp"
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -64,54 +64,52 @@ struct sort_params
 static auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .validation_layers = true }));
-    auto data = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
+  auto data = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
 
-    // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
-    std::mt19937 rng{ k_rng_seed };
-    std::uniform_real_distribution<float> dist(0.0F, k_value_max);
-    std::vector<float> expected(k_element_count);
-    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    for (std::size_t index = 0; index < k_element_count; ++index) {
-      float const value = dist(rng);
-      data.data()[index] = value;
-      expected.at(index) = value;
-    }
-    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    std::ranges::sort(expected);
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937 rng{ k_rng_seed };
+  std::uniform_real_distribution<float> dist(0.0F, k_value_max);
+  std::vector<float> expected(k_element_count);
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  for (std::size_t index = 0; index < k_element_count; ++index) {
+    float const value = dist(rng);
+    data.data()[index] = value;
+    expected.at(index) = value;
+  }
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  std::ranges::sort(expected);
 
-    using enum vkexec::buffer_access;
-    auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
-      k_sort_glsl,
-      vkexec::layout_desc{
-        .bindings = { readwrite },
-        .push_constant_size = sizeof(sort_params),
-        .specialization = {},
-        .local_size = { k_local_size_x, 1, 1 },
-      },
-      "sort.comp"));
+  using enum vkexec::buffer_access;
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
+    k_sort_glsl,
+    vkexec::layout_desc{
+      .bindings = { readwrite },
+      .push_constant_size = sizeof(sort_params),
+      .specialization = {},
+      .local_size = { k_local_size_x, 1, 1 },
+    },
+    "sort.comp"));
 
-    std::array<vkexec::storage_binding, 1> const buffers{ vkexec::storage_binding{
-      .buffer = data.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(data.size() * sizeof(float)) } };
-    auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
+  std::array<vkexec::storage_binding, 1> const buffers{ vkexec::storage_binding{
+    .buffer = data.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(data.size() * sizeof(float)) } };
+  auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
-    auto make_phase = [&](std::size_t phase) -> auto {
-      sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
-      return vkexec::compute_pass(bound.pipe,
-        bound.set,
-        params,
-        static_cast<std::uint32_t>(k_element_count / 2));
-    };
+  auto make_phase = [&](std::size_t phase) -> auto {
+    sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
+    return vkexec::compute_pass(bound.pipe, bound.set, params, static_cast<std::uint32_t>(k_element_count / 2));
+  };
 
-    auto graph = ex::schedule(ctx->get_scheduler()) | make_phase(0);
-    for (std::size_t phase = 1; phase < k_element_count; ++phase) {
-      graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
-    }
+  auto graph = ex::schedule(ctx->get_scheduler()) | make_phase(0);
+  for (std::size_t phase = 1; phase < k_element_count; ++phase) {
+    graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
+  }
   vkexec::examples::sync_wait_graph(std::move(graph));
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::size_t index = 0; index < k_element_count; ++index) {
     if (std::fabs(data.data()[index] - expected.at(index)) > k_epsilon) {
-      std::cerr << std::format("sort mismatch at {}: got {} expected {}\n", index, data.data()[index], expected.at(index));
+      std::cerr << std::format(
+        "sort mismatch at {}: got {} expected {}\n", index, data.data()[index], expected.at(index));
       vkexec::examples::fail_check("sort result mismatch");
     }
   }

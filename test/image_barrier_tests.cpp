@@ -4,9 +4,9 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 

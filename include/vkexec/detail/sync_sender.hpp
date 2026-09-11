@@ -6,8 +6,8 @@
 
 #include <stdexec/execution.hpp>
 
-#include <functional>
 #include <concepts>
+#include <functional>
 #include <type_traits>
 #include <utility>
 
@@ -16,7 +16,8 @@ namespace vkexec::detail {
 namespace ex = stdexec;
 
 template<class Value, class Factory>
-  requires std::invocable<Factory> && std::same_as<detail::result<std::remove_cvref_t<Value>>, std::invoke_result_t<Factory>>
+  requires std::invocable<Factory>
+           && std::same_as<detail::result<std::remove_cvref_t<Value>>, std::invoke_result_t<Factory>>
 struct sync_sender
 {
   using sender_concept = ex::sender_t;
@@ -50,17 +51,11 @@ struct sync_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) };
-  }
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  { return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) }; }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) };
-  }
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  { return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) }; }
 };
 
 template<class Value, class Factory>
@@ -101,17 +96,11 @@ struct sync_void_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) };
-  }
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  { return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) }; }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
-  {
-    return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) };
-  }
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  { return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) }; }
 };
 
 template<class Factory>
@@ -119,7 +108,8 @@ template<class Factory>
 { return sync_void_sender<std::remove_cvref_t<Factory>>{ .factory = std::forward<Factory>(factory) }; }
 
 template<class Value>
-using sync_sender_fn = sync_sender<std::remove_cvref_t<Value>, std::function<detail::result<std::remove_cvref_t<Value>>()>>;
+using sync_sender_fn =
+  sync_sender<std::remove_cvref_t<Value>, std::function<detail::result<std::remove_cvref_t<Value>>()>>;
 
 using sync_void_sender_fn = sync_void_sender<std::function<detail::status()>>;
 

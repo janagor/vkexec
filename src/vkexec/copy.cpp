@@ -2,9 +2,9 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/gpu_buffer.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 

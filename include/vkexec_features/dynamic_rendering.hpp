@@ -5,10 +5,11 @@
 
 namespace vkexec::feat {
 
-struct dynamic_rendering {};
+struct dynamic_rendering
+{
+};
 
-template<>
-struct feature_traits<dynamic_rendering>
+template<> struct feature_traits<dynamic_rendering>
 {
   [[nodiscard]] static constexpr auto name() -> std::string_view { return "dynamic_rendering"; }
   [[nodiscard]] static auto available(context const &ctx) -> bool;

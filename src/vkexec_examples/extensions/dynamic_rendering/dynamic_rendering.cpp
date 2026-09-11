@@ -2,9 +2,9 @@
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
-#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 #include <vkexec_graphics/window.hpp>
 

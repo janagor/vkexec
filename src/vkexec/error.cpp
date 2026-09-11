@@ -11,10 +11,7 @@
 
 namespace vkexec {
 
-auto vulkan_error_category::message(int error_value) const -> std::string
-{
-  return message(error_value, nullptr, 0);
-}
+auto vulkan_error_category::message(int error_value) const -> std::string { return message(error_value, nullptr, 0); }
 
 auto vulkan_error_category::message(int error_value, char * /*buffer*/, std::size_t /*len*/) const noexcept
   -> char const *
@@ -96,14 +93,10 @@ auto vulkan_category() noexcept -> sys::error_category const &
 }
 
 auto make_error_code(errc error) noexcept -> sys::error_code
-{
-  return sys::error_code{ static_cast<int>(error), category() };
-}
+{ return sys::error_code{ static_cast<int>(error), category() }; }
 
 auto make_vk_error_code(int vk_result) noexcept -> sys::error_code
-{
-  return sys::error_code{ vk_result, vulkan_category() };
-}
+{ return sys::error_code{ vk_result, vulkan_category() }; }
 
 auto make_error(errc code, std::string detail) -> error
 {

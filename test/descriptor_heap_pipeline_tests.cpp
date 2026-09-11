@@ -4,9 +4,9 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
-#include <vkexec/vulkan_requirements.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>

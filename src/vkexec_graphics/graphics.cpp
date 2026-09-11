@@ -4,9 +4,9 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -68,15 +68,16 @@ auto graphics_pipeline::create(context &ctx,
     return pipe;
   };
 
-  return detail::make_sync_sender_fn<graphics_pipeline>([&ctx,
-                                                         render_pass,
-                                                         cfg,
-                                                         vertex_spirv = std::vector(vertex_spirv.begin(), vertex_spirv.end()),
-                                                         fragment_spirv = std::vector(fragment_spirv.begin(), fragment_spirv.end()),
-                                                         owned = std::vector(buffers.begin(), buffers.end()),
-                                                         make]() mutable -> result<graphics_pipeline> {
-    return make(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, owned);
-  });
+  return detail::make_sync_sender_fn<graphics_pipeline>(
+    [&ctx,
+      render_pass,
+      cfg,
+      vertex_spirv = std::vector(vertex_spirv.begin(), vertex_spirv.end()),
+      fragment_spirv = std::vector(fragment_spirv.begin(), fragment_spirv.end()),
+      owned = std::vector(buffers.begin(), buffers.end()),
+      make]() mutable -> result<graphics_pipeline> {
+      return make(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, owned);
+    });
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
@@ -108,19 +109,19 @@ auto graphics_pipeline::create(context &ctx,
   };
 
   return detail::make_sync_sender_fn<graphics_pipeline>([&ctx,
-                                                         render_pass,
-                                                         cfg,
-                                                         vertex_glsl = std::string(vertex_glsl),
-                                                         fragment_glsl = std::string(fragment_glsl),
-                                                         owned = std::vector(buffers.begin(), buffers.end()),
-                                                         make]() mutable -> result<graphics_pipeline> {
+                                                          render_pass,
+                                                          cfg,
+                                                          vertex_glsl = std::string(vertex_glsl),
+                                                          fragment_glsl = std::string(fragment_glsl),
+                                                          owned = std::vector(buffers.begin(), buffers.end()),
+                                                          make]() mutable -> result<graphics_pipeline> {
     if (vertex_glsl.empty() || fragment_glsl.empty()) {
       return fail(errc::invalid_argument, "graphics_pipeline::create requires non-empty GLSL");
     }
-    VKEXEC_TRY_ASSIGN(vs_spv,
-      compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
-    VKEXEC_TRY_ASSIGN(fs_spv,
-      compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
+    VKEXEC_TRY_ASSIGN(
+      vs_spv, compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
+    VKEXEC_TRY_ASSIGN(
+      fs_spv, compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
     return make(ctx, render_pass, cfg, vs_spv, fs_spv, owned);
   });
 }
@@ -130,9 +131,7 @@ auto graphics_pipeline::create(context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
-{
-  return create(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers);
-}
+{ return create(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto graphics_pipeline::create(context &ctx,
@@ -141,9 +140,7 @@ auto graphics_pipeline::create(context &ctx,
   std::string_view fragment_glsl,
   std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
-{
-  return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers);
-}
+{ return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
 
 auto graphics_pipeline::create_module(std::vector<std::uint32_t> const &spirv) const -> result<VkShaderModule>
 {

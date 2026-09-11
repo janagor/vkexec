@@ -51,9 +51,7 @@ namespace detail {
     return pass_step{ .record = [closure = std::move(closure)](
                                   context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       std::span<std::byte const> const push_bytes{ closure.push };
-      if (closure.is_indirect) {
-        return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
-      }
+      if (closure.is_indirect) { return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect); }
       return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
     } };
   }
@@ -79,8 +77,6 @@ auto operator|(schedule_sender snd, heap_compute_pass_closure closure) -> pass_g
 }
 
 auto operator|(pass_graph_sender graph, heap_compute_pass_closure closure) -> pass_graph_sender
-{
-  return detail::append_heap_step(std::move(graph), detail::make_heap_prebuilt_step(std::move(closure.inner)));
-}
+{ return detail::append_heap_step(std::move(graph), detail::make_heap_prebuilt_step(std::move(closure.inner))); }
 
 }// namespace vkexec

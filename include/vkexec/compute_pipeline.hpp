@@ -25,7 +25,7 @@ public:
     -> detail::sync_sender_fn<compute_pipeline>;
   [[nodiscard]] static auto
     create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
-    -> detail::sync_sender_fn<compute_pipeline>;
+      -> detail::sync_sender_fn<compute_pipeline>;
 
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }

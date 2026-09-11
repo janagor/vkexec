@@ -2,9 +2,9 @@
 #define VKEXEC_GRAPHICS_MESH_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <array>
 #include <cstddef>
@@ -25,9 +25,9 @@ struct mesh_vertex
 class mesh
 {
 public:
-  [[nodiscard]] static auto
-    create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-    -> detail::sync_sender_fn<mesh>;
+  [[nodiscard]] static auto create(context &ctx,
+    std::span<mesh_vertex const> vertices,
+    std::span<std::uint32_t const> indices) -> detail::sync_sender_fn<mesh>;
 
   ~mesh();
 

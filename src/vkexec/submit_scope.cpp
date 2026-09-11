@@ -1,8 +1,8 @@
 #include <vkexec/submit_scope.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/detail/result.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 
@@ -29,17 +29,13 @@ auto descriptor_cleanup::release(context const &ctx) noexcept -> void
 auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool
 {
   return lhs.size() == rhs.size()
-         && std::equal(lhs.begin(),
-           lhs.end(),
-           rhs.begin(),
-           [](storage_binding const &left, storage_binding const &right) -> bool {
-             return left.buffer == right.buffer && left.byte_size == right.byte_size
-                    && left.binding == right.binding;
+         && std::equal(
+           lhs.begin(), lhs.end(), rhs.begin(), [](storage_binding const &left, storage_binding const &right) -> bool {
+             return left.buffer == right.buffer && left.byte_size == right.byte_size && left.binding == right.binding;
            });
 }
 
-auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
-  -> void
+auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers) -> void
 {
   if (buffers.empty()) { return; }
   std::vector<VkDescriptorBufferInfo> buf_infos(buffers.size());
@@ -60,9 +56,8 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
   vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
-auto allocate_compute_set(context const &ctx,
-  pipeline_resources &pipe,
-  std::span<storage_binding const> buffers) -> detail::result<VkDescriptorSet>
+auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
+  -> detail::result<VkDescriptorSet>
 {
   std::unique_lock const lock = ctx.lock_host();
   VkDescriptorSetAllocateInfo dsai{};
@@ -149,11 +144,9 @@ auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphor
   if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
 }
 
-auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender
-{ return enter_submit_scope_sender{ .ctx = ctx }; }
+auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender { return enter_submit_scope_sender{ .ctx = ctx }; }
 
-auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender
-{ return enter_submit_scope(&ctx); }
+auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender { return enter_submit_scope(&ctx); }
 
 auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
 { return submit_and_wait_sender{ .scope = std::move(scope) }; }

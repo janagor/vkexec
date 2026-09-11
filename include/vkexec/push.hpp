@@ -11,8 +11,7 @@
 namespace vkexec {
 
 /// Host push constants: upload blob `T` onto the command buffer.
-auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, void const *data, std::uint32_t bytes)
-  -> void;
+auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, void const *data, std::uint32_t bytes) -> void;
 
 template<typename T> auto upload_push_constants(VkCommandBuffer cmd, VkPipelineLayout layout, T const &params) -> void
 {

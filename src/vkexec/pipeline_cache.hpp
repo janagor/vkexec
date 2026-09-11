@@ -1,9 +1,9 @@
 #ifndef VKEXEC_PIPELINE_CACHE_HPP
 #define VKEXEC_PIPELINE_CACHE_HPP
 
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 
 #include <cstddef>
 #include <cstdint>

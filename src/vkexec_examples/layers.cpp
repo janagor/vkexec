@@ -80,19 +80,19 @@ static auto run() -> int
   vkexec::graphics_pipeline_config foreground_cfg{};
   foreground_cfg.alpha_blend = true;
 
-  auto foreground = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
-    win.ctx(), win.render_pass(), foreground_cfg, k_foreground_vert, k_tinted_frag));
+  auto foreground = vkexec::examples::sync_wait_value(
+    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), foreground_cfg, k_foreground_vert, k_tinted_frag));
 
   std::cout << std::format("vkexec layers (two graphics pipelines) - close the window to exit\n");
 
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler())
-                                        | vkexec::draw_layers(win,
-                                          {
-                                            { .pipeline = &background, .vertex_count = k_fullscreen_vertices },
-                                            { .pipeline = &foreground, .vertex_count = k_foreground_vertices },
-                                          }));
+                                      | vkexec::draw_layers(win,
+                                        {
+                                          { .pipeline = &background, .vertex_count = k_fullscreen_vertices },
+                                          { .pipeline = &foreground, .vertex_count = k_foreground_vertices },
+                                        }));
   }
 
   win.wait_idle();

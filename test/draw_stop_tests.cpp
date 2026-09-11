@@ -29,8 +29,8 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_headless_window() -> vkexec::window
 {
-  auto outcome = vkexec::try_sync_wait(
-    vkexec::window::headless({ .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" }));
+  auto outcome = vkexec::try_sync_wait(vkexec::window::headless(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" }));
   if (outcome.failed()) { vkexec::test::skip_if_no_vulkan(outcome.take_error()); }
   if (outcome.stopped || !outcome.values.has_value()) { FAIL("window::headless stopped unexpectedly"); }
   return vkexec::detail::take_sync_value(std::move(*outcome.values));
@@ -64,8 +64,7 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
   ex::inplace_stop_source source;
   source.request_stop();
 
-  auto env_sender =
-    ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto env_sender = ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
   auto const waited = vkexec::test::sync_wait_sender(std::move(env_sender));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
@@ -76,8 +75,7 @@ TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion
   headless_fixture fixture;
   ex::inplace_stop_source source;
 
-  auto env_sender =
-    ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto env_sender = ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
 
   std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
 

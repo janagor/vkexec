@@ -3,8 +3,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/result.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -43,42 +43,42 @@ namespace {
 auto image::create(context &ctx, image_create_info info) -> detail::sync_sender_fn<image>
 {
   return detail::make_sync_sender_fn<image>([&ctx, info]() -> result<image> {
-  if (info.width == 0 || info.height == 0) {
-    return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
-  }
-  if (ctx.allocator() == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "vkexec::image requires a VMA allocator");
-  }
+    if (info.width == 0 || info.height == 0) {
+      return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
+    }
+    if (ctx.allocator() == VK_NULL_HANDLE) {
+      return fail(errc::invalid_argument, "vkexec::image requires a VMA allocator");
+    }
 
-  VKEXEC_TRY_ASSIGN(vk_format, resolve_format(info));
-  VKEXEC_TRY_ASSIGN(usg_flags, usage_flags(info.usage));
+    VKEXEC_TRY_ASSIGN(vk_format, resolve_format(info));
+    VKEXEC_TRY_ASSIGN(usg_flags, usage_flags(info.usage));
 
-  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
-  VkImageCreateInfo image_info{};
-  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent = { .width = info.width, .height = info.height, .depth = 1 };
-  image_info.mipLevels = 1;
-  image_info.arrayLayers = 1;
-  image_info.format = vk_format;
-  image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = usg_flags;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
+    VkImageCreateInfo image_info{};
+    image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_info.imageType = VK_IMAGE_TYPE_2D;
+    image_info.extent = { .width = info.width, .height = info.height, .depth = 1 };
+    image_info.mipLevels = 1;
+    image_info.arrayLayers = 1;
+    image_info.format = vk_format;
+    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image_info.usage = usg_flags;
+    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  VmaAllocationCreateInfo alloc_info{};
-  alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    VmaAllocationCreateInfo alloc_info{};
+    alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-  VkImage image_handle{ VK_NULL_HANDLE };
-  VmaAllocation allocation{ VK_NULL_HANDLE };
-  VkResult const create_result =
-    vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
-  if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateImage failed"); }
+    VkImage image_handle{ VK_NULL_HANDLE };
+    VmaAllocation allocation{ VK_NULL_HANDLE };
+    VkResult const create_result =
+      vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
+    if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateImage failed"); }
 
-  return image{
-    &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage
-  };
+    return image{
+      &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage
+    };
   });
 }
 

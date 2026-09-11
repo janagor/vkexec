@@ -10,8 +10,7 @@ namespace vkexec::ext {
 
 struct descriptor_heap;
 
-template<typename Tag>
-struct extension_traits;
+template<typename Tag> struct extension_traits;
 
 template<typename Tag>
 concept extension = requires(context const &ctx, vulkan_requirements &req) {
@@ -20,17 +19,13 @@ concept extension = requires(context const &ctx, vulkan_requirements &req) {
   { extension_traits<Tag>::configure(req) } -> std::same_as<void>;
 };
 
-template<extension Tag>
-[[nodiscard]] constexpr auto name() -> std::string_view
+template<extension Tag> [[nodiscard]] constexpr auto name() -> std::string_view
 { return extension_traits<Tag>::name(); }
 
-template<extension Tag>
-[[nodiscard]] auto available(context const &ctx) -> bool
+template<extension Tag> [[nodiscard]] auto available(context const &ctx) -> bool
 { return extension_traits<Tag>::available(ctx); }
 
-template<extension Tag>
-auto configure(vulkan_requirements &req) -> void
-{ extension_traits<Tag>::configure(req); }
+template<extension Tag> auto configure(vulkan_requirements &req) -> void { extension_traits<Tag>::configure(req); }
 
 }// namespace vkexec::ext
 

@@ -3,8 +3,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/result.hpp>
 
 #include <VkBootstrap.h>
 
@@ -22,24 +22,22 @@ namespace vkexec {
 auto swapchain::create(context &ctx, swapchain_create_info info) -> detail::sync_sender_fn<swapchain>
 {
   return detail::make_sync_sender_fn<swapchain>([&ctx, info]() -> result<swapchain> {
-  if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
-  if (info.surface == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR");
-  }
-  if (ctx.present_queue() == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "swapchain requires a present queue");
-  }
+    if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
+    if (info.surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"); }
+    if (ctx.present_queue() == VK_NULL_HANDLE) {
+      return fail(errc::invalid_argument, "swapchain requires a present queue");
+    }
 
-  swapchain created;
-  created.ctx_ = &ctx;
-  created.surface_ = info.surface;
-  created.preferred_format_ = info.preferred_format;
-  created.preferred_color_space_ = info.preferred_color_space;
-  created.present_mode_ = info.present_mode;
-  if (auto created_swapchain = created.create_or_recreate(info.width, info.height); !created_swapchain) {
-    return fail(created_swapchain);
-  }
-  return created;
+    swapchain created;
+    created.ctx_ = &ctx;
+    created.surface_ = info.surface;
+    created.preferred_format_ = info.preferred_format;
+    created.preferred_color_space_ = info.preferred_color_space;
+    created.present_mode_ = info.present_mode;
+    if (auto created_swapchain = created.create_or_recreate(info.width, info.height); !created_swapchain) {
+      return fail(created_swapchain);
+    }
+    return created;
   });
 }
 

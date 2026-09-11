@@ -5,11 +5,9 @@
 
 namespace vkexec {
 
-template<typename T>
-using result = detail::result<T>;
+template<typename T> using result = detail::result<T>;
 
-template<typename E>
-using unexpected = detail::unexpected<E>;
+template<typename E> using unexpected = detail::unexpected<E>;
 
 using status = detail::status;
 
@@ -20,14 +18,14 @@ using detail::fail;
 }// namespace vkexec
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage,bugprone-macro-parentheses)
-#define VKEXEC_TRY_ASSIGN(v, r)                                                                   \
-  auto vkexec_try_tmp_##v = (r);                                                                 \
+#define VKEXEC_TRY_ASSIGN(v, r)                                                                            \
+  auto vkexec_try_tmp_##v = (r);                                                                           \
   if (!vkexec_try_tmp_##v) { return ::vkexec::detail::unexpected(std::move(vkexec_try_tmp_##v.error())); } \
   auto &v = ::vkexec::detail::expected_get(vkexec_try_tmp_##v)
 
-#define VKEXEC_TRY(r)                                                                             \
-  if (auto vkexec_try_chk = (r); !vkexec_try_chk) {                                               \
-    return ::vkexec::detail::unexpected(std::move(vkexec_try_chk.error()));                       \
+#define VKEXEC_TRY(r)                                                       \
+  if (auto vkexec_try_chk = (r); !vkexec_try_chk) {                         \
+    return ::vkexec::detail::unexpected(std::move(vkexec_try_chk.error())); \
   }
 // NOLINTEND(cppcoreguidelines-macro-usage,bugprone-macro-parentheses)
 

@@ -1,8 +1,8 @@
 #ifndef VKEXEC_SPIRV_COMPILE_HPP
 #define VKEXEC_SPIRV_COMPILE_HPP
 
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 

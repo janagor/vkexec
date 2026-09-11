@@ -5,10 +5,11 @@
 
 namespace vkexec::feat {
 
-struct buffer_device_address {};
+struct buffer_device_address
+{
+};
 
-template<>
-struct feature_traits<buffer_device_address>
+template<> struct feature_traits<buffer_device_address>
 {
   [[nodiscard]] static constexpr auto name() -> std::string_view { return "buffer_device_address"; }
   [[nodiscard]] static auto available(context const &ctx) -> bool;

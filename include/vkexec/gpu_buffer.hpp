@@ -2,9 +2,9 @@
 #define VKEXEC_GPU_BUFFER_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>

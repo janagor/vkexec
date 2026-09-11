@@ -1,9 +1,9 @@
 #ifndef VKEXEC_GRAPHICS_DRAW_HPP
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_graphics/graphics.hpp>
@@ -27,8 +27,7 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  [[nodiscard]] inline auto try_begin_frame(window &win) -> result<std::optional<frame>>
-  { return win.begin_frame(); }
+  [[nodiscard]] inline auto try_begin_frame(window &win) -> result<std::optional<frame>> { return win.begin_frame(); }
 
   [[nodiscard]] inline auto try_end_frame(window &win, frame const &drawn) -> result<VkFence>
   { return win.end_frame(drawn); }
@@ -217,8 +216,7 @@ struct draw_async_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -229,8 +227,7 @@ struct draw_async_sender
     };
   }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -367,8 +364,7 @@ struct draw_layers_async_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -378,8 +374,7 @@ struct draw_layers_async_sender
     };
   }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -500,8 +495,7 @@ struct draw_mesh_async_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -512,8 +506,7 @@ struct draw_mesh_async_sender
     };
   }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,

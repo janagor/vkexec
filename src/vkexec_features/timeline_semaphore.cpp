@@ -21,9 +21,7 @@ namespace {
 }// namespace
 
 auto feature_traits<timeline_semaphore>::available(context const &ctx) -> bool
-{
-  return detail::physical_device_timeline_semaphore(ctx.physical_device(), ctx.api_version());
-}
+{ return detail::physical_device_timeline_semaphore(ctx.physical_device(), ctx.api_version()); }
 
 auto feature_traits<timeline_semaphore>::configure(vulkan_requirements &req) -> void
 {

@@ -3,8 +3,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/result.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -56,9 +56,7 @@ namespace {
 
   auto count_as_uint32(std::size_t count, char const *what) -> result<std::uint32_t>
   {
-    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) {
-      return fail(errc::invalid_argument, what);
-    }
+    if (count == 0 || count > std::numeric_limits<std::uint32_t>::max()) { return fail(errc::invalid_argument, what); }
     return static_cast<std::uint32_t>(count);
   }
 

@@ -1,7 +1,7 @@
 #include "host_agent.hpp"
 
-#include <vkexec/error.hpp>
 #include <vkexec/detail/result.hpp>
+#include <vkexec/error.hpp>
 
 #include <future>
 #include <mutex>

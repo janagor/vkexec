@@ -1,7 +1,7 @@
 #include "completion_waiter.hpp"
 
-#include <vkexec/error.hpp>
 #include <vkexec/detail/result.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -45,9 +45,7 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
     std::scoped_lock const lock(mutex_);
     if (shutting_down_) {
       reclaim_sync(device_, fallback_queue_, semaphore, fence);
-      if (on_done) {
-        on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false);
-      }
+      if (on_done) { on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false); }
       return detail::fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
     }
     pending_.push_back(job{
@@ -68,9 +66,7 @@ auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, 
   {
     std::scoped_lock const lock(mutex_);
     if (shutting_down_) {
-      if (on_done) {
-        on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false);
-      }
+      if (on_done) { on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false); }
       return detail::fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
     }
     pending_.push_back(job{

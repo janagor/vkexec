@@ -16,8 +16,7 @@ auto compute_heap_pass(compute_bind bind, Params const &params, dispatch groups)
 }
 
 template<typename Params>
-auto compute_heap_pass(compute_bind bind, Params const &params, indirect_dispatch groups)
-  -> heap_compute_pass_closure
+auto compute_heap_pass(compute_bind bind, Params const &params, indirect_dispatch groups) -> heap_compute_pass_closure
 {
   static_assert(std::is_trivially_copyable_v<Params>);
   return heap_compute_pass_closure{ .inner = compute_pass(bind, params, groups) };

@@ -2,10 +2,10 @@
 #define VKEXEC_PASS_HPP
 
 #include <vkexec/barrier.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -57,12 +57,10 @@ struct compute_bind
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
-[[nodiscard]] auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
-  -> compute_bind;
+[[nodiscard]] auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE) -> compute_bind;
 
-auto
-  record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
-    -> void;
+auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
+  -> void;
 
 auto record_pass(VkCommandBuffer cmd,
   compute_bind bind,
@@ -131,8 +129,7 @@ struct pass_graph_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -142,8 +139,7 @@ struct pass_graph_sender
     };
   }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -200,8 +196,7 @@ struct pass_graph_async_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -211,8 +206,7 @@ struct pass_graph_async_sender
     };
   }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,

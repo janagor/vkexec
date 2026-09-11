@@ -3,12 +3,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec_extensions/descriptor_heap/buffer.hpp>
-#include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
+#include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 
 #include <vulkan/vulkan_core.h>
 

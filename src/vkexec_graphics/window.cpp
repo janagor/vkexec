@@ -2,10 +2,10 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
-#include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_wait_outcome.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_graphics/swapchain.hpp>
@@ -275,9 +275,7 @@ auto window::create_swapchain() -> status
         .height = framebuffer_height,
       }));
     if (outcome.error.has_value()) { return fail(std::move(*outcome.error)); }
-    if (outcome.stopped || !outcome.values.has_value()) {
-      return fail(errc::cancelled, "swapchain create stopped");
-    }
+    if (outcome.stopped || !outcome.values.has_value()) { return fail(errc::cancelled, "swapchain create stopped"); }
     swapchain_.emplace(detail::take_sync_value(std::move(*outcome.values)));
   } else if (auto recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
     return fail(recreated);

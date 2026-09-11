@@ -13,8 +13,7 @@ auto load_descriptor_heap_procs(VkDevice device) -> descriptor_heap_procs
   descriptor_heap_procs procs{};
   procs.write_resource_descriptors =
     resolve_device_proc<PFN_vkWriteResourceDescriptorsEXT>(device, "vkWriteResourceDescriptorsEXT");
-  procs.cmd_bind_resource_heap =
-    resolve_device_proc<PFN_vkCmdBindResourceHeapEXT>(device, "vkCmdBindResourceHeapEXT");
+  procs.cmd_bind_resource_heap = resolve_device_proc<PFN_vkCmdBindResourceHeapEXT>(device, "vkCmdBindResourceHeapEXT");
   procs.cmd_push_data = resolve_device_proc<PFN_vkCmdPushDataEXT>(device, "vkCmdPushDataEXT");
   return procs;
 }

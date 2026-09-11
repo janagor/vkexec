@@ -3,8 +3,8 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <stdexec/execution.hpp>
 

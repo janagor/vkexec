@@ -2,9 +2,9 @@
 #define VKEXEC_GRAPHICS_SWAPCHAIN_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <VkBootstrap.h>
 #include <vulkan/vulkan.h>

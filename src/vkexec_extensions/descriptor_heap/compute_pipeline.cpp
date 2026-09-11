@@ -9,14 +9,10 @@
 namespace vkexec {
 
 auto compute_heap_pass(compute_bind bind, dispatch groups) -> heap_compute_pass_closure
-{
-  return heap_compute_pass_closure{ .inner = compute_pass(bind, groups) };
-}
+{ return heap_compute_pass_closure{ .inner = compute_pass(bind, groups) }; }
 
 auto compute_heap_pass(compute_bind bind, indirect_dispatch groups) -> heap_compute_pass_closure
-{
-  return heap_compute_pass_closure{ .inner = compute_pass(bind, groups) };
-}
+{ return heap_compute_pass_closure{ .inner = compute_pass(bind, groups) }; }
 
 auto compute_heap_pass(heap_compute_pipeline const &pipe, std::uint32_t work_count) -> heap_compute_pass_closure
 { return compute_heap_pass(pipe.bind(), pipe.groups_for(work_count)); }

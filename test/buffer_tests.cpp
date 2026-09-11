@@ -69,8 +69,8 @@ TEST_CASE("buffer::allocate completes with set_stopped when stop is already requ
   source.request_stop();
 
   auto sender = vkexec::buffer_allocate_sender<float>{ .ctx = no_ctx, .count = k_count, .fill = k_fill };
-  auto const waited = vkexec::test::sync_wait_sender(
-    ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  auto const waited =
+    vkexec::test::sync_wait_sender(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
 

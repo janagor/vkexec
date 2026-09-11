@@ -1,24 +1,24 @@
+#include "sync_wait_helpers.hpp"
 #include <vkexec/barrier.hpp>
-#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec_extensions/descriptor_heap/buffer.hpp>
-#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
-#include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
-#include <vkexec_extensions/descriptor_heap/extension.hpp>
-#include <vkexec_extensions/extension.hpp>
-#include <vkexec_features/bundles/vulkan_13.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
-#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
-#include "sync_wait_helpers.hpp"
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
+#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
+#include <vkexec_extensions/dynamic_rendering/rendering.hpp>
+#include <vkexec_extensions/extension.hpp>
+#include <vkexec_features/bundles/vulkan_13.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -187,8 +187,8 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     "heap_present.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome = vkexec::try_sync_wait(ex::schedule(ctx.get_scheduler())
-                                        | vkexec::compute_heap_pass(pipe, params, k_work_count));
+  auto outcome =
+    vkexec::try_sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
   return !outcome.failed() && outcome.values.has_value() && !outcome.stopped;
 }
 

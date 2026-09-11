@@ -14,14 +14,11 @@
 
 namespace vkexec::test {
 
-inline auto skip_if_no_vulkan(error const &err) -> void
-{ SKIP(std::string("Vulkan unavailable: ") + err.message()); }
+inline auto skip_if_no_vulkan(error const &err) -> void { SKIP(std::string("Vulkan unavailable: ") + err.message()); }
 
-inline auto skip_if_unavailable(error const &err) -> void
-{ SKIP(std::string("Unavailable: ") + err.message()); }
+inline auto skip_if_unavailable(error const &err) -> void { SKIP(std::string("Unavailable: ") + err.message()); }
 
-template<class Sender>
-[[nodiscard]] auto sync_wait_value(Sender &&sender)
+template<class Sender> [[nodiscard]] auto sync_wait_value(Sender &&sender)
 {
   auto outcome = vkexec::try_sync_wait_value(std::forward<Sender>(sender));
   if (!outcome) { skip_if_no_vulkan(outcome.error()); }

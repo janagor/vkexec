@@ -1,4 +1,5 @@
-add_library(vkexec_ext_descriptor_heap
+add_library(
+  vkexec_ext_descriptor_heap
   descriptor_heap/descriptor_heap.cpp
   descriptor_heap/extension.cpp
   descriptor_heap/procs.cpp
@@ -12,14 +13,11 @@ add_library(vkexec::ext_descriptor_heap ALIAS vkexec_ext_descriptor_heap)
 add_library(vkexec_ext_dynamic_rendering dynamic_rendering/rendering.cpp)
 add_library(vkexec::ext_dynamic_rendering ALIAS vkexec_ext_dynamic_rendering)
 
-add_library(vkexec_ext_timeline_semaphore
-  timeline_semaphore/timeline_semaphore.cpp
-  timeline_semaphore/frame_ring.cpp)
+add_library(vkexec_ext_timeline_semaphore timeline_semaphore/timeline_semaphore.cpp timeline_semaphore/frame_ring.cpp)
 add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
 
-target_include_directories(
-  vkexec_ext_descriptor_heap
-  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_include_directories(vkexec_ext_descriptor_heap PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+                                                             $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(vkexec_ext_descriptor_heap PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
 
@@ -33,9 +31,8 @@ set_target_properties(
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)
 
-target_include_directories(
-  vkexec_ext_dynamic_rendering
-  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_include_directories(vkexec_ext_dynamic_rendering PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+                                                               $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
 
@@ -49,9 +46,8 @@ set_target_properties(
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)
 
-target_include_directories(
-  vkexec_ext_timeline_semaphore
-  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_include_directories(vkexec_ext_timeline_semaphore PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+                                                                $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(vkexec_ext_timeline_semaphore PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
 

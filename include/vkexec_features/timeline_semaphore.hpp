@@ -5,10 +5,11 @@
 
 namespace vkexec::feat {
 
-struct timeline_semaphore {};
+struct timeline_semaphore
+{
+};
 
-template<>
-struct feature_traits<timeline_semaphore>
+template<> struct feature_traits<timeline_semaphore>
 {
   [[nodiscard]] static constexpr auto name() -> std::string_view { return "timeline_semaphore"; }
   [[nodiscard]] static auto available(context const &ctx) -> bool;

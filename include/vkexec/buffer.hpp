@@ -1,9 +1,9 @@
 #ifndef VKEXEC_BUFFER_HPP
 #define VKEXEC_BUFFER_HPP
 
-#include <vkexec/result.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #ifndef VKEXEC_ENABLE_EXCEPTIONS
 #define VKEXEC_ENABLE_EXCEPTIONS 1
@@ -71,8 +71,7 @@ template<typename T> struct buffer_allocate_sender
     }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
   {
     return op_state<Receiver>{
       ctx,
@@ -82,8 +81,7 @@ template<typename T> struct buffer_allocate_sender
     };
   }
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
   {
     return op_state<Receiver>{
       ctx,
@@ -119,7 +117,7 @@ public:
     // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
     : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
       count_(other.count_), name_(std::move(other.name_))
-    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
+  // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
   {
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;

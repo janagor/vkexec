@@ -52,7 +52,8 @@ static auto run() -> int
   auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
     { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true }));
   auto mesh_data = vkexec::examples::sync_wait_value(vkexec::examples::load_gltf_mesh(k_gltf_path));
-  auto drawn = vkexec::examples::sync_wait_value(vkexec::mesh::create(win.ctx(), mesh_data.vertices, mesh_data.indices));
+  auto drawn =
+    vkexec::examples::sync_wait_value(vkexec::mesh::create(win.ctx(), mesh_data.vertices, mesh_data.indices));
 
   vkexec::graphics_pipeline_config const cfg{
     .depth_test = true,

@@ -27,8 +27,7 @@ auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> detail::
       return fail(errc::invalid_argument, "descriptor_heap_buffer requires a VMA allocator");
     }
     if (ctx.procs().get_buffer_device_address == nullptr) {
-      return fail(errc::unsupported,
-        "descriptor_heap_buffer requires vkGetBufferDeviceAddress on the device");
+      return fail(errc::unsupported, "descriptor_heap_buffer requires vkGetBufferDeviceAddress on the device");
     }
 
     VkBufferCreateInfo bci{};
@@ -51,13 +50,8 @@ auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> detail::
     VkBuffer buffer_handle{ VK_NULL_HANDLE };
     VmaAllocation allocation{ VK_NULL_HANDLE };
     VmaAllocationInfo ainfo{};
-    VkResult const create_result = vmaCreateBufferWithAlignment(ctx.allocator(),
-      &bci,
-      &aci,
-      k_heap_device_address_alignment,
-      &buffer_handle,
-      &allocation,
-      &ainfo);
+    VkResult const create_result = vmaCreateBufferWithAlignment(
+      ctx.allocator(), &bci, &aci, k_heap_device_address_alignment, &buffer_handle, &allocation, &ainfo);
     if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBufferWithAlignment failed"); }
 
     void *const mapped_ptr = ainfo.pMappedData;

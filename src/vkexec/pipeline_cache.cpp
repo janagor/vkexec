@@ -2,9 +2,9 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -179,9 +179,7 @@ pipeline_cache::~pipeline_cache()
 auto pipeline_cache::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<std::reference_wrapper<pipeline_resources>>
 {
-  if (spirv.empty()) {
-    return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V");
-  }
+  if (spirv.empty()) { return fail(errc::invalid_argument, "compute_pipeline::create requires non-empty SPIR-V"); }
   std::size_t const key = hash_spirv_layout(spirv, desc);
   {
     std::scoped_lock const lock(mutex_);

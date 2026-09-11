@@ -1,9 +1,9 @@
+#include "sync_wait_helpers.hpp"
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include "sync_wait_helpers.hpp"
 
 #include <stdexec/execution.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -102,124 +102,119 @@ struct particle_params
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create({ .width = k_window_width,
-      .height = k_window_height,
-      .title = "vkexec particles",
-      .validation_layers = true }));
-    auto &ctx = win.ctx();
+  auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true }));
+  auto &ctx = win.ctx();
 
-    auto pos_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto pos_y = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto vel_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto vel_y = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto col_r = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto col_g = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto col_b = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
-    auto col_a = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto pos_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto pos_y = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto vel_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto vel_y = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto col_r = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto col_g = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto col_b = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
+  auto col_a = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
 
-    {
-      // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
-      std::mt19937 rng{ k_rng_seed };
-      std::uniform_real_distribution<float> dist(0.0F, 1.0F);
-      // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      float *const pos_x_host = pos_x.data();
-      float *const pos_y_host = pos_y.data();
-      float *const vel_x_host = vel_x.data();
-      float *const vel_y_host = vel_y.data();
-      float *const col_r_host = col_r.data();
-      float *const col_g_host = col_g.data();
-      float *const col_b_host = col_b.data();
-      float *const col_a_host = col_a.data();
-      for (std::uint32_t index = 0; index < k_particle_count; ++index) {
-        float const radius = k_spawn_radius * std::sqrt(dist(rng));
-        float const theta = dist(rng) * k_two_pi;
-        float const spawn_x = radius * std::cos(theta) * k_aspect;
-        float const spawn_y = radius * std::sin(theta);
-        float const length = std::sqrt((spawn_x * spawn_x) + (spawn_y * spawn_y)) + k_epsilon;
-        pos_x_host[index] = spawn_x;
-        pos_y_host[index] = spawn_y;
-        vel_x_host[index] = (spawn_x / length) * k_initial_speed;
-        vel_y_host[index] = (spawn_y / length) * k_initial_speed;
-        col_r_host[index] = dist(rng);
-        col_g_host[index] = dist(rng);
-        col_b_host[index] = dist(rng);
-        col_a_host[index] = 1.0F;
-      }
-      // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+    std::mt19937 rng{ k_rng_seed };
+    std::uniform_real_distribution<float> dist(0.0F, 1.0F);
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    float *const pos_x_host = pos_x.data();
+    float *const pos_y_host = pos_y.data();
+    float *const vel_x_host = vel_x.data();
+    float *const vel_y_host = vel_y.data();
+    float *const col_r_host = col_r.data();
+    float *const col_g_host = col_g.data();
+    float *const col_b_host = col_b.data();
+    float *const col_a_host = col_a.data();
+    for (std::uint32_t index = 0; index < k_particle_count; ++index) {
+      float const radius = k_spawn_radius * std::sqrt(dist(rng));
+      float const theta = dist(rng) * k_two_pi;
+      float const spawn_x = radius * std::cos(theta) * k_aspect;
+      float const spawn_y = radius * std::sin(theta);
+      float const length = std::sqrt((spawn_x * spawn_x) + (spawn_y * spawn_y)) + k_epsilon;
+      pos_x_host[index] = spawn_x;
+      pos_y_host[index] = spawn_y;
+      vel_x_host[index] = (spawn_x / length) * k_initial_speed;
+      vel_y_host[index] = (spawn_y / length) * k_initial_speed;
+      col_r_host[index] = dist(rng);
+      col_g_host[index] = dist(rng);
+      col_b_host[index] = dist(rng);
+      col_a_host[index] = 1.0F;
     }
+    // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  }
 
-    using enum vkexec::buffer_access;
-    auto compute_pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(ctx,
-      k_particle_update_glsl,
-      vkexec::layout_desc{
-        .bindings = { readwrite, readwrite, readwrite, readwrite },
-        .push_constant_size = sizeof(particle_params),
-        .specialization = {},
-        .local_size = { k_local_size_x, 1, 1 },
-      },
-      "particle_update.comp"));
+  using enum vkexec::buffer_access;
+  auto compute_pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(ctx,
+    k_particle_update_glsl,
+    vkexec::layout_desc{
+      .bindings = { readwrite, readwrite, readwrite, readwrite },
+      .push_constant_size = sizeof(particle_params),
+      .specialization = {},
+      .local_size = { k_local_size_x, 1, 1 },
+    },
+    "particle_update.comp"));
 
-    std::array<vkexec::storage_binding, 4> const compute_buffers{
-      vkexec::storage_binding{
-        .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = pos_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_y.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = vel_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_x.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = vel_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_y.size() * sizeof(float)) },
-    };
-    auto compute_bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(compute_pipe, compute_buffers));
+  std::array<vkexec::storage_binding, 4> const compute_buffers{
+    vkexec::storage_binding{
+      .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = pos_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_y.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = vel_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_x.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = vel_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_y.size() * sizeof(float)) },
+  };
+  auto compute_bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(compute_pipe, compute_buffers));
 
-    vkexec::graphics_pipeline_config graphics_cfg{};
-    graphics_cfg.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-    graphics_cfg.alpha_blend = true;
-    graphics_cfg.clear_r = k_clear_r;
-    graphics_cfg.clear_g = k_clear_g;
-    graphics_cfg.clear_b = k_clear_b;
+  vkexec::graphics_pipeline_config graphics_cfg{};
+  graphics_cfg.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+  graphics_cfg.alpha_blend = true;
+  graphics_cfg.clear_r = k_clear_r;
+  graphics_cfg.clear_g = k_clear_g;
+  graphics_cfg.clear_b = k_clear_b;
 
-    std::array<vkexec::storage_binding, 6> const draw_buffers{
-      vkexec::storage_binding{
-        .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = pos_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_y.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = col_r.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_r.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = col_g.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_g.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = col_b.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_b.size() * sizeof(float)) },
-      vkexec::storage_binding{
-        .buffer = col_a.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_a.size() * sizeof(float)) },
-    };
+  std::array<vkexec::storage_binding, 6> const draw_buffers{
+    vkexec::storage_binding{
+      .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = pos_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_y.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = col_r.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_r.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = col_g.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_g.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = col_b.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_b.size() * sizeof(float)) },
+    vkexec::storage_binding{
+      .buffer = col_a.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_a.size() * sizeof(float)) },
+  };
 
-    auto gfx = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
-      ctx, win.render_pass(), graphics_cfg, k_particle_vert, k_particle_frag, draw_buffers));
+  auto gfx = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
+    ctx, win.render_pass(), graphics_cfg, k_particle_vert, k_particle_frag, draw_buffers));
 
-    auto last = std::chrono::steady_clock::now();
-    std::cout << std::format("vkexec particles (compute update + point sprites) - close the window to exit\n");
+  auto last = std::chrono::steady_clock::now();
+  std::cout << std::format("vkexec particles (compute update + point sprites) - close the window to exit\n");
 
-    while (!win.should_close()) {
-      win.poll_events();
+  while (!win.should_close()) {
+    win.poll_events();
 
-      auto const now = std::chrono::steady_clock::now();
-      float delta_time = std::chrono::duration<float>(now - last).count();
-      last = now;
-      delta_time = std::min(delta_time, k_max_delta_seconds);
-      particle_params const params{ delta_time };
+    auto const now = std::chrono::steady_clock::now();
+    float delta_time = std::chrono::duration<float>(now - last).count();
+    last = now;
+    delta_time = std::min(delta_time, k_max_delta_seconds);
+    particle_params const params{ delta_time };
 
-      vkexec::examples::sync_wait_graph(ex::schedule(ctx.get_scheduler())
-                                        | vkexec::compute_pass(compute_bound.pipe,
-                                          compute_bound.set,
-                                          params,
-                                          k_particle_count));
+    vkexec::examples::sync_wait_graph(
+      ex::schedule(ctx.get_scheduler())
+      | vkexec::compute_pass(compute_bound.pipe, compute_bound.set, params, k_particle_count));
 
-      vkexec::examples::sync_wait_graph(
-        ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
-    }
+    vkexec::examples::sync_wait_graph(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
+  }
 
-    win.wait_idle();
-    return 0;
+  win.wait_idle();
+  return 0;
 }
 
 auto main() -> int { return vkexec::examples::run_example(run); }

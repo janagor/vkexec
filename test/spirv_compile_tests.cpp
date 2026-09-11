@@ -29,24 +29,24 @@ void main() {}
 
 TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.0 for Vulkan 1.0", "[vkexec][spirv]")
 {
-  auto const spirv = vkexec::compile_glsl_to_spirv(
-    k_trivial_compute, "trivial.comp", vkexec::shader_kind::compute, VK_API_VERSION_1_0);
+  auto const spirv =
+    vkexec::compile_glsl_to_spirv(k_trivial_compute, "trivial.comp", vkexec::shader_kind::compute, VK_API_VERSION_1_0);
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version(*spirv) == 0x00010000U);
 }
 
 TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.5 for Vulkan 1.2", "[vkexec][spirv]")
 {
-  auto const spirv = vkexec::compile_glsl_to_spirv(
-    k_trivial_compute, "trivial.comp", vkexec::shader_kind::compute, VK_API_VERSION_1_2);
+  auto const spirv =
+    vkexec::compile_glsl_to_spirv(k_trivial_compute, "trivial.comp", vkexec::shader_kind::compute, VK_API_VERSION_1_2);
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version(*spirv) == 0x00010500U);
 }
 
 TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.6 for Vulkan 1.3", "[vkexec][spirv]")
 {
-  auto const spirv = vkexec::compile_glsl_to_spirv(
-    k_trivial_compute, "trivial.comp", vkexec::shader_kind::compute, VK_API_VERSION_1_3);
+  auto const spirv =
+    vkexec::compile_glsl_to_spirv(k_trivial_compute, "trivial.comp", vkexec::shader_kind::compute, VK_API_VERSION_1_3);
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version(*spirv) == 0x00010600U);
 }

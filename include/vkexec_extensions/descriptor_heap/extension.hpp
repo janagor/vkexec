@@ -5,10 +5,11 @@
 
 namespace vkexec::ext {
 
-struct descriptor_heap {};
+struct descriptor_heap
+{
+};
 
-template<>
-struct extension_traits<descriptor_heap>
+template<> struct extension_traits<descriptor_heap>
 {
   [[nodiscard]] static constexpr auto name() -> std::string_view { return "descriptor_heap"; }
   [[nodiscard]] static auto available(context const &ctx) -> bool;

@@ -120,8 +120,7 @@ template<typename T> [[nodiscard]] inline auto fail(result<T> const &value) -> u
 template<typename T> [[nodiscard, clang::suppress]] auto expected_take(result<T> &value) -> T
 { return std::move(*value); }
 
-template<typename T> [[nodiscard, clang::suppress]] auto expected_take(result<T> const &value) -> T
-{ return *value; }
+template<typename T> [[nodiscard, clang::suppress]] auto expected_take(result<T> const &value) -> T { return *value; }
 
 template<typename T> [[nodiscard, clang::suppress]] auto expected_get(result<T> &value) -> T & { return *value; }
 

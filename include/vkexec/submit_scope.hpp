@@ -1,13 +1,13 @@
 #ifndef VKEXEC_SUBMIT_SCOPE_HPP
 #define VKEXEC_SUBMIT_SCOPE_HPP
 
+#include <stdexec/execution.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
-#include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
@@ -59,9 +59,8 @@ namespace detail {
   auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
     -> void;
 
-  auto allocate_compute_set(context const &ctx,
-    pipeline_resources &pipe,
-    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>;
+  auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
+    -> result<VkDescriptorSet>;
 
   auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
@@ -114,8 +113,7 @@ namespace detail {
   };
 
   /// Wait for GPU work, destroy semaphore/fence. Safe when handles are null.
-  auto
-    reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+  auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
     -> void;
 
   /// Release cmd/descriptors, then deliver exactly one completion signal.

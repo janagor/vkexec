@@ -2,9 +2,9 @@
 #define VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_TIMELINE_SEMAPHORE_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -16,7 +16,8 @@ class timeline_semaphore;
 
 namespace detail {
 
-  [[nodiscard]] auto make_timeline_semaphore(context &ctx, std::uint64_t initial_value = 0) -> result<timeline_semaphore>;
+  [[nodiscard]] auto make_timeline_semaphore(context &ctx, std::uint64_t initial_value = 0)
+    -> result<timeline_semaphore>;
 
 }// namespace detail
 

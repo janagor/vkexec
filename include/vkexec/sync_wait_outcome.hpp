@@ -5,8 +5,7 @@
 
 namespace vkexec {
 
-template<class... Values>
-using sync_wait_outcome = detail::sync_wait_outcome<Values...>;
+template<class... Values> using sync_wait_outcome = detail::sync_wait_outcome<Values...>;
 
 }// namespace vkexec
 

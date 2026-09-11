@@ -12,8 +12,7 @@ namespace vkexec::detail {
 
 template<typename Sig> class move_only_function;
 
-template<typename R, typename... Args>
-class move_only_function<R(Args...)>
+template<typename R, typename... Args> class move_only_function<R(Args...)>
 {
 public:
   move_only_function() noexcept = default;
@@ -22,15 +21,12 @@ public:
   move_only_function(std::nullptr_t) noexcept {}
 
   template<typename F>
-    requires std::invocable<F &, Args...>
-          && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
-          && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
+    requires std::invocable<F &, Args...> && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
+             && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
   // cppcheck-suppress noExplicitConstructor
   // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
   move_only_function(F &&callable)
-  {
-    init(std::forward<F>(callable));
-  }
+  { init(std::forward<F>(callable)); }
 
   move_only_function(move_only_function &&other) noexcept { move_from(std::move(other)); }
 
@@ -45,9 +41,8 @@ public:
   }
 
   template<typename F>
-    requires std::invocable<F &, Args...>
-          && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
-          && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
+    requires std::invocable<F &, Args...> && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
+             && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
   auto operator=(F &&callable) -> move_only_function &
   {
     clear();
@@ -89,8 +84,7 @@ private:
   [[nodiscard]] auto storage() noexcept -> void * { return static_cast<void *>(buffer_); }
   [[nodiscard]] auto storage() const noexcept -> void const * { return static_cast<void const *>(buffer_); }
 
-  template<typename F>
-  static auto invoke(void *slot, Args... args) -> R
+  template<typename F> static auto invoke(void *slot, Args... args) -> R
   {
     if constexpr (std::is_void_v<R>) {
       std::invoke(*static_cast<F *>(slot), std::forward<Args>(args)...);
@@ -108,14 +102,9 @@ private:
     from->~F();
   }
 
-  template<typename F>
-  static void destroy_object(void *slot)
-  {
-    static_cast<F *>(slot)->~F();
-  }
+  template<typename F> static void destroy_object(void *slot) { static_cast<F *>(slot)->~F(); }
 
-  template<typename F>
-  void init(F &&callable)
+  template<typename F> void init(F &&callable)
   {
     using fn = std::remove_cvref_t<F>;
     if constexpr (sizeof(fn) <= k_buffer_size && alignof(fn) <= alignof(std::max_align_t)
