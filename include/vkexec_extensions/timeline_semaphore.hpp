@@ -4,6 +4,7 @@
 //! \file
 //! Umbrella for timeline semaphore helpers and the matching feature tag.
 
+#include <vkexec_extensions/timeline_semaphore/frame_present.hpp>
 #include <vkexec_extensions/timeline_semaphore/frame_ring.hpp>
 #include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
 #include <vkexec_features/timeline_semaphore.hpp>

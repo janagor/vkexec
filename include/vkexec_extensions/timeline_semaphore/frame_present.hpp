@@ -1,5 +1,5 @@
-#ifndef VKEXEC_GRAPHICS_FRAME_PRESENT_HPP
-#define VKEXEC_GRAPHICS_FRAME_PRESENT_HPP
+#ifndef VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_PRESENT_HPP
+#define VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_PRESENT_HPP
 
 //! \file
 //! Acquire / submit / present helpers using `frame_ring` + `swapchain`.
@@ -78,4 +78,4 @@ struct present_acquire_result
 
 }// namespace vkexec
 
-#endif// VKEXEC_GRAPHICS_FRAME_PRESENT_HPP
+#endif// VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_PRESENT_HPP

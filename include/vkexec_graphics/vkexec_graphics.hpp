@@ -5,7 +5,6 @@
 //! Optional GLFW swapchain / graphics pipeline layer for vkexec.
 
 #include <vkexec_graphics/draw.hpp>
-#include <vkexec_graphics/frame_present.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/swapchain.hpp>

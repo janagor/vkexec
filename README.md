@@ -196,7 +196,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII in core: `gpu_buffer`, `image` / `image_view` / `sampler`. Optional sync/present helpers (`timeline_semaphore`, `frame_ring`) live in `vkexec::ext_timeline_semaphore`; see extensions table below.
+Supporting RAII in core: `gpu_buffer`, `image` / `image_view` / `sampler`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
 
 ### Promoted features (`vkexec_features`)
 
@@ -255,9 +255,9 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 
 **Layer 1 — free functions** (adopt-everything embedders): proc lookup (`descriptor_heap_procs_for`), descriptor writes, `cmd_bind_resource_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
 
-**Layer 2 — RAII types** (vkexec-native apps): `timeline_semaphore`, `frame_ring`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
+**Layer 2 — RAII types** (vkexec-native apps): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
 
-**Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores or a present frame ring:
+**Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
 ```cpp
 #include <vkexec_features/timeline_semaphore.hpp>
@@ -265,6 +265,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 
 vkexec::feat::configure<vkexec::feat::timeline_semaphore>(req);
 auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
+// optional: acquire_present_frame(ring, chain, slot) / submit_and_present(...)
 ```
 
 **Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline with `heap_compute_pipeline`, allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data:

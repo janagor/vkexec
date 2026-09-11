@@ -13,7 +13,11 @@ add_library(vkexec::ext_descriptor_heap ALIAS vkexec_ext_descriptor_heap)
 add_library(vkexec_ext_dynamic_rendering dynamic_rendering/rendering.cpp)
 add_library(vkexec::ext_dynamic_rendering ALIAS vkexec_ext_dynamic_rendering)
 
-add_library(vkexec_ext_timeline_semaphore timeline_semaphore/timeline_semaphore.cpp timeline_semaphore/frame_ring.cpp)
+add_library(
+  vkexec_ext_timeline_semaphore
+  timeline_semaphore/timeline_semaphore.cpp
+  timeline_semaphore/frame_ring.cpp
+  timeline_semaphore/frame_present.cpp)
 add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
 
 target_include_directories(vkexec_ext_descriptor_heap PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -49,7 +53,9 @@ set_target_properties(
 target_include_directories(vkexec_ext_timeline_semaphore PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
                                                                 $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(vkexec_ext_timeline_semaphore PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
+target_link_libraries(
+  vkexec_ext_timeline_semaphore
+  PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features vkexec::vkexec_graphics)
 
 target_compile_features(vkexec_ext_timeline_semaphore PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
