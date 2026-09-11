@@ -1,6 +1,9 @@
 #ifndef VKEXEC_COPY_HPP
 #define VKEXEC_COPY_HPP
 
+//! \file
+//! Buffer copy helpers for command recording and host→device upload.
+
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/result.hpp>
@@ -12,7 +15,16 @@
 
 namespace vkexec {
 
-/// Record `vkCmdCopyBuffer` between two buffer handles.
+/**
+ * Records `vkCmdCopyBuffer` for a single region between two buffer handles.
+ *
+ * @param cmd Command buffer currently in the recording state.
+ * @param src Source buffer handle.
+ * @param dst Destination buffer handle.
+ * @param size Number of bytes to copy.
+ * @param src_offset Byte offset in `src`.
+ * @param dst_offset Byte offset in `dst`.
+ */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 inline auto cmd_copy_buffer(VkCommandBuffer cmd,
   VkBuffer src,
@@ -29,7 +41,14 @@ inline auto cmd_copy_buffer(VkCommandBuffer cmd,
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
-/// Host-write `bytes` into `staging`, copy to `device`, and block until complete.
+/**
+ * Writes `bytes` into host-visible `staging`, copies to `device`, and blocks until complete.
+ *
+ * @param ctx Context used for submit-and-wait.
+ * @param staging Host-visible staging buffer large enough for `bytes`.
+ * @param device Device-local destination buffer.
+ * @param bytes Host bytes to upload (must fit in both buffers).
+ */
 [[nodiscard]] auto
   upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &device, std::span<std::byte const> bytes)
     -> status;

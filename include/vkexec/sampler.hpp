@@ -9,6 +9,7 @@
 
 namespace vkexec {
 
+//! Creation parameters for `sampler::create` (defaults to linear clamp-to-edge).
 struct sampler_create_info
 {
   VkFilter mag_filter{ VK_FILTER_LINEAR };
@@ -20,10 +21,20 @@ struct sampler_create_info
   float max_anisotropy{ 1.0F };
 };
 
-/// RAII `VkSampler`.
+/**
+ * RAII `VkSampler` owned by a `context` device.
+ *
+ * @see sampler_create_info
+ */
 class sampler
 {
 public:
+  /**
+   * Creates a sampler from `info`.
+   *
+   * @param ctx Context that owns the device.
+   * @param info Filter and addressing parameters.
+   */
   [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> detail::sync_sender_fn<sampler>;
 
   ~sampler();
@@ -34,6 +45,7 @@ public:
   sampler(sampler &&other) noexcept;
   auto operator=(sampler &&other) noexcept -> sampler &;
 
+  //! Vulkan sampler handle (null after move).
   [[nodiscard]] auto handle() const noexcept -> VkSampler { return sampler_; }
 
 private:

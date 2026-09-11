@@ -1,6 +1,9 @@
 #ifndef VKEXEC_BUFFER_HPP
 #define VKEXEC_BUFFER_HPP
 
+//! \file
+//! Typed host-visible storage buffers allocated via VMA.
+
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -32,7 +35,14 @@ namespace ex = stdexec;
 
 template<typename T> class buffer;
 
-/// Sender that allocates a host-visible storage buffer and completes with ownership of it.
+/**
+ * Sender that allocates a host-visible storage buffer and completes with ownership of it.
+ *
+ * Completes with `set_stopped` when the stop token is already requested, otherwise
+ * `set_value(buffer<T>)` or `set_error`.
+ *
+ * @see buffer::allocate
+ */
 template<typename T> struct buffer_allocate_sender
 {
   using sender_concept = ex::sender_t;
@@ -92,14 +102,30 @@ template<typename T> struct buffer_allocate_sender
   }
 };
 
+/**
+ * Typed host-visible `VK_BUFFER_USAGE_STORAGE_BUFFER_BIT` buffer.
+ *
+ * Elements are trivially copyable `T`. Creation fills every element with the
+ * provided value. Persistently mapped for host access via `data()`.
+ *
+ * Prefer `allocate` / `create` senders over constructing directly.
+ *
+ * @see buffer_allocate_sender, gpu_buffer
+ */
 template<typename T> class buffer
 {
 public:
-  /// Lazy allocate: describes buffer creation; runs in `start()` and completes with a `buffer`.
+  /**
+   * Returns a sender that allocates `count` elements filled with `fill`.
+   *
+   * @param ctx Context whose VMA allocator owns the buffer.
+   * @param count Element count (must be > 0).
+   * @param fill Initial value written to every element.
+   */
   [[nodiscard]] static auto allocate(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
   { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
 
-  /// Async-object factory sender (same as `allocate`).
+  //! Async-object factory sender (same as `allocate`).
   [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
   { return allocate(ctx, count, std::move(fill)); }
 
@@ -147,10 +173,15 @@ public:
     return *this;
   }
 
+  //! Persistently mapped host pointer to `size()` elements.
   [[nodiscard]] auto data() noexcept -> T * { return static_cast<T *>(mapped_); }
+  //! Persistently mapped const host pointer.
   [[nodiscard]] auto data() const noexcept -> T const * { return static_cast<T const *>(mapped_); }
+  //! Number of `T` elements.
   [[nodiscard]] auto size() const noexcept -> std::size_t { return count_; }
+  //! Vulkan buffer handle.
   [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return buffer_; }
+  //! Debug name assigned at allocation.
   [[nodiscard]] auto name() const noexcept -> std::string const & { return name_; }
 
 private:

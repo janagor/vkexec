@@ -1,6 +1,9 @@
 #ifndef VKEXEC_IMAGE_HPP
 #define VKEXEC_IMAGE_HPP
 
+//! \file
+//! Untyped VMA images for offscreen (non-swapchain) targets.
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -12,13 +15,23 @@
 
 namespace vkexec {
 
+/**
+ * Usage preset for offscreen `image` allocations.
+ *
+ * @see image_create_info, image
+ */
 enum class image_usage : std::uint8_t {
-  /// Device-local color target usable as storage image and color attachment.
+  //! Device-local color target usable as storage image and color attachment.
   color_storage,
-  /// Device-local depth attachment.
+  //! Device-local depth attachment.
   depth,
 };
 
+/**
+ * Creation parameters for `image::create`.
+ *
+ * When `format` is `VK_FORMAT_UNDEFINED`, a default format for `usage` is chosen.
+ */
 struct image_create_info
 {
   std::uint32_t width{ 1 };
@@ -27,10 +40,22 @@ struct image_create_info
   VkFormat format{ VK_FORMAT_UNDEFINED };
 };
 
-/// Untyped VMA image for offscreen targets (non-swapchain).
+/**
+ * Untyped VMA image for offscreen targets (not swapchain images).
+ *
+ * Move-only; destroys via VMA when owned. Create views with `image_view`.
+ *
+ * @see image_view, image_create_info
+ */
 class image
 {
 public:
+  /**
+   * Creates a device-local image described by `info`.
+   *
+   * @param ctx Context whose VMA allocator owns the allocation.
+   * @param info Extent, usage, and optional format override.
+   */
   [[nodiscard]] static auto create(context &ctx, image_create_info info) -> detail::sync_sender_fn<image>;
 
   ~image();
@@ -41,9 +66,13 @@ public:
   image(image &&other) noexcept;
   auto operator=(image &&other) noexcept -> image &;
 
+  //! Vulkan image handle (null after move).
   [[nodiscard]] auto handle() const noexcept -> VkImage { return image_; }
+  //! Image format chosen at creation.
   [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
+  //! Image extent in pixels.
   [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
+  //! Usage preset used at creation.
   [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
 
 private:
