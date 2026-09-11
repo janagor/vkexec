@@ -50,6 +50,7 @@ namespace barrier {
 
   auto compute_to_compute_t::operator()(VkCommandBuffer cmd) const -> void
   {
+    // Include DRAW_INDIRECT so a following indirect dispatch sees prior shader writes.
     memory_barrier(cmd,
       {
         .src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,

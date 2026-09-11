@@ -28,6 +28,7 @@ auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::
   if (bind.set != VK_NULL_HANDLE) {
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
   }
+  // Heap bindless pipelines pass a null layout; push constants require a real layout.
   if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
 }
@@ -88,6 +89,7 @@ namespace detail {
     auto opened = submit_scope::open(*ctx);
     if (!opened) { return detail::fail(opened); }
     submit_scope scope = detail::expected_take(opened);
+    // Release loans on record failure so callers never see a half-open scope.
     if (auto recorded = record_pass_steps(scope, steps); !recorded) {
       scope.release();
       return detail::fail(recorded);

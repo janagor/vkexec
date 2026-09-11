@@ -20,6 +20,7 @@ namespace vkexec::detail {
 
 auto descriptor_cleanup::release(context const &ctx) noexcept -> void
 {
+  // Host lock matches allocate path; pool frees must be serialized with submits.
   std::unique_lock const lock = ctx.lock_host();
   for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
   allocated.clear();
@@ -78,6 +79,7 @@ auto bind_or_allocate_set(context const &ctx,
   std::span<storage_binding const> buffers,
   descriptor_cleanup &cleanup) -> detail::result<VkDescriptorSet>
 {
+  // Reuse a set already allocated for this pipeline in the same submit when bindings match.
   if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
     if (storage_bindings_equal(found->second.buffers, buffers)) { return found->second.set; }
   }
@@ -123,6 +125,7 @@ auto submit_scope::end_recording() -> detail::status
 
 auto submit_scope::release() noexcept -> void
 {
+  // Always free cmd before descriptors so a failed submit still returns loans.
   if (ctx == nullptr) { return; }
   if (cmd != VK_NULL_HANDLE) {
     ctx->free_command_buffer(cmd);
@@ -132,6 +135,7 @@ auto submit_scope::release() noexcept -> void
   ctx = nullptr;
 }
 
+// Same reclaim order as completion_waiter: wait, then destroy owned sync objects.
 auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
   -> void
 {
