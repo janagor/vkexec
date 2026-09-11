@@ -101,12 +101,14 @@ auto frame_ring::operator=(frame_ring &&other) noexcept -> frame_ring &
 
 auto frame_ring::resize_images(std::size_t image_count) -> status
 {
+  // Slot acquire semaphores and the timeline counter stay; only per-image present sync is rebuilt.
   destroy_image_semaphores();
   return create_image_semaphores(image_count);
 }
 
 auto frame_ring::reset_completion_tracking() -> void
 {
+  // After device idle + swapchain recreate, prior timeline values are obsolete.
   std::ranges::fill(slot_timeline_value_, 0);
   std::ranges::fill(image_timeline_value_, 0);
   next_timeline_value_ = 0;
@@ -138,12 +140,14 @@ auto frame_ring::wait_image(std::size_t image_index) const -> status
 
 auto frame_ring::allocate_signal_value() -> std::uint64_t
 {
+  // Monotonic counter; never reuse a value while GPU work may still be in flight.
   ++next_timeline_value_;
   return next_timeline_value_;
 }
 
 auto frame_ring::mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> status
 {
+  // Subsequent wait_slot / wait_image block until this timeline value is reached.
   VKEXEC_TRY(check_slot(slot));
   VKEXEC_TRY(check_image(image_index));
   slot_timeline_value_.at(slot) = signal_value;
@@ -165,6 +169,7 @@ auto frame_ring::make_submit_sync(std::size_t slot,
   }
 
   frame_ring_submit_sync sync{};
+  // Binary acquire wait + binary present signal + timeline completion signal.
   sync.waits = { semaphore_submit{
     .semaphore = acquire_.at(slot),
     .value = 0,
