@@ -25,6 +25,7 @@ auto feature_traits<dynamic_rendering>::available(context const &ctx) -> bool
 
 auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> void
 {
+  // Prefer core 1.3 feature struct; otherwise require the KHR extension + feature.
   if (api_at_least(req, k_promotion.core_major, k_promotion.core_minor)) {
     VkPhysicalDeviceVulkan13Features features_13{};
     features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;

@@ -11,6 +11,7 @@ auto physical_device_timeline_semaphore(VkPhysicalDevice physical_device, std::u
 {
   if (physical_device == VK_NULL_HANDLE) { return false; }
 
+  // Query the matching feature struct for the API the context negotiated.
   if (api_at_least(api_version, 1, 2)) {
     VkPhysicalDeviceVulkan12Features features_12{};
     features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;

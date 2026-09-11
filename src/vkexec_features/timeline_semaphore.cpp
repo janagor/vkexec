@@ -25,6 +25,7 @@ auto feature_traits<timeline_semaphore>::available(context const &ctx) -> bool
 
 auto feature_traits<timeline_semaphore>::configure(vulkan_requirements &req) -> void
 {
+  // Prefer core 1.2 feature struct; otherwise require the KHR extension + feature.
   if (api_at_least(req, k_promotion.core_major, k_promotion.core_minor)) {
     VkPhysicalDeviceVulkan12Features features_12{};
     features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
