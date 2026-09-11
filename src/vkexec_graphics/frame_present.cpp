@@ -22,6 +22,7 @@ auto acquire_present_frame(frame_ring &ring,
 {
   VKEXEC_TRY(ring.wait_slot(slot));
 
+  // Acquire signals the per-slot binary semaphore that make_submit_sync waits on.
   auto acquire_sem = ring.acquire_semaphore(slot);
   if (!acquire_sem) { return fail(acquire_sem); }
 
@@ -62,6 +63,7 @@ auto submit_and_present(context &ctx,
     .signals = frame.submit_sync.signals,
     .queue = submit_queue,
   }));
+  // Record completion before present so a later wait_slot sees this submit's timeline value.
   VKEXEC_TRY(ring.mark_submitted(frame.slot, frame.image_index, frame.timeline_value));
 
   auto const finished = ring.render_finished_semaphore(frame.image_index);

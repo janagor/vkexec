@@ -72,6 +72,7 @@ auto graphics_pipeline::create(context &ctx,
     [&ctx,
       render_pass,
       cfg,
+      // Own SPIR-V/bindings: the sender may run after the caller's spans are gone.
       vertex_spirv = std::vector(vertex_spirv.begin(), vertex_spirv.end()),
       fragment_spirv = std::vector(fragment_spirv.begin(), fragment_spirv.end()),
       owned = std::vector(buffers.begin(), buffers.end()),

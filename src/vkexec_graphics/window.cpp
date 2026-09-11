@@ -539,12 +539,14 @@ auto window::recreate_swapchain() -> status
     int width = 0;
     int height = 0;
     glfwGetFramebufferSize(glfw_, &width, &height);
+    // Block while minimized: a zero-extent swapchain is illegal.
     while (width == 0 || height == 0) {
       glfwGetFramebufferSize(glfw_, &width, &height);
       glfwWaitEvents();
     }
   }
 
+  // Idle before destroying framebuffers/views that may still be referenced by in-flight frames.
   vkDeviceWaitIdle(ctx_->device());
 
   for (VkFramebuffer framebuffer : framebuffers_) {
@@ -574,11 +576,13 @@ auto window::begin_frame() -> result<std::optional<frame>>
   auto acquired = active_swapchain.acquire_next_image(sync.image_available);
   if (!acquired) { return fail(acquired); }
   if (!acquired->has_value()) {
+    // OUT_OF_DATE / SUBOPTIMAL: recreate and ask the caller to retry next loop.
     if (auto recreated = recreate_swapchain(); !recreated) { return fail(recreated); }
     return std::optional<frame>{};
   }
   std::uint32_t const image_index = **acquired;
 
+  // Wait if a previous frame is still using this swapchain image.
   if (images_in_flight_.at(image_index) != VK_NULL_HANDLE) {
     if (VkResult const wait_result =
           vkWaitForFences(ctx_->device(), 1, &images_in_flight_.at(image_index), VK_TRUE, UINT64_MAX);
@@ -637,10 +641,12 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   if (!present_result) { return fail(present_result); }
   bool const needs_recreate = !*present_result || framebuffer_resized_;
   if (needs_recreate) {
+    // Recreate after present so the returned fence still refers to this frame's submit.
     framebuffer_resized_ = false;
     if (auto recreated = recreate_swapchain(); !recreated) { return fail(recreated); }
   }
 
+  // Caller may enqueue_borrowed_fence_wait on this fence; window retains ownership.
   VkFence submitted = sync.in_flight;
   frame_index_ = (frame_index_ + 1) % static_cast<std::uint32_t>(k_frames);
   frame_open_ = false;
