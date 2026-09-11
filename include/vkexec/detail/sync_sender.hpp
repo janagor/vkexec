@@ -1,6 +1,9 @@
 #ifndef VKEXEC_DETAIL_SYNC_SENDER_HPP
 #define VKEXEC_DETAIL_SYNC_SENDER_HPP
 
+//! \file
+//! Eager factory senders that run a `result`-returning callable in `start()`.
+
 #include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 
@@ -15,6 +18,13 @@ namespace vkexec::detail {
 
 namespace ex = stdexec;
 
+/**
+ * Sender that invokes `factory` in `start()` and completes with its `result<Value>`.
+ *
+ * Honours stop tokens with `set_stopped`. Used by most `Type::create` APIs.
+ *
+ * @see make_sync_sender, sync_sender_fn
+ */
 template<class Value, class Factory>
   requires std::invocable<Factory>
            && std::same_as<detail::result<std::remove_cvref_t<Value>>, std::invoke_result_t<Factory>>
@@ -58,10 +68,16 @@ struct sync_sender
   { return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) }; }
 };
 
+//! Builds a `sync_sender` from a factory returning `result<Value>`.
 template<class Value, class Factory>
 [[nodiscard]] auto make_sync_sender(Factory &&factory) -> sync_sender<Value, std::remove_cvref_t<Factory>>
 { return sync_sender<Value, std::remove_cvref_t<Factory>>{ .factory = std::forward<Factory>(factory) }; }
 
+/**
+ * Sender that invokes a `status`-returning factory in `start()`.
+ *
+ * Completes with `set_value()` on success, `set_error` on failure, or `set_stopped`.
+ */
 template<class Factory>
   requires std::invocable<Factory> && std::same_as<detail::status, std::invoke_result_t<Factory>>
 struct sync_void_sender
@@ -103,21 +119,26 @@ struct sync_void_sender
   { return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) }; }
 };
 
+//! Builds a `sync_void_sender` from a factory returning `status`.
 template<class Factory>
 [[nodiscard]] auto make_sync_void_sender(Factory &&factory) -> sync_void_sender<std::remove_cvref_t<Factory>>
 { return sync_void_sender<std::remove_cvref_t<Factory>>{ .factory = std::forward<Factory>(factory) }; }
 
+//! Type-erased `sync_sender` using `std::function` as the factory.
 template<class Value>
 using sync_sender_fn =
   sync_sender<std::remove_cvref_t<Value>, std::function<detail::result<std::remove_cvref_t<Value>>()>>;
 
+//! Type-erased `sync_void_sender` using `std::function` as the factory.
 using sync_void_sender_fn = sync_void_sender<std::function<detail::status()>>;
 
+//! Builds a type-erased `sync_sender_fn` from a `std::function` factory.
 template<class Value>
 [[nodiscard]] inline auto make_sync_sender_fn(std::function<detail::result<std::remove_cvref_t<Value>>()> factory)
   -> sync_sender_fn<Value>
 { return sync_sender_fn<Value>{ .factory = std::move(factory) }; }
 
+//! Builds a type-erased `sync_void_sender_fn` from a `std::function` factory.
 [[nodiscard]] inline auto make_sync_void_sender_fn(std::function<detail::status()> factory) -> sync_void_sender_fn
 { return sync_void_sender_fn{ .factory = std::move(factory) }; }
 

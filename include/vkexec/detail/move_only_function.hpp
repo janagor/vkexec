@@ -1,6 +1,9 @@
 #ifndef VKEXEC_DETAIL_MOVE_ONLY_FUNCTION_HPP
 #define VKEXEC_DETAIL_MOVE_ONLY_FUNCTION_HPP
 
+//! \file
+//! Small-buffer move-only type-erased callable (like `std::move_only_function`).
+
 #include <cassert>
 #include <cstddef>
 #include <functional>
@@ -12,6 +15,15 @@ namespace vkexec::detail {
 
 template<typename Sig> class move_only_function;
 
+/**
+ * Move-only type-erased callable with small-buffer optimization.
+ *
+ * Used for host-agent and fence-wait callbacks that must not be copyable.
+ * Empty when default-constructed or assigned `nullptr`.
+ *
+ * @tparam R Return type.
+ * @tparam Args Parameter types.
+ */
 template<typename R, typename... Args> class move_only_function<R(Args...)>
 {
 public:
