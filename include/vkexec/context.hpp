@@ -1,6 +1,9 @@
 #ifndef VKEXEC_CONTEXT_HPP
 #define VKEXEC_CONTEXT_HPP
 
+//! \file
+//! Vulkan device context: queues, VMA, command pool, and host/completion agents.
+
 #include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/device_procs.hpp>
@@ -36,14 +39,31 @@ namespace detail {
   class host_agent;
 }// namespace detail
 
-/// Options passed when creating a `context`.
+/**
+ * Options passed when creating a `context`.
+ *
+ * Library baseline requirements are merged with `requirements` at create time;
+ * user requirements never remove library floors.
+ *
+ * @see context::create, vulkan_requirements
+ */
 struct scheduler_options
 {
+  //! When true, enables Vulkan validation layers if available.
   bool validation_layers{ false };
+  //! Extra instance/device extensions and features requested by the caller.
   vulkan_requirements requirements{};
 };
 
-/// Handles borrowed from an embedder. vkexec never destroys these.
+/**
+ * Handles borrowed from an embedder when adopting an existing Vulkan device.
+ *
+ * vkexec never destroys these objects. Queues and family indices must be valid
+ * for the provided device; optional graphics/present queues may be null when
+ * presentation is unused.
+ *
+ * @see context::adopt
+ */
 struct context_adopt_info
 {
   VkInstance instance{ VK_NULL_HANDLE };
@@ -61,16 +81,47 @@ struct context_adopt_info
   std::uint32_t present_queue_family{ 0 };
 };
 
+/**
+ * Owns (or adopts) the Vulkan instance/device, queues, VMA allocator, and host
+ * agents used by vkexec senders.
+ *
+ * Create with `context::create()` for a compute-only device, or `context::adopt()`
+ * to wrap embedder-owned handles. Most GPU work is scheduled via
+ * `get_scheduler()` and completed with `sync_wait`.
+ *
+ * Thread safety: command-pool, descriptor-pool, and queue submits must be
+ * serialized with `lock_host()` (or use the provided sender adaptors).
+ *
+ * ~~~~~~~~~~~{.cpp}
+ * auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create()));
+ * auto sched = ctx->get_scheduler();
+ * ~~~~~~~~~~~
+ *
+ * @see scheduler, sync_wait, vulkan_requirements
+ */
 class context
 {
 public:
   ~context();
 
-  /// Compute-only context (no window / swapchain). Completes with `set_error(errc::unsupported)` when device
-  /// selection or feature negotiation fails.
+  /**
+   * Creates a compute-only context (no window / swapchain).
+   *
+   * Completes with `set_error(errc::unsupported)` when device selection or
+   * feature negotiation fails.
+   *
+   * @param opts Validation and extra Vulkan requirements.
+   * @return Sender that completes with `unique_ptr<context>` on success.
+   */
   [[nodiscard]] static auto create(scheduler_options const &opts = {})
     -> detail::sync_sender_fn<std::unique_ptr<context>>;
 
+  /**
+   * Adopts embedder-owned Vulkan handles without taking destruction ownership.
+   *
+   * @param info Borrowed instance, device, allocator, and queues.
+   * @return Sender that completes with `unique_ptr<context>` on success.
+   */
   [[nodiscard]] static auto adopt(context_adopt_info const &info) -> detail::sync_sender_fn<std::unique_ptr<context>>;
 
   context(context const &) = delete;
@@ -78,44 +129,112 @@ public:
   context(context &&) noexcept = delete;
   auto operator=(context &&) noexcept -> context & = delete;
 
+  //! Returns a scheduler whose completions run on this context's host agent.
   [[nodiscard]] auto get_scheduler() noexcept -> scheduler;
 
+  //! Borrowed Vulkan instance handle.
   [[nodiscard]] auto instance() const noexcept -> VkInstance { return instance_.instance; }
+  //! Borrowed physical device handle.
   [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice { return physical_device_.physical_device; }
+  //! Borrowed logical device handle.
   [[nodiscard]] auto device() const noexcept -> VkDevice { return device_.device; }
+  //! Mutable VkBootstrap device wrapper.
   [[nodiscard]] auto vkb_device() noexcept -> vkb::Device & { return device_; }
+  //! Const VkBootstrap device wrapper.
   [[nodiscard]] auto vkb_device() const noexcept -> vkb::Device const & { return device_; }
+  //! Compute queue used for dispatch and most submits.
   [[nodiscard]] auto compute_queue() const noexcept -> VkQueue { return compute_queue_; }
+  //! Graphics queue when presentation or graphics work is enabled; may be null.
   [[nodiscard]] auto graphics_queue() const noexcept -> VkQueue { return graphics_queue_; }
+  //! Present queue when swapchain presentation is enabled; may be null.
   [[nodiscard]] auto present_queue() const noexcept -> VkQueue { return present_queue_; }
+  //! Queue family index for `compute_queue()`.
   [[nodiscard]] auto queue_family() const noexcept -> std::uint32_t { return queue_family_; }
+  //! Queue family index for `graphics_queue()`.
   [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t { return graphics_family_; }
+  //! Queue family index for `present_queue()`.
   [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t { return present_family_; }
+  //! Shared command pool for transient primary command buffers.
   [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool { return command_pool_; }
+  //! VMA allocator used for buffers and images.
   [[nodiscard]] auto allocator() const noexcept -> VmaAllocator { return allocator_; }
+  //! True when graphics/present queues were configured for swapchain use.
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
+  //! Effective Vulkan requirements after merging library baselines.
   [[nodiscard]] auto requirements() const noexcept -> vulkan_requirements const & { return requirements_; }
+  //! Negotiated Vulkan API version for this device.
   [[nodiscard]] auto api_version() const noexcept -> std::uint32_t { return api_version_; }
+  //! Core device function pointers loaded via `vkGetDeviceProcAddr`.
   [[nodiscard]] auto procs() const noexcept -> device_procs const & { return procs_; }
 
+  /**
+   * Returns a cached compute pipeline built from `spirv`, creating it on first use.
+   *
+   * @param spirv SPIR-V words for the compute shader.
+   * @param desc Descriptor and push-constant layout for the pipeline.
+   * @return Reference to cached `pipeline_resources`, or an error.
+   */
   [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
     -> result<std::reference_wrapper<pipeline_resources>>;
 
+  /**
+   * Allocates a primary command buffer from the context command pool.
+   *
+   * Caller must return it with `free_command_buffer`. Hold `lock_host()` across
+   * allocate/record/submit when sharing the context across threads.
+   */
   [[nodiscard]] auto allocate_command_buffer() -> result<VkCommandBuffer>;
+
+  //! Returns `cmd` to the context command pool.
   auto free_command_buffer(VkCommandBuffer cmd) -> void;
 
-  /// Serializes command-pool, descriptor-pool, and queue submits across host threads.
+  /**
+   * Locks the host mutex that serializes command-pool, descriptor-pool, and
+   * queue submits across host threads.
+   */
   [[nodiscard]] auto lock_host() const -> std::unique_lock<std::mutex>;
 
+  /**
+   * Submits `cmd` and blocks until the GPU finishes.
+   *
+   * @param cmd Primary command buffer previously begun and ended by the caller.
+   */
   [[nodiscard]] auto submit_and_wait(VkCommandBuffer cmd) -> status;
+
+  /**
+   * Submits `cmd` without blocking; optionally returns a binary semaphore and fence.
+   *
+   * When non-null, `out_semaphore` and `out_fence` receive newly created handles
+   * owned by the caller (or by a later `enqueue_fence_wait` path).
+   *
+   * @param cmd Recorded primary command buffer.
+   * @param out_semaphore Optional destination for a signalled binary semaphore.
+   * @param out_fence Optional destination for a fence signalled on completion.
+   */
   [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence = nullptr)
     -> status;
-  /// Submit with optional binary/timeline wait and signal semaphores.
+
+  /**
+   * Submits work described by `info` (command buffers plus optional wait/signal
+   * binary or timeline semaphores).
+   *
+   * @param info Queue submit description.
+   * @return Failure if `vkQueueSubmit` fails.
+   */
   [[nodiscard]] auto submit(queue_submit const &info) const -> status;
 
-  /// Wait for a submitted fence on the context completion agent, then invoke `on_done`.
-  /// Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
-  /// Choose `set_stopped` / `set_value` / `set_error` only after reclaiming cmd/descriptor loans too.
+  /**
+   * Waits for a submitted fence on the context completion agent, then invokes `on_done`.
+   *
+   * Always waits for the GPU and destroys `semaphore`/`fence` before the callback.
+   * Choose `set_stopped` / `set_value` / `set_error` only after reclaiming command
+   * buffer and descriptor loans too.
+   *
+   * @param semaphore Binary semaphore destroyed after the wait (may be null).
+   * @param fence Fence destroyed after the wait.
+   * @param token Stop token polled while waiting.
+   * @param on_done Callback receiving optional error and a stopped flag.
+   */
   template<class StopToken, class Done>
   [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
@@ -129,7 +248,13 @@ public:
       detail::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
   }
 
-  /// Wait for a caller-owned fence on the completion agent (does not destroy the fence).
+  /**
+   * Waits for a caller-owned fence on the completion agent without destroying it.
+   *
+   * @param fence Fence borrowed from the caller.
+   * @param token Stop token polled while waiting.
+   * @param on_done Callback receiving optional error and a stopped flag.
+   */
   template<class StopToken, class Done>
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
@@ -142,10 +267,15 @@ public:
       detail::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
   }
 
-  /// Run `task` on the context host agent (schedule completions land here).
+  /**
+   * Runs `task` on the context host agent (schedule completions land here).
+   *
+   * @param task Callable invoked on the host agent thread.
+   */
   template<class Task> [[nodiscard]] auto enqueue_host(Task &&task) -> status
   { return do_enqueue_host(detail::move_only_function<void()>{ std::forward<Task>(task) }); }
 
+  //! Returns the thread id of the host agent, creating it if needed.
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:

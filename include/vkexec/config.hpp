@@ -6,7 +6,14 @@
 
 namespace vkexec::detail {
 
-/// Unrecoverable internal invariant violation (debug builds assert first).
+/**
+ * Reports an unrecoverable internal invariant violation.
+ *
+ * Debug builds assert first; then the process aborts. Prefer returning
+ * `result` / `status` failures for recoverable API errors.
+ *
+ * @param message Human-readable reason (must not be null).
+ */
 [[noreturn]] inline auto contract_violation(char const *message) noexcept -> void
 {
   assert(message != nullptr && false);

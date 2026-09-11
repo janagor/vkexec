@@ -9,7 +9,14 @@ namespace vkexec {
 
 namespace ex = stdexec;
 
-/// Scheduler domain: algorithms can rewrite senders to Vulkan-native forms (nvexec-style).
+/**
+ * Scheduler domain that may rewrite senders into Vulkan-native forms.
+ *
+ * When a `lower_vkexec_sender` overload exists for an algorithm tag, the domain
+ * calls it; otherwise it forwards to `stdexec::default_domain` (nvexec-style).
+ *
+ * @see scheduler
+ */
 struct domain
 {
   template<class OpTag, class Sender, class Env>

@@ -1,6 +1,9 @@
 #ifndef VKEXEC_SCHEDULER_HPP
 #define VKEXEC_SCHEDULER_HPP
 
+//! \file
+//! stdexec scheduler that completes on a `context` host agent.
+
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
@@ -19,7 +22,12 @@ namespace ex = stdexec;
 
 class scheduler;
 
-/// Sender attributes: value completions finish on this context's scheduler.
+/**
+ * Sender environment: value completions finish on this context's scheduler.
+ *
+ * Also advertises the vkexec `domain` so algorithms can lower to Vulkan-native
+ * senders when overloads exist.
+ */
 struct scheduler_env
 {
   context *ctx{ nullptr };
@@ -36,6 +44,12 @@ struct scheduler_env
   [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
 };
 
+/**
+ * Sender produced by `scheduler::schedule()`.
+ *
+ * Completes with `set_value()` on the context host agent, or `set_error` if
+ * enqueueing the host task fails. A null `ctx` completes inline with `set_value`.
+ */
 struct schedule_sender
 {
   using sender_concept = ex::sender_t;
@@ -81,12 +95,23 @@ struct schedule_sender
   { return op_state<Receiver>{ ctx, std::move(receiver) }; }
 };
 
+/**
+ * stdexec scheduler bound to a `context`.
+ *
+ * `schedule()` starts work on the context host agent. Equality compares the
+ * underlying `context*` pointers.
+ *
+ * @see context::get_scheduler, schedule_sender, domain
+ */
 class scheduler
 {
 public:
+  //! Constructs a scheduler for `ctx` (may be null for a no-op schedule).
   explicit scheduler(context *ctx) noexcept : ctx_(ctx) {}
 
+  //! Returns a sender that completes on this scheduler's host agent.
   [[nodiscard]] auto schedule() const noexcept -> schedule_sender { return schedule_sender{ .ctx = ctx_ }; }
+  //! Returns the bound context pointer (may be null).
   [[nodiscard]] auto get_context() const noexcept -> context * { return ctx_; }
 
   // cppcheck-suppress functionStatic
@@ -109,6 +134,11 @@ inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t>
 
 inline auto context::get_scheduler() noexcept -> scheduler { return scheduler{ this }; }
 
+/**
+ * True when `Pred` is a sender whose value completion scheduler is `vkexec::scheduler`.
+ *
+ * Used by pass and graphics adaptors to require a vkexec schedule predecessor.
+ */
 template<class Pred>
 concept vkexec_predecessor = ex::sender<Pred> && requires(Pred const &pred) {
   { ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred)) } -> std::same_as<scheduler>;

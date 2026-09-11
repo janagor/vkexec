@@ -1,6 +1,9 @@
 #ifndef VKEXEC_VKEXEC_HPP
 #define VKEXEC_VKEXEC_HPP
 
+//! \file
+//! Public umbrella header for the vkexec stdexec Vulkan compute backend.
+
 #include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
@@ -27,7 +30,6 @@
 #include <vkexec/vulkan_requirements.hpp>
 
 namespace vkexec {
-// Public umbrella header for the vkexec stdexec Vulkan backend.
-}
+}// namespace vkexec
 
 #endif// VKEXEC_VKEXEC_HPP
