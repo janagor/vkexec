@@ -1,6 +1,9 @@
 #ifndef VKEXEC_GRAPHICS_MESH_HPP
 #define VKEXEC_GRAPHICS_MESH_HPP
 
+//! \file
+//! Host-visible indexed triangle meshes for graphics draws.
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -13,18 +16,34 @@
 
 namespace vkexec {
 
+//! Number of float components per position or color in `mesh_vertex`.
 constexpr std::size_t k_mesh_vertex_components = 3;
 
+//! Interleaved position + color vertex used by `mesh` and mesh-aware graphics pipelines.
 struct mesh_vertex
 {
   std::array<float, k_mesh_vertex_components> position{};
   std::array<float, k_mesh_vertex_components> color{};
 };
 
-/// Host-visible indexed triangle mesh (vertex + index buffers).
+/**
+ * Host-visible indexed triangle mesh (vertex + index buffers).
+ *
+ * Buffers are created with VMA host-visible memory and filled from the provided
+ * spans at creation time. Use with `graphics_pipeline::draw` / `draw(...)` adaptors.
+ *
+ * @see graphics_pipeline, draw
+ */
 class mesh
 {
 public:
+  /**
+   * Creates a mesh from `vertices` and `indices`.
+   *
+   * @param ctx Context whose VMA allocator owns the buffers.
+   * @param vertices Vertex data (copied into the vertex buffer).
+   * @param indices Triangle indices (copied into the index buffer).
+   */
   [[nodiscard]] static auto create(context &ctx,
     std::span<mesh_vertex const> vertices,
     std::span<std::uint32_t const> indices) -> detail::sync_sender_fn<mesh>;
@@ -37,9 +56,13 @@ public:
   mesh(mesh &&other) noexcept;
   auto operator=(mesh &&other) noexcept -> mesh &;
 
+  //! Number of vertices uploaded at creation.
   [[nodiscard]] auto vertex_count() const noexcept -> std::uint32_t { return vertex_count_; }
+  //! Number of indices uploaded at creation.
   [[nodiscard]] auto index_count() const noexcept -> std::uint32_t { return index_count_; }
+  //! Vulkan vertex buffer handle.
   [[nodiscard]] auto vk_vertex_buffer() const noexcept -> VkBuffer { return vertex_buffer_; }
+  //! Vulkan index buffer handle.
   [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return index_buffer_; }
 
 private:

@@ -1,10 +1,14 @@
 #ifndef VKEXEC_GRAPHICS_TRIANGLE_SHADERS_HPP
 #define VKEXEC_GRAPHICS_TRIANGLE_SHADERS_HPP
 
+//! \file
+//! Embedded GLSL sources for a simple colored triangle (examples / smoke tests).
+
 #include <string_view>
 
 namespace vkexec::shaders {
 
+//! Vertex shader: hard-coded triangle positions and per-vertex colors.
 constexpr std::string_view k_triangle_vert = R"(
 #version 450
 layout(location = 0) out vec3 vColor;
@@ -16,6 +20,7 @@ void main() {
 }
 )";
 
+//! Fragment shader: outputs interpolated vertex color.
 constexpr std::string_view k_triangle_frag = R"(
 #version 450
 layout(location = 0) in vec3 vColor;

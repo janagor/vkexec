@@ -1,6 +1,9 @@
 #ifndef VKEXEC_GRAPHICS_WINDOW_HPP
 #define VKEXEC_GRAPHICS_WINDOW_HPP
 
+//! \file
+//! GLFW window with Vulkan swapchain, render pass, and per-frame sync.
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -21,7 +24,11 @@ namespace vkexec {
 constexpr std::uint32_t k_default_window_width = 800;
 constexpr std::uint32_t k_default_window_height = 600;
 
-/// Per-frame recording handle returned by `window::begin_frame()`.
+/**
+ * Per-frame recording handle returned by `window::begin_frame()`.
+ *
+ * Record into `command_buffer`, then pass the same `frame` to `end_frame`.
+ */
 struct frame
 {
   VkCommandBuffer command_buffer{ VK_NULL_HANDLE };
@@ -30,11 +37,31 @@ struct frame
   std::uint32_t image_index{ 0 };
 };
 
-/// GLFW window with a Vulkan swapchain and render pass for presentation.
-/// Drawing (pipelines, meshes, etc.) belongs in the application, not here.
+/**
+ * GLFW window with a Vulkan swapchain and render pass for presentation.
+ *
+ * Drawing (pipelines, meshes, etc.) belongs in the application, not here.
+ * Use `begin_frame` / `end_frame`, or the `draw(...)` stdexec adaptors.
+ *
+ * ~~~~~~~~~~~{.cpp}
+ * auto win = vkexec::sync_wait_value(vkexec::window::create({.title = "demo"}));
+ * while (!win.should_close()) {
+ *   win.poll_events();
+ *   // schedule | draw(win, pipeline, 3) | ...
+ * }
+ * ~~~~~~~~~~~
+ *
+ * @see graphics_pipeline, draw, swapchain
+ */
 class window
 {
 public:
+  /**
+   * Window / context creation options.
+   *
+   * `headless` selects `VK_EXT_headless_surface` (no GLFW display). Extra Vulkan
+   * requirements are merged into the owned `context`.
+   */
   struct config
   {
     std::uint32_t width{ k_default_window_width };
@@ -45,10 +72,20 @@ public:
     vulkan_requirements requirements{};
   };
 
+  /**
+   * Creates a GLFW window, Vulkan context with presentation, and swapchain.
+   *
+   * @param cfg Window size/title and Vulkan options.
+   */
   [[nodiscard]] static auto create(config cfg) -> detail::sync_sender_fn<window>;
 
-  /// Swapchain without GLFW or a display (`VK_EXT_headless_surface`). For CI/tests.
+  /**
+   * Creates a swapchain without GLFW or a display (`VK_EXT_headless_surface`).
+   *
+   * Intended for CI and tests.
+   */
   [[nodiscard]] static auto headless(config cfg) -> detail::sync_sender_fn<window>;
+  //! Headless window with default config.
   [[nodiscard]] static auto headless() -> detail::sync_sender_fn<window>;
 
   ~window();
@@ -58,29 +95,48 @@ public:
   window(window &&other) noexcept;
   auto operator=(window &&other) noexcept -> window &;
 
+  //! Owned Vulkan context used for queues, device, and VMA.
   [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
+  //! Const owned Vulkan context.
   [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
+  //! Presentation surface (GLFW or headless).
   [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
+  //! True when the user requested window close (GLFW); false for headless.
   [[nodiscard]] auto should_close() const noexcept -> bool;
+  //! Polls GLFW events (no-op when headless).
   auto poll_events() const -> void;
+  //! Waits for the device to become idle.
   auto wait_idle() -> void;
 
+  //! Compatible render pass for swapchain framebuffers.
   [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
+  //! Current swapchain extent (empty when no swapchain).
   [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return swapchain_ ? swapchain_->extent() : VkExtent2D{}; }
+  //! Current swapchain color format.
   [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
   { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 
-  /// Borrowed swapchain (valid after `create` / `headless` completes).
+  //! Borrowed swapchain pointer (valid after `create` / `headless` completes).
   [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const *
   { return swapchain_ ? std::addressof(*swapchain_) : nullptr; }
 
-  /// Acquire the next swapchain image and begin a primary command buffer.
-  /// Disengaged optional means the swapchain was recreated (caller should retry next loop).
+  /**
+   * Acquires the next swapchain image and begins a primary command buffer.
+   *
+   * Disengaged optional means the swapchain was recreated (caller should retry
+   * on the next loop iteration).
+   */
   [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
 
-  /// Submit the recorded command buffer and present. The command buffer must already be ended.
-  /// Returns the per-frame `in_flight` fence signaled by the submit (owned by the window).
+  /**
+   * Submits the recorded command buffer and presents.
+   *
+   * The command buffer must already be ended. Returns the per-frame `in_flight`
+   * fence signalled by the submit (owned by the window).
+   *
+   * @param drawn Frame from a successful `begin_frame`.
+   */
   [[nodiscard]] auto end_frame(frame const &drawn) -> result<VkFence>;
 
 private:

@@ -1,6 +1,9 @@
 #ifndef VKEXEC_GRAPHICS_SWAPCHAIN_HPP
 #define VKEXEC_GRAPHICS_SWAPCHAIN_HPP
 
+//! \file
+//! Presentable Vulkan swapchain that borrows an external surface.
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -16,6 +19,11 @@
 
 namespace vkexec {
 
+/**
+ * Creation parameters for `swapchain::create`.
+ *
+ * `surface` is borrowed and never destroyed by the swapchain.
+ */
 struct swapchain_create_info
 {
   VkSurfaceKHR surface{ VK_NULL_HANDLE };
@@ -26,11 +34,23 @@ struct swapchain_create_info
   VkPresentModeKHR present_mode{ VK_PRESENT_MODE_FIFO_KHR };
 };
 
-/// Presentable swapchain that borrows a surface (does not destroy it).
-/// Suitable for embedders that own the native window / surface separately.
+/**
+ * Presentable swapchain that borrows a surface (does not destroy it).
+ *
+ * Suitable for embedders that own the native window / surface separately.
+ * Prefer `window` when using GLFW end-to-end.
+ *
+ * @see window, acquire_present_frame, swapchain_create_info
+ */
 class swapchain
 {
 public:
+  /**
+   * Creates a swapchain for `info.surface` at the given extent.
+   *
+   * @param ctx Context with presentation queues enabled.
+   * @param info Surface, extent, and present preferences.
+   */
   [[nodiscard]] static auto create(context &ctx, swapchain_create_info info) -> detail::sync_sender_fn<swapchain>;
 
   ~swapchain();
@@ -41,21 +61,46 @@ public:
   swapchain(swapchain &&other) noexcept;
   auto operator=(swapchain &&other) noexcept -> swapchain &;
 
-  /// Recreate for a new extent. Destroys old image views and swapchain images.
+  /**
+   * Recreates the swapchain for a new extent.
+   *
+   * Destroys old image views and swapchain images.
+   *
+   * @param width New width in pixels.
+   * @param height New height in pixels.
+   */
   auto recreate(std::uint32_t width, std::uint32_t height) -> status;
 
-  /// Acquire the next image. Disengaged optional means the swapchain must be recreated.
+  /**
+   * Acquires the next image.
+   *
+   * @param image_available Binary semaphore signalled when the image is ready.
+   * @param timeout Acquire timeout in nanoseconds.
+   * @return Image index, disengaged optional when recreate is required, or an error.
+   */
   [[nodiscard]] auto acquire_next_image(VkSemaphore image_available, std::uint64_t timeout = UINT64_MAX)
     -> result<std::optional<std::uint32_t>>;
 
-  /// Present `image_index`. `false` means the swapchain must be recreated.
+  /**
+   * Presents `image_index`.
+   *
+   * @param image_index Swapchain image index from acquire.
+   * @param wait_semaphores Semaphores to wait on before present.
+   * @return `false` when the swapchain must be recreated; `true` on success.
+   */
   [[nodiscard]] auto present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>;
 
+  //! Vulkan swapchain handle.
   [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR { return swapchain_.swapchain; }
+  //! Chosen surface format.
   [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
+  //! Current swapchain extent.
   [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
+  //! Swapchain images (owned by the swapchain).
   [[nodiscard]] auto images() const noexcept -> std::span<VkImage const> { return images_; }
+  //! Image views for `images()` (owned by this object).
   [[nodiscard]] auto image_views() const noexcept -> std::span<VkImageView const> { return views_; }
+  //! Borrowed surface handle.
   [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
 private:

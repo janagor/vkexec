@@ -1,6 +1,9 @@
 #ifndef VKEXEC_GRAPHICS_GRAPHICS_HPP
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
+//! \file
+//! Graphics pipelines for swapchain render passes (SPIR-V or GLSL).
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -21,6 +24,7 @@ namespace vkexec {
 
 class mesh;
 
+//! Default clear color components for graphics pipelines.
 constexpr float k_default_clear_r = 0.08F;
 constexpr float k_default_clear_g = 0.09F;
 constexpr float k_default_clear_b = 0.12F;
@@ -29,6 +33,11 @@ constexpr float k_depth_clear_value = 1.0F;
 constexpr std::uint32_t k_graphics_clear_count = 2;
 constexpr std::uint32_t k_stencil_clear_value = 0;
 
+/**
+ * Configuration for `graphics_pipeline::create`.
+ *
+ * When `use_mesh_vertices` is true, the pipeline expects `mesh_vertex` attributes.
+ */
 struct graphics_pipeline_config
 {
   VkPrimitiveTopology topology{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST };
@@ -42,6 +51,7 @@ struct graphics_pipeline_config
   bool use_mesh_vertices{ false };
 };
 
+//! Builds color + depth clear values from `cfg`.
 [[nodiscard]] inline auto make_clear_values(graphics_pipeline_config const &cfg)
   -> std::array<VkClearValue, k_graphics_clear_count>
 {
@@ -51,10 +61,27 @@ struct graphics_pipeline_config
   return clears;
 }
 
-/// Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
+/**
+ * Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
+ *
+ * Owns pipeline, layout, and optional storage-buffer descriptor set. Compatible
+ * with a `window` render pass. Use `draw` / `record_draw` inside a begun frame.
+ *
+ * @see window, mesh, draw
+ */
 class graphics_pipeline
 {
 public:
+  /**
+   * Creates a graphics pipeline from SPIR-V with an explicit config.
+   *
+   * @param ctx Context that owns the device.
+   * @param render_pass Compatible render pass (typically from `window`).
+   * @param cfg Topology, blending, clears, depth, mesh vertex layout.
+   * @param vertex_spirv Vertex shader SPIR-V.
+   * @param fragment_spirv Fragment shader SPIR-V.
+   * @param buffers Optional storage buffers bound as descriptors.
+   */
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
@@ -62,12 +89,14 @@ public:
     std::span<std::uint32_t const> fragment_spirv,
     std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
+  //! Creates a graphics pipeline from SPIR-V with default config.
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
     std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
+  //! Creates a graphics pipeline by compiling GLSL with an explicit config.
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
@@ -75,6 +104,7 @@ public:
     std::string_view fragment_glsl,
     std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
+  //! Creates a graphics pipeline by compiling GLSL with default config.
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     std::string_view vertex_glsl,
@@ -108,19 +138,36 @@ public:
     return *this;
   }
 
+  //! Vulkan pipeline handle.
   [[nodiscard]] auto pipeline() const noexcept -> VkPipeline { return pipeline_; }
+  //! Config used at creation.
   [[nodiscard]] auto config() const noexcept -> graphics_pipeline_config const & { return cfg_; }
 
+  /**
+   * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
+   *
+   * @param cmd Command buffer currently inside a render pass.
+   * @param extent Framebuffer extent for viewport/scissor.
+   * @param vertex_count Vertex count for `vkCmdDraw`.
+   */
   auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void;
 
+  //! Records a mesh draw (vertex/index binds + indexed draw) into an open render pass.
   auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void;
 
+  /**
+   * Begins a render pass, records a non-indexed draw, and ends the pass.
+   *
+   * @param render_pass Compatible render pass.
+   * @param framebuffer Target framebuffer.
+   */
   auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,
     VkExtent2D extent,
     std::uint32_t vertex_count) const -> status;
 
+  //! Begins a render pass, records a mesh draw, and ends the pass.
   auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
     VkFramebuffer framebuffer,

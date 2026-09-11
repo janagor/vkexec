@@ -1,6 +1,9 @@
 #ifndef VKEXEC_GRAPHICS_DRAW_HPP
 #define VKEXEC_GRAPHICS_DRAW_HPP
 
+//! \file
+//! stdexec adaptors that present one window frame (`draw`, `draw_layers`, `| submit`).
+
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
@@ -93,6 +96,7 @@ struct draw_mesh_closure
   mesh const *drawn{ nullptr };
 };
 
+//! One layer in a multi-pipeline frame (`draw_layers`).
 struct draw_layer
 {
   graphics_pipeline *pipeline{ nullptr };
@@ -105,17 +109,38 @@ struct draw_layers_closure
   std::vector<draw_layer> layers;
 };
 
-/// Present one frame: acquire → record draw → submit → present (stdexec sender adaptor).
+/**
+ * Builds a closure that presents one frame: acquire → record draw → submit → present.
+ *
+ * Pipe onto a vkexec schedule predecessor: `schedule(ctx) | draw(win, pipe, 3)`.
+ *
+ * @param win Window owning the swapchain and frame sync.
+ * @param pipeline Graphics pipeline compatible with `win.render_pass()`.
+ * @param vertex_count Vertex count for a non-indexed draw.
+ */
 inline auto draw(window &win, graphics_pipeline &pipeline, std::uint32_t vertex_count) -> draw_closure
 { return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count }; }
 
+//! Builds a mesh-draw closure for one presented frame.
 inline auto draw(window &win, graphics_pipeline &pipeline, mesh const &drawn) -> draw_mesh_closure
 { return draw_mesh_closure{ .win = &win, .pipeline = &pipeline, .drawn = &drawn }; }
 
-/// Present one frame using multiple graphics pipelines in a single render pass.
+/**
+ * Builds a closure that presents one frame using multiple graphics pipelines in a single render pass.
+ *
+ * @param layers Pipelines and vertex counts drawn in order within one pass.
+ */
 inline auto draw_layers(window &win, std::initializer_list<draw_layer> layers) -> draw_layers_closure
 { return draw_layers_closure{ .win = &win, .layers = std::vector<draw_layer>(layers) }; }
 
+/**
+ * Sender that draws one non-indexed frame and blocks until present submit completes.
+ *
+ * Completes with `set_value` when acquire returns “recreate and retry” (no frame drawn).
+ * Use `| vkexec::submit` for non-blocking fence completion.
+ *
+ * @see draw_async_sender, draw
+ */
 struct draw_sender
 {
   using sender_concept = ex::sender_t;
@@ -174,6 +199,11 @@ struct draw_sender
   }
 };
 
+/**
+ * Like `draw_sender`, but completes asynchronously via the context fence agent.
+ *
+ * Produced by `draw_sender | vkexec::submit`.
+ */
 struct draw_async_sender
 {
   using sender_concept = ex::sender_t;
@@ -239,6 +269,11 @@ struct draw_async_sender
   }
 };
 
+/**
+ * Sender that draws multiple layers in one render pass and blocks until present completes.
+ *
+ * @see draw_layers, draw_layers_async_sender
+ */
 struct draw_layers_sender
 {
   using sender_concept = ex::sender_t;
@@ -309,6 +344,7 @@ struct draw_layers_sender
   { return op_state<Receiver>{ .win = win, .layers = layers, .receiver = std::move(receiver) }; }
 };
 
+//! Async variant of `draw_layers_sender` (fence-agent completion via `| submit`).
 struct draw_layers_async_sender
 {
   using sender_concept = ex::sender_t;
@@ -395,6 +431,11 @@ inline auto operator|(schedule_sender snd, draw_closure closure) -> draw_sender
   };
 }
 
+/**
+ * Sender that draws one mesh frame and blocks until present submit completes.
+ *
+ * @see draw, draw_mesh_async_sender
+ */
 struct draw_mesh_sender
 {
   using sender_concept = ex::sender_t;
@@ -453,6 +494,7 @@ struct draw_mesh_sender
   }
 };
 
+//! Async variant of `draw_mesh_sender` (fence-agent completion via `| submit`).
 struct draw_mesh_async_sender
 {
   using sender_concept = ex::sender_t;
