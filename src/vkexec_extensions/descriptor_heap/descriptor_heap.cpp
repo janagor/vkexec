@@ -40,6 +40,7 @@ auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_
   descriptor_heap_layout layout{};
   layout.buffer_descriptor_size = static_cast<std::size_t>(heap_props.bufferDescriptorSize);
   layout.image_descriptor_size = static_cast<std::size_t>(heap_props.imageDescriptorSize);
+  // Mixed heaps use the larger descriptor size as the uniform slot stride.
   layout.descriptor_stride =
     static_cast<std::size_t>(std::max(heap_props.bufferDescriptorSize, heap_props.imageDescriptorSize));
   layout.resource_heap_alignment = heap_props.resourceHeapAlignment;
@@ -57,6 +58,7 @@ auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_
 
 auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t descriptor_count) -> VkDeviceSize
 {
+  // Descriptors first, then an aligned reserved range required by the implementation.
   auto const descriptor_region =
     static_cast<VkDeviceSize>(layout.descriptor_stride) * static_cast<VkDeviceSize>(descriptor_count);
   auto const reserved_offset = align_up(descriptor_region, layout.resource_heap_alignment);
