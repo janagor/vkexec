@@ -1,6 +1,9 @@
 #ifndef VKEXEC_PASS_HPP
 #define VKEXEC_PASS_HPP
 
+//! \file
+//! Compute pass recording, pass graphs, and stdexec pipe adaptors (`compute_pass`, `| submit`).
+
 #include <vkexec/barrier.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
@@ -29,6 +32,7 @@ namespace vkexec {
 
 namespace ex = stdexec;
 
+//! Workgroup counts for `vkCmdDispatch` (X/Y/Z).
 struct dispatch
 {
   std::uint32_t x{ 1 };
@@ -36,6 +40,11 @@ struct dispatch
   std::uint32_t z{ 1 };
 };
 
+/**
+ * Computes workgroup count X covering `work_count` invocations for local size `local_x`.
+ *
+ * Y and Z remain 1. A zero `local_x` is treated as 1.
+ */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] constexpr auto dispatch_groups_for(std::uint32_t work_count, std::uint32_t local_x) noexcept -> dispatch
 {
@@ -44,12 +53,14 @@ struct dispatch
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
+//! Arguments for `vkCmdDispatchIndirect`.
 struct indirect_dispatch
 {
   VkBuffer buffer{ VK_NULL_HANDLE };
   VkDeviceSize offset{ 0 };
 };
 
+//! Pipeline, layout, and optional descriptor set for one compute dispatch.
 struct compute_bind
 {
   VkPipeline pipeline{ VK_NULL_HANDLE };
@@ -57,17 +68,33 @@ struct compute_bind
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
+//! Builds a `compute_bind` from cached pipeline resources and an optional set.
 [[nodiscard]] auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE) -> compute_bind;
 
+/**
+ * Records bind, optional push constants, and a direct dispatch on `cmd`.
+ *
+ * @param cmd Command buffer in the recording state.
+ * @param bind Pipeline / layout / descriptor set.
+ * @param push Push-constant bytes (may be null when `push_bytes` is 0).
+ * @param push_bytes Size of the push-constant blob.
+ * @param groups Workgroup counts for `vkCmdDispatch`.
+ */
 auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
   -> void;
 
+/**
+ * Records bind, optional push constants, and an indirect dispatch on `cmd`.
+ *
+ * @param groups Buffer and offset containing `VkDispatchIndirectCommand`.
+ */
 auto record_pass(VkCommandBuffer cmd,
   compute_bind bind,
   void const *push,
   std::uint32_t push_bytes,
   indirect_dispatch groups) -> void;
 
+//! Convenience overload that builds a `compute_bind` from `pipe` and `set`.
 auto record_pass(VkCommandBuffer cmd,
   pipeline_resources const &pipe,
   VkDescriptorSet set,
@@ -75,6 +102,11 @@ auto record_pass(VkCommandBuffer cmd,
   std::uint32_t push_bytes,
   dispatch groups) -> void;
 
+/**
+ * One recording step in a pass graph (dispatch, barrier, or custom record).
+ *
+ * `record` may allocate descriptor sets into the provided cleanup object.
+ */
 struct pass_step
 {
   std::function<status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
@@ -82,12 +114,30 @@ struct pass_step
 
 namespace detail {
 
+  //! Records all `steps` into an already-open `scope`.
   [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status;
 
+  //! Opens a submit scope on `ctx`, records `steps`, and returns the open scope.
   [[nodiscard]] auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>;
 
 }// namespace detail
 
+/**
+ * Sender that records a list of pass steps, submits, and blocks until the GPU finishes.
+ *
+ * Built by piping `schedule()` into `compute_pass(...)` and optional barriers.
+ * Use `| vkexec::submit` to switch to non-blocking completion.
+ *
+ * ~~~~~~~~~~~{.cpp}
+ * auto graph = ex::schedule(ctx->get_scheduler())
+ *   | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000)
+ *   | vkexec::barrier::compute_to_compute()
+ *   | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000);
+ * vkexec::sync_wait(std::move(graph));
+ * ~~~~~~~~~~~
+ *
+ * @see pass_graph_async_sender, compute_pass, submit
+ */
 struct pass_graph_sender
 {
   using sender_concept = ex::sender_t;
@@ -150,6 +200,13 @@ struct pass_graph_sender
   }
 };
 
+/**
+ * Like `pass_graph_sender`, but completes asynchronously via the fence agent.
+ *
+ * Produced by `pass_graph_sender | vkexec::submit`. Does not block `start()`.
+ *
+ * @see pass_graph_sender, submit_t
+ */
 struct pass_graph_async_sender
 {
   using sender_concept = ex::sender_t;
@@ -217,6 +274,13 @@ struct pass_graph_async_sender
   }
 };
 
+/**
+ * Prebuilt compute dispatch: bind info, optional push bytes, and direct or indirect groups.
+ *
+ * Created by `compute_pass(...)` overloads and piped onto a schedule or pass graph.
+ *
+ * @see compute_pass
+ */
 struct prebuilt_compute_pass_closure
 {
   compute_bind bind{};
@@ -226,6 +290,13 @@ struct prebuilt_compute_pass_closure
   bool is_indirect{ false };
 };
 
+/**
+ * Builds a direct-dispatch compute pass with push constants `params`.
+ *
+ * @param bind Pipeline / layout / set.
+ * @param params Trivially copyable push-constant blob.
+ * @param groups Workgroup counts.
+ */
 template<typename Params>
 auto compute_pass(compute_bind bind, Params const &params, dispatch groups) -> prebuilt_compute_pass_closure
 {
@@ -238,6 +309,11 @@ auto compute_pass(compute_bind bind, Params const &params, dispatch groups) -> p
   return closure;
 }
 
+/**
+ * Builds an indirect-dispatch compute pass with push constants `params`.
+ *
+ * @param groups Buffer containing `VkDispatchIndirectCommand` at `offset`.
+ */
 template<typename Params>
 auto compute_pass(compute_bind bind, Params const &params, indirect_dispatch groups) -> prebuilt_compute_pass_closure
 {
@@ -251,10 +327,13 @@ auto compute_pass(compute_bind bind, Params const &params, indirect_dispatch gro
   return closure;
 }
 
+//! Builds a direct-dispatch compute pass without push constants.
 auto compute_pass(compute_bind bind, dispatch groups) -> prebuilt_compute_pass_closure;
 
+//! Builds an indirect-dispatch compute pass without push constants.
 auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compute_pass_closure;
 
+//! Convenience overload that binds `pipe` with `set` before building the closure.
 template<typename Params>
 auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &params, dispatch groups)
   -> prebuilt_compute_pass_closure
@@ -262,8 +341,10 @@ auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &p
 
 namespace detail {
 
+  //! Wraps a prebuilt closure as a single `pass_step`.
   auto make_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step;
 
+  //! Wraps a barrier tag callable as a `pass_step`.
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
   {
     return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
@@ -272,10 +353,16 @@ namespace detail {
     } };
   }
 
+  //! Appends `step` to `graph` and returns the updated graph sender.
   auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender;
 
 }// namespace detail
 
+/**
+ * Lazy adaptor: after `pred` completes, builds a one-step `pass_graph_sender`.
+ *
+ * Lowered by the vkexec domain via `lower_vkexec_sender`.
+ */
 template<class Pred, class Closure> struct pass_adaptor_sender
 {
   using sender_concept = ex::sender_t;
@@ -300,6 +387,11 @@ template<class Pred, class Closure, class Env>
     });
 }
 
+/**
+ * Like `pass_adaptor_sender`, but lowers to `pass_graph_async_sender` (non-blocking submit).
+ *
+ * Produced by `pass_adaptor_sender | vkexec::submit`.
+ */
 template<class Pred, class Closure> struct pass_async_adaptor_sender
 {
   using sender_concept = ex::sender_t;
@@ -328,10 +420,17 @@ template<class Pred, class Closure, class Env>
     });
 }
 
+//! Starts a pass graph from a `schedule()` sender with one compute step.
 auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
 
+//! Appends a compute step to an existing pass graph.
 auto operator|(pass_graph_sender graph, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
 
+/**
+ * Wraps a vkexec predecessor in a lazy pass adaptor (domain-lowered later).
+ *
+ * Used when the left-hand side is not already a `schedule_sender` or `pass_graph_sender`.
+ */
 template<vkexec_predecessor Pred>
   requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>
            && !std::same_as<std::remove_cvref_t<Pred>, pass_graph_sender>)
@@ -345,18 +444,25 @@ template<vkexec_predecessor Pred>
   };
 }
 
+//! Appends a transfer→compute barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::transfer_to_compute_t tag) -> pass_graph_sender;
 
+//! Appends a compute→compute barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_to_compute_t tag) -> pass_graph_sender;
 
+//! Appends a compute→graphics barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_to_graphics_t tag) -> pass_graph_sender;
 
+//! Appends a graphics→compute barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> pass_graph_sender;
 
+//! Appends a compute read-after-write barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender;
 
+//! Converts a blocking pass graph into an async fence-wait graph.
 [[nodiscard]] auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender;
 
+//! Converts a blocking pass graph into an async fence-wait graph (lvalue overload).
 [[nodiscard]] auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender;
 
 template<class Pred, class Closure>
