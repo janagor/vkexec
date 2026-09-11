@@ -1,6 +1,9 @@
 #ifndef VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_PUSH_DATA_HPP
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_PUSH_DATA_HPP
 
+//! \file
+//! `vkCmdPushDataEXT` helpers for bindless compute passes.
+
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -13,12 +16,24 @@
 
 namespace vkexec {
 
-/// Record `vkCmdPushDataEXT` for a host-visible byte range.
+/**
+ * Records `vkCmdPushDataEXT` for a host-visible byte range.
+ *
+ * @param ctx Context used to resolve extension procs.
+ * @param cmd Command buffer in the recording state.
+ * @param bytes Host bytes to push.
+ * @param offset Destination offset in the push-data range.
+ */
 [[nodiscard]] auto
   cmd_push_data(context const &ctx, VkCommandBuffer cmd, std::span<std::byte const> bytes, std::uint32_t offset = 0)
     -> status;
 
-/// Record `vkCmdPushDataEXT` for a trivially copyable POD.
+/**
+ * Records `vkCmdPushDataEXT` for a trivially copyable POD.
+ *
+ * @param value Host POD copied as bytes.
+ * @param offset Destination offset in the push-data range.
+ */
 template<typename T>
 [[nodiscard]] auto cmd_push_data(context const &ctx, VkCommandBuffer cmd, T const &value, std::uint32_t offset = 0)
   -> status

@@ -5,6 +5,11 @@
 
 namespace vkexec::ext {
 
+/**
+ * Extension tag for `VK_EXT_descriptor_heap` bindless resource heaps.
+ *
+ * @see extension_traits, configure, available
+ */
 struct descriptor_heap
 {
 };

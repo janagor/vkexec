@@ -1,6 +1,9 @@
 #ifndef VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_HPP
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_HPP
 
+//! \file
+//! Umbrella for `VK_EXT_descriptor_heap` bindless helpers and extension tag.
+
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>

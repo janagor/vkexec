@@ -15,10 +15,23 @@
 
 namespace vkexec {
 
-/// Host-visible bindless descriptor heap buffer (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
+/**
+ * Host-visible bindless descriptor heap buffer (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
+ *
+ * Persistently mapped for host descriptor writes; use `device_address()` when binding
+ * the heap on the GPU.
+ *
+ * @see query_descriptor_heap_layout, cmd_bind_resource_heap
+ */
 class descriptor_heap_buffer
 {
 public:
+  /**
+   * Creates a host-visible descriptor heap buffer of `size` bytes.
+   *
+   * @param ctx Context whose VMA allocator owns the allocation.
+   * @param size Byte size (must accommodate descriptors + reserved range).
+   */
   [[nodiscard]] static auto create(context &ctx, VkDeviceSize size) -> detail::sync_sender_fn<descriptor_heap_buffer>;
 
   ~descriptor_heap_buffer();
@@ -29,9 +42,13 @@ public:
   descriptor_heap_buffer(descriptor_heap_buffer &&other) noexcept;
   auto operator=(descriptor_heap_buffer &&other) noexcept -> descriptor_heap_buffer &;
 
+  //! Vulkan buffer handle (null after move).
   [[nodiscard]] auto handle() const noexcept -> VkBuffer { return buffer_; }
+  //! Allocated size in bytes.
   [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
+  //! Persistently mapped host bytes for descriptor writes.
   [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
+  //! Device address for `cmd_bind_resource_heap` (requires buffer device address).
   [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
 private:
