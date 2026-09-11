@@ -3,7 +3,14 @@
 
 namespace vkexec {
 
-/// Pipe tag: turn a sync GPU sender into a completion sender that does not block `start()`.
+/**
+ * Pipe tag that turns a sync GPU sender into a completion sender.
+ *
+ * Use as `| vkexec::submit` so `start()` does not block on the GPU; completion
+ * is delivered asynchronously via the context fence agent.
+ *
+ * @see detail::submit_fence_sender
+ */
 struct submit_t
 {
 };

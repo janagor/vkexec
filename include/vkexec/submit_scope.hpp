@@ -1,6 +1,9 @@
 #ifndef VKEXEC_SUBMIT_SCOPE_HPP
 #define VKEXEC_SUBMIT_SCOPE_HPP
 
+//! \file
+//! Command-buffer and descriptor loans for one GPU submit, plus enter/submit senders.
+
 #include <stdexec/execution.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
@@ -27,7 +30,12 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  /// Descriptor sets allocated for one recording/submit, freed together on scope exit.
+  /**
+   * Descriptor sets allocated for one recording/submit, freed together on scope exit.
+   *
+   * Tracks both pipeline-keyed cached sets and raw pool/set pairs from one-off
+   * allocations so `release` can free everything after submit.
+   */
   struct descriptor_cleanup
   {
     struct allocated_set
@@ -45,29 +53,52 @@ namespace detail {
     std::unordered_map<pipeline_resources *, pipeline_set_entry> sets;
     std::vector<allocated_set> allocated;
 
+    //! Frees all tracked descriptor sets on `ctx`'s device.
     auto release(context const &ctx) noexcept -> void;
 
+    //! Records a pool/set pair for later release.
     auto track(VkDescriptorPool pool, VkDescriptorSet set) -> void
     { allocated.push_back(allocated_set{ .pool = pool, .set = set }); }
   };
 
-  // Compatibility alias used by pass graph recording.
+  //! Compatibility alias used by pass graph recording.
   using pass_cleanup = descriptor_cleanup;
 
+  //! Returns whether two storage-binding lists refer to the same buffers in order.
   auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool;
 
+  //! Writes storage-buffer descriptors for `buffers` into `set`.
   auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
     -> void;
 
+  /**
+   * Allocates a compute descriptor set from `pipe`'s pool and writes `buffers`.
+   *
+   * @param ctx Context that owns the device.
+   * @param pipe Pipeline whose layout and pool are used.
+   * @param buffers Storage bindings matching the pipeline layout.
+   */
   auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
     -> result<VkDescriptorSet>;
 
+  /**
+   * Reuses a tracked set for `pipe` when bindings match; otherwise allocates a new one.
+   *
+   * @param cleanup Receives ownership of newly allocated sets.
+   */
   auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
     std::span<storage_binding const> buffers,
     descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
 
-  /// Command buffer + descriptor loans for one GPU submit. Exit always frees both.
+  /**
+   * Command buffer and descriptor loans for one GPU submit.
+   *
+   * Exit (destructor or `release`) always frees both. Open with `open`, record
+   * into `cmd`, then submit via `submit_and_wait` or `submit_fence` senders.
+   *
+   * @see enter_submit_scope, submit_and_wait, submit_fence
+   */
   struct submit_scope
   {
     context *ctx{ nullptr };
@@ -101,23 +132,39 @@ namespace detail {
 
     ~submit_scope() { release(); }
 
+    /**
+     * Allocates a command buffer from `host`, begins recording, and returns an open scope.
+     *
+     * @param host Context that owns the command pool.
+     */
     [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
 
+    //! Ends Vulkan recording on `cmd` (`vkEndCommandBuffer`).
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
     [[nodiscard]] auto end_recording() -> status;
 
+    //! Tracks `set` (from `pipe`'s pool) for release with this scope.
     auto track_set(pipeline_resources const &pipe, VkDescriptorSet set) -> void
     { cleanup.track(pipe.descriptor_pool, set); }
 
+    //! Frees the command buffer and descriptor loans; safe to call more than once.
     auto release() noexcept -> void;
   };
 
-  /// Wait for GPU work, destroy semaphore/fence. Safe when handles are null.
+  /**
+   * Waits for GPU work then destroys `semaphore`/`fence`.
+   *
+   * Safe when handles are null. Uses `fallback_queue` only if a queue wait is required.
+   */
   auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
     -> void;
 
-  /// Release cmd/descriptors, then deliver exactly one completion signal.
-  /// Call only after GPU/host sync objects for this submit have already been reclaimed.
+  /**
+   * Delivers exactly one completion signal to `receiver`.
+   *
+   * Call only after GPU/host sync objects for this submit have already been reclaimed
+   * and command/descriptor loans released (or about to be via `release_scope_and_complete`).
+   */
   template<class Receiver>
   auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
   {
@@ -138,7 +185,11 @@ namespace detail {
     complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
   }
 
-  /// Sender factory: completes with an open `submit_scope` (cmd begun, ready to record).
+  /**
+   * Sender that completes with an open `submit_scope` (command buffer begun, ready to record).
+   *
+   * @see enter_submit_scope
+   */
   struct enter_submit_scope_sender
   {
     using sender_concept = ex::sender_t;
@@ -185,11 +236,16 @@ namespace detail {
     { return op_state<Receiver>{ ctx, std::move(receiver) }; }
   };
 
+  //! Returns a sender that opens a `submit_scope` on `ctx` (must be non-null).
   [[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
 
+  //! Returns a sender that opens a `submit_scope` on `ctx`.
   [[nodiscard]] auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender;
 
-  /// Submit a fully recorded scope and block until the GPU finishes, then release loans.
+  /**
+   * Sender that submits a fully recorded scope, blocks until the GPU finishes,
+   * then releases command/descriptor loans.
+   */
   struct submit_and_wait_sender
   {
     using sender_concept = ex::sender_t;
@@ -239,9 +295,15 @@ namespace detail {
     }
   };
 
+  //! Builds a blocking submit sender that takes ownership of `scope`.
   [[nodiscard]] auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender;
 
-  /// Submit a recorded scope without blocking `start()`; reclaim then complete on the fence agent.
+  /**
+   * Sender that submits a recorded scope without blocking `start()`.
+   *
+   * Completion runs on the context fence agent after reclaiming semaphore/fence
+   * and releasing loans. Honours stop tokens with `set_stopped`.
+   */
   struct submit_fence_sender
   {
     using sender_concept = ex::sender_t;
@@ -313,6 +375,7 @@ namespace detail {
     }
   };
 
+  //! Builds a non-blocking fence-wait submit sender that takes ownership of `scope`.
   [[nodiscard]] auto submit_fence(submit_scope scope) -> submit_fence_sender;
 
 }// namespace detail

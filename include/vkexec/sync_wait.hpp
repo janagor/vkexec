@@ -1,6 +1,9 @@
 #ifndef VKEXEC_SYNC_WAIT_HPP
 #define VKEXEC_SYNC_WAIT_HPP
 
+//! \file
+//! Blocking wait helpers for vkexec senders (`sync_wait`, `try_sync_wait`, …).
+
 #include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -124,7 +127,14 @@ namespace detail {
 
 #if VKEXEC_ENABLE_EXCEPTIONS
 
-/// Blocking wait using stdexec semantics: throws `vkexec::error` on `set_error`, disengaged optional on stop.
+/**
+ * Blocks until `sender` completes using stdexec semantics.
+ *
+ * Throws `vkexec::error` on `set_error`. Returns a disengaged optional on
+ * `set_stopped`. Otherwise returns the value completion tuple.
+ *
+ * @param sender Sender to start and wait for.
+ */
 template<ex::sender Sender>
   requires ex::sender_to<Sender, detail::sync_wait_receiver_t<Sender>>
 [[nodiscard]] auto sync_wait(Sender &&sender) -> std::optional<detail::sync_wait_value_tuple_t<Sender>>
@@ -132,19 +142,35 @@ template<ex::sender Sender>
 
 #else
 
-/// Non-throwing blocking wait for `-fno-exceptions` builds.
+/**
+ * Blocks until `sender` completes without throwing (for `-fno-exceptions` builds).
+ *
+ * @param sender Sender to start and wait for.
+ * @return Outcome with values, error, or stopped.
+ */
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto sync_wait(Sender &&sender) -> sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
 { return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
 
 #endif
 
-/// Non-throwing wait for tests and callers that must inspect errors without exceptions.
+/**
+ * Blocks until `sender` completes and always returns a non-throwing outcome.
+ *
+ * Prefer this in tests and `-fno-exceptions` call sites that must inspect errors.
+ *
+ * @param sender Sender to start and wait for.
+ */
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto try_sync_wait(Sender &&sender) -> sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
 { return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
 
-/// Blocking wait that returns the sender's single completion value, or `result` on failure/stop.
+/**
+ * Blocks until `sender` completes and unwraps its single value completion.
+ *
+ * @param sender Sender that completes with exactly one value type.
+ * @return The unwrapped value, or `result` failure on error/stop.
+ */
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto try_sync_wait_value(Sender &&sender)
   -> result<detail::sync_unwrapped_value_t<detail::sync_wait_value_tuple_t<Sender>>>
@@ -157,7 +183,14 @@ template<detail::sync_waitable_sender Sender>
   return detail::take_sync_value(std::move(*outcome.values));
 }
 
-/// Blocking wait that returns the sender's single completion value; throws `vkexec::error` on failure/stop.
+/**
+ * Blocks until `sender` completes and returns its single value.
+ *
+ * Throws `vkexec::error` on failure/stop when exceptions are enabled; otherwise
+ * calls `std::terminate`.
+ *
+ * @param sender Sender that completes with exactly one value type.
+ */
 template<detail::sync_waitable_sender Sender>
 [[nodiscard]] auto sync_wait_value(Sender &&sender)
   -> detail::sync_unwrapped_value_t<detail::sync_wait_value_tuple_t<Sender>>
