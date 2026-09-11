@@ -64,6 +64,7 @@ TEST_CASE("try_sync_wait_value completes buffer::allocate", "[vkexec][buffer][gp
 
 TEST_CASE("buffer::allocate completes with set_stopped when stop is already requested", "[vkexec][buffer]")
 {
+  // Null context: only the stop-token path runs; allocation never touches Vulkan.
   vkexec::context *const no_ctx = nullptr;
   ex::inplace_stop_source source;
   source.request_stop();

@@ -77,6 +77,7 @@ TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion
 
   auto env_sender = ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
 
+  // Concurrent stop: ensure the window can still acquire frames after a raced cancel.
   std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
 
   (void)vkexec::test::sync_wait_sender(std::move(env_sender));

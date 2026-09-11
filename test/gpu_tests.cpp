@@ -224,6 +224,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
 
 TEST_CASE("pass graph submit completes with set_stopped when stop is already requested", "[vkexec][pass]")
 {
+  // Null scheduler: exercises stop handling without allocating a Vulkan context.
   vkexec::scheduler const sched{ nullptr };
   ex::inplace_stop_source source;
   source.request_stop();
