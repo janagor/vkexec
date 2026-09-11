@@ -1,6 +1,9 @@
 #ifndef VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_RING_HPP
 #define VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_RING_HPP
 
+//! \file
+//! Frames-in-flight sync: binary acquire/present semaphores plus a timeline ring.
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -17,27 +20,55 @@
 
 namespace vkexec {
 
-/// Wait/signal entries for a frame submit: binary acquire wait, binary render-finished
-/// signal, and timeline completion signal (mirrors a typical WSI + timeline ring).
+/**
+ * Wait/signal entries for a frame submit.
+ *
+ * Contains a binary acquire wait, a binary render-finished signal, and a
+ * timeline completion signal (typical WSI + timeline ring).
+ *
+ * @see frame_ring::make_submit_sync, queue_submit
+ */
 struct frame_ring_submit_sync
 {
   std::array<semaphore_submit, 1> waits{};
   std::array<semaphore_submit, 2> signals{};
 };
 
-/// Frames-in-flight sync: binary acquire/present semaphores plus one timeline that gates
-/// reuse of CPU frame slots and swapchain images (vkgsplat-style ring).
+/**
+ * Frames-in-flight sync: per-slot acquire semaphores, per-image present
+ * semaphores, and one timeline that gates reuse of CPU slots and swapchain images.
+ *
+ * Pattern matches a vkgsplat-style ring: wait the slot, acquire, record, submit
+ * with `make_submit_sync`, then `mark_submitted`.
+ *
+ * ~~~~~~~~~~~{.cpp}
+ * auto ring = vkexec::sync_wait_value(vkexec::frame_ring::create(*ctx, {.slot_count = 2, .image_count = n}));
+ * auto value = ring.allocate_signal_value();
+ * auto sync = *ring.make_submit_sync(slot, image, value);
+ * // ... queue_submit with sync.waits / sync.signals ...
+ * ring.mark_submitted(slot, image, value);
+ * ~~~~~~~~~~~
+ *
+ * @see timeline_semaphore, frame_present
+ */
 class frame_ring
 {
 public:
   static constexpr std::size_t k_default_slot_count = 2;
 
+  //! Creation parameters: CPU slots and initial swapchain image count.
   struct create_info
   {
     std::size_t slot_count{ k_default_slot_count };
     std::size_t image_count{ 0 };
   };
 
+  /**
+   * Creates a frame ring on `ctx`.
+   *
+   * @param ctx Context that owns the device (timeline + binary semaphores).
+   * @param info Slot count and initial image count.
+   */
   [[nodiscard]] static auto create(context &ctx, create_info info) -> detail::sync_sender_fn<frame_ring>;
 
   ~frame_ring();
@@ -48,34 +79,60 @@ public:
   frame_ring(frame_ring &&other) noexcept;
   auto operator=(frame_ring &&other) noexcept -> frame_ring &;
 
-  /// Recreate per-image binary semaphores after a swapchain recreate. Resets image
-  /// completion values; does not reset slot values or the monotonic counter.
+  /**
+   * Recreates per-image binary semaphores after a swapchain recreate.
+   *
+   * Resets image completion values; does not reset slot values or the monotonic counter.
+   *
+   * @param image_count New swapchain image count.
+   */
   auto resize_images(std::size_t image_count) -> status;
 
-  /// Clear slot/image completion values (e.g. after device idle + swapchain recreate).
+  /**
+   * Clears slot/image completion values.
+   *
+   * Call after device idle + swapchain recreate when prior timeline values are obsolete.
+   */
   auto reset_completion_tracking() -> void;
 
+  //! Number of CPU frame slots (acquire semaphores).
   [[nodiscard]] auto slot_count() const noexcept -> std::size_t { return acquire_.size(); }
+  //! Number of per-image render-finished semaphores.
   [[nodiscard]] auto image_count() const noexcept -> std::size_t { return render_finished_.size(); }
 
+  //! Returns the binary acquire semaphore for `slot`.
   [[nodiscard]] auto acquire_semaphore(std::size_t slot) const -> result<VkSemaphore>;
+  //! Returns the binary render-finished semaphore for `image_index`.
   [[nodiscard]] auto render_finished_semaphore(std::size_t image_index) const -> result<VkSemaphore>;
+  //! Const reference to the shared timeline semaphore.
   [[nodiscard]] auto timeline() const noexcept -> timeline_semaphore const & { return timeline_; }
+  //! Mutable reference to the shared timeline semaphore.
   [[nodiscard]] auto timeline() noexcept -> timeline_semaphore & { return timeline_; }
 
-  /// Host-wait until the GPU finished the previous submit that used this slot.
+  //! Host-waits until the GPU finished the previous submit that used this slot.
   [[nodiscard]] auto wait_slot(std::size_t slot) const -> status;
 
-  /// Host-wait until the GPU finished the previous submit that used this image.
+  //! Host-waits until the GPU finished the previous submit that used this image.
   [[nodiscard]] auto wait_image(std::size_t image_index) const -> status;
 
-  /// Next monotonic timeline value for a completing submit.
+  //! Allocates the next monotonic timeline value for a completing submit.
   [[nodiscard]] auto allocate_signal_value() -> std::uint64_t;
 
-  /// Record that `slot` and `image_index` are gated by `signal_value` after submit.
+  /**
+   * Records that `slot` and `image_index` are gated by `signal_value` after submit.
+   *
+   * Subsequent `wait_slot` / `wait_image` wait for this timeline value.
+   */
   auto mark_submitted(std::size_t slot, std::size_t image_index, std::uint64_t signal_value) -> status;
 
-  /// Build wait/signal lists: wait acquire[slot], signal finished[image] + timeline.
+  /**
+   * Builds wait/signal lists: wait acquire[`slot`], signal finished[`image`] + timeline.
+   *
+   * @param slot CPU frame slot index.
+   * @param image_index Swapchain image index.
+   * @param signal_value Timeline value allocated via `allocate_signal_value`.
+   * @param acquire_wait_stage Pipeline stage for the acquire wait.
+   */
   [[nodiscard]] auto make_submit_sync(std::size_t slot,
     std::size_t image_index,
     std::uint64_t signal_value,

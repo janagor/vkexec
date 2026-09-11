@@ -1,6 +1,9 @@
 #ifndef VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_HPP
 #define VKEXEC_EXTENSIONS_DYNAMIC_RENDERING_HPP
 
+//! \file
+//! Umbrella for dynamic rendering helpers and the matching feature tag.
+
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 
