@@ -17,9 +17,9 @@
 namespace vkexec {
 
 /**
- * Queried `VK_EXT_descriptor_heap` size/alignment properties for mixed buffer/image heaps.
+ * Queried `VK_EXT_descriptor_heap` size/alignment properties for resource and sampler heaps.
  *
- * @see query_descriptor_heap_layout, descriptor_heap_byte_size
+ * @see query_descriptor_heap_layout, descriptor_heap_byte_size, sampler_heap_byte_size
  */
 struct descriptor_heap_layout
 {
@@ -28,18 +28,30 @@ struct descriptor_heap_layout
   std::size_t descriptor_stride{ 0 };
   VkDeviceSize resource_heap_alignment{ 0 };
   VkDeviceSize min_resource_heap_reserved_range{ 0 };
+  std::size_t sampler_descriptor_size{ 0 };
+  VkDeviceSize sampler_heap_alignment{ 0 };
+  VkDeviceSize min_sampler_heap_reserved_range{ 0 };
 };
 
 //! Queries descriptor-heap layout properties from `ctx`'s physical device.
 [[nodiscard]] auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_layout>;
 
 /**
- * Returns bytes needed for `descriptor_count` slots plus the implementation reserved range.
+ * Returns bytes needed for `descriptor_count` resource slots plus the implementation reserved range.
  *
  * @param layout Layout from `query_descriptor_heap_layout`.
  * @param descriptor_count Number of descriptor slots to allocate.
  */
 [[nodiscard]] auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t descriptor_count)
+  -> VkDeviceSize;
+
+/**
+ * Returns bytes needed for `descriptor_count` sampler slots plus the implementation reserved range.
+ *
+ * @param layout Layout from `query_descriptor_heap_layout`.
+ * @param descriptor_count Number of sampler slots to allocate.
+ */
+[[nodiscard]] auto sampler_heap_byte_size(descriptor_heap_layout const &layout, std::size_t descriptor_count)
   -> VkDeviceSize;
 
 /**
@@ -72,6 +84,32 @@ struct descriptor_heap_layout
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 /**
+ * Host-writes a sampled-image descriptor into a slot-sized destination span.
+ *
+ * @param view_info Image view create info describing the sampled image.
+ * @param layout Image layout expected when the descriptor is used.
+ * @param destination Host-mapped slot bytes (must be large enough for one image descriptor).
+ */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+[[nodiscard]] auto write_sampled_image_descriptor(context const &ctx,
+  VkImageViewCreateInfo const &view_info,
+  VkImageLayout layout,
+  std::span<std::byte> destination) -> status;
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
+/**
+ * Host-writes a sampler descriptor into a slot-sized destination span.
+ *
+ * @param sampler_info Sampler create info describing the sampler.
+ * @param destination Host-mapped slot bytes (must be large enough for one sampler descriptor).
+ */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+[[nodiscard]] auto write_sampler_descriptor(context const &ctx,
+  VkSamplerCreateInfo const &sampler_info,
+  std::span<std::byte> destination) -> status;
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
+/**
  * Binds a resource descriptor heap buffer for subsequent bindless dispatches/draws.
  *
  * @param cmd Command buffer in the recording state.
@@ -82,6 +120,24 @@ struct descriptor_heap_layout
  */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] auto cmd_bind_resource_heap(context const &ctx,
+  VkCommandBuffer cmd,
+  VkDeviceAddress heap_address,
+  VkDeviceSize heap_size,
+  VkDeviceSize reserved_range_offset,
+  VkDeviceSize reserved_range_size) -> status;
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
+/**
+ * Binds a sampler descriptor heap buffer for subsequent bindless dispatches/draws.
+ *
+ * @param cmd Command buffer in the recording state.
+ * @param heap_address Device address of the sampler heap buffer.
+ * @param heap_size Size of the heap buffer in bytes.
+ * @param reserved_range_offset Offset of the implementation reserved range.
+ * @param reserved_range_size Size of the implementation reserved range.
+ */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+[[nodiscard]] auto cmd_bind_sampler_heap(context const &ctx,
   VkCommandBuffer cmd,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,

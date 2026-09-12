@@ -13,7 +13,10 @@ auto load_descriptor_heap_procs(VkDevice device) -> descriptor_heap_procs
   descriptor_heap_procs procs{};
   procs.write_resource_descriptors =
     resolve_device_proc<PFN_vkWriteResourceDescriptorsEXT>(device, "vkWriteResourceDescriptorsEXT");
+  procs.write_sampler_descriptors =
+    resolve_device_proc<PFN_vkWriteSamplerDescriptorsEXT>(device, "vkWriteSamplerDescriptorsEXT");
   procs.cmd_bind_resource_heap = resolve_device_proc<PFN_vkCmdBindResourceHeapEXT>(device, "vkCmdBindResourceHeapEXT");
+  procs.cmd_bind_sampler_heap = resolve_device_proc<PFN_vkCmdBindSamplerHeapEXT>(device, "vkCmdBindSamplerHeapEXT");
   procs.cmd_push_data = resolve_device_proc<PFN_vkCmdPushDataEXT>(device, "vkCmdPushDataEXT");
   return procs;
 }
@@ -23,7 +26,8 @@ auto descriptor_heap_procs_for(context const &ctx) -> descriptor_heap_procs cons
 
 auto descriptor_heap_available(descriptor_heap_procs const &procs) -> bool
 {
-  return procs.write_resource_descriptors != nullptr && procs.cmd_bind_resource_heap != nullptr
+  return procs.write_resource_descriptors != nullptr && procs.write_sampler_descriptors != nullptr
+         && procs.cmd_bind_resource_heap != nullptr && procs.cmd_bind_sampler_heap != nullptr
          && procs.cmd_push_data != nullptr;
 }
 
