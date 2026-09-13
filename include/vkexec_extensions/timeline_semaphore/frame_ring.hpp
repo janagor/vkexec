@@ -38,7 +38,7 @@ struct frame_ring_submit_sync
  * Frames-in-flight sync: per-slot acquire semaphores, per-image present
  * semaphores, and one timeline that gates reuse of CPU slots and swapchain images.
  *
- * Pattern matches a vkgsplat-style ring: wait the slot, acquire, record, submit
+ * Typical frames-in-flight flow: wait the slot, acquire, record, submit
  * with `make_submit_sync`, then `mark_submitted`.
  *
  * ~~~~~~~~~~~{.cpp}

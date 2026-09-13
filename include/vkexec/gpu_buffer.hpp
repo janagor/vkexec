@@ -48,7 +48,7 @@ struct gpu_buffer_create_info
 };
 
 /**
- * Untyped VMA buffer for hybrid / embedders (e.g. vkgsplat).
+ * Untyped VMA buffer for hybrid / embedder paths.
  *
  * Distinct from typed `buffer<T>`, which is host-visible storage with element
  * fill. Move-only; destroys via VMA when owned.
