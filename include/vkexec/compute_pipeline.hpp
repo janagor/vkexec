@@ -93,13 +93,15 @@ private:
 };
 
 /**
- * Pair of a `compute_pipeline` and a bound descriptor set for dispatch.
+ * Non-owning pair of a `compute_pipeline` and a bound descriptor set for dispatch.
+ *
+ * `pipe` must outlive use of this binding.
  *
  * @see bind_storage_sender
  */
 struct bound_compute_pipeline
 {
-  compute_pipeline pipe;
+  compute_pipeline const *pipe{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 

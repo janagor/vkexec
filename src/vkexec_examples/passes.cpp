@@ -81,9 +81,9 @@ static auto run() -> int
   auto graph =
     ex::schedule(ctx->get_scheduler())
     | vkexec::compute_pass(
-      bound.pipe, bound.set, pass_params{ .value = k_add, .op = k_op_add }, static_cast<std::uint32_t>(k_element_count))
+      *bound.pipe, bound.set, pass_params{ .value = k_add, .op = k_op_add }, static_cast<std::uint32_t>(k_element_count))
     | vkexec::barrier::compute_to_compute()
-    | vkexec::compute_pass(bound.pipe,
+    | vkexec::compute_pass(*bound.pipe,
       bound.set,
       pass_params{ .value = k_scale, .op = k_op_mul },
       static_cast<std::uint32_t>(k_element_count));

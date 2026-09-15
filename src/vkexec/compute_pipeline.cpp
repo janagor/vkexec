@@ -100,10 +100,10 @@ auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
   return detail::make_sync_sender_fn<bound_compute_pipeline>(
-    [pipe, owned = std::move(owned)]() mutable -> result<bound_compute_pipeline> {
+    [&pipe, owned = std::move(owned)]() mutable -> result<bound_compute_pipeline> {
       VKEXEC_TRY_ASSIGN(set, pipe.allocate_set());
       VKEXEC_TRY(pipe.update_set(set, owned));
-      return bound_compute_pipeline{ .pipe = pipe, .set = set };
+      return bound_compute_pipeline{ .pipe = &pipe, .set = set };
     });
 }
 

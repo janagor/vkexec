@@ -208,7 +208,7 @@ static auto run() -> int
 
     vkexec::examples::sync_wait_graph(
       ex::schedule(ctx.get_scheduler())
-      | vkexec::compute_pass(compute_bound.pipe, compute_bound.set, params, k_particle_count));
+      | vkexec::compute_pass(*compute_bound.pipe, compute_bound.set, params, k_particle_count));
 
     vkexec::examples::sync_wait_graph(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
   }
