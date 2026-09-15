@@ -2,7 +2,7 @@
 #define VKEXEC_COMPUTE_PIPELINE_HPP
 
 //! \file
-//! Cached compute pipelines and helpers that build `compute_pass` closures.
+//! Owning compute pipelines and helpers that build `compute_pass` closures.
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
@@ -14,17 +14,20 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
 
 /**
- * Handle to a cached compute pipeline built from SPIR-V or GLSL.
+ * Move-only compute pipeline built from SPIR-V or GLSL.
  *
- * Resources live in the context pipeline cache; this object is a non-owning
- * view. Use `bind` / `allocate_set` with `compute_pass` to dispatch.
+ * Owns shader module, layouts, pipeline, and descriptor pool. Use `bind` /
+ * `allocate_set` with `compute_pass` to dispatch. Destroy only after GPU work
+ * that uses this pipeline has finished.
  *
  * @see layout_desc, compute_pass, pipeline_resources
  */
@@ -32,9 +35,9 @@ class compute_pipeline
 {
 public:
   /**
-   * Creates (or reuses) a cached pipeline from existing SPIR-V words.
+   * Creates a pipeline from existing SPIR-V words.
    *
-   * @param ctx Context that owns the pipeline cache.
+   * @param ctx Context whose device creates the Vulkan objects.
    * @param spirv SPIR-V words for the compute shader.
    * @param desc Descriptor and push-constant layout.
    */
@@ -42,20 +45,39 @@ public:
     -> detail::sync_sender_fn<compute_pipeline>;
 
   /**
-   * Compiles `glsl` to SPIR-V then creates (or reuses) a cached pipeline.
+   * Compiles `glsl` to SPIR-V then creates a pipeline.
    *
-   * @param ctx Context that owns the pipeline cache.
+   * @param ctx Context whose device creates the Vulkan objects.
    * @param glsl Compute shader GLSL source.
    * @param desc Descriptor and push-constant layout.
-   * @param name Debug name for the compiler and cache key.
+   * @param name Debug name for the compiler.
    */
   [[nodiscard]] static auto
     create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
       -> detail::sync_sender_fn<compute_pipeline>;
 
-  //! Mutable cached Vulkan resources for this pipeline.
+  compute_pipeline(compute_pipeline const &) = delete;
+  auto operator=(compute_pipeline const &) -> compute_pipeline & = delete;
+
+  compute_pipeline(compute_pipeline &&other) noexcept
+    : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
+  {}
+
+  auto operator=(compute_pipeline &&other) noexcept -> compute_pipeline &
+  {
+    if (this != &other) {
+      reset();
+      ctx_ = std::exchange(other.ctx_, nullptr);
+      resources_ = std::move(other.resources_);
+    }
+    return *this;
+  }
+
+  ~compute_pipeline() { reset(); }
+
+  //! Mutable owned Vulkan resources for this pipeline.
   [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
-  //! Const cached Vulkan resources for this pipeline.
+  //! Const owned Vulkan resources for this pipeline.
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
 
   //! Builds a `compute_bind` for recording with optional descriptor set.
@@ -86,10 +108,14 @@ public:
   [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status;
 
 private:
-  compute_pipeline(context *ctx, pipeline_resources *pipe) noexcept : ctx_(ctx), resources_(pipe) {}
+  compute_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
+    : ctx_(ctx), resources_(std::move(resources))
+  {}
+
+  auto reset() noexcept -> void;
 
   context *ctx_{ nullptr };
-  pipeline_resources *resources_{ nullptr };
+  std::unique_ptr<pipeline_resources> resources_;
 };
 
 /**
@@ -117,7 +143,7 @@ struct bound_compute_pipeline
 /**
  * Builds a prebuilt compute pass with push constants and automatic group counts.
  *
- * @param pipe Cached compute pipeline.
+ * @param pipe Compute pipeline.
  * @param set Descriptor set matching the pipeline layout (may be null if unused).
  * @param params Trivially copyable push-constant blob.
  * @param work_count Invocation count along X (converted via `groups_for`).

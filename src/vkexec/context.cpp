@@ -4,14 +4,12 @@
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include "completion_waiter.hpp"
 #include "host_agent.hpp"
-#include "pipeline_cache.hpp"
 
 #include <VkBootstrap.h>
 #include <vk_mem_alloc.h>
@@ -195,7 +193,6 @@ auto context::init_common_resources() -> status
   load_device_procs();
   VKEXEC_TRY(create_command_pool());
   VKEXEC_TRY(create_allocator());
-  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   host_agent_ = std::make_unique<detail::host_agent>();
   return {};
@@ -272,7 +269,6 @@ auto context::init_adopted(context_adopt_info const &info) -> status
   }
 
   VKEXEC_TRY(create_command_pool());
-  pipeline_cache_ = std::make_unique<pipeline_cache>(*this);
   completion_waiter_ = std::make_unique<detail::completion_waiter>(device_.device, compute_queue_);
   host_agent_ = std::make_unique<detail::host_agent>();
   return {};
@@ -366,7 +362,6 @@ context::~context()
   // Agents first so outstanding completions finish before tearing down Vulkan objects.
   host_agent_.reset();
   completion_waiter_.reset();
-  pipeline_cache_.reset();
 
   if (device_.device != VK_NULL_HANDLE) {
     if (owns_device_) { vkDeviceWaitIdle(device_.device); }
@@ -645,9 +640,5 @@ auto context::submit(queue_submit const &info) const -> status
   }
   return {};
 }
-
-auto context::get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> result<std::reference_wrapper<pipeline_resources>>
-{ return pipeline_cache_->get_or_create_from_spirv(spirv, desc); }
 
 }// namespace vkexec

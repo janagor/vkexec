@@ -8,7 +8,6 @@
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -32,7 +31,6 @@ namespace vkexec {
 
 class scheduler;
 class window;
-class pipeline_cache;
 
 namespace detail {
   class completion_waiter;
@@ -168,16 +166,6 @@ public:
   [[nodiscard]] auto procs() const noexcept -> device_procs const & { return procs_; }
 
   /**
-   * Returns a cached compute pipeline built from `spirv`, creating it on first use.
-   *
-   * @param spirv SPIR-V words for the compute shader.
-   * @param desc Descriptor and push-constant layout for the pipeline.
-   * @return Reference to cached `pipeline_resources`, or an error.
-   */
-  [[nodiscard]] auto get_or_create_from_spirv(std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> result<std::reference_wrapper<pipeline_resources>>;
-
-  /**
    * Allocates a primary command buffer from the context command pool.
    *
    * Caller must return it with `free_command_buffer`. Hold `lock_host()` across
@@ -279,7 +267,6 @@ public:
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:
-  friend class pipeline_cache;
   friend class window;
   template<typename T> friend class buffer;
 
@@ -329,7 +316,6 @@ private:
   std::uint32_t graphics_family_{ 0 };
   std::uint32_t present_family_{ 0 };
   VkCommandPool command_pool_{ VK_NULL_HANDLE };
-  std::unique_ptr<pipeline_cache> pipeline_cache_;
   std::unique_ptr<detail::completion_waiter> completion_waiter_;
   std::unique_ptr<detail::host_agent> host_agent_;
   mutable std::mutex host_mutex_;

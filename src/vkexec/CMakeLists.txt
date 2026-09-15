@@ -5,7 +5,6 @@ add_library(
   context.cpp
   completion_waiter.cpp
   host_agent.cpp
-  pipeline_cache.cpp
   compute_pipeline.cpp
   spirv_compile.cpp
   push.cpp
