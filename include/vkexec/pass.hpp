@@ -68,7 +68,7 @@ struct compute_bind
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
-//! Builds a `compute_bind` from cached pipeline resources and an optional set.
+//! Builds a `compute_bind` from pipeline resources and an optional set.
 [[nodiscard]] auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE) -> compute_bind;
 
 /**
@@ -130,9 +130,9 @@ namespace detail {
  *
  * ~~~~~~~~~~~{.cpp}
  * auto graph = ex::schedule(ctx->get_scheduler())
- *   | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000)
+ *   | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000)
  *   | vkexec::barrier::compute_to_compute()
- *   | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000);
+ *   | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
  * vkexec::sync_wait(std::move(graph));
  * ~~~~~~~~~~~
  *

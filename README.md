@@ -9,7 +9,7 @@
 `vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with prebuilt GLSL/SPIR-V shaders, plus optional bindless and GLFW graphics helpers suitable for embedding:
 
 1. Author shaders as GLSL strings or embedded SPIR-V
-2. Build and cache `VkPipeline`s via `compute_pipeline` / `graphics_pipeline`
+2. Build move-only `VkPipeline`s via `compute_pipeline` / `graphics_pipeline`
 3. Dispatch with `compute_pass` (and chain barriers / multiple passes in one submit)
 
 ```cpp
@@ -53,20 +53,20 @@ int main() {
       "sim.comp")));
 
     auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
-      vkexec::compute_pipeline::bind_storage_sender(pipe, { positions, velocities })));
+      vkexec::bind_storage_sender(pipe, { positions, velocities })));
 
     sim_params params{ 0.016f, 0.99f };
     if (auto waited = vkexec::sync_wait(ex::schedule(ctx->get_scheduler())
-                                        | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000));
+                                        | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000));
         !waited.has_value()) {
       return 1;
     }
 
     // Several compute kernels in one command buffer:
     auto graph = ex::schedule(ctx->get_scheduler())
-      | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000)
+      | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000)
       | vkexec::barrier::compute_to_compute()
-      | vkexec::compute_pass(bound.pipeline, bound.set, params, 10000);
+      | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
     if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
   } catch (vkexec::error const& err) {
     std::cerr << std::format("{}\n", err.message());
@@ -136,7 +136,7 @@ Common entry points:
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
-| `compute_pipeline::bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
+| `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
 | `window::create` / `window::headless` | sender → `set_value(window)` |
 | `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` |
 | `mesh::create` | sender → `set_value(mesh)` |
@@ -147,7 +147,7 @@ Common entry points:
 
 ### Existing SPIR-V (hybrid)
 
-Keep hand-written shaders. vkexec caches the pipeline and records dispatch. Push constants are a host POD (`upload_push_constants` / `compute_pass`):
+Keep hand-written shaders. vkexec creates an owning pipeline and records dispatch. Push constants are a host POD (`upload_push_constants` / `compute_pass`):
 
 ```cpp
 struct ProjectPush { float view[16]; float projection[16]; std::uint64_t gaussian_addr; std::uint32_t splat_count; };
@@ -159,9 +159,9 @@ auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(ctx, glsl, 
   .local_size = { 64, 1, 1 },
 }));
 // or create(ctx, spirv, layout) when you already have .spv
-auto bound = vkexec::sync_wait_value(vkexec::compute_pipeline::bind_storage_sender(pipe, buffers));
+auto bound = vkexec::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 if (auto waited = vkexec::sync_wait(ex::schedule(ctx.get_scheduler())
-      | vkexec::compute_pass(bound.pipeline, bound.set, push, splat_count));
+      | vkexec::compute_pass(*bound.pipe, bound.set, push, splat_count));
     !waited.has_value()) { /* stopped */ }
 // or, with your own command buffer:
 vkexec::upload_push_constants(cmd, pipe, push);
@@ -188,7 +188,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 
 **Embedder notes:**
 
-- Destroy the adopted `context` before tearing down the borrowed device/VMA — vkexec owns a command pool and pipeline cache on that device.
+- Destroy adopted `context` and any owning pipelines before tearing down the borrowed device/VMA — vkexec owns a command pool on that device.
 - Use `sync_wait_value` / `try_sync_wait_value` for factory senders when you are not composing stdexec graphs.
 - For bindless compute, link `vkexec::ext_descriptor_heap` and use `descriptor_heap_procs_for(ctx)` (or `ext::available<ext::descriptor_heap>(ctx)`) instead of core `context::procs()`.
 - With your own command buffers, bindless compute uses `record_heap_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.

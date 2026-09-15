@@ -33,7 +33,7 @@ namespace detail {
   /**
    * Descriptor sets allocated for one recording/submit, freed together on scope exit.
    *
-   * Tracks both pipeline-keyed cached sets and raw pool/set pairs from one-off
+   * Tracks both pipeline-keyed sets and raw pool/set pairs from one-off
    * allocations so `release` can free everything after submit.
    */
   struct descriptor_cleanup

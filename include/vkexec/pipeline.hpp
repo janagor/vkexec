@@ -2,7 +2,7 @@
 #define VKEXEC_PIPELINE_HPP
 
 //! \file
-//! Shared layout and resource types for cached compute pipelines.
+//! Shared layout and resource types for owning compute pipelines.
 
 #include <vulkan/vulkan.h>
 
@@ -50,10 +50,11 @@ struct layout_desc
 };
 
 /**
- * Cached Vulkan objects for one compute pipeline.
+ * Vulkan objects for one compute pipeline.
  *
- * Owned by the context pipeline cache; do not destroy handles directly.
- * `descriptor_pool` is used to allocate sets matching `set_layout`.
+ * Owned by `compute_pipeline` / `heap_compute_pipeline`; do not destroy handles
+ * directly. `descriptor_pool` is used to allocate sets matching `set_layout`
+ * (classic pipelines only).
  */
 struct pipeline_resources
 {
