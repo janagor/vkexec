@@ -99,9 +99,6 @@ namespace {
       -> result<std::reference_wrapper<pipeline_resources>>
     {
       if (spirv.empty()) { return fail(errc::invalid_argument, "heap_compute_pipeline requires non-empty SPIR-V"); }
-      if (!desc.specialization.empty()) {
-        return fail(errc::invalid_argument, "heap_compute_pipeline does not support specialization constants yet");
-      }
 
       std::size_t const key = hash_spirv_heap_layout(spirv, desc);
       {
@@ -112,12 +109,29 @@ namespace {
       auto resources = std::make_unique<pipeline_resources>();
       resources->local_size = desc.local_size;
 
+      // Same constantID = index convention as classic compute_pipeline / pipeline_cache.
+      std::vector<VkSpecializationMapEntry> spec_entries(desc.specialization.size());
+      for (std::size_t index = 0; index < desc.specialization.size(); ++index) {
+        spec_entries.at(index).constantID = static_cast<std::uint32_t>(index);
+        spec_entries.at(index).offset = static_cast<std::uint32_t>(index * sizeof(std::uint32_t));
+        spec_entries.at(index).size = sizeof(std::uint32_t);
+      }
+      VkSpecializationInfo spec_info{};
+      VkSpecializationInfo const *spec_ptr = nullptr;
+      if (!desc.specialization.empty()) {
+        spec_info.mapEntryCount = static_cast<std::uint32_t>(spec_entries.size());
+        spec_info.pMapEntries = spec_entries.data();
+        spec_info.dataSize = desc.specialization.size() * sizeof(std::uint32_t);
+        spec_info.pData = desc.specialization.data();
+        spec_ptr = &spec_info;
+      }
+
       VkDevice device = ctx_->device();
       auto shader_result = create_shader_module(device, spirv);
       if (!shader_result) { return fail(shader_result); }
       resources->shader = expected_take(shader_result);
 
-      auto pipeline_result = create_heap_compute_pipeline(device, resources->shader, nullptr);
+      auto pipeline_result = create_heap_compute_pipeline(device, resources->shader, spec_ptr);
       if (!pipeline_result) {
         destroy_heap_resources(*ctx_, *resources);
         return fail(pipeline_result);

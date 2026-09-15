@@ -27,6 +27,14 @@ layout(local_size_x = 64) in;
 void main() {}
 )";
 
+constexpr std::string_view k_heap_spec_glsl = R"(#version 460
+layout(local_size_x = 64) in;
+layout(constant_id = 0) const uint kCount = 1;
+void main() {
+  if (gl_GlobalInvocationID.x >= kCount) { return; }
+}
+)";
+
 struct heap_push
 {
   std::uint32_t count;
@@ -55,6 +63,26 @@ TEST_CASE("heap_compute_pipeline can create a descriptor-heap null layout", "[vk
   REQUIRE(pipe.resources().pipeline_layout == VK_NULL_HANDLE);
   REQUIRE(pipe.resources().set_layout == VK_NULL_HANDLE);
   REQUIRE(pipe.resources().descriptor_pool == VK_NULL_HANDLE);
+}
+
+TEST_CASE("heap_compute_pipeline accepts specialization constants", "[vkexec][descriptor_heap][gpu]")
+{
+  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
+  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
+  features_heap.descriptorHeap = VK_TRUE;
+
+  vkexec::vulkan_requirements requirements{};
+  requirements.api_version_major = 1;
+  requirements.api_version_minor = 4;
+  requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
+  requirements.require_extension_feature(features_heap);
+
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto pipe = vkexec::test::sync_wait_value(vkexec::heap_compute_pipeline::create(*ctx,
+    k_heap_spec_glsl,
+    vkexec::heap_layout_desc{ .specialization = { k_work_count }, .local_size = vkexec::k_default_local_size },
+    "heap_spec.comp"));
+  REQUIRE(pipe.resources().pipeline != VK_NULL_HANDLE);
 }
 
 TEST_CASE("compute_heap_pass records bindless push data for heap pipelines", "[vkexec][descriptor_heap][gpu]")
