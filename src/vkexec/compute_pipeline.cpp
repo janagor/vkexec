@@ -257,24 +257,7 @@ auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding
   if (buffers.size() != resources_->binding_count) {
     return fail(errc::invalid_argument, "update_set buffer count must match layout_desc.bindings");
   }
-  if (buffers.empty()) { return {}; }
-
-  std::vector<VkDescriptorBufferInfo> infos(buffers.size());
-  std::vector<VkWriteDescriptorSet> writes(buffers.size());
-  std::size_t index = 0;
-  for (storage_binding const &buffer : buffers) {
-    infos.at(index).buffer = buffer.buffer;
-    infos.at(index).offset = 0;
-    infos.at(index).range = buffer.byte_size;
-    writes.at(index).sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes.at(index).dstSet = set;
-    writes.at(index).dstBinding = static_cast<std::uint32_t>(index);
-    writes.at(index).descriptorCount = 1;
-    writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    writes.at(index).pBufferInfo = &infos.at(index);
-    ++index;
-  }
-  vkUpdateDescriptorSets(ctx_->device(), static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+  write_storage_descriptors(ctx_->device(), set, buffers);
   return {};
 }
 

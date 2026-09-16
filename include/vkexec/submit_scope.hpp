@@ -67,10 +67,6 @@ namespace detail {
   //! Returns whether two storage-binding lists refer to the same buffers in order.
   auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool;
 
-  //! Writes storage-buffer descriptors for `buffers` into `set`.
-  auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
-    -> void;
-
   /**
    * Allocates a compute descriptor set from `pipe`'s pool and writes `buffers`.
    *

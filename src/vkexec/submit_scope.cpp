@@ -16,25 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace vkexec::detail {
-
-auto descriptor_cleanup::release(context const &ctx) noexcept -> void
-{
-  // Host lock matches allocate path; pool frees must be serialized with submits.
-  std::unique_lock const lock = ctx.lock_host();
-  for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
-  allocated.clear();
-  sets.clear();
-}
-
-auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool
-{
-  return lhs.size() == rhs.size()
-         && std::equal(
-           lhs.begin(), lhs.end(), rhs.begin(), [](storage_binding const &left, storage_binding const &right) -> bool {
-             return left.buffer == right.buffer && left.byte_size == right.byte_size && left.binding == right.binding;
-           });
-}
+namespace vkexec {
 
 auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers) -> void
 {
@@ -55,6 +37,26 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
     ++index;
   }
   vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+namespace detail {
+
+auto descriptor_cleanup::release(context const &ctx) noexcept -> void
+{
+  // Host lock matches allocate path; pool frees must be serialized with submits.
+  std::unique_lock const lock = ctx.lock_host();
+  for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
+  allocated.clear();
+  sets.clear();
+}
+
+auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool
+{
+  return lhs.size() == rhs.size()
+         && std::equal(
+           lhs.begin(), lhs.end(), rhs.begin(), [](storage_binding const &left, storage_binding const &right) -> bool {
+             return left.buffer == right.buffer && left.byte_size == right.byte_size && left.binding == right.binding;
+           });
 }
 
 auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
@@ -158,4 +160,5 @@ auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
 auto submit_fence(submit_scope scope) -> submit_fence_sender
 { return submit_fence_sender{ .scope = std::move(scope) }; }
 
-}// namespace vkexec::detail
+}// namespace detail
+}// namespace vkexec

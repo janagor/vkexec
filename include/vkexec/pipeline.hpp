@@ -2,13 +2,14 @@
 #define VKEXEC_PIPELINE_HPP
 
 //! \file
-//! Shared layout and resource types for owning compute pipelines.
+//! Shared layout types and borrowable pipeline handle bags for classic compute.
 
 #include <vulkan/vulkan.h>
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace vkexec {
@@ -24,8 +25,8 @@ inline constexpr std::array<std::uint32_t, 3> k_default_local_size{ k_default_lo
 /**
  * One storage-buffer binding for descriptor updates.
  *
- * `binding` is the descriptor binding index; `byte_size` is the range written
- * into the descriptor (often the full buffer).
+ * `binding` is the descriptor binding index written into the set; `byte_size` is
+ * the range (often the full buffer). Callers must set `binding` explicitly.
  */
 struct storage_binding
 {
@@ -33,6 +34,14 @@ struct storage_binding
   VkDeviceSize byte_size{ 0 };
   std::uint32_t binding{ 0 };
 };
+
+/**
+ * Writes storage-buffer descriptors for `buffers` into `set`.
+ *
+ * Each entry uses `storage_binding::binding` as `dstBinding`.
+ */
+auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
+  -> void;
 
 /**
  * Descriptor and push-constant layout for a compute pipeline.
