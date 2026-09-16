@@ -244,7 +244,7 @@ auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv
 {
   return detail::make_sync_sender_fn<compute_pipeline>([&ctx, spirv, desc]() -> result<compute_pipeline> {
     VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, spirv, desc));
-    return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(std::move(owned)) };
+    return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(owned) };
   });
 }
 
@@ -255,7 +255,7 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
     [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<compute_pipeline> {
       // Capture by value: the sender may outlive the caller's string_views.
       VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, glsl, desc, name));
-      return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(std::move(owned)) };
+      return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(owned) };
     });
 }
 
