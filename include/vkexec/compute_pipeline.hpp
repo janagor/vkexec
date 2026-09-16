@@ -85,16 +85,11 @@ public:
   { return bind_compute(*resources_, set); }
 
   //! Returns the specialized local workgroup size as a `dispatch`.
-  [[nodiscard]] auto local_size() const noexcept -> dispatch
-  {
-    return dispatch{
-      .x = resources_->local_size.at(0), .y = resources_->local_size.at(1), .z = resources_->local_size.at(2)
-    };
-  }
+  [[nodiscard]] auto local_size() const noexcept -> dispatch { return vkexec::local_size(*resources_); }
 
   //! Returns workgroup counts covering `work_count` invocations along X.
   [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
-  { return dispatch_groups_for(work_count, resources_->local_size.at(0)); }
+  { return vkexec::groups_for(*resources_, work_count); }
 
   //! Sender that allocates an empty descriptor set from this pipeline's pool.
   [[nodiscard]] auto allocate_set_sender() const -> detail::sync_sender_fn<VkDescriptorSet>;

@@ -273,17 +273,7 @@ auto compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_
 }
 
 auto compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
-{
-  VkDescriptorSetAllocateInfo dsai{};
-  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  dsai.descriptorPool = resources_->descriptor_pool;
-  dsai.descriptorSetCount = 1;
-  dsai.pSetLayouts = &resources_->set_layout;
-  VkDescriptorSet set{ VK_NULL_HANDLE };
-  VkResult const allocate_result = vkAllocateDescriptorSets(ctx_->device(), &dsai, &set);
-  if (allocate_result != VK_SUCCESS) { return fail(allocate_result, "vkAllocateDescriptorSets failed"); }
-  return set;
-}
+{ return vkexec::allocate_compute_set(*ctx_, *resources_); }
 
 auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status
 {
