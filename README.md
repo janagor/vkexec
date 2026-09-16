@@ -6,19 +6,29 @@
 
 ## About
 
-`vkexec` is a C++23 library that provides a **stdexec Vulkan compute backend** with prebuilt GLSL/SPIR-V shaders, plus optional bindless and GLFW graphics helpers suitable for embedding:
+`vkexec` is a C++23 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, and borrowable handles — plus optional owning RAII and GLFW helpers for greenfield apps.
 
-1. Author shaders as GLSL strings or embedded SPIR-V
-2. Build move-only `VkPipeline`s via `compute_pipeline` / `graphics_pipeline`
-3. Dispatch with `compute_pass` (and chain barriers / multiple passes in one submit)
+**Layer 1 (execution)** — schedule work on a device; record with `compute_bind` / `pipeline_resources`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
+
+**Layer 2 (resources)** — owning `buffer`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
+
+Same Layer 1 / Layer 2 split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
+
+### Public headers
+
+| Header | Role |
+|--------|------|
+| `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `pipeline_resources`, Layer 1 free functions |
+| `<vkexec/resources.hpp>` | Owning buffers, images, samplers, `compute_pipeline` |
+| `<vkexec/vkexec.hpp>` | Full core umbrella (both layers) |
+
+`context::adopt` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
+
+### Hero — Layer 1 dispatch
 
 ```cpp
-#include <vkexec/buffer.hpp>
-#include <vkexec/compute_pipeline.hpp>
-#include <vkexec/context.hpp>
-#include <vkexec/pass.hpp>
-#include <vkexec/sync_wait_outcome.hpp>
-#include <vkexec/sync_wait.hpp>
+#include <vkexec/execution.hpp>
+#include <vkexec/resources.hpp>  // optional: typed buffer helpers for the sample
 
 #include <stdexec/execution.hpp>
 
@@ -43,36 +53,48 @@ void main() {
 int main() {
   try {
     auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create()));
+    // Layer 2 convenience for host-visible storage (or use your own VkBuffers):
     auto positions = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 0.0f)));
     auto velocities = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 1.5f)));
 
     using enum vkexec::buffer_access;
-    auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
-      k_sim_glsl,
+    auto resources = vkexec::expected_take(vkexec::create_compute_resources(*ctx, k_sim_glsl,
       vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
-      "sim.comp")));
+      "sim.comp"));
 
-    auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
-      vkexec::bind_storage_sender(pipe, { positions, velocities })));
+    std::array const bindings{
+      vkexec::storage_binding{ .buffer = positions.vk_buffer(), .byte_size = 10000 * sizeof(float), .binding = 0 },
+      vkexec::storage_binding{ .buffer = velocities.vk_buffer(), .byte_size = 10000 * sizeof(float), .binding = 1 },
+    };
+    auto bound = vkexec::expected_take(vkexec::bind_storage(*ctx, resources, bindings));
 
     sim_params params{ 0.016f, 0.99f };
-    if (auto waited = vkexec::sync_wait(ex::schedule(ctx->get_scheduler())
-                                        | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000));
-        !waited.has_value()) {
-      return 1;
-    }
-
-    // Several compute kernels in one command buffer:
     auto graph = ex::schedule(ctx->get_scheduler())
-      | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000)
+      | vkexec::compute_pass(resources, bound.set, params, 10000)
       | vkexec::barrier::compute_to_compute()
-      | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
+      | vkexec::compute_pass(resources, bound.set, params, 10000);
     if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
+
+    vkexec::destroy_compute_resources(*ctx, resources);
   } catch (vkexec::error const& err) {
     std::cerr << std::format("{}\n", err.message());
     return 1;
   }
 }
+```
+
+### Greenfield Layer 2 (owning factories)
+
+For apps that want move-only RAII instead of bare `pipeline_resources`:
+
+```cpp
+auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
+  k_sim_glsl,
+  vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
+  "sim.comp")));
+auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
+  vkexec::bind_storage_sender(pipe, bindings)));
+ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
 ```
 
 ### Error model
@@ -134,6 +156,7 @@ Common entry points:
 | API | Returns |
 |-----|---------|
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
+| `create_compute_resources` / `bind_storage` | `result<pipeline_resources>` / `result<bound_compute>` (Layer 1) |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
@@ -196,7 +219,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII in core: `gpu_buffer`, `image` / `image_view` / `sampler`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
+Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
 
 ### Promoted features (`vkexec_features`)
 
@@ -253,9 +276,9 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
-**Layer 1 — free functions** (adopt-everything embedders): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
+**Layer 1 — free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
 
-**Layer 2 — RAII types** (vkexec-native apps): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
+**Layer 2 — RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
 
 **Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
