@@ -13,6 +13,7 @@
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <cmath>
@@ -133,6 +134,50 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   REQUIRE(std::fabs(positions.data()[0] - expected_p) <= k_epsilon);
   REQUIRE(std::fabs(velocities.data()[0] - expected_v) <= k_epsilon);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("classic compute Layer 1 path without owning pipeline", "[vkexec][gpu][layer1]")
+{
+  constexpr std::size_t k_count = 128;
+  constexpr float k_initial_velocity = 1.5F;
+  constexpr float k_timestep = 0.016F;
+  constexpr float k_damping = 0.99F;
+  constexpr float k_epsilon = 1.0E-4F;
+
+  auto ctx = vkexec::test::require_context();
+  auto positions = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F));
+  auto velocities = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity));
+
+  auto resources_result = vkexec::create_compute_resources(*ctx, k_sim_glsl, make_sim_layout(), "sim_layer1.comp");
+  REQUIRE(resources_result.has_value());
+  auto resources = vkexec::expected_take(resources_result);
+
+  std::array const bindings{
+    vkexec::storage_binding{ .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float), .binding = 0 },
+    vkexec::storage_binding{ .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float), .binding = 1 },
+  };
+  auto bound_result = vkexec::bind_storage(*ctx, resources, bindings);
+  REQUIRE(bound_result.has_value());
+  auto bound = vkexec::expected_take(bound_result);
+  REQUIRE(bound.pipe == &resources);
+  REQUIRE(bound.set != VK_NULL_HANDLE);
+  REQUIRE(bindings.at(0).binding == 0);
+  REQUIRE(bindings.at(1).binding == 1);
+
+  sim_params const params{ .dt = k_timestep, .damping = k_damping };
+  auto waited = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler())
+                                              | vkexec::compute_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_count)));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
+
+  float const expected_v = k_initial_velocity * k_damping;
+  float const expected_p = expected_v * k_timestep;
+  // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  REQUIRE(std::fabs(positions.data()[0] - expected_p) <= k_epsilon);
+  REQUIRE(std::fabs(velocities.data()[0] - expected_v) <= k_epsilon);
+  // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+
+  vkexec::destroy_compute_resources(*ctx, resources);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
