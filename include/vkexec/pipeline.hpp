@@ -67,8 +67,12 @@ struct layout_desc
  * Non-owning handle bag: fill via `create_compute_resources` or an embedder's
  * own objects. Destroy with `destroy_compute_resources` (or use Layer 2
  * `compute_pipeline`). Do not destroy individual handles while this struct is
- * still considered live. `descriptor_pool` is used to allocate sets matching
- * `set_layout` (classic pipelines only).
+ * still considered live.
+ *
+ * `descriptor_pool` backs `allocate_compute_set` / `bind_storage` (classic
+ * pipelines only). The pool holds a fixed number of sets; free unused sets with
+ * `free_compute_set`, or destroy the pool via `destroy_compute_resources`.
+ * Rebinding every frame without freeing will exhaust the pool.
  */
 struct pipeline_resources
 {
@@ -118,6 +122,9 @@ struct bound_compute
 };
 
 //! Allocates an empty descriptor set from `pipe.descriptor_pool`.
+//!
+//! Return the set with `free_compute_set` when finished, or free all sets by
+//! destroying the pool via `destroy_compute_resources`.
 [[nodiscard]] auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe)
   -> result<VkDescriptorSet>;
 
@@ -125,9 +132,21 @@ struct bound_compute
  * Allocates a set and writes `buffers` into it.
  *
  * @param buffers Must use `storage_binding::binding` indices matching the layout.
+ *
+ * The returned set is loaned from `pipe.descriptor_pool`. Call `free_compute_set`
+ * after GPU work that uses it has finished if you will allocate again; otherwise
+ * destroy the resources when done.
  */
 [[nodiscard]] auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storage_binding const> buffers)
   -> result<bound_compute>;
+
+/**
+ * Returns `set` to `pipe.descriptor_pool`.
+ *
+ * No-op when `set` or the pool is null. Safe to call after the GPU has finished
+ * using the set; do not free a set still referenced by in-flight command buffers.
+ */
+auto free_compute_set(context const &ctx, pipeline_resources const &pipe, VkDescriptorSet set) noexcept -> void;
 
 }// namespace vkexec
 

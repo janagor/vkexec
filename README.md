@@ -75,6 +75,7 @@ int main() {
       | vkexec::compute_pass(resources, bound.set, params, 10000);
     if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
 
+    vkexec::free_compute_set(*ctx, resources, bound.set);
     vkexec::destroy_compute_resources(*ctx, resources);
   } catch (vkexec::error const& err) {
     std::cerr << std::format("{}\n", err.message());
@@ -156,7 +157,7 @@ Common entry points:
 | API | Returns |
 |-----|---------|
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
-| `create_compute_resources` / `bind_storage` | `result<pipeline_resources>` / `result<bound_compute>` (Layer 1) |
+| `create_compute_resources` / `bind_storage` / `free_compute_set` | Layer 1 classic pipeline + descriptor set loans |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |

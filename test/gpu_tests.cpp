@@ -177,6 +177,7 @@ TEST_CASE("classic compute Layer 1 path without owning pipeline", "[vkexec][gpu]
   REQUIRE(std::fabs(velocities.data()[0] - expected_v) <= k_epsilon);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
+  vkexec::free_compute_set(*ctx, resources, bound.set);
   vkexec::destroy_compute_resources(*ctx, resources);
 }
 

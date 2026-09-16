@@ -232,6 +232,12 @@ auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storag
   return bound_compute{ .pipe = &pipe, .set = set };
 }
 
+auto free_compute_set(context const &ctx, pipeline_resources const &pipe, VkDescriptorSet set) noexcept -> void
+{
+  if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
+  vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
+}
+
 auto compute_pipeline::reset() noexcept -> void
 {
   if (ctx_ != nullptr && resources_ != nullptr) { destroy_compute_resources(*ctx_, *resources_); }
