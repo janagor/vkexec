@@ -6,10 +6,13 @@
 
 #include <vulkan/vulkan.h>
 
+#include <vkexec/result.hpp>
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace vkexec {
@@ -59,11 +62,13 @@ struct layout_desc
 };
 
 /**
- * Vulkan objects for one compute pipeline.
+ * Vulkan objects for one classic compute pipeline.
  *
- * Owned by `compute_pipeline` / `heap_compute_pipeline`; do not destroy handles
- * directly. `descriptor_pool` is used to allocate sets matching `set_layout`
- * (classic pipelines only).
+ * Non-owning handle bag: fill via `create_compute_resources` or an embedder's
+ * own objects. Destroy with `destroy_compute_resources` (or use Layer 2
+ * `compute_pipeline`). Do not destroy individual handles while this struct is
+ * still considered live. `descriptor_pool` is used to allocate sets matching
+ * `set_layout` (classic pipelines only).
  */
 struct pipeline_resources
 {
@@ -76,6 +81,30 @@ struct pipeline_resources
   std::size_t push_bytes{ 0 };
   std::array<std::uint32_t, 3> local_size{ k_default_local_size };
 };
+
+class context;
+
+/**
+ * Creates classic compute Vulkan objects from SPIR-V.
+ *
+ * Caller owns the returned handles and must call `destroy_compute_resources`.
+ */
+[[nodiscard]] auto create_compute_resources(context &ctx,
+  std::span<std::uint32_t const> spirv,
+  layout_desc const &desc) -> result<pipeline_resources>;
+
+/**
+ * Compiles `glsl` to SPIR-V then creates classic compute Vulkan objects.
+ *
+ * Caller owns the returned handles and must call `destroy_compute_resources`.
+ */
+[[nodiscard]] auto create_compute_resources(context &ctx,
+  std::string_view glsl,
+  layout_desc const &desc,
+  std::string_view name = "vkexec.comp") -> result<pipeline_resources>;
+
+//! Destroys handles in `resources` and resets them to null.
+auto destroy_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void;
 
 }// namespace vkexec
 
