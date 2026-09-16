@@ -1,6 +1,7 @@
 add_subdirectory(extensions)
 
 add_executable(compute compute.cpp)
+add_executable(compute_layer1 compute_layer1.cpp)
 add_executable(sort sort.cpp)
 add_executable(passes passes.cpp)
 add_executable(spirv spirv.cpp)
@@ -11,6 +12,8 @@ add_executable(layers layers.cpp)
 add_executable(mesh mesh.cpp load_gltf_mesh.cpp)
 
 target_link_libraries(compute PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
+
+target_link_libraries(compute_layer1 PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
 target_link_libraries(sort PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
@@ -61,6 +64,7 @@ target_link_libraries(
 target_compile_definitions(mesh PRIVATE "VKEXEC_MESH_GLTF_PATH=\"${vkexec_mesh_gltf}\"")
 
 vkexec_configure_linker(compute)
+vkexec_configure_linker(compute_layer1)
 vkexec_configure_linker(sort)
 vkexec_configure_linker(passes)
 vkexec_configure_linker(spirv)

@@ -86,7 +86,7 @@ int main() {
 
 ### Greenfield Layer 2 (owning factories)
 
-For apps that want move-only RAII instead of bare `pipeline_resources`:
+For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`src/vkexec_examples/compute.cpp`](src/vkexec_examples/compute.cpp)). The Layer 1 path above matches [`src/vkexec_examples/compute_layer1.cpp`](src/vkexec_examples/compute_layer1.cpp).
 
 ```cpp
 auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
@@ -338,6 +338,7 @@ nix develop
 cmake --preset unixlike-clang-release
 cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/compute
+./out/build/unixlike-clang-release/src/vkexec_examples/compute_layer1
 ./out/build/unixlike-clang-release/src/vkexec_examples/sort
 ./out/build/unixlike-clang-release/src/vkexec_examples/passes
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
