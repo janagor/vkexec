@@ -333,11 +333,32 @@ auto compute_pass(compute_bind bind, dispatch groups) -> prebuilt_compute_pass_c
 //! Builds an indirect-dispatch compute pass without push constants.
 auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compute_pass_closure;
 
+//! Returns the specialized local workgroup size as a `dispatch`.
+[[nodiscard]] inline auto local_size(pipeline_resources const &pipe) noexcept -> dispatch
+{
+  return dispatch{ .x = pipe.local_size.at(0), .y = pipe.local_size.at(1), .z = pipe.local_size.at(2) };
+}
+
+//! Returns workgroup counts covering `work_count` invocations along X.
+[[nodiscard]] inline auto groups_for(pipeline_resources const &pipe, std::uint32_t work_count) noexcept -> dispatch
+{ return dispatch_groups_for(work_count, pipe.local_size.at(0)); }
+
 //! Convenience overload that binds `pipe` with `set` before building the closure.
 template<typename Params>
-auto compute_pass(pipeline_resources &pipe, VkDescriptorSet set, Params const &params, dispatch groups)
+auto compute_pass(pipeline_resources const &pipe, VkDescriptorSet set, Params const &params, dispatch groups)
   -> prebuilt_compute_pass_closure
 { return compute_pass(bind_compute(pipe, set), params, groups); }
+
+//! Builds a direct-dispatch pass with push constants and automatic group counts.
+template<typename Params>
+auto compute_pass(pipeline_resources const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count)
+  -> prebuilt_compute_pass_closure
+{ return compute_pass(pipe, set, params, groups_for(pipe, work_count)); }
+
+//! Builds a direct-dispatch pass without push constants using automatic group counts.
+inline auto compute_pass(pipeline_resources const &pipe, VkDescriptorSet set, std::uint32_t work_count)
+  -> prebuilt_compute_pass_closure
+{ return compute_pass(bind_compute(pipe, set), groups_for(pipe, work_count)); }
 
 namespace detail {
 

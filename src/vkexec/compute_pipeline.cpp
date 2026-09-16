@@ -208,6 +208,30 @@ auto create_compute_resources(context &ctx, std::string_view glsl, layout_desc c
   return create_compute_resources(ctx, spirv, desc);
 }
 
+auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe) -> result<VkDescriptorSet>
+{
+  VkDescriptorSetAllocateInfo dsai{};
+  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  dsai.descriptorPool = pipe.descriptor_pool;
+  dsai.descriptorSetCount = 1;
+  dsai.pSetLayouts = &pipe.set_layout;
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  VkResult const allocate_result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set);
+  if (allocate_result != VK_SUCCESS) { return fail(allocate_result, "vkAllocateDescriptorSets failed"); }
+  return set;
+}
+
+auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storage_binding const> buffers)
+  -> result<bound_compute>
+{
+  if (buffers.size() != pipe.binding_count) {
+    return fail(errc::invalid_argument, "bind_storage buffer count must match layout_desc.bindings");
+  }
+  VKEXEC_TRY_ASSIGN(set, allocate_compute_set(ctx, pipe));
+  write_storage_descriptors(ctx.device(), set, buffers);
+  return bound_compute{ .pipe = &pipe, .set = set };
+}
+
 auto compute_pipeline::reset() noexcept -> void
 {
   if (ctx_ != nullptr && resources_ != nullptr) { destroy_compute_resources(*ctx_, *resources_); }

@@ -106,6 +106,29 @@ class context;
 //! Destroys handles in `resources` and resets them to null.
 auto destroy_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void;
 
+/**
+ * Non-owning pair of classic pipeline resources and a bound descriptor set.
+ *
+ * `pipe` must outlive use of this binding.
+ */
+struct bound_compute
+{
+  pipeline_resources const *pipe{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+};
+
+//! Allocates an empty descriptor set from `pipe.descriptor_pool`.
+[[nodiscard]] auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe)
+  -> result<VkDescriptorSet>;
+
+/**
+ * Allocates a set and writes `buffers` into it.
+ *
+ * @param buffers Must use `storage_binding::binding` indices matching the layout.
+ */
+[[nodiscard]] auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storage_binding const> buffers)
+  -> result<bound_compute>;
+
 }// namespace vkexec
 
 #endif// VKEXEC_PIPELINE_HPP
