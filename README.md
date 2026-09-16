@@ -98,6 +98,38 @@ auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
 ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
 ```
 
+### Embedder path — adopt + raw `VkBuffer`s
+
+When you already own the device and buffers, skip Layer 2 factories. Pass borrowed handles into `context::adopt` and `storage_binding`:
+
+```cpp
+#include <vkexec/execution.hpp>
+
+auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
+  .instance = instance,
+  .physical_device = phys,
+  .device = device,
+  .allocator = vma,  // or null → vkexec creates one
+  .compute_queue = compute_q,
+  .compute_queue_family = compute_family,
+}));
+
+auto resources = vkexec::expected_take(vkexec::create_compute_resources(*ctx, spirv, layout));
+std::array const bindings{
+  vkexec::storage_binding{ .buffer = my_positions, .byte_size = bytes, .binding = 0 },
+  vkexec::storage_binding{ .buffer = my_velocities, .byte_size = bytes, .binding = 1 },
+};
+auto bound = vkexec::expected_take(vkexec::bind_storage(*ctx, resources, bindings));
+
+ex::schedule(ctx->get_scheduler())
+  | vkexec::compute_pass(resources, bound.set, push, work_count);
+
+// After GPU work finishes:
+vkexec::free_compute_set(*ctx, resources, bound.set);
+vkexec::destroy_compute_resources(*ctx, resources);
+// then destroy ctx before tearing down borrowed device / VMA
+```
+
 ### Error model
 
 Public APIs are **senders** (stdexec). Completions follow stdexec semantics:
