@@ -10,7 +10,7 @@
 
 **Execution** — schedule work on a device; record with `compute_bind` / `pipeline_resources`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
-**Resources** — owning `buffer`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
+**Resources** — owning `buffer`, typed `tensor<T>`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
 
 The same execution / resources split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
 
@@ -19,7 +19,7 @@ The same execution / resources split applies to optional extensions (descriptor 
 | Header | Role |
 |--------|------|
 | `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `pipeline_resources`, free functions |
-| `<vkexec/resources.hpp>` | Owning buffers, images, samplers, `compute_pipeline` |
+| `<vkexec/resources.hpp>` | Owning buffers, `tensor<T>`, images, samplers, `compute_pipeline` |
 | `<vkexec/vkexec.hpp>` | Full core umbrella (execution + resources) |
 
 `context::adopt` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
@@ -255,7 +255,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
+Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, typed `tensor<T>` (host-visible storage helper), `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
 
 ### Promoted features (`vkexec_features`)
 
