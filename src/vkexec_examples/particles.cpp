@@ -8,6 +8,7 @@
 #include <stdexec/execution.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/window.hpp>
 
 #include <vulkan/vulkan_core.h>
