@@ -6,6 +6,7 @@ add_executable(sort sort.cpp)
 add_executable(passes passes.cpp)
 add_executable(spirv spirv.cpp)
 add_executable(triangle triangle.cpp)
+add_executable(graphics_layer1 graphics_layer1.cpp)
 add_executable(heap_present heap_present.cpp)
 add_executable(particles particles.cpp)
 add_executable(layers layers.cpp)
@@ -23,6 +24,13 @@ target_link_libraries(spirv PRIVATE vkexec::vkexec_options vkexec::vkexec_warnin
 
 target_link_libraries(
   triangle
+  PRIVATE vkexec::vkexec_options
+          vkexec::vkexec_warnings
+          vkexec::vkexec
+          vkexec::vkexec_graphics)
+
+target_link_libraries(
+  graphics_layer1
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
@@ -69,6 +77,7 @@ vkexec_configure_linker(sort)
 vkexec_configure_linker(passes)
 vkexec_configure_linker(spirv)
 vkexec_configure_linker(triangle)
+vkexec_configure_linker(graphics_layer1)
 vkexec_configure_linker(heap_present)
 vkexec_configure_linker(particles)
 vkexec_configure_linker(layers)

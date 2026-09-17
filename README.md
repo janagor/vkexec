@@ -193,9 +193,11 @@ Common entry points:
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
-| `window::create` / `window::headless` | sender → `set_value(window)` |
-| `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` |
-| `mesh::create` | sender → `set_value(mesh)` |
+| `window::create` / `window::headless` | sender → `set_value(window)` (Layer 2 present owner) |
+| `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Layer 1 classic graphics pipeline + descriptor set loans |
+| `create_mesh_buffers` / `destroy_mesh_buffers` | Layer 1 vertex/index handle bag |
+| `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` (thin Layer 2 owner) |
+| `mesh::create` | sender → `set_value(mesh)` (thin Layer 2 owner) |
 | `gpu_buffer::create`, `image::create`, … | sender → `set_value(...)` |
 | `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
@@ -375,6 +377,7 @@ cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/passes
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
 ./out/build/unixlike-clang-release/src/vkexec_examples/triangle
+./out/build/unixlike-clang-release/src/vkexec_examples/graphics_layer1
 ./out/build/unixlike-clang-release/src/vkexec_examples/heap_present
 ./out/build/unixlike-clang-release/src/vkexec_examples/extensions/descriptor_heap/descriptor_heap
 ./out/build/unixlike-clang-release/src/vkexec_examples/extensions/dynamic_rendering/dynamic_rendering
@@ -386,16 +389,27 @@ cmake --build out/build/unixlike-clang-release -j12
 
 `heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute, dynamic rendering to an offscreen color target, then a few swapchain present frames.
 
-### Triangle window
+### Graphics Layer 1 / Layer 2
+
+`vkexec_graphics` mirrors the core split:
+
+| Header | Role |
+|--------|------|
+| `<vkexec_graphics/execution.hpp>` | `graphics_pipeline_resources`, `mesh_buffers`, bind/record/draw free functions, swapchain (borrow surface) |
+| `<vkexec_graphics/resources.hpp>` | Owning `window`, `graphics_pipeline`, `mesh` |
+| `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (both layers) |
+
+`window` / `swapchain` stay Layer 2 present/WSI owners (like `context` owns the command pool). Pipeline create/bind/record is Layer 1; `graphics_pipeline` / `mesh` are thin RAII wrappers.
+
+### Triangle window (Layer 2)
 
 Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled at pipeline creation time. Each frame is a stdexec pipeline:
 
 ```cpp
 #include <vkexec/sync_wait_outcome.hpp>
 #include <vkexec/sync_wait.hpp>
-#include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/resources.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include <vkexec_graphics/window.hpp>
 
 auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" }));
 
@@ -409,6 +423,58 @@ while (!win.should_close()) {
     | vkexec::draw(win, pipeline, 3));
 }
 ```
+
+See [`src/vkexec_examples/triangle.cpp`](src/vkexec_examples/triangle.cpp).
+
+### Graphics Layer 1 — borrowed pipeline handles
+
+Same triangle present path without an owning `graphics_pipeline`. Prefer `#include <vkexec_graphics/execution.hpp>`:
+
+```cpp
+#include <vkexec_graphics/execution.hpp>
+#include <vkexec_graphics/triangle_shaders.hpp>
+#include <vkexec_graphics/window.hpp>  // Layer 2 present owner
+
+auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "graphics Layer 1" }));
+
+auto resources = vkexec::expected_take(vkexec::create_graphics_resources(
+  win.ctx(), win.render_pass(), {}, vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
+
+while (!win.should_close()) {
+  win.poll_events();
+  vkexec::sync_wait(
+    ex::schedule(win.ctx().get_scheduler())
+    | vkexec::draw(win, resources, VK_NULL_HANDLE, 3));
+}
+
+win.wait_idle();
+vkexec::destroy_graphics_resources(win.ctx(), resources);
+```
+
+Runnable sample: [`src/vkexec_examples/graphics_layer1.cpp`](src/vkexec_examples/graphics_layer1.cpp).
+
+### Embedder path — raw `VkBuffer` storage bindings
+
+When shaders declare storage buffers, create resources with a binding count, then loan a set from raw handles (same contract as compute `bind_storage`):
+
+```cpp
+auto resources = vkexec::expected_take(vkexec::create_graphics_resources(
+  ctx, render_pass, cfg, vert_spirv, frag_spirv, /*storage_binding_count=*/1));
+
+std::array const bindings{
+  vkexec::storage_binding{ .buffer = my_ssbo, .byte_size = bytes, .binding = 0 },
+};
+auto bound = vkexec::expected_take(vkexec::bind_graphics_storage(ctx, resources, bindings));
+
+ex::schedule(ctx.get_scheduler())
+  | vkexec::draw(win, resources, bound.set, vertex_count);
+
+// After GPU work finishes:
+vkexec::free_graphics_set(ctx, resources, bound.set);
+vkexec::destroy_graphics_resources(ctx, resources);
+```
+
+Mesh draws take a `mesh_draw` / `mesh_buffers` handle bag the same way — Layer 2 `mesh` is optional.
 
 
 ## More Details
