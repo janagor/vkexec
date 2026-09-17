@@ -14,6 +14,7 @@
 #include <cstring>
 #include <limits>
 #include <span>
+#include <utility>
 
 namespace vkexec {
 namespace {
@@ -62,101 +63,65 @@ namespace {
 
 }// namespace
 
-auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-  -> detail::sync_sender_fn<mesh>
+auto destroy_mesh_buffers(context const &ctx, mesh_buffers &buffers) noexcept -> void
 {
-  return detail::make_sync_sender_fn<mesh>([&ctx, vertices, indices]() -> result<mesh> {
-    mesh created;
-    if (auto initialized = created.init(ctx, vertices, indices); !initialized) { return fail(initialized); }
-    return created;
-  });
+  if (ctx.allocator() == VK_NULL_HANDLE) {
+    buffers = {};
+    return;
+  }
+  if (buffers.index_buffer != VK_NULL_HANDLE) {
+    vmaDestroyBuffer(ctx.allocator(), buffers.index_buffer, buffers.index_allocation);
+  }
+  if (buffers.vertex_buffer != VK_NULL_HANDLE) {
+    vmaDestroyBuffer(ctx.allocator(), buffers.vertex_buffer, buffers.vertex_allocation);
+  }
+  buffers = {};
 }
 
-auto mesh::init(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> status
+auto create_mesh_buffers(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+  -> result<mesh_buffers>
 {
   VKEXEC_TRY_ASSIGN(
-    vertices_count, count_as_uint32(vertices.size(), "vkexec::mesh vertex count must be in (0, UINT32_MAX]"));
+    vertices_count, count_as_uint32(vertices.size(), "create_mesh_buffers vertex count must be in (0, UINT32_MAX]"));
   VKEXEC_TRY_ASSIGN(
-    indices_count, count_as_uint32(indices.size(), "vkexec::mesh index count must be in (0, UINT32_MAX]"));
+    indices_count, count_as_uint32(indices.size(), "create_mesh_buffers index count must be in (0, UINT32_MAX]"));
 
-  ctx_ = &ctx;
-  vertex_count_ = vertices_count;
-  index_count_ = indices_count;
+  mesh_buffers owned{};
+  owned.vertex_count = vertices_count;
+  owned.index_count = indices_count;
 
   VKEXEC_TRY_ASSIGN(vertex,
     create_host_buffer(ctx, static_cast<VkDeviceSize>(vertices.size_bytes()), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT));
-  vertex_buffer_ = vertex.buffer;
-  vertex_allocation_ = vertex.allocation;
+  owned.vertex_buffer = vertex.buffer;
+  owned.vertex_allocation = vertex.allocation;
   std::memcpy(vertex.mapped, vertices.data(), vertices.size_bytes());
 
   auto index =
     create_host_buffer(ctx, static_cast<VkDeviceSize>(indices.size_bytes()), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
   if (!index) {
-    vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
-    vertex_buffer_ = VK_NULL_HANDLE;
-    vertex_allocation_ = VK_NULL_HANDLE;
-    ctx_ = nullptr;
-    vertex_count_ = 0;
-    index_count_ = 0;
+    destroy_mesh_buffers(ctx, owned);
     return fail(index);
   }
   auto const &index_buf = vkexec::expected_get(index);
-  index_buffer_ = index_buf.buffer;
-  index_allocation_ = index_buf.allocation;
+  owned.index_buffer = index_buf.buffer;
+  owned.index_allocation = index_buf.allocation;
   std::memcpy(index_buf.mapped, indices.data(), indices.size_bytes());
-  return {};
+  return owned;
 }
 
-mesh::~mesh() { destroy(); }
-
-mesh::mesh(mesh &&other) noexcept
-  : ctx_(other.ctx_), vertex_buffer_(other.vertex_buffer_), vertex_allocation_(other.vertex_allocation_),
-    index_buffer_(other.index_buffer_), index_allocation_(other.index_allocation_), vertex_count_(other.vertex_count_),
-    index_count_(other.index_count_)
+auto mesh::reset() noexcept -> void
 {
-  other.ctx_ = nullptr;
-  other.vertex_buffer_ = VK_NULL_HANDLE;
-  other.vertex_allocation_ = VK_NULL_HANDLE;
-  other.index_buffer_ = VK_NULL_HANDLE;
-  other.index_allocation_ = VK_NULL_HANDLE;
-  other.vertex_count_ = 0;
-  other.index_count_ = 0;
+  if (ctx_ != nullptr) { destroy_mesh_buffers(*ctx_, buffers_); }
+  ctx_ = nullptr;
 }
 
-auto mesh::operator=(mesh &&other) noexcept -> mesh &
+auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+  -> detail::sync_sender_fn<mesh>
 {
-  if (this == &other) { return *this; }
-  destroy();
-  ctx_ = other.ctx_;
-  vertex_buffer_ = other.vertex_buffer_;
-  vertex_allocation_ = other.vertex_allocation_;
-  index_buffer_ = other.index_buffer_;
-  index_allocation_ = other.index_allocation_;
-  vertex_count_ = other.vertex_count_;
-  index_count_ = other.index_count_;
-  other.ctx_ = nullptr;
-  other.vertex_buffer_ = VK_NULL_HANDLE;
-  other.vertex_allocation_ = VK_NULL_HANDLE;
-  other.index_buffer_ = VK_NULL_HANDLE;
-  other.index_allocation_ = VK_NULL_HANDLE;
-  other.vertex_count_ = 0;
-  other.index_count_ = 0;
-  return *this;
-}
-
-auto mesh::destroy() noexcept -> void
-{
-  if (ctx_ == nullptr || ctx_->allocator() == VK_NULL_HANDLE) { return; }
-  if (index_buffer_ != VK_NULL_HANDLE) {
-    vmaDestroyBuffer(ctx_->allocator(), index_buffer_, index_allocation_);
-    index_buffer_ = VK_NULL_HANDLE;
-    index_allocation_ = VK_NULL_HANDLE;
-  }
-  if (vertex_buffer_ != VK_NULL_HANDLE) {
-    vmaDestroyBuffer(ctx_->allocator(), vertex_buffer_, vertex_allocation_);
-    vertex_buffer_ = VK_NULL_HANDLE;
-    vertex_allocation_ = VK_NULL_HANDLE;
-  }
+  return detail::make_sync_sender_fn<mesh>([&ctx, vertices, indices]() -> result<mesh> {
+    VKEXEC_TRY_ASSIGN(owned, create_mesh_buffers(ctx, vertices, indices));
+    return mesh{ &ctx, owned };
+  });
 }
 
 }// namespace vkexec
