@@ -30,12 +30,14 @@ namespace vkexec {
  * Staging-backed typed tensor for compute ergonomics.
  *
  * Owns a host mirror (`std::vector<T>`), a mapped staging `gpu_buffer`, and a
- * device-local storage `gpu_buffer`. Shaders bind the device buffer via
- * `storage_binding` / `vk_buffer()`. Host edits go through `span()` / `data()`;
- * transfer them with `upload` / `download` (or later `sync_to_device` /
- * `sync_to_host` pass-graph steps).
+ * device-local storage `gpu_buffer` created with `shader_device_address`. Shaders
+ * bind the device buffer via `storage_binding` / `vk_buffer()`. Host edits go
+ * through `span()` / `data()`; transfer them with `upload` / `download` (or
+ * `sync_to_device` / `sync_to_host` pass-graph steps).
  *
- * For simple host-visible SSBOs without staging, prefer `buffer<T>`.
+ * Requires `bufferDeviceAddress` on the context (e.g.
+ * `feat::configure<feat::buffer_device_address>`). For simple host-visible SSBOs
+ * without staging, prefer `buffer<T>`.
  *
  * @see gpu_buffer, storage_binding, upload_to_device, download_to_host
  */
@@ -162,7 +164,12 @@ private:
     auto const bytes = static_cast<VkDeviceSize>(host.size() * sizeof(T));
     auto staging_buf = try_sync_wait_value(gpu_buffer::create(ctx, bytes, gpu_buffer_memory::staging));
     if (!staging_buf) { return fail(staging_buf.error()); }
-    auto device_buf = try_sync_wait_value(gpu_buffer::create(ctx, bytes, gpu_buffer_memory::device_local));
+    auto device_buf = try_sync_wait_value(gpu_buffer::create(ctx,
+      gpu_buffer_create_info{
+        .size = bytes,
+        .memory = gpu_buffer_memory::device_local,
+        .shader_device_address = true,
+      }));
     if (!device_buf) { return fail(device_buf.error()); }
 
     auto staging_map = staging_buf->mapped();

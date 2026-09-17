@@ -6,6 +6,9 @@
 #include <vkexec/result.hpp>
 #include <vkexec/tensor.hpp>
 #include <vkexec/tensor_sync.hpp>
+#include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_features/buffer_device_address.hpp>
+#include <vkexec_features/feature.hpp>
 
 #include <stdexec/execution.hpp>
 
@@ -16,6 +19,7 @@
 #include <format>
 #include <iostream>
 #include <string_view>
+#include <utility>
 
 namespace ex = stdexec;
 
@@ -57,7 +61,12 @@ struct sim_params
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .validation_layers = true }));
+  vkexec::vulkan_requirements requirements{};
+  requirements.api_version_major = 1;
+  requirements.api_version_minor = 2;
+  vkexec::feat::configure<vkexec::feat::buffer_device_address>(requirements);
+  auto ctx = vkexec::examples::sync_wait_value(
+    vkexec::context::create({ .validation_layers = true, .requirements = std::move(requirements) }));
   auto positions = vkexec::examples::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_element_count, 0.0F));
   auto velocities =
     vkexec::examples::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_element_count, k_initial_velocity));

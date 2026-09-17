@@ -17,7 +17,7 @@ target_link_libraries(compute PRIVATE vkexec::vkexec_options vkexec::vkexec_warn
 
 target_link_libraries(compute_execution PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 
-target_link_libraries(tensor_sim PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
+target_link_libraries(tensor_sim PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec vkexec::features)
 
 target_link_libraries(sort PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings vkexec::vkexec)
 

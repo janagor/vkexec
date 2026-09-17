@@ -100,11 +100,15 @@ ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set
 
 ### Staging tensors
 
-Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload → dispatch → download shape on the same pass graph. Runnable sample: [`src/vkexec_examples/tensor_sim.cpp`](src/vkexec_examples/tensor_sim.cpp).
+Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload → dispatch → download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`src/vkexec_examples/tensor_sim.cpp`](src/vkexec_examples/tensor_sim.cpp).
 
 ```cpp
 #include <vkexec/execution.hpp>
 #include <vkexec/resources.hpp>
+#include <vkexec_features/buffer_device_address.hpp>
+
+vkexec::feat::configure<vkexec::feat::buffer_device_address>(req);
+// ... create context with req ...
 
 auto positions = vkexec::sync_wait_value(vkexec::tensor<float>::create(*ctx, 10000, 0.0f));
 auto velocities = vkexec::sync_wait_value(vkexec::tensor<float>::create(*ctx, 10000, 1.5f));
