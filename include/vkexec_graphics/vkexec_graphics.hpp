@@ -2,13 +2,13 @@
 #define VKEXEC_GRAPHICS_VKEXEC_GRAPHICS_HPP
 
 //! \file
-//! Optional GLFW swapchain / graphics pipeline layer for vkexec.
+//! Full graphics umbrella: Layer 1 execution plus Layer 2 owning resources.
+//!
+//! Prefer `<vkexec_graphics/execution.hpp>` or `<vkexec_graphics/resources.hpp>`
+//! when you only need one layer.
 
-#include <vkexec_graphics/draw.hpp>
-#include <vkexec_graphics/graphics.hpp>
-#include <vkexec_graphics/mesh.hpp>
-#include <vkexec_graphics/swapchain.hpp>
-#include <vkexec_graphics/window.hpp>
+#include <vkexec_graphics/execution.hpp>
+#include <vkexec_graphics/resources.hpp>
 
 namespace vkexec {
 }// namespace vkexec
