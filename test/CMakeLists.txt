@@ -41,6 +41,7 @@ add_executable(
   spirv_compile_tests.cpp
   error_tests.cpp
   buffer_tests.cpp
+  tensor_tests.cpp
   gpu_buffer_tests.cpp
   timeline_semaphore_tests.cpp
   frame_ring_tests.cpp
