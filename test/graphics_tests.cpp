@@ -6,7 +6,7 @@
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_graphics/draw.hpp>
-#include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
 
 #include <stdexec/execution.hpp>
 

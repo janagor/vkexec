@@ -10,6 +10,7 @@
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/window.hpp>
 
@@ -124,6 +125,45 @@ inline auto draw(window &win, graphics_pipeline &pipeline, std::uint32_t vertex_
 //! Builds a mesh-draw closure for one presented frame.
 inline auto draw(window &win, graphics_pipeline &pipeline, mesh const &drawn) -> draw_mesh_closure
 { return draw_mesh_closure{ .win = &win, .pipeline = &pipeline, .drawn = &drawn }; }
+
+struct draw_bind_closure
+{
+  window *win{ nullptr };
+  graphics_pipeline_resources const *resources{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  std::uint32_t vertex_count{ 0 };
+};
+
+struct draw_mesh_bind_closure
+{
+  window *win{ nullptr };
+  graphics_pipeline_resources const *resources{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  mesh_draw drawn{};
+};
+
+//! Layer 1: present one frame using borrowable pipeline resources + descriptor set.
+inline auto draw(window &win,
+  graphics_pipeline_resources const &resources,
+  VkDescriptorSet set,
+  std::uint32_t vertex_count) -> draw_bind_closure
+{
+  return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count };
+}
+
+//! Layer 1: present one indexed mesh frame from borrowed handles.
+inline auto draw(window &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, mesh_draw drawn)
+  -> draw_mesh_bind_closure
+{
+  return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn };
+}
+
+//! Layer 1: present one indexed mesh frame from `mesh_buffers`.
+inline auto draw(window &win,
+  graphics_pipeline_resources const &resources,
+  VkDescriptorSet set,
+  mesh_buffers const &buffers) -> draw_mesh_bind_closure
+{ return draw(win, resources, set, make_mesh_draw(buffers)); }
 
 /**
  * Builds a closure that presents one frame using multiple graphics pipelines in a single render pass.
@@ -584,6 +624,314 @@ inline auto operator|(schedule_sender snd, draw_layers_closure closure) -> draw_
 
 [[nodiscard]] inline auto operator|(draw_layers_sender const &snd, submit_t /*tag*/) -> draw_layers_async_sender
 { return draw_layers_async_sender{ draw_layers_sender{ .ctx = snd.ctx, .win = snd.win, .layers = snd.layers } }; }
+
+struct draw_bind_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+
+  context *ctx{ nullptr };
+  window *win{ nullptr };
+  graphics_pipeline_resources const *resources{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  std::uint32_t vertex_count{ 0 };
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
+  template<class Receiver> struct op_state
+  {
+    window *win{ nullptr };
+    graphics_pipeline_resources const *resources{ nullptr };
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+    std::uint32_t vertex_count{ 0 };
+    Receiver receiver;
+
+    auto start() noexcept -> void
+    {
+      auto frame_result = detail::try_begin_frame(*win);
+      if (!frame_result) {
+        ex::set_error(std::move(receiver), std::move(frame_result.error()));
+        return;
+      }
+      if (!frame_result->has_value()) {
+        ex::set_value(std::move(receiver));
+        return;
+      }
+
+      frame const &drawn = **frame_result;
+      if (auto draw_status = draw_pass(drawn.command_buffer,
+            win->render_pass(),
+            drawn.framebuffer,
+            drawn.extent,
+            resources->cfg,
+            bind_graphics(*resources, set),
+            vertex_count);
+        !draw_status) {
+        ex::set_error(std::move(receiver), std::move(draw_status.error()));
+        return;
+      }
+      if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+        ex::set_error(std::move(receiver), std::move(fence_result.error()));
+        return;
+      }
+      ex::set_value(std::move(receiver));
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .win = win,
+      .resources = resources,
+      .set = set,
+      .vertex_count = vertex_count,
+      .receiver = std::move(receiver),
+    };
+  }
+};
+
+struct draw_bind_async_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+
+  context *ctx{ nullptr };
+  window *win{ nullptr };
+  graphics_pipeline_resources const *resources{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  std::uint32_t vertex_count{ 0 };
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
+  explicit draw_bind_async_sender(draw_bind_sender snd)
+    : ctx(snd.ctx), win(snd.win), resources(snd.resources), set(snd.set), vertex_count(snd.vertex_count)
+  {}
+
+  template<class Receiver> struct op_state
+  {
+    context *ctx{};
+    window *win{};
+    graphics_pipeline_resources const *resources{};
+    VkDescriptorSet set{};
+    std::uint32_t vertex_count{};
+    Receiver receiver;
+
+    auto start() noexcept -> void
+    {
+      detail::start_draw_async(
+        ctx,
+        win,
+        [this](frame &drawn) -> result<VkFence> {
+          if (auto draw_status = draw_pass(drawn.command_buffer,
+                win->render_pass(),
+                drawn.framebuffer,
+                drawn.extent,
+                resources->cfg,
+                bind_graphics(*resources, set),
+                vertex_count);
+            !draw_status) {
+            return fail(draw_status);
+          }
+          return detail::try_end_frame(*win, drawn);
+        },
+        std::move(receiver));
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .resources = resources,
+      .set = set,
+      .vertex_count = vertex_count,
+      .receiver = std::move(receiver),
+    };
+  }
+
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .resources = resources,
+      .set = set,
+      .vertex_count = vertex_count,
+      .receiver = std::move(receiver),
+    };
+  }
+};
+
+struct draw_mesh_bind_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+
+  context *ctx{ nullptr };
+  window *win{ nullptr };
+  graphics_pipeline_resources const *resources{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  mesh_draw drawn{};
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
+  template<class Receiver> struct op_state
+  {
+    window *win{ nullptr };
+    graphics_pipeline_resources const *resources{ nullptr };
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+    mesh_draw drawn{};
+    Receiver receiver;
+
+    auto start() noexcept -> void
+    {
+      auto frame_result = detail::try_begin_frame(*win);
+      if (!frame_result) {
+        ex::set_error(std::move(receiver), std::move(frame_result.error()));
+        return;
+      }
+      if (!frame_result->has_value()) {
+        ex::set_value(std::move(receiver));
+        return;
+      }
+
+      frame const &drawn_frame = **frame_result;
+      if (auto draw_status = draw_pass(drawn_frame.command_buffer,
+            win->render_pass(),
+            drawn_frame.framebuffer,
+            drawn_frame.extent,
+            resources->cfg,
+            bind_graphics(*resources, set),
+            drawn);
+        !draw_status) {
+        ex::set_error(std::move(receiver), std::move(draw_status.error()));
+        return;
+      }
+      if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
+        ex::set_error(std::move(receiver), std::move(fence_result.error()));
+        return;
+      }
+      ex::set_value(std::move(receiver));
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .win = win,
+      .resources = resources,
+      .set = set,
+      .drawn = drawn,
+      .receiver = std::move(receiver),
+    };
+  }
+};
+
+struct draw_mesh_bind_async_sender
+{
+  using sender_concept = ex::sender_t;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+
+  context *ctx{ nullptr };
+  window *win{ nullptr };
+  graphics_pipeline_resources const *resources{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  mesh_draw drawn{};
+
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+
+  explicit draw_mesh_bind_async_sender(draw_mesh_bind_sender snd)
+    : ctx(snd.ctx), win(snd.win), resources(snd.resources), set(snd.set), drawn(snd.drawn)
+  {}
+
+  template<class Receiver> struct op_state
+  {
+    context *ctx{};
+    window *win{};
+    graphics_pipeline_resources const *resources{};
+    VkDescriptorSet set{};
+    mesh_draw drawn{};
+    Receiver receiver;
+
+    auto start() noexcept -> void
+    {
+      detail::start_draw_async(
+        ctx,
+        win,
+        [this](frame &drawn_frame) -> result<VkFence> {
+          if (auto draw_status = draw_pass(drawn_frame.command_buffer,
+                win->render_pass(),
+                drawn_frame.framebuffer,
+                drawn_frame.extent,
+                resources->cfg,
+                bind_graphics(*resources, set),
+                drawn);
+            !draw_status) {
+            return fail(draw_status);
+          }
+          return detail::try_end_frame(*win, drawn_frame);
+        },
+        std::move(receiver));
+    }
+  };
+
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .resources = resources,
+      .set = set,
+      .drawn = drawn,
+      .receiver = std::move(receiver),
+    };
+  }
+
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .ctx = ctx,
+      .win = win,
+      .resources = resources,
+      .set = set,
+      .drawn = drawn,
+      .receiver = std::move(receiver),
+    };
+  }
+};
+
+inline auto operator|(schedule_sender snd, draw_bind_closure closure) -> draw_bind_sender
+{
+  return draw_bind_sender{
+    .ctx = snd.ctx,
+    .win = closure.win,
+    .resources = closure.resources,
+    .set = closure.set,
+    .vertex_count = closure.vertex_count,
+  };
+}
+
+inline auto operator|(schedule_sender snd, draw_mesh_bind_closure closure) -> draw_mesh_bind_sender
+{
+  return draw_mesh_bind_sender{
+    .ctx = snd.ctx,
+    .win = closure.win,
+    .resources = closure.resources,
+    .set = closure.set,
+    .drawn = closure.drawn,
+  };
+}
+
+[[nodiscard]] inline auto operator|(draw_bind_sender snd, submit_t /*tag*/) -> draw_bind_async_sender
+{ return draw_bind_async_sender{ snd }; }
+
+[[nodiscard]] inline auto operator|(draw_mesh_bind_sender snd, submit_t /*tag*/) -> draw_mesh_bind_async_sender
+{ return draw_mesh_bind_async_sender{ snd }; }
 
 }// namespace vkexec
 
