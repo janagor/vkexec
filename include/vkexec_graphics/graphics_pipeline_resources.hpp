@@ -1,0 +1,105 @@
+#ifndef VKEXEC_GRAPHICS_PIPELINE_RESOURCES_HPP
+#define VKEXEC_GRAPHICS_PIPELINE_RESOURCES_HPP
+
+//! \file
+//! Borrowable graphics pipeline handle bag and Layer 1 create/destroy helpers.
+
+#include <vkexec/context.hpp>
+#include <vkexec/result.hpp>
+
+#include <vulkan/vulkan.h>
+
+#include <array>
+#include <cstdint>
+#include <span>
+#include <string_view>
+
+namespace vkexec {
+
+//! Default clear color components for graphics pipelines.
+constexpr float k_default_clear_r = 0.08F;
+constexpr float k_default_clear_g = 0.09F;
+constexpr float k_default_clear_b = 0.12F;
+constexpr float k_default_clear_a = 1.0F;
+constexpr float k_depth_clear_value = 1.0F;
+constexpr std::uint32_t k_graphics_clear_count = 2;
+constexpr std::uint32_t k_stencil_clear_value = 0;
+
+/**
+ * Configuration for classic graphics pipelines.
+ *
+ * When `use_mesh_vertices` is true, the pipeline expects `mesh_vertex` attributes.
+ */
+struct graphics_pipeline_config
+{
+  VkPrimitiveTopology topology{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST };
+  bool alpha_blend{ false };
+  float clear_r{ k_default_clear_r };
+  float clear_g{ k_default_clear_g };
+  float clear_b{ k_default_clear_b };
+  float clear_a{ k_default_clear_a };
+  bool depth_test{ false };
+  bool depth_write{ true };
+  bool use_mesh_vertices{ false };
+};
+
+//! Builds color + depth clear values from `cfg`.
+[[nodiscard]] inline auto make_clear_values(graphics_pipeline_config const &cfg)
+  -> std::array<VkClearValue, k_graphics_clear_count>
+{
+  std::array<VkClearValue, k_graphics_clear_count> clears{};
+  clears.at(0).color = { { cfg.clear_r, cfg.clear_g, cfg.clear_b, cfg.clear_a } };
+  clears.at(1).depthStencil = { .depth = k_depth_clear_value, .stencil = k_stencil_clear_value };
+  return clears;
+}
+
+/**
+ * Vulkan objects for one classic graphics pipeline.
+ *
+ * Non-owning handle bag: fill via `create_graphics_resources` or an embedder's
+ * own objects. Destroy with `destroy_graphics_resources` (or Layer 2
+ * `graphics_pipeline`).
+ *
+ * `descriptor_pool` backs set loans when `binding_count > 0`. Free unused sets
+ * with `free_graphics_set`, or destroy the pool via `destroy_graphics_resources`.
+ */
+struct graphics_pipeline_resources
+{
+  graphics_pipeline_config cfg{};
+  VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
+  VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
+  VkPipeline pipeline{ VK_NULL_HANDLE };
+  VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
+  std::uint32_t binding_count{ 0 };
+};
+
+/**
+ * Creates classic graphics Vulkan objects from SPIR-V.
+ *
+ * Does not allocate descriptor sets. When `storage_binding_count > 0`, creates a
+ * set layout with bindings `0 .. count-1` and a descriptor pool for loans.
+ * Caller owns the returned handles and must call `destroy_graphics_resources`.
+ */
+[[nodiscard]] auto create_graphics_resources(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  std::uint32_t storage_binding_count = 0) -> result<graphics_pipeline_resources>;
+
+/**
+ * Compiles GLSL to SPIR-V then creates classic graphics Vulkan objects.
+ */
+[[nodiscard]] auto create_graphics_resources(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  std::uint32_t storage_binding_count = 0) -> result<graphics_pipeline_resources>;
+
+//! Destroys handles in `resources` and resets them to null.
+auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources &resources) noexcept -> void;
+
+}// namespace vkexec
+
+#endif// VKEXEC_GRAPHICS_PIPELINE_RESOURCES_HPP

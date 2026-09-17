@@ -9,6 +9,7 @@
 
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 namespace vkexec {
