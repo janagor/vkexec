@@ -506,24 +506,15 @@ auto graphics_pipeline::create(context &ctx,
 // NOLINTEND(bugprone-easily-swappable-parameters)
 { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
 
-auto graphics_pipeline::bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void
-{ bind_graphics_draw_state(cmd, bind_graphics(*resources_, descriptor_set_), extent); }
-
-auto graphics_pipeline::begin_pass(VkCommandBuffer cmd,
-  VkRenderPass render_pass,
-  VkFramebuffer framebuffer,
-  VkExtent2D extent) const -> void
-{ begin_graphics_pass(cmd, render_pass, framebuffer, extent, resources_->cfg); }
-
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
-{ vkexec::record_draw(cmd, bind_graphics(*resources_, descriptor_set_), extent, vertex_count); }
+{ vkexec::record_draw(cmd, bind(), extent, vertex_count); }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void
 {
   mesh_draw const handles{ .vertex_buffer = drawn.vk_vertex_buffer(),
     .index_buffer = drawn.vk_index_buffer(),
     .index_count = drawn.index_count() };
-  vkexec::record_draw(cmd, bind_graphics(*resources_, descriptor_set_), extent, handles);
+  vkexec::record_draw(cmd, bind(), extent, handles);
 }
 
 auto graphics_pipeline::draw(VkCommandBuffer cmd,
@@ -531,10 +522,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   std::uint32_t vertex_count) const -> status
-{
-  return draw_pass(
-    cmd, render_pass, framebuffer, extent, resources_->cfg, bind_graphics(*resources_, descriptor_set_), vertex_count);
-}
+{ return draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), vertex_count); }
 
 auto graphics_pipeline::draw(VkCommandBuffer cmd,
   VkRenderPass render_pass,
@@ -545,8 +533,7 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   mesh_draw const handles{ .vertex_buffer = drawn.vk_vertex_buffer(),
     .index_buffer = drawn.vk_index_buffer(),
     .index_count = drawn.index_count() };
-  return draw_pass(
-    cmd, render_pass, framebuffer, extent, resources_->cfg, bind_graphics(*resources_, descriptor_set_), handles);
+  return draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), handles);
 }
 
 }// namespace vkexec

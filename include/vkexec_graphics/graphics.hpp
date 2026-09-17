@@ -118,12 +118,11 @@ public:
   //! Config used at creation.
   [[nodiscard]] auto config() const noexcept -> graphics_pipeline_config const & { return resources_->cfg; }
 
+  //! Builds a `graphics_bind` for recording with the retained descriptor set.
+  [[nodiscard]] auto bind() const -> graphics_bind { return bind_graphics(*resources_, descriptor_set_); }
+
   /**
    * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
-   *
-   * @param cmd Command buffer currently inside a render pass.
-   * @param extent Framebuffer extent for viewport/scissor.
-   * @param vertex_count Vertex count for `vkCmdDraw`.
    */
   auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void;
 
@@ -132,9 +131,6 @@ public:
 
   /**
    * Begins a render pass, records a non-indexed draw, and ends the pass.
-   *
-   * @param render_pass Compatible render pass.
-   * @param framebuffer Target framebuffer.
    */
   auto draw(VkCommandBuffer cmd,
     VkRenderPass render_pass,
@@ -155,11 +151,6 @@ private:
   {}
 
   auto reset() noexcept -> void;
-
-  auto bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void;
-
-  auto begin_pass(VkCommandBuffer cmd, VkRenderPass render_pass, VkFramebuffer framebuffer, VkExtent2D extent) const
-    -> void;
 
   context *ctx_{ nullptr };
   std::unique_ptr<graphics_pipeline_resources> resources_;
