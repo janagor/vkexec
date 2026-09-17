@@ -11,6 +11,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <utility>
 
@@ -43,6 +44,52 @@ auto record_heap_pass(context const &ctx,
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
   return {};
 }
+
+namespace {
+
+  auto bind_heap_graphics_draw_state(VkCommandBuffer cmd, compute_bind bind, VkExtent2D extent) -> void
+  {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.pipeline);
+
+    VkViewport viewport{};
+    viewport.x = 0.0F;
+    viewport.y = 0.0F;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { .x = 0, .y = 0 };
+    scissor.extent = extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+  }
+
+}// namespace
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+auto record_heap_draw(context const & /*ctx*/,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  VkExtent2D extent,
+  std::uint32_t vertex_count) -> void
+{
+  bind_heap_graphics_draw_state(cmd, bind, extent);
+  vkCmdDraw(cmd, vertex_count, 1, 0, 0);
+}
+
+auto record_heap_draw_indirect(context const & /*ctx*/,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  VkExtent2D extent,
+  VkBuffer buffer,
+  VkDeviceSize offset) -> void
+{
+  bind_heap_graphics_draw_state(cmd, bind, extent);
+  vkCmdDrawIndirect(cmd, buffer, offset, 1, sizeof(VkDrawIndirectCommand));
+}
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 namespace detail {
 

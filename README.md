@@ -217,7 +217,8 @@ Common entry points:
 |-----|---------|
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
 | `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
-| `create_heap_compute_resources` / `bind_heap` / `destroy_heap_compute_resources` | Borrowable bindless heap pipeline bags (`vkexec::ext_descriptor_heap`) |
+| `create_heap_compute_resources` / `bind_heap` / `destroy_heap_compute_resources` | Borrowable bindless heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
+| `create_heap_graphics_resources` / `bind_heap` / `destroy_heap_graphics_resources` | Borrowable bindless heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
@@ -339,9 +340,9 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
-**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `create_heap_compute_resources` / `bind_heap` / `destroy_heap_compute_resources`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
+**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `create_heap_compute_resources` / `create_heap_graphics_resources` / `bind_heap` / `destroy_heap_*_resources`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `record_heap_draw` / `record_heap_draw_indirect`, `cmd_begin_rendering`, etc.
 
-**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of the free functions.
+**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `heap_graphics_pipeline`, `compute_heap_pass`, rendering helpers built on top of the free functions.
 
 **Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
@@ -354,7 +355,7 @@ auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
 // optional: acquire_present_frame(ring, chain, slot) / submit_and_present(...)
 ```
 
-**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline (borrowable bag or owning `heap_compute_pipeline`), allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data:
+**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline (borrowable bag or owning `heap_compute_pipeline` / `heap_graphics_pipeline`), allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data. Heap **graphics** pipelines use dynamic-rendering formats (`VkPipelineRenderingCreateInfo`) with no `VkRenderPass`; compose with `cmd_begin_rendering` + `record_heap_draw` (classic `vkexec_graphics` stays render-pass based).
 
 ```cpp
 #include <vkexec_extensions/descriptor_heap.hpp>
@@ -421,7 +422,7 @@ cmake --build out/build/unixlike-clang-release -j12
 
 `extensions/dynamic_rendering` opens a window and presents an animated color clear each frame via dynamic rendering.
 
-`heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute, dynamic rendering to an offscreen color target, then a few swapchain present frames.
+`heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute and heap graphics (DR + `record_heap_draw`), dynamic rendering clear to an offscreen color target, then a few swapchain present frames.
 
 ### Graphics execution / resources
 

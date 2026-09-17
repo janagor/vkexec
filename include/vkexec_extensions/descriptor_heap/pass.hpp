@@ -2,7 +2,7 @@
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_PASS_HPP
 
 //! \file
-//! Bindless compute pass recording and pipeable `heap_compute_pass_closure`.
+//! Bindless compute/graphics pass recording and pipeable `heap_compute_pass_closure`.
 
 #include <vkexec/pass.hpp>
 #include <vkexec_extensions/descriptor_heap/push_data.hpp>
@@ -36,6 +36,35 @@ namespace vkexec {
   compute_bind bind,
   std::span<std::byte const> push,
   indirect_dispatch groups) -> status;
+
+/**
+ * Records a bindless graphics draw: bind pipeline, set dynamic viewport/scissor, draw.
+ *
+ * Does not begin/end rendering and does not bind heaps (`cmd_bind_resource_heap` is
+ * the caller's responsibility). Use inside `cmd_begin_rendering`…`cmd_end_rendering`.
+ *
+ * @param bind Null-layout graphics bind from `bind_heap` on a heap graphics bag.
+ * @param extent Dynamic viewport and scissor extent.
+ * @param vertex_count Vertices for `vkCmdDraw`.
+ */
+auto record_heap_draw(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  VkExtent2D extent,
+  std::uint32_t vertex_count) -> void;
+
+/**
+ * Records a bindless graphics draw from a `VkDrawIndirectCommand` buffer.
+ *
+ * @param buffer Buffer containing `VkDrawIndirectCommand`.
+ * @param offset Byte offset into `buffer`.
+ */
+auto record_heap_draw_indirect(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  VkExtent2D extent,
+  VkBuffer buffer,
+  VkDeviceSize offset) -> void;
 
 //! Embedder alias for bindless `record_heap_pass` (bind + push-data + dispatch).
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,

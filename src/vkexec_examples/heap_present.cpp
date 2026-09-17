@@ -16,6 +16,8 @@
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/pass.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_extensions/extension.hpp>
 #include <vkexec_features/bundles/vulkan_13.hpp>
@@ -51,6 +53,7 @@ constexpr float k_clear_r = 0.15F;
 constexpr float k_clear_g = 0.35F;
 constexpr float k_clear_b = 0.55F;
 constexpr float k_clear_a = 1.0F;
+constexpr VkFormat k_heap_graphics_format = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr std::string_view k_heap_glsl = R"(#version 460
 layout(local_size_x = 64) in;
 void main() {}
@@ -155,6 +158,107 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   return {};
 }
 
+auto run_heap_graphics(vkexec::context &ctx) -> bool
+{
+  if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
+
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::heap_graphics_pipeline::create(ctx,
+    vkexec::shaders::k_triangle_vert,
+    vkexec::shaders::k_triangle_frag,
+    vkexec::heap_graphics_layout_desc{
+      .blend = vkexec::blend_mode::premultiplied,
+      .depth_test = false,
+      .depth_write = false,
+      .color_formats = { k_heap_graphics_format },
+    }));
+
+  auto img = vkexec::examples::sync_wait_value(vkexec::image::create(ctx,
+    vkexec::image_create_info{
+      .width = k_width,
+      .height = k_height,
+      .usage = vkexec::image_usage::color_storage,
+      .format = k_heap_graphics_format,
+    }));
+  auto view = vkexec::examples::sync_wait_value(vkexec::image_view::create(ctx, img));
+
+  auto cmd_result = ctx.allocate_command_buffer();
+  if (!cmd_result) { return false; }
+  auto *cmd = vkexec::expected_take(cmd_result);
+  VkCommandBufferBeginInfo begin{};
+  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+
+  vkexec::image_barrier(cmd,
+    {
+      .image = img.handle(),
+      .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
+      .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      .src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+      .dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .src_access = 0,
+      .dst_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    });
+
+  vkexec::color_attachment color{};
+  color.view = view.handle();
+  color.clear.color = { { k_clear_r, k_clear_g, k_clear_b, k_clear_a } };
+  std::array<vkexec::color_attachment, 1> const colors{ color };
+  if (auto began = vkexec::cmd_begin_rendering(cmd,
+        vkexec::rendering_info{
+          .extent = img.extent(),
+          .color = colors,
+        });
+    !began) {
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+
+  vkexec::record_heap_draw(ctx, cmd, pipe.bind(), img.extent(), k_triangle_vertices);
+
+  if (auto ended = vkexec::cmd_end_rendering(cmd); !ended) {
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+
+  if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+  std::array<VkCommandBuffer, 1> const cmds{ cmd };
+
+  VkFenceCreateInfo fence_info{};
+  fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  VkFence fence{ VK_NULL_HANDLE };
+  if (vkCreateFence(ctx.device(), &fence_info, nullptr, &fence) != VK_SUCCESS) {
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+
+  if (auto submitted = ctx.submit(vkexec::queue_submit{
+        .command_buffers = cmds,
+        .fence = fence,
+        .queue = ctx.graphics_queue() != VK_NULL_HANDLE ? ctx.graphics_queue() : ctx.compute_queue(),
+      });
+    !submitted) {
+    vkDestroyFence(ctx.device(), fence, nullptr);
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+  if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
+    vkDestroyFence(ctx.device(), fence, nullptr);
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
+  vkDestroyFence(ctx.device(), fence, nullptr);
+  ctx.free_command_buffer(cmd);
+  return true;
+}
+
 auto run_heap_compute(vkexec::context &ctx) -> bool
 {
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
@@ -223,6 +327,11 @@ static auto run() -> int
 #endif
   }
   std::cout << std::format("heap_present: dynamic rendering ok\n");
+  if (run_heap_graphics(win.ctx())) {
+    std::cout << std::format("heap_present: heap graphics draw ok\n");
+  } else {
+    std::cout << std::format("heap_present: skipped heap graphics (extension PFNs unavailable)\n");
+  }
   if (run_heap_compute(win.ctx())) {
     std::cout << std::format("heap_present: bindless heap compute ok\n");
   } else {
