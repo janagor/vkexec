@@ -7,6 +7,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -16,22 +17,25 @@ namespace {
 
 constexpr std::size_t k_count = 8;
 constexpr float k_fill = 1.5F;
+constexpr float k_host_write = 3.25F;
 constexpr std::uint32_t k_binding = 2;
 
 }// namespace
 
-TEST_CASE("tensor::create allocates a filled host-visible buffer", "[vkexec][tensor][gpu]")
+TEST_CASE("tensor::create allocates staging-backed storage with a host mirror", "[vkexec][tensor][gpu]")
 {
   auto ctx = vkexec::test::require_context();
   auto values = vkexec::test::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_count, k_fill));
   REQUIRE(values.size() == k_count);
   REQUIRE(values.vk_buffer() != VK_NULL_HANDLE);
+  REQUIRE(values.staging().handle() != VK_NULL_HANDLE);
+  REQUIRE(values.device().handle() == values.vk_buffer());
   REQUIRE(values.byte_size() == k_count * sizeof(float));
   REQUIRE(values.span().front() == k_fill);
   REQUIRE(values.span().back() == k_fill);
 }
 
-TEST_CASE("tensor::create copies a span into storage", "[vkexec][tensor][gpu]")
+TEST_CASE("tensor::create copies a span into the host mirror", "[vkexec][tensor][gpu]")
 {
   auto ctx = vkexec::test::require_context();
   std::vector<std::uint32_t> const host{ 1, 2, 3, 4 };
@@ -41,7 +45,7 @@ TEST_CASE("tensor::create copies a span into storage", "[vkexec][tensor][gpu]")
   REQUIRE(values.span().back() == 4);
 }
 
-TEST_CASE("tensor::storage_binding exposes buffer handle and binding index", "[vkexec][tensor][gpu]")
+TEST_CASE("tensor::storage_binding exposes the device buffer handle", "[vkexec][tensor][gpu]")
 {
   auto ctx = vkexec::test::require_context();
   auto values = vkexec::test::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_count, k_fill));
@@ -49,4 +53,18 @@ TEST_CASE("tensor::storage_binding exposes buffer handle and binding index", "[v
   REQUIRE(binding.buffer == values.vk_buffer());
   REQUIRE(binding.byte_size == values.byte_size());
   REQUIRE(binding.binding == k_binding);
+}
+
+TEST_CASE("tensor upload/download round-trips host mirror through device storage", "[vkexec][tensor][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto values = vkexec::test::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_count, k_fill));
+  std::ranges::fill(values.span(), k_host_write);
+
+  REQUIRE(values.upload(*ctx));
+  std::ranges::fill(values.span(), 0.F);
+  REQUIRE(values.download(*ctx));
+
+  REQUIRE(values.span().front() == k_host_write);
+  REQUIRE(values.span().back() == k_host_write);
 }

@@ -53,6 +53,17 @@ inline auto cmd_copy_buffer(VkCommandBuffer cmd,
   upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &device, std::span<std::byte const> bytes)
     -> status;
 
+/**
+ * Copies `device` into host-visible `staging`, waits, then writes bytes into `out`.
+ *
+ * @param ctx Context used for submit-and-wait.
+ * @param staging Host-visible staging buffer large enough for `out`.
+ * @param device Device-local source buffer.
+ * @param out Host destination (must fit in both buffers).
+ */
+[[nodiscard]] auto
+  download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &device, std::span<std::byte> out) -> status;
+
 }// namespace vkexec
 
 #endif// VKEXEC_COPY_HPP

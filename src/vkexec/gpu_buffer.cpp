@@ -10,6 +10,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 
 namespace vkexec {
@@ -29,7 +30,9 @@ namespace {
       // NOLINTEND(hicpp-signed-bitwise)
     }
     case gpu_buffer_memory::staging:
-      return VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+      // Upload and readback both need copy endpoints on the staging buffer.
+      return static_cast<VkBufferUsageFlags>(static_cast<std::uint32_t>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+                                             | static_cast<std::uint32_t>(VK_BUFFER_USAGE_TRANSFER_DST_BIT));
     }
     return fail(errc::invalid_argument, "unknown gpu_buffer_memory");
   }
