@@ -3,15 +3,18 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/detail/sync_wait_outcome.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 #include <vkexec_graphics/window.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <cstdint>
 #include <thread>
@@ -98,4 +101,24 @@ TEST_CASE("draw | submit presents multiple headless frames without leaking frame
   }
 
   fixture.win.wait_idle();
+}
+
+TEST_CASE("Layer 1 graphics resources draw without owning pipeline", "[vkexec][draw][gpu][layer1]")
+{
+  auto win = make_headless_window();
+  auto resources_result = vkexec::create_graphics_resources(win.ctx(),
+    win.render_pass(),
+    vkexec::graphics_pipeline_config{},
+    vkexec::shaders::k_triangle_vert,
+    vkexec::shaders::k_triangle_frag);
+  REQUIRE(resources_result.has_value());
+  auto resources = vkexec::expected_take(resources_result);
+
+  auto const waited = vkexec::test::sync_wait_sender(
+    ex::schedule(win.ctx().get_scheduler())
+    | vkexec::draw(win, resources, VK_NULL_HANDLE, k_triangle_vertices) | vkexec::submit);
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
+
+  win.wait_idle();
+  vkexec::destroy_graphics_resources(win.ctx(), resources);
 }
