@@ -190,6 +190,7 @@ Common entry points:
 |-----|---------|
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
 | `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
+| `create_heap_compute_resources` / `bind_heap` / `destroy_heap_compute_resources` | Borrowable bindless heap pipeline bags (`vkexec::ext_descriptor_heap`) |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
@@ -311,7 +312,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
-**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
+**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `create_heap_compute_resources` / `bind_heap` / `destroy_heap_compute_resources`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
 
 **Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of the free functions.
 
@@ -326,7 +327,7 @@ auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
 // optional: acquire_present_frame(ring, chain, slot) / submit_and_present(...)
 ```
 
-**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline with `heap_compute_pipeline`, allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data:
+**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline (borrowable bag or owning `heap_compute_pipeline`), allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data:
 
 ```cpp
 #include <vkexec_extensions/descriptor_heap.hpp>
@@ -337,17 +338,22 @@ auto heap = vkexec::sync_wait_value(
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
 // also: write_sampled_image_descriptor / write_sampler_descriptor into resource / sampler heaps
 
-auto pipe = vkexec::sync_wait_value(vkexec::heap_compute_pipeline::create(ctx, glsl,
+auto resources = vkexec::expected_take(vkexec::create_heap_compute_resources(ctx, glsl,
   vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size }));
+// or owning: heap_compute_pipeline::create(...)
 
 // stdexec path:
-ex::schedule(ctx.get_scheduler()) | vkexec::compute_heap_pass(pipe, push, work_count);
+ex::schedule(ctx.get_scheduler())
+  | vkexec::compute_heap_pass(vkexec::bind_heap(resources), push, groups);
 
 // manual command buffer:
 vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
   reserved_offset, layout.min_resource_heap_reserved_range);
 // also: cmd_bind_sampler_heap(...) for a sampler heap sized with sampler_heap_byte_size
 vkexec::cmd_push_data(ctx, cmd, push);
+// peel VkPipeline with resources.pipeline when recording yourself
+
+vkexec::destroy_heap_compute_resources(ctx, resources);
 ```
 
 Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.

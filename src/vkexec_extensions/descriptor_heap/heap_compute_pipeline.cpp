@@ -15,7 +15,6 @@
 #include <memory>
 #include <span>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace vkexec {
