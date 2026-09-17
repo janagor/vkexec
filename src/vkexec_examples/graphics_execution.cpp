@@ -24,10 +24,10 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  // Window / swapchain stay Layer 2 (present sync owners), like context owns the command pool.
+  // Window / swapchain stay owning present helpers, like context owns the command pool.
   auto win = vkexec::examples::sync_wait_value(vkexec::window::create({ .width = k_window_width,
     .height = k_window_height,
-    .title = "vkexec graphics Layer 1",
+    .title = "vkexec graphics execution",
     .validation_layers = true }));
 
   auto resources_result = vkexec::create_graphics_resources(win.ctx(),
@@ -38,7 +38,7 @@ static auto run() -> int
   if (!resources_result) { vkexec::examples::abort_with_error(resources_result.error()); }
   auto resources = vkexec::expected_take(resources_result);
 
-  std::cout << std::format("vkexec graphics Layer 1 (borrowed pipeline handles) - close the window to exit\n");
+  std::cout << std::format("vkexec graphics execution (borrowed pipeline handles) - close the window to exit\n");
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler())

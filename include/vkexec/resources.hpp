@@ -2,7 +2,7 @@
 #define VKEXEC_RESOURCES_HPP
 
 //! \file
-//! Layer 2 umbrella: owning RAII Vulkan resources for greenfield apps.
+//! Resources umbrella: owning RAII Vulkan helpers for greenfield apps.
 //!
 //! Prefer `<vkexec/execution.hpp>` for borrow-first dispatch. This header covers
 //! typed buffers, images, samplers, and owning `compute_pipeline`.

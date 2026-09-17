@@ -8,23 +8,23 @@
 
 `vkexec` is a C++23 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, and borrowable handles — plus optional owning RAII and GLFW helpers for greenfield apps.
 
-**Layer 1 (execution)** — schedule work on a device; record with `compute_bind` / `pipeline_resources`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
+**Execution** — schedule work on a device; record with `compute_bind` / `pipeline_resources`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
-**Layer 2 (resources)** — owning `buffer`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
+**Resources** — owning `buffer`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
 
-Same Layer 1 / Layer 2 split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
+The same execution / resources split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
 
 ### Public headers
 
 | Header | Role |
 |--------|------|
-| `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `pipeline_resources`, Layer 1 free functions |
+| `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `pipeline_resources`, free functions |
 | `<vkexec/resources.hpp>` | Owning buffers, images, samplers, `compute_pipeline` |
-| `<vkexec/vkexec.hpp>` | Full core umbrella (both layers) |
+| `<vkexec/vkexec.hpp>` | Full core umbrella (execution + resources) |
 
 `context::adopt` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
 
-### Hero — Layer 1 dispatch
+### Hero — borrowable dispatch
 
 ```cpp
 #include <vkexec/execution.hpp>
@@ -53,7 +53,7 @@ void main() {
 int main() {
   try {
     auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create()));
-    // Layer 2 convenience for host-visible storage (or use your own VkBuffers):
+    // Owning buffer helpers for host-visible storage (or use your own VkBuffers):
     auto positions = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 0.0f)));
     auto velocities = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 1.5f)));
 
@@ -84,9 +84,9 @@ int main() {
 }
 ```
 
-### Greenfield Layer 2 (owning factories)
+### Greenfield owning factories
 
-For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`src/vkexec_examples/compute.cpp`](src/vkexec_examples/compute.cpp)). The Layer 1 path above matches [`src/vkexec_examples/compute_layer1.cpp`](src/vkexec_examples/compute_layer1.cpp).
+For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`src/vkexec_examples/compute.cpp`](src/vkexec_examples/compute.cpp)). The borrowable path above matches [`src/vkexec_examples/compute_execution.cpp`](src/vkexec_examples/compute_execution.cpp).
 
 ```cpp
 auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
@@ -100,7 +100,7 @@ ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set
 
 ### Embedder path — adopt + raw `VkBuffer`s
 
-When you already own the device and buffers, skip Layer 2 factories. Pass borrowed handles into `context::adopt` and `storage_binding`:
+When you already own the device and buffers, skip owning factories. Pass borrowed handles into `context::adopt` and `storage_binding`:
 
 ```cpp
 #include <vkexec/execution.hpp>
@@ -189,15 +189,15 @@ Common entry points:
 | API | Returns |
 |-----|---------|
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
-| `create_compute_resources` / `bind_storage` / `free_compute_set` | Layer 1 classic pipeline + descriptor set loans |
+| `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
-| `window::create` / `window::headless` | sender → `set_value(window)` (Layer 2 present owner) |
-| `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Layer 1 classic graphics pipeline + descriptor set loans |
-| `create_mesh_buffers` / `destroy_mesh_buffers` | Layer 1 vertex/index handle bag |
-| `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` (thin Layer 2 owner) |
-| `mesh::create` | sender → `set_value(mesh)` (thin Layer 2 owner) |
+| `window::create` / `window::headless` | sender → `set_value(window)` (owning present helper) |
+| `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
+| `create_mesh_buffers` / `destroy_mesh_buffers` | Borrowable vertex/index handle bag |
+| `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` (thin owning wrapper) |
+| `mesh::create` | sender → `set_value(mesh)` (thin owning wrapper) |
 | `gpu_buffer::create`, `image::create`, … | sender → `set_value(...)` |
 | `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
@@ -284,7 +284,7 @@ if (vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx)) { /* ... */ 
 
 ### Optional extensions (`vkexec_extensions`)
 
-Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. Optional capability **implementations** (Layer 1 commands + Layer 2 RAII) live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need. Enable capabilities first with [`vkexec_features`](include/vkexec_features/feature.hpp) (`feat::configure` / `feat::available`).
+Core [`vkexec.hpp`](include/vkexec/vkexec.hpp) covers stdexec compute, classic descriptors, buffers, and adopt/create. Optional capability **implementations** (command free functions + owning RAII) live under [`include/vkexec_extensions/`](include/vkexec_extensions/) as separate CMake targets — link only what you need. Enable capabilities first with [`vkexec_features`](include/vkexec_features/feature.hpp) (`feat::configure` / `feat::available`).
 
 True Vulkan extensions (`VK_EXT_*`) also expose `ext::configure` / `ext::available` via [`extension.hpp`](include/vkexec_extensions/extension.hpp):
 
@@ -311,9 +311,9 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
-**Layer 1 — free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
+**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `cmd_begin_rendering`, etc.
 
-**Layer 2 — RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of Layer 1.
+**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `compute_heap_pass`, rendering helpers built on top of the free functions.
 
 **Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
@@ -352,7 +352,7 @@ vkexec::cmd_push_data(ctx, cmd, push);
 
 Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
 
-**Dynamic rendering:** enable with `feat::configure<feat::dynamic_rendering>` (or `configure_vulkan_13`), then use Layer 1 helpers from the extensions target:
+**Dynamic rendering:** enable with `feat::configure<feat::dynamic_rendering>` (or `configure_vulkan_13`), then use free-function helpers from the extensions target:
 
 ```cpp
 #include <vkexec_features/dynamic_rendering.hpp>
@@ -372,12 +372,12 @@ nix develop
 cmake --preset unixlike-clang-release
 cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/compute
-./out/build/unixlike-clang-release/src/vkexec_examples/compute_layer1
+./out/build/unixlike-clang-release/src/vkexec_examples/compute_execution
 ./out/build/unixlike-clang-release/src/vkexec_examples/sort
 ./out/build/unixlike-clang-release/src/vkexec_examples/passes
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
 ./out/build/unixlike-clang-release/src/vkexec_examples/triangle
-./out/build/unixlike-clang-release/src/vkexec_examples/graphics_layer1
+./out/build/unixlike-clang-release/src/vkexec_examples/graphics_execution
 ./out/build/unixlike-clang-release/src/vkexec_examples/heap_present
 ./out/build/unixlike-clang-release/src/vkexec_examples/extensions/descriptor_heap/descriptor_heap
 ./out/build/unixlike-clang-release/src/vkexec_examples/extensions/dynamic_rendering/dynamic_rendering
@@ -389,7 +389,7 @@ cmake --build out/build/unixlike-clang-release -j12
 
 `heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute, dynamic rendering to an offscreen color target, then a few swapchain present frames.
 
-### Graphics Layer 1 / Layer 2
+### Graphics execution / resources
 
 `vkexec_graphics` mirrors the core split:
 
@@ -397,11 +397,11 @@ cmake --build out/build/unixlike-clang-release -j12
 |--------|------|
 | `<vkexec_graphics/execution.hpp>` | `graphics_pipeline_resources`, `mesh_buffers`, bind/record/draw free functions, swapchain (borrow surface) |
 | `<vkexec_graphics/resources.hpp>` | Owning `window`, `graphics_pipeline`, `mesh` |
-| `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (both layers) |
+| `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (execution + resources) |
 
-`window` / `swapchain` stay Layer 2 present/WSI owners (like `context` owns the command pool). Pipeline create/bind/record is Layer 1; `graphics_pipeline` / `mesh` are thin RAII wrappers.
+`window` / `swapchain` stay owning present/WSI helpers (like `context` owns the command pool). Pipeline create/bind/record is borrowable; `graphics_pipeline` / `mesh` are thin RAII wrappers.
 
-### Triangle window (Layer 2)
+### Triangle window (owning pipeline)
 
 Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled at pipeline creation time. Each frame is a stdexec pipeline:
 
@@ -426,16 +426,16 @@ while (!win.should_close()) {
 
 See [`src/vkexec_examples/triangle.cpp`](src/vkexec_examples/triangle.cpp).
 
-### Graphics Layer 1 — borrowed pipeline handles
+### Graphics execution — borrowed pipeline handles
 
 Same triangle present path without an owning `graphics_pipeline`. Prefer `#include <vkexec_graphics/execution.hpp>`:
 
 ```cpp
 #include <vkexec_graphics/execution.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include <vkexec_graphics/window.hpp>  // Layer 2 present owner
+#include <vkexec_graphics/window.hpp>  // owning present helper
 
-auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "graphics Layer 1" }));
+auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "graphics execution" }));
 
 auto resources = vkexec::expected_take(vkexec::create_graphics_resources(
   win.ctx(), win.render_pass(), {}, vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
@@ -451,7 +451,7 @@ win.wait_idle();
 vkexec::destroy_graphics_resources(win.ctx(), resources);
 ```
 
-Runnable sample: [`src/vkexec_examples/graphics_layer1.cpp`](src/vkexec_examples/graphics_layer1.cpp).
+Runnable sample: [`src/vkexec_examples/graphics_execution.cpp`](src/vkexec_examples/graphics_execution.cpp).
 
 ### Embedder path — raw `VkBuffer` storage bindings
 
@@ -474,7 +474,7 @@ vkexec::free_graphics_set(ctx, resources, bound.set);
 vkexec::destroy_graphics_resources(ctx, resources);
 ```
 
-Mesh draws take a `mesh_draw` / `mesh_buffers` handle bag the same way — Layer 2 `mesh` is optional.
+Mesh draws take a `mesh_draw` / `mesh_buffers` handle bag the same way — owning `mesh` is optional.
 
 
 ## More Details

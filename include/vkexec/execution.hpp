@@ -2,7 +2,7 @@
 #define VKEXEC_EXECUTION_HPP
 
 //! \file
-//! Layer 1 umbrella: stdexec scheduler, pass graphs, and borrowable Vulkan handles.
+//! Execution umbrella: stdexec scheduler, pass graphs, and borrowable Vulkan handles.
 //!
 //! Prefer this for embedders that adopt a device and record with `compute_bind`.
 //! Owning RAII types live in `<vkexec/resources.hpp>`.

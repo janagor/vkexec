@@ -142,7 +142,7 @@ struct draw_mesh_bind_closure
   mesh_draw drawn{};
 };
 
-//! Layer 1: present one frame using borrowable pipeline resources + descriptor set.
+//! Present one frame using borrowable pipeline resources + descriptor set.
 inline auto draw(window &win,
   graphics_pipeline_resources const &resources,
   VkDescriptorSet set,
@@ -151,14 +151,14 @@ inline auto draw(window &win,
   return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count };
 }
 
-//! Layer 1: present one indexed mesh frame from borrowed handles.
+//! Present one indexed mesh frame from borrowed handles.
 inline auto draw(window &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, mesh_draw drawn)
   -> draw_mesh_bind_closure
 {
   return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn };
 }
 
-//! Layer 1: present one indexed mesh frame from `mesh_buffers`.
+//! Present one indexed mesh frame from `mesh_buffers`.
 inline auto draw(window &win,
   graphics_pipeline_resources const &resources,
   VkDescriptorSet set,

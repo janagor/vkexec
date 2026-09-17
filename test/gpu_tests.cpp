@@ -137,7 +137,7 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_CASE("classic compute Layer 1 path without owning pipeline", "[vkexec][gpu][layer1]")
+TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][gpu][execution]")
 {
   constexpr std::size_t k_count = 128;
   constexpr float k_initial_velocity = 1.5F;
@@ -149,7 +149,7 @@ TEST_CASE("classic compute Layer 1 path without owning pipeline", "[vkexec][gpu]
   auto positions = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F));
   auto velocities = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity));
 
-  auto resources_result = vkexec::create_compute_resources(*ctx, k_sim_glsl, make_sim_layout(), "sim_layer1.comp");
+  auto resources_result = vkexec::create_compute_resources(*ctx, k_sim_glsl, make_sim_layout(), "sim_execution.comp");
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
 

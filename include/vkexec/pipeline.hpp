@@ -65,7 +65,7 @@ struct layout_desc
  * Vulkan objects for one classic compute pipeline.
  *
  * Non-owning handle bag: fill via `create_compute_resources` or an embedder's
- * own objects. Destroy with `destroy_compute_resources` (or use Layer 2
+ * own objects. Destroy with `destroy_compute_resources` (or use owning
  * `compute_pipeline`). Do not destroy individual handles while this struct is
  * still considered live.
  *

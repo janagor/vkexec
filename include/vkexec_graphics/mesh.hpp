@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_MESH_HPP
 
 //! \file
-//! Host-visible indexed triangle meshes: Layer 1 handle bag + Layer 2 RAII.
+//! Host-visible indexed triangle meshes: borrowable handle bag + owning RAII.
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
@@ -35,7 +35,7 @@ struct mesh_vertex
  * Borrowable vertex/index buffer handles for one mesh.
  *
  * Fill via `create_mesh_buffers` or an embedder's own allocations. Destroy with
- * `destroy_mesh_buffers` (or Layer 2 `mesh`).
+ * `destroy_mesh_buffers` (or owning `mesh`).
  */
 struct mesh_buffers
 {
@@ -66,7 +66,7 @@ auto destroy_mesh_buffers(context const &ctx, mesh_buffers &buffers) noexcept ->
 }
 
 /**
- * Host-visible indexed triangle mesh (Layer 2 owner of `mesh_buffers`).
+ * Host-visible indexed triangle mesh (owning wrapper over `mesh_buffers`).
  *
  * @see create_mesh_buffers, graphics_pipeline, draw
  */

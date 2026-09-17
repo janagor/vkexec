@@ -103,7 +103,7 @@ TEST_CASE("draw | submit presents multiple headless frames without leaking frame
   fixture.win.wait_idle();
 }
 
-TEST_CASE("Layer 1 graphics resources draw without owning pipeline", "[vkexec][draw][gpu][layer1]")
+TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec][draw][gpu][execution]")
 {
   auto win = make_headless_window();
   auto resources_result = vkexec::create_graphics_resources(win.ctx(),

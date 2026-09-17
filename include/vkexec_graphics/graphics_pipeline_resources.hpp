@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_PIPELINE_RESOURCES_HPP
 
 //! \file
-//! Borrowable graphics pipeline handle bag and Layer 1 create/destroy helpers.
+//! Borrowable graphics pipeline handle bag and create/destroy helpers.
 
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
@@ -58,7 +58,7 @@ struct graphics_pipeline_config
  * Vulkan objects for one classic graphics pipeline.
  *
  * Non-owning handle bag: fill via `create_graphics_resources` or an embedder's
- * own objects. Destroy with `destroy_graphics_resources` (or Layer 2
+ * own objects. Destroy with `destroy_graphics_resources` (or owning
  * `graphics_pipeline`).
  *
  * `descriptor_pool` backs set loans when `binding_count > 0`. Free unused sets

@@ -2,7 +2,6 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error_helpers.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
@@ -59,7 +58,7 @@ struct sim_params
 static auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .validation_layers = true }));
-  // Host-visible buffers are still convenient Layer 2 helpers; dispatch uses Layer 1 only.
+  // Host-visible buffers are still convenient owning helpers; dispatch uses borrowable handles only.
   auto positions = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
   auto velocities =
     vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, k_initial_velocity));
@@ -73,7 +72,7 @@ static auto run() -> int
       .specialization = {},
       .local_size = { k_local_size_x, 1, 1 },
     },
-    "sim_layer1.comp");
+    "sim_execution.comp");
   if (!resources_result) { vkexec::examples::abort_with_error(resources_result.error()); }
   auto resources = vkexec::expected_take(resources_result);
 
@@ -111,7 +110,7 @@ static auto run() -> int
   }
 
   std::cout << std::format(
-    "vkexec Layer 1 sim ok: p[0]={} v[0]={}\n", positions.data()[0], velocities.data()[0]);
+    "vkexec execution sim ok: p[0]={} v[0]={}\n", positions.data()[0], velocities.data()[0]);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
   vkexec::free_compute_set(*ctx, resources, bound.set);

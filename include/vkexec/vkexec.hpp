@@ -2,7 +2,7 @@
 #define VKEXEC_VKEXEC_HPP
 
 //! \file
-//! Full core umbrella: Layer 1 execution plus Layer 2 owning resources.
+//! Full core umbrella: execution (borrowable) plus resources (owning).
 //!
 //! Prefer `<vkexec/execution.hpp>` or `<vkexec/resources.hpp>` when you only need
 //! one layer.

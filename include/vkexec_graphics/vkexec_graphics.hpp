@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_VKEXEC_GRAPHICS_HPP
 
 //! \file
-//! Full graphics umbrella: Layer 1 execution plus Layer 2 owning resources.
+//! Full graphics umbrella: execution (borrowable) plus resources (owning).
 //!
 //! Prefer `<vkexec_graphics/execution.hpp>` or `<vkexec_graphics/resources.hpp>`
 //! when you only need one layer.

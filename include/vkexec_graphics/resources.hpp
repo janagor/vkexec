@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_RESOURCES_HPP
 
 //! \file
-//! Layer 2 umbrella: owning window, graphics pipeline, and mesh helpers.
+//! Resources umbrella: owning window, graphics pipeline, and mesh helpers.
 //!
 //! Prefer `<vkexec_graphics/execution.hpp>` for borrow-first draw recording.
 

@@ -2,7 +2,7 @@
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
 //! \file
-//! Layer 2 owning graphics pipelines for swapchain render passes.
+//! Owning graphics pipelines for swapchain render passes.
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
@@ -27,7 +27,7 @@ class mesh;
 /**
  * Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
  *
- * Thin Layer 2 owner over `graphics_pipeline_resources` plus an optional retained
+ * Thin owning wrapper over `graphics_pipeline_resources` plus an optional retained
  * descriptor set for storage buffers passed at create time. Compatible with a
  * `window` render pass. Use `draw` / `record_draw` inside a begun frame.
  *
@@ -75,7 +75,7 @@ public:
     std::string_view fragment_glsl,
     std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
-  //! Layer 2 factory used after `create_graphics_resources` + optional set install.
+  //! Owning factory used after `create_graphics_resources` + optional set install.
   [[nodiscard]] static auto make(context &ctx,
     std::unique_ptr<graphics_pipeline_resources> resources,
     VkDescriptorSet set = VK_NULL_HANDLE,
