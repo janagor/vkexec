@@ -16,10 +16,13 @@
 namespace vkexec {
 
 /**
- * Host-visible bindless descriptor heap buffer (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
+ * Host-visible, host-coherent bindless descriptor heap buffer
+ * (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
  *
- * Persistently mapped for host descriptor writes; use `device_address()` when binding
- * the heap on the GPU.
+ * Persistently mapped for host descriptor writes; coherent memory is required so
+ * continuous host writes are GPU-visible without explicit flushes. Use
+ * `device_address()` when binding the heap on the GPU. `flush()` is a no-op when
+ * the allocation is coherent (belt-and-suspenders for non-coherent fallbacks).
  *
  * @see query_descriptor_heap_layout, cmd_bind_resource_heap
  */
@@ -27,7 +30,7 @@ class descriptor_heap_buffer
 {
 public:
   /**
-   * Creates a host-visible descriptor heap buffer of `size` bytes.
+   * Creates a host-visible, host-coherent descriptor heap buffer of `size` bytes.
    *
    * @param ctx Context whose VMA allocator owns the allocation.
    * @param size Byte size (must accommodate descriptors + reserved range).
@@ -51,12 +54,21 @@ public:
   //! Device address for `cmd_bind_resource_heap` (requires buffer device address).
   [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
+  /**
+   * Flushes mapped host writes when the allocation is not host-coherent.
+   *
+   * No-op for coherent allocations (the create default). Safe to call after
+   * descriptor writes if an embedder wants an explicit visibility barrier.
+   */
+  [[nodiscard]] auto flush() const -> status;
+
 private:
   descriptor_heap_buffer(context *ctx,
     VkBuffer buffer,
     VmaAllocation allocation,
     void *mapped,
-    VkDeviceSize size) noexcept;
+    VkDeviceSize size,
+    bool host_coherent) noexcept;
 
   auto destroy() noexcept -> void;
 
@@ -65,6 +77,7 @@ private:
   VmaAllocation allocation_{ VK_NULL_HANDLE };
   void *mapped_{ nullptr };
   VkDeviceSize size_{ 0 };
+  bool host_coherent_{ true };
 };
 
 }// namespace vkexec

@@ -43,9 +43,8 @@ auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> detail::
     // NOLINTBEGIN(hicpp-signed-bitwise)
     aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
                 | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     // NOLINTEND(hicpp-signed-bitwise)
-    aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    aci.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
     VkBuffer buffer_handle{ VK_NULL_HANDLE };
     VmaAllocation allocation{ VK_NULL_HANDLE };
@@ -60,7 +59,12 @@ auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> detail::
       return fail(errc::unsupported, "descriptor_heap_buffer did not map host-visible memory");
     }
 
-    return descriptor_heap_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, size };
+    VkMemoryPropertyFlags memory_flags = 0;
+    vmaGetAllocationMemoryProperties(ctx.allocator(), allocation, &memory_flags);
+    // NOLINTNEXTLINE(hicpp-signed-bitwise)
+    bool const host_coherent = (memory_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+
+    return descriptor_heap_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, size, host_coherent };
   });
 }
 
@@ -68,20 +72,23 @@ descriptor_heap_buffer::descriptor_heap_buffer(context *ctx,
   VkBuffer buffer,
   VmaAllocation allocation,
   void *mapped,
-  VkDeviceSize size) noexcept
-  : ctx_(ctx), buffer_(buffer), allocation_(allocation), mapped_(mapped), size_(size)
+  VkDeviceSize size,
+  bool host_coherent) noexcept
+  : ctx_(ctx), buffer_(buffer), allocation_(allocation), mapped_(mapped), size_(size), host_coherent_(host_coherent)
 {}
 
 descriptor_heap_buffer::~descriptor_heap_buffer() { destroy(); }
 
 descriptor_heap_buffer::descriptor_heap_buffer(descriptor_heap_buffer &&other) noexcept
-  : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_), size_(other.size_)
+  : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_), size_(other.size_),
+    host_coherent_(other.host_coherent_)
 {
   other.ctx_ = nullptr;
   other.buffer_ = VK_NULL_HANDLE;
   other.allocation_ = VK_NULL_HANDLE;
   other.mapped_ = nullptr;
   other.size_ = 0;
+  other.host_coherent_ = true;
 }
 
 auto descriptor_heap_buffer::operator=(descriptor_heap_buffer &&other) noexcept -> descriptor_heap_buffer &
@@ -93,11 +100,13 @@ auto descriptor_heap_buffer::operator=(descriptor_heap_buffer &&other) noexcept 
   allocation_ = other.allocation_;
   mapped_ = other.mapped_;
   size_ = other.size_;
+  host_coherent_ = other.host_coherent_;
   other.ctx_ = nullptr;
   other.buffer_ = VK_NULL_HANDLE;
   other.allocation_ = VK_NULL_HANDLE;
   other.mapped_ = nullptr;
   other.size_ = 0;
+  other.host_coherent_ = true;
   return *this;
 }
 
@@ -118,6 +127,17 @@ auto descriptor_heap_buffer::device_address() const -> result<VkDeviceAddress>
   return ctx_->procs().get_buffer_device_address(ctx_->device(), &info);
 }
 
+auto descriptor_heap_buffer::flush() const -> status
+{
+  if (host_coherent_) { return {}; }
+  if (ctx_ == nullptr || ctx_->allocator() == VK_NULL_HANDLE || allocation_ == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "descriptor_heap_buffer::flush requires a live allocation");
+  }
+  VkResult const flush_result = vmaFlushAllocation(ctx_->allocator(), allocation_, 0, VK_WHOLE_SIZE);
+  if (flush_result != VK_SUCCESS) { return fail(flush_result, "vmaFlushAllocation failed"); }
+  return {};
+}
+
 auto descriptor_heap_buffer::destroy() noexcept -> void
 {
   if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
@@ -128,6 +148,7 @@ auto descriptor_heap_buffer::destroy() noexcept -> void
   allocation_ = VK_NULL_HANDLE;
   mapped_ = nullptr;
   size_ = 0;
+  host_coherent_ = true;
 }
 
 }// namespace vkexec
