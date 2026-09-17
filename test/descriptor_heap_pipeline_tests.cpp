@@ -112,7 +112,7 @@ TEST_CASE("compute_heap_pass records bindless push data for heap pipelines", "[v
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 
-TEST_CASE("dispatch aliases compute_heap_pass for heap_algorithm", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("dispatch_heap aliases compute_heap_pass for heap_algorithm", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -132,7 +132,7 @@ TEST_CASE("dispatch aliases compute_heap_pass for heap_algorithm", "[vkexec][des
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler()) | vkexec::dispatch(algo, params, k_work_count));
+    ex::schedule(ctx->get_scheduler()) | vkexec::dispatch_heap(algo, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 

@@ -123,7 +123,7 @@ vkexec::sync_wait(
   | vkexec::sync_to_host(velocities));
 ```
 
-For bindless/vkgsplat-style naming, `heap_algorithm` + `dispatch` thin-wrap `heap_compute_pipeline` / `compute_heap_pass` in `<vkexec_extensions/descriptor_heap/algorithm.hpp>`.
+For bindless/vkgsplat-style naming, `heap_algorithm` + `dispatch_heap` thin-wrap `heap_compute_pipeline` / `compute_heap_pass` in `<vkexec_extensions/descriptor_heap/algorithm.hpp>` (named `dispatch_heap` so it does not shadow `struct dispatch`).
 
 ### Embedder path — adopt + raw `VkBuffer`s
 
