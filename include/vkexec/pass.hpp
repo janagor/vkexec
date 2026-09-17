@@ -106,10 +106,13 @@ auto record_pass(VkCommandBuffer cmd,
  * One recording step in a pass graph (dispatch, barrier, or custom record).
  *
  * `record` may allocate descriptor sets into the provided cleanup object.
+ * `after_gpu` runs after the graph's submit completes successfully (host-side
+ * work such as staging→CPU readback).
  */
 struct pass_step
 {
   std::function<status(context &, VkCommandBuffer, detail::pass_cleanup &)> record;
+  std::function<void()> after_gpu;
 };
 
 namespace detail {
@@ -149,12 +152,36 @@ struct pass_graph_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
+  template<class Receiver> struct after_gpu_receiver
+  {
+    using receiver_concept = ex::receiver_t;
+
+    Receiver rcvr;
+    std::vector<std::function<void()>> after_gpu;
+
+    auto set_value() && noexcept -> void
+    {
+      for (std::function<void()> const &callback : after_gpu) {
+        if (callback) { callback(); }
+      }
+      ex::set_value(std::move(rcvr));
+    }
+
+    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(rcvr), std::move(err)); }
+
+    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(rcvr)); }
+
+    [[nodiscard]] auto get_env() const noexcept -> decltype(ex::get_env(std::declval<Receiver const &>()))
+    { return ex::get_env(rcvr); }
+  };
+
   template<class Receiver> struct op_state
   {
     context *ctx{ nullptr };
     std::vector<pass_step> steps;
     Receiver receiver;
-    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<Receiver>()));
+    using submit_op_t =
+      decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<after_gpu_receiver<Receiver>>()));
     std::optional<submit_op_t> submit_op;
 
     auto start() noexcept -> void
@@ -168,13 +195,20 @@ struct pass_graph_sender
         }
       }
 
+      std::vector<std::function<void()>> after;
+      after.reserve(steps.size());
+      for (pass_step &step : steps) {
+        if (step.after_gpu) { after.push_back(std::move(step.after_gpu)); }
+      }
+
       auto prepared = detail::open_and_record_pass(ctx, steps);
       if (!prepared) {
         ex::set_error(std::move(rcvr), std::move(prepared.error()));
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_and_wait(expected_take(prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_and_wait(expected_take(prepared)),
+        after_gpu_receiver<Receiver>{ .rcvr = std::move(rcvr), .after_gpu = std::move(after) }));
       ex::start(*submit_op);
     }
   };
@@ -223,12 +257,36 @@ struct pass_graph_async_sender
   pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps) : ctx(host), steps(std::move(graph_steps))
   {}
 
+  template<class Receiver> struct after_gpu_receiver
+  {
+    using receiver_concept = ex::receiver_t;
+
+    Receiver rcvr;
+    std::vector<std::function<void()>> after_gpu;
+
+    auto set_value() && noexcept -> void
+    {
+      for (std::function<void()> const &callback : after_gpu) {
+        if (callback) { callback(); }
+      }
+      ex::set_value(std::move(rcvr));
+    }
+
+    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(rcvr), std::move(err)); }
+
+    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(rcvr)); }
+
+    [[nodiscard]] auto get_env() const noexcept -> decltype(ex::get_env(std::declval<Receiver const &>()))
+    { return ex::get_env(rcvr); }
+  };
+
   template<class Receiver> struct op_state
   {
     context *ctx{ nullptr };
     std::vector<pass_step> steps;
     Receiver receiver;
-    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<Receiver>()));
+    using submit_op_t =
+      decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<after_gpu_receiver<Receiver>>()));
     std::optional<submit_op_t> submit_op;
 
     auto start() noexcept -> void
@@ -242,13 +300,20 @@ struct pass_graph_async_sender
         }
       }
 
+      std::vector<std::function<void()>> after;
+      after.reserve(steps.size());
+      for (pass_step &step : steps) {
+        if (step.after_gpu) { after.push_back(std::move(step.after_gpu)); }
+      }
+
       auto prepared = detail::open_and_record_pass(ctx, steps);
       if (!prepared) {
         ex::set_error(std::move(rcvr), std::move(prepared.error()));
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_fence(expected_take(prepared)), std::move(rcvr)));
+      submit_op.emplace(ex::connect(detail::submit_fence(expected_take(prepared)),
+        after_gpu_receiver<Receiver>{ .rcvr = std::move(rcvr), .after_gpu = std::move(after) }));
       ex::start(*submit_op);
     }
   };
@@ -371,7 +436,7 @@ namespace detail {
     return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
       tag(cmd);
       return {};
-    } };
+    }, .after_gpu = {} };
   }
 
   //! Appends `step` to `graph` and returns the updated graph sender.

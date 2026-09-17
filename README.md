@@ -255,7 +255,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, typed `tensor<T>` (host-visible storage helper), `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
+Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, staging-backed `tensor<T>`, `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
 
 ### Promoted features (`vkexec_features`)
 

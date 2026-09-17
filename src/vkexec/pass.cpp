@@ -109,7 +109,7 @@ namespace detail {
         record_pass(cmd, closure.bind, push_ptr, push_size, closure.groups);
       }
       return {};
-    } };
+    }, .after_gpu = {} };
   }
 
   auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender
