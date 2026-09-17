@@ -2,7 +2,7 @@
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_ALGORITHM_HPP
 
 //! \file
-//! Thin Kompute/vkgsplat-style Algorithm naming over heap compute pipelines.
+//! Thin Algorithm naming over heap compute pipelines (vkgsplat-oriented).
 
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
@@ -14,7 +14,7 @@ namespace vkexec {
 /**
  * Alias for an owning bindless heap compute pipeline (Algorithm naming).
  *
- * Prefer this name when mirroring Kompute/vkgsplat `Algorithm` usage; the
+ * Prefer this name when mirroring vkgsplat-style `Algorithm` usage; the
  * underlying type remains `heap_compute_pipeline`.
  *
  * @see heap_compute_pipeline, dispatch, compute_heap_pass

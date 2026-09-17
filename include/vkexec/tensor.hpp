@@ -27,7 +27,7 @@
 namespace vkexec {
 
 /**
- * Staging-backed typed tensor for Kompute-like compute ergonomics.
+ * Staging-backed typed tensor for compute ergonomics.
  *
  * Owns a host mirror (`std::vector<T>`), a mapped staging `gpu_buffer`, and a
  * device-local storage `gpu_buffer`. Shaders bind the device buffer via

@@ -98,6 +98,29 @@ auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
 ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
 ```
 
+### Staging tensors
+
+Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload → dispatch → download shape on the same pass graph. Runnable sample: [`src/vkexec_examples/tensor_sim.cpp`](src/vkexec_examples/tensor_sim.cpp).
+
+```cpp
+#include <vkexec/execution.hpp>
+#include <vkexec/resources.hpp>
+
+auto positions = vkexec::sync_wait_value(vkexec::tensor<float>::create(*ctx, 10000, 0.0f));
+auto velocities = vkexec::sync_wait_value(vkexec::tensor<float>::create(*ctx, 10000, 1.5f));
+// ... create_compute_resources + bind_storage using positions.storage_binding(0), ...
+
+vkexec::sync_wait(
+  ex::schedule(ctx->get_scheduler())
+  | vkexec::sync_to_device(positions)
+  | vkexec::sync_to_device(velocities)
+  | vkexec::compute_pass(resources, bound.set, params, 10000)
+  | vkexec::sync_to_host(positions)
+  | vkexec::sync_to_host(velocities));
+```
+
+For bindless/vkgsplat-style naming, `heap_algorithm` + `dispatch` thin-wrap `heap_compute_pipeline` / `compute_heap_pass` in `<vkexec_extensions/descriptor_heap/algorithm.hpp>`.
+
 ### Embedder path — adopt + raw `VkBuffer`s
 
 When you already own the device and buffers, skip owning factories. Pass borrowed handles into `context::adopt` and `storage_binding`:
@@ -379,6 +402,7 @@ cmake --preset unixlike-clang-release
 cmake --build out/build/unixlike-clang-release -j12
 ./out/build/unixlike-clang-release/src/vkexec_examples/compute
 ./out/build/unixlike-clang-release/src/vkexec_examples/compute_execution
+./out/build/unixlike-clang-release/src/vkexec_examples/tensor_sim
 ./out/build/unixlike-clang-release/src/vkexec_examples/sort
 ./out/build/unixlike-clang-release/src/vkexec_examples/passes
 ./out/build/unixlike-clang-release/src/vkexec_examples/spirv
