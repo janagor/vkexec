@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
