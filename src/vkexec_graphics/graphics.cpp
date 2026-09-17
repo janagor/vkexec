@@ -345,6 +345,99 @@ auto free_graphics_set(context const &ctx, graphics_pipeline_resources const &pi
   vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
 }
 
+auto begin_graphics_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  graphics_pipeline_config const &cfg) -> void
+{
+  std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(cfg);
+  VkRenderPassBeginInfo rp_begin{};
+  rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  rp_begin.renderPass = render_pass;
+  rp_begin.framebuffer = framebuffer;
+  rp_begin.renderArea.offset = { .x = 0, .y = 0 };
+  rp_begin.renderArea.extent = extent;
+  rp_begin.clearValueCount = k_graphics_clear_count;
+  rp_begin.pClearValues = clears.data();
+  vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+namespace {
+
+  auto bind_graphics_draw_state(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent) -> void
+  {
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.pipeline);
+    if (bind.set != VK_NULL_HANDLE) {
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.layout, 0, 1, &bind.set, 0, nullptr);
+    }
+
+    VkViewport viewport{};
+    viewport.x = 0.0F;
+    viewport.y = 0.0F;
+    viewport.width = static_cast<float>(extent.width);
+    viewport.height = static_cast<float>(extent.height);
+    viewport.minDepth = 0.0F;
+    viewport.maxDepth = 1.0F;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor{};
+    scissor.offset = { .x = 0, .y = 0 };
+    scissor.extent = extent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+  }
+
+}// namespace
+
+auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, std::uint32_t vertex_count) -> void
+{
+  bind_graphics_draw_state(cmd, bind, extent);
+  vkCmdDraw(cmd, vertex_count, 1, 0, 0);
+}
+
+auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mesh_draw const &drawn) -> void
+{
+  bind_graphics_draw_state(cmd, bind, extent);
+  VkDeviceSize const vertex_offset = 0;
+  vkCmdBindVertexBuffers(cmd, 0, 1, &drawn.vertex_buffer, &vertex_offset);
+  vkCmdBindIndexBuffer(cmd, drawn.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+  vkCmdDrawIndexed(cmd, drawn.index_count, 1, 0, 0, 0);
+}
+
+auto draw_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  graphics_pipeline_config const &cfg,
+  graphics_bind bind,
+  std::uint32_t vertex_count) -> status
+{
+  begin_graphics_pass(cmd, render_pass, framebuffer, extent, cfg);
+  record_draw(cmd, bind, extent, vertex_count);
+  end_graphics_pass(cmd);
+  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
+    return fail(result, "vkEndCommandBuffer failed");
+  }
+  return {};
+}
+
+auto draw_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  graphics_pipeline_config const &cfg,
+  graphics_bind bind,
+  mesh_draw const &drawn) -> status
+{
+  begin_graphics_pass(cmd, render_pass, framebuffer, extent, cfg);
+  record_draw(cmd, bind, extent, drawn);
+  end_graphics_pass(cmd);
+  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
+    return fail(result, "vkEndCommandBuffer failed");
+  }
+  return {};
+}
+
 auto graphics_pipeline::reset() noexcept -> void
 {
   if (ctx_ != nullptr && resources_ != nullptr) { destroy_graphics_resources(*ctx_, *resources_); }
@@ -414,60 +507,23 @@ auto graphics_pipeline::create(context &ctx,
 { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
 
 auto graphics_pipeline::bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) const -> void
-{
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, resources_->pipeline);
-
-  if (descriptor_set_ != VK_NULL_HANDLE) {
-    vkCmdBindDescriptorSets(
-      cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, resources_->pipeline_layout, 0, 1, &descriptor_set_, 0, nullptr);
-  }
-
-  VkViewport viewport{};
-  viewport.x = 0.0F;
-  viewport.y = 0.0F;
-  viewport.width = static_cast<float>(extent.width);
-  viewport.height = static_cast<float>(extent.height);
-  viewport.minDepth = 0.0F;
-  viewport.maxDepth = 1.0F;
-  vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-  VkRect2D scissor{};
-  scissor.offset = { .x = 0, .y = 0 };
-  scissor.extent = extent;
-  vkCmdSetScissor(cmd, 0, 1, &scissor);
-}
+{ bind_graphics_draw_state(cmd, bind_graphics(*resources_, descriptor_set_), extent); }
 
 auto graphics_pipeline::begin_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent) const -> void
-{
-  std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(resources_->cfg);
-  VkRenderPassBeginInfo rp_begin{};
-  rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  rp_begin.renderPass = render_pass;
-  rp_begin.framebuffer = framebuffer;
-  rp_begin.renderArea.offset = { .x = 0, .y = 0 };
-  rp_begin.renderArea.extent = extent;
-  rp_begin.clearValueCount = k_graphics_clear_count;
-  rp_begin.pClearValues = clears.data();
-  vkCmdBeginRenderPass(cmd, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-}
+{ begin_graphics_pass(cmd, render_pass, framebuffer, extent, resources_->cfg); }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
-{
-  bind_draw_state(cmd, extent);
-  vkCmdDraw(cmd, vertex_count, 1, 0, 0);
-}
+{ vkexec::record_draw(cmd, bind_graphics(*resources_, descriptor_set_), extent, vertex_count); }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void
 {
-  bind_draw_state(cmd, extent);
-  VkBuffer vertex_buffer = drawn.vk_vertex_buffer();
-  VkDeviceSize const vertex_offset = 0;
-  vkCmdBindVertexBuffers(cmd, 0, 1, &vertex_buffer, &vertex_offset);
-  vkCmdBindIndexBuffer(cmd, drawn.vk_index_buffer(), 0, VK_INDEX_TYPE_UINT32);
-  vkCmdDrawIndexed(cmd, drawn.index_count(), 1, 0, 0, 0);
+  mesh_draw const handles{ .vertex_buffer = drawn.vk_vertex_buffer(),
+    .index_buffer = drawn.vk_index_buffer(),
+    .index_count = drawn.index_count() };
+  vkexec::record_draw(cmd, bind_graphics(*resources_, descriptor_set_), extent, handles);
 }
 
 auto graphics_pipeline::draw(VkCommandBuffer cmd,
@@ -476,13 +532,8 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   VkExtent2D extent,
   std::uint32_t vertex_count) const -> status
 {
-  begin_pass(cmd, render_pass, framebuffer, extent);
-  record_draw(cmd, extent, vertex_count);
-  vkCmdEndRenderPass(cmd);
-  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return fail(result, "vkEndCommandBuffer failed");
-  }
-  return {};
+  return draw_pass(
+    cmd, render_pass, framebuffer, extent, resources_->cfg, bind_graphics(*resources_, descriptor_set_), vertex_count);
 }
 
 auto graphics_pipeline::draw(VkCommandBuffer cmd,
@@ -491,13 +542,11 @@ auto graphics_pipeline::draw(VkCommandBuffer cmd,
   VkExtent2D extent,
   mesh const &drawn) const -> status
 {
-  begin_pass(cmd, render_pass, framebuffer, extent);
-  record_draw(cmd, extent, drawn);
-  vkCmdEndRenderPass(cmd);
-  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return fail(result, "vkEndCommandBuffer failed");
-  }
-  return {};
+  mesh_draw const handles{ .vertex_buffer = drawn.vk_vertex_buffer(),
+    .index_buffer = drawn.vk_index_buffer(),
+    .index_count = drawn.index_count() };
+  return draw_pass(
+    cmd, render_pass, framebuffer, extent, resources_->cfg, bind_graphics(*resources_, descriptor_set_), handles);
 }
 
 }// namespace vkexec

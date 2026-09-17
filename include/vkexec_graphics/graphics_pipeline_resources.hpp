@@ -139,6 +139,67 @@ struct bound_graphics
 auto free_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe, VkDescriptorSet set) noexcept
   -> void;
 
+//! Pipeline / layout / optional descriptor set for one graphics draw.
+struct graphics_bind
+{
+  VkPipeline pipeline{ VK_NULL_HANDLE };
+  VkPipelineLayout layout{ VK_NULL_HANDLE };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+};
+
+//! Builds a `graphics_bind` from pipeline resources and an optional set.
+[[nodiscard]] inline auto bind_graphics(graphics_pipeline_resources const &pipe,
+  VkDescriptorSet set = VK_NULL_HANDLE) -> graphics_bind
+{
+  return graphics_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set };
+}
+
+//! Vertex/index buffer handles for an indexed mesh draw.
+struct mesh_draw
+{
+  VkBuffer vertex_buffer{ VK_NULL_HANDLE };
+  VkBuffer index_buffer{ VK_NULL_HANDLE };
+  std::uint32_t index_count{ 0 };
+};
+
+//! Begins a render pass using clear values from `cfg`.
+auto begin_graphics_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  graphics_pipeline_config const &cfg) -> void;
+
+//! Ends the current render pass on `cmd`.
+inline auto end_graphics_pass(VkCommandBuffer cmd) -> void { vkCmdEndRenderPass(cmd); }
+
+/**
+ * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
+ */
+auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, std::uint32_t vertex_count) -> void;
+
+//! Records viewport/scissor, bind, and an indexed mesh draw into an open render pass.
+auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mesh_draw const &drawn) -> void;
+
+/**
+ * Begins a render pass, records a non-indexed draw, ends the pass, and ends `cmd`.
+ */
+auto draw_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  graphics_pipeline_config const &cfg,
+  graphics_bind bind,
+  std::uint32_t vertex_count) -> status;
+
+//! Begins a render pass, records a mesh draw, ends the pass, and ends `cmd`.
+auto draw_pass(VkCommandBuffer cmd,
+  VkRenderPass render_pass,
+  VkFramebuffer framebuffer,
+  VkExtent2D extent,
+  graphics_pipeline_config const &cfg,
+  graphics_bind bind,
+  mesh_draw const &drawn) -> status;
+
 }// namespace vkexec
 
 #endif// VKEXEC_GRAPHICS_PIPELINE_RESOURCES_HPP
