@@ -14,7 +14,7 @@ namespace vkexec {
 /**
  * Builds a bindless compute pass with push-data `params` and direct dispatch.
  *
- * @param bind Bindless compute bind (typically from `heap_compute_pipeline::bind`).
+ * @param bind Bindless compute bind (typically from `bind_heap` / `heap_compute_pipeline::bind`).
  * @param params Trivially copyable push-data blob.
  * @param groups Workgroup counts.
  */

@@ -21,13 +21,6 @@
 namespace vkexec {
 namespace {
 
-  auto destroy_heap_resources(context const &ctx, pipeline_resources &resources) -> void
-  {
-    VkDevice device = ctx.device();
-    if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
-    if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
-  }
-
   auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> result<VkShaderModule>
   {
     VkShaderModuleCreateInfo module_info{};
@@ -64,51 +57,71 @@ namespace {
     return pipeline;
   }
 
-  auto build_heap_resources(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
-    -> result<std::unique_ptr<pipeline_resources>>
-  {
-    if (spirv.empty()) { return fail(errc::invalid_argument, "heap_compute_pipeline requires non-empty SPIR-V"); }
+}// namespace
 
-    auto resources = std::make_unique<pipeline_resources>();
-    resources->local_size = desc.local_size;
+auto destroy_heap_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void
+{
+  VkDevice device = ctx.device();
+  if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
+  if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
+  resources = {};
+}
 
-    // Same constantID = index convention as classic compute_pipeline.
-    std::vector<VkSpecializationMapEntry> spec_entries(desc.specialization.size());
-    for (std::size_t index = 0; index < desc.specialization.size(); ++index) {
-      spec_entries.at(index).constantID = static_cast<std::uint32_t>(index);
-      spec_entries.at(index).offset = static_cast<std::uint32_t>(index * sizeof(std::uint32_t));
-      spec_entries.at(index).size = sizeof(std::uint32_t);
-    }
-    VkSpecializationInfo spec_info{};
-    VkSpecializationInfo const *spec_ptr = nullptr;
-    if (!desc.specialization.empty()) {
-      spec_info.mapEntryCount = static_cast<std::uint32_t>(spec_entries.size());
-      spec_info.pMapEntries = spec_entries.data();
-      spec_info.dataSize = desc.specialization.size() * sizeof(std::uint32_t);
-      spec_info.pData = desc.specialization.data();
-      spec_ptr = &spec_info;
-    }
-
-    VkDevice device = ctx.device();
-    auto shader_result = create_shader_module(device, spirv);
-    if (!shader_result) { return fail(shader_result); }
-    resources->shader = expected_take(shader_result);
-
-    auto pipeline_result = create_heap_vk_pipeline(device, resources->shader, spec_ptr);
-    if (!pipeline_result) {
-      destroy_heap_resources(ctx, *resources);
-      return fail(pipeline_result);
-    }
-    resources->pipeline = expected_take(pipeline_result);
-
-    return resources;
+auto create_heap_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
+  -> result<pipeline_resources>
+{
+  if (spirv.empty()) {
+    return fail(errc::invalid_argument, "create_heap_compute_resources requires non-empty SPIR-V");
   }
 
-}// namespace
+  pipeline_resources resources{};
+  resources.local_size = desc.local_size;
+
+  // Same constantID = index convention as classic compute_pipeline.
+  std::vector<VkSpecializationMapEntry> spec_entries(desc.specialization.size());
+  for (std::size_t index = 0; index < desc.specialization.size(); ++index) {
+    spec_entries.at(index).constantID = static_cast<std::uint32_t>(index);
+    spec_entries.at(index).offset = static_cast<std::uint32_t>(index * sizeof(std::uint32_t));
+    spec_entries.at(index).size = sizeof(std::uint32_t);
+  }
+  VkSpecializationInfo spec_info{};
+  VkSpecializationInfo const *spec_ptr = nullptr;
+  if (!desc.specialization.empty()) {
+    spec_info.mapEntryCount = static_cast<std::uint32_t>(spec_entries.size());
+    spec_info.pMapEntries = spec_entries.data();
+    spec_info.dataSize = desc.specialization.size() * sizeof(std::uint32_t);
+    spec_info.pData = desc.specialization.data();
+    spec_ptr = &spec_info;
+  }
+
+  VkDevice device = ctx.device();
+  auto shader_result = create_shader_module(device, spirv);
+  if (!shader_result) { return fail(shader_result); }
+  resources.shader = expected_take(shader_result);
+
+  auto pipeline_result = create_heap_vk_pipeline(device, resources.shader, spec_ptr);
+  if (!pipeline_result) {
+    destroy_heap_compute_resources(ctx, resources);
+    return fail(pipeline_result);
+  }
+  resources.pipeline = expected_take(pipeline_result);
+
+  return resources;
+}
+
+auto create_heap_compute_resources(context &ctx,
+  std::string_view glsl,
+  heap_layout_desc const &desc,
+  std::string_view name) -> result<pipeline_resources>
+{
+  if (glsl.empty()) { return fail(errc::invalid_argument, "create_heap_compute_resources requires non-empty GLSL"); }
+  VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
+  return create_heap_compute_resources(ctx, spirv, desc);
+}
 
 auto heap_compute_pipeline::reset() noexcept -> void
 {
-  if (ctx_ != nullptr && resources_ != nullptr) { destroy_heap_resources(*ctx_, *resources_); }
+  if (ctx_ != nullptr && resources_ != nullptr) { destroy_heap_compute_resources(*ctx_, *resources_); }
   resources_.reset();
   ctx_ = nullptr;
 }
@@ -117,8 +130,8 @@ auto heap_compute_pipeline::create(context &ctx, std::span<std::uint32_t const> 
   -> detail::sync_sender_fn<heap_compute_pipeline>
 {
   return detail::make_sync_sender_fn<heap_compute_pipeline>([&ctx, spirv, desc]() -> result<heap_compute_pipeline> {
-    VKEXEC_TRY_ASSIGN(owned, build_heap_resources(ctx, spirv, desc));
-    return heap_compute_pipeline{ &ctx, std::move(owned) };
+    VKEXEC_TRY_ASSIGN(owned, create_heap_compute_resources(ctx, spirv, desc));
+    return make(ctx, std::make_unique<pipeline_resources>(owned));
   });
 }
 
@@ -129,10 +142,8 @@ auto heap_compute_pipeline::create(context &ctx,
 {
   return detail::make_sync_sender_fn<heap_compute_pipeline>(
     [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<heap_compute_pipeline> {
-      if (glsl.empty()) { return fail(errc::invalid_argument, "heap_compute_pipeline requires non-empty GLSL"); }
-      VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
-      VKEXEC_TRY_ASSIGN(owned, build_heap_resources(ctx, spirv, desc));
-      return heap_compute_pipeline{ &ctx, std::move(owned) };
+      VKEXEC_TRY_ASSIGN(owned, create_heap_compute_resources(ctx, glsl, desc, name));
+      return make(ctx, std::make_unique<pipeline_resources>(owned));
     });
 }
 
