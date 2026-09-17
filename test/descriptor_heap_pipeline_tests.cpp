@@ -7,6 +7,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/descriptor_heap/algorithm.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 
@@ -108,6 +109,30 @@ TEST_CASE("compute_heap_pass records bindless push data for heap pipelines", "[v
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
     ex::schedule(ctx->get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
+}
+
+TEST_CASE("dispatch aliases compute_heap_pass for heap_algorithm", "[vkexec][descriptor_heap][gpu]")
+{
+  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
+  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
+  features_heap.descriptorHeap = VK_TRUE;
+
+  vkexec::vulkan_requirements requirements{};
+  requirements.api_version_major = 1;
+  requirements.api_version_minor = 4;
+  requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
+  requirements.require_extension_feature(features_heap);
+
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  vkexec::heap_algorithm const algo = vkexec::test::sync_wait_value(vkexec::heap_algorithm::create(*ctx,
+    k_heap_compute_glsl,
+    vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
+    "heap_dispatch.comp"));
+
+  heap_push const params{ .count = k_work_count };
+  auto waited = vkexec::test::sync_wait_sender(
+    ex::schedule(ctx->get_scheduler()) | vkexec::dispatch(algo, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 
