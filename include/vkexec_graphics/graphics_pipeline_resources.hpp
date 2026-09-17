@@ -5,6 +5,7 @@
 //! Borrowable graphics pipeline handle bag and Layer 1 create/destroy helpers.
 
 #include <vkexec/context.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan.h>
@@ -62,6 +63,7 @@ struct graphics_pipeline_config
  *
  * `descriptor_pool` backs set loans when `binding_count > 0`. Free unused sets
  * with `free_graphics_set`, or destroy the pool via `destroy_graphics_resources`.
+ * Rebinding every frame without freeing will exhaust the pool.
  */
 struct graphics_pipeline_resources
 {
@@ -99,6 +101,43 @@ struct graphics_pipeline_resources
 
 //! Destroys handles in `resources` and resets them to null.
 auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources &resources) noexcept -> void;
+
+/**
+ * Non-owning pair of graphics pipeline resources and a bound descriptor set.
+ *
+ * `pipe` must outlive use of this binding.
+ */
+struct bound_graphics
+{
+  graphics_pipeline_resources const *pipe{ nullptr };
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+};
+
+//! Allocates an empty descriptor set from `pipe.descriptor_pool`.
+//!
+//! Return the set with `free_graphics_set` when finished, or free all sets by
+//! destroying the pool via `destroy_graphics_resources`.
+[[nodiscard]] auto allocate_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe)
+  -> result<VkDescriptorSet>;
+
+/**
+ * Allocates a set and writes `buffers` into it.
+ *
+ * The returned set is loaned from `pipe.descriptor_pool`. Call `free_graphics_set`
+ * after GPU work that uses it has finished if you will allocate again.
+ */
+[[nodiscard]] auto bind_graphics_storage(context &ctx,
+  graphics_pipeline_resources const &pipe,
+  std::span<storage_binding const> buffers) -> result<bound_graphics>;
+
+/**
+ * Returns `set` to `pipe.descriptor_pool`.
+ *
+ * No-op when `set` or the pool is null. Do not free a set still referenced by
+ * in-flight command buffers.
+ */
+auto free_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe, VkDescriptorSet set) noexcept
+  -> void;
 
 }// namespace vkexec
 

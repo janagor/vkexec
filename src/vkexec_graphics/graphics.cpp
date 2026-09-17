@@ -169,22 +169,8 @@ namespace {
     graphics_pipeline_resources const &resources,
     std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
   {
-    if (buffers.size() != resources.binding_count) {
-      return fail(errc::invalid_argument, "graphics_pipeline buffers must match storage_binding_count");
-    }
-    if (buffers.empty()) { return VkDescriptorSet{ VK_NULL_HANDLE }; }
-
-    VkDescriptorSetAllocateInfo dsai{};
-    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    dsai.descriptorPool = resources.descriptor_pool;
-    dsai.descriptorSetCount = 1;
-    dsai.pSetLayouts = &resources.set_layout;
-    VkDescriptorSet set{ VK_NULL_HANDLE };
-    if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-      return fail(result, "vkAllocateDescriptorSets failed (graphics)");
-    }
-    write_storage_descriptors(ctx.device(), set, buffers);
-    return set;
+    VKEXEC_TRY_ASSIGN(bound, bind_graphics_storage(ctx, resources, buffers));
+    return bound.set;
   }
 
   auto make_graphics_pipeline(context &ctx,
@@ -322,6 +308,43 @@ auto create_graphics_resources(context &ctx,
   return create_graphics_resources(ctx, render_pass, cfg, vs_spv, fs_spv, storage_binding_count);
 }
 
+auto allocate_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe) -> result<VkDescriptorSet>
+{
+  if (pipe.descriptor_pool == VK_NULL_HANDLE || pipe.set_layout == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "allocate_graphics_set requires a descriptor pool and set layout");
+  }
+  VkDescriptorSetAllocateInfo dsai{};
+  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  dsai.descriptorPool = pipe.descriptor_pool;
+  dsai.descriptorSetCount = 1;
+  dsai.pSetLayouts = &pipe.set_layout;
+  VkDescriptorSet set{ VK_NULL_HANDLE };
+  if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
+    return fail(result, "vkAllocateDescriptorSets failed (graphics)");
+  }
+  return set;
+}
+
+auto bind_graphics_storage(context &ctx,
+  graphics_pipeline_resources const &pipe,
+  std::span<storage_binding const> buffers) -> result<bound_graphics>
+{
+  if (buffers.size() != pipe.binding_count) {
+    return fail(errc::invalid_argument, "bind_graphics_storage buffer count must match binding_count");
+  }
+  if (buffers.empty()) { return bound_graphics{ .pipe = &pipe, .set = VK_NULL_HANDLE }; }
+  VKEXEC_TRY_ASSIGN(set, allocate_graphics_set(ctx, pipe));
+  write_storage_descriptors(ctx.device(), set, buffers);
+  return bound_graphics{ .pipe = &pipe, .set = set };
+}
+
+auto free_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe, VkDescriptorSet set) noexcept
+  -> void
+{
+  if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
+  vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
+}
+
 auto graphics_pipeline::reset() noexcept -> void
 {
   if (ctx_ != nullptr && resources_ != nullptr) { destroy_graphics_resources(*ctx_, *resources_); }
@@ -395,7 +418,6 @@ auto graphics_pipeline::bind_draw_state(VkCommandBuffer cmd, VkExtent2D extent) 
   vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, resources_->pipeline);
 
   if (descriptor_set_ != VK_NULL_HANDLE) {
-    write_storage_descriptors(ctx_->device(), descriptor_set_, buffers_);
     vkCmdBindDescriptorSets(
       cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, resources_->pipeline_layout, 0, 1, &descriptor_set_, 0, nullptr);
   }
