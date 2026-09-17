@@ -5,16 +5,20 @@
 //! Bindless graphics pipelines (`DESCRIPTOR_HEAP_BIT_EXT` + dynamic-rendering formats).
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -74,6 +78,83 @@ struct heap_graphics_layout_desc
 
 //! Destroys the heap graphics pipeline handle in `resources` and resets the bag.
 auto destroy_heap_graphics_resources(context const &ctx, pipeline_resources &resources) noexcept -> void;
+
+/**
+ * Thin owning wrapper over heap graphics `pipeline_resources`.
+ *
+ * Bind returns a `compute_bind` with null layout/set (same bag shape as heap
+ * compute) for use with `record_heap_draw`.
+ *
+ * @see create_heap_graphics_resources, heap_graphics_layout_desc
+ */
+class heap_graphics_pipeline
+{
+public:
+  /**
+   * Creates a heap graphics pipeline from vertex/fragment SPIR-V.
+   *
+   * @param ctx Context whose device creates the Vulkan objects.
+   * @param vertex_spirv Vertex SPIR-V words.
+   * @param fragment_spirv Fragment SPIR-V words.
+   * @param desc Formats, blend, and raster state.
+   */
+  [[nodiscard]] static auto create(context &ctx,
+    std::span<std::uint32_t const> vertex_spirv,
+    std::span<std::uint32_t const> fragment_spirv,
+    heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<heap_graphics_pipeline>;
+
+  /**
+   * Compiles GLSL then creates a heap graphics pipeline.
+   *
+   * @param vertex_name Debug name for the vertex shader compiler.
+   * @param fragment_name Debug name for the fragment shader compiler.
+   */
+  [[nodiscard]] static auto create(context &ctx,
+    std::string_view vertex_glsl,
+    std::string_view fragment_glsl,
+    heap_graphics_layout_desc const &desc,
+    std::string_view vertex_name = "heap.vert",
+    std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<heap_graphics_pipeline>;
+
+  //! Owning factory used after `create_heap_graphics_resources`.
+  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> heap_graphics_pipeline
+  { return heap_graphics_pipeline{ &ctx, std::move(resources) }; }
+
+  heap_graphics_pipeline(heap_graphics_pipeline const &) = delete;
+  auto operator=(heap_graphics_pipeline const &) -> heap_graphics_pipeline & = delete;
+
+  heap_graphics_pipeline(heap_graphics_pipeline &&other) noexcept
+    : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
+  {}
+
+  auto operator=(heap_graphics_pipeline &&other) noexcept -> heap_graphics_pipeline &
+  {
+    if (this != &other) {
+      reset();
+      ctx_ = std::exchange(other.ctx_, nullptr);
+      resources_ = std::move(other.resources_);
+    }
+    return *this;
+  }
+
+  ~heap_graphics_pipeline() { reset(); }
+
+  //! Const owned Vulkan resources for this pipeline.
+  [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
+
+  //! Builds a bindless bind (null layout and descriptor set).
+  [[nodiscard]] auto bind() const -> compute_bind { return bind_heap(*resources_); }
+
+private:
+  heap_graphics_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
+    : ctx_(ctx), resources_(std::move(resources))
+  {}
+
+  auto reset() noexcept -> void;
+
+  context *ctx_{ nullptr };
+  std::unique_ptr<pipeline_resources> resources_;
+};
 
 }// namespace vkexec
 

@@ -208,3 +208,33 @@ TEST_CASE("create_heap_graphics_resources builds null-layout DR pipeline", "[vke
   vkexec::destroy_heap_graphics_resources(*ctx, resources);
   REQUIRE(resources.pipeline == VK_NULL_HANDLE);
 }
+
+TEST_CASE("heap_graphics_pipeline owns null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
+{
+  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
+  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
+  features_heap.descriptorHeap = VK_TRUE;
+
+  vkexec::vulkan_requirements requirements{};
+  requirements.api_version_major = 1;
+  requirements.api_version_minor = 4;
+  requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
+  requirements.require_extension_feature(features_heap);
+
+  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto pipe = vkexec::test::sync_wait_value(vkexec::heap_graphics_pipeline::create(*ctx,
+    vkexec::shaders::k_triangle_vert,
+    vkexec::shaders::k_triangle_frag,
+    vkexec::heap_graphics_layout_desc{
+      .blend = vkexec::blend_mode::premultiplied,
+      .depth_test = false,
+      .depth_write = false,
+      .color_formats = { VK_FORMAT_R8G8B8A8_UNORM },
+    },
+    "heap_own.vert",
+    "heap_own.frag"));
+  REQUIRE(pipe.resources().pipeline != VK_NULL_HANDLE);
+  REQUIRE(pipe.bind().pipeline == pipe.resources().pipeline);
+  REQUIRE(pipe.bind().layout == VK_NULL_HANDLE);
+  REQUIRE(pipe.bind().set == VK_NULL_HANDLE);
+}

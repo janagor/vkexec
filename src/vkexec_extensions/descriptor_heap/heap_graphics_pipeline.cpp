@@ -1,6 +1,7 @@
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -12,7 +13,9 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -223,6 +226,47 @@ auto create_heap_graphics_resources(context &ctx,
   VKEXEC_TRY_ASSIGN(
     frag_spirv, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
   return create_heap_graphics_resources(ctx, vert_spirv, frag_spirv, desc);
+}
+
+auto heap_graphics_pipeline::reset() noexcept -> void
+{
+  if (ctx_ != nullptr && resources_ != nullptr) { destroy_heap_graphics_resources(*ctx_, *resources_); }
+  resources_.reset();
+  ctx_ = nullptr;
+}
+
+auto heap_graphics_pipeline::create(context &ctx,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<heap_graphics_pipeline>
+{
+  return detail::make_sync_sender_fn<heap_graphics_pipeline>(
+    [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<heap_graphics_pipeline> {
+      VKEXEC_TRY_ASSIGN(owned, create_heap_graphics_resources(ctx, vertex_spirv, fragment_spirv, desc));
+      return make(ctx, std::make_unique<pipeline_resources>(owned));
+    });
+}
+
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+auto heap_graphics_pipeline::create(context &ctx,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  heap_graphics_layout_desc const &desc,
+  std::string_view vertex_name,
+  std::string_view fragment_name) -> detail::sync_sender_fn<heap_graphics_pipeline>
+// NOLINTEND(bugprone-easily-swappable-parameters)
+{
+  return detail::make_sync_sender_fn<heap_graphics_pipeline>(
+    [&ctx,
+      vertex_glsl = std::string(vertex_glsl),
+      fragment_glsl = std::string(fragment_glsl),
+      desc,
+      vertex_name = std::string(vertex_name),
+      fragment_name = std::string(fragment_name)]() -> result<heap_graphics_pipeline> {
+      VKEXEC_TRY_ASSIGN(
+        owned, create_heap_graphics_resources(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
+      return make(ctx, std::make_unique<pipeline_resources>(owned));
+    });
 }
 
 }// namespace vkexec
