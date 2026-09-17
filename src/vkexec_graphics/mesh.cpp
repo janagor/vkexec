@@ -14,7 +14,6 @@
 #include <cstring>
 #include <limits>
 #include <span>
-#include <utility>
 
 namespace vkexec {
 namespace {
