@@ -59,6 +59,7 @@ namespace {
   auto create_heap_graphics_vk_pipeline(VkDevice device,
     VkShaderModule vert_module,
     VkShaderModule frag_module,
+    VkPipelineLayout layout,
     heap_graphics_layout_desc const &desc) -> result<VkPipeline>
   // NOLINTEND(bugprone-easily-swappable-parameters)
   {
@@ -145,7 +146,7 @@ namespace {
     gpci.pDepthStencilState = &depth_stencil;
     gpci.pColorBlendState = &blend;
     gpci.pDynamicState = &dynamic;
-    gpci.layout = VK_NULL_HANDLE;
+    gpci.layout = layout;
     gpci.renderPass = VK_NULL_HANDLE;
     gpci.subpass = 0;
 
@@ -209,7 +210,8 @@ auto create_heap_graphics_resources(context &ctx,
   }
   VkShaderModule frag_module = expected_take(frag_result);
 
-  auto pipeline_result = create_heap_graphics_vk_pipeline(device, vert_module, frag_module, desc);
+  auto pipeline_result =
+    create_heap_graphics_vk_pipeline(device, vert_module, frag_module, resources.pipeline_layout, desc);
   vkDestroyShaderModule(device, frag_module, nullptr);
   vkDestroyShaderModule(device, vert_module, nullptr);
   if (!pipeline_result) { return fail(pipeline_result); }
