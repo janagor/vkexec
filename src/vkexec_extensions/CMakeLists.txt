@@ -5,6 +5,7 @@ add_library(
   descriptor_heap/procs.cpp
   descriptor_heap/buffer.cpp
   descriptor_heap/push_data.cpp
+  descriptor_heap/strategy.cpp
   descriptor_heap/pass.cpp
   descriptor_heap/compute_pipeline.cpp
   descriptor_heap/heap_compute_pipeline.cpp

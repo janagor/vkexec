@@ -2,15 +2,17 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/result.hpp>
+#include <vkexec/detail/record_with_binding.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/push.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <utility>
@@ -24,12 +26,10 @@ auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set) -> comput
 auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
   -> void
 {
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (bind.set != VK_NULL_HANDLE) {
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
-  }
-  // Heap bindless pipelines pass a null layout; push constants require a real layout.
-  if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
+  auto const *const bytes = static_cast<std::byte const *>(push);
+  std::span<std::byte const> const push_data{ bytes, push_bytes };
+  (void)detail::bind_and_push<detail::set_descriptor_backend>(
+    nullptr, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind, push_data);
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
 }
 
@@ -39,11 +39,10 @@ auto record_pass(VkCommandBuffer cmd,
   std::uint32_t push_bytes,
   indirect_dispatch groups) -> void
 {
-  vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.pipeline);
-  if (bind.set != VK_NULL_HANDLE) {
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind.layout, 0, 1, &bind.set, 0, nullptr);
-  }
-  if (bind.layout != VK_NULL_HANDLE) { upload_push_constants(cmd, bind.layout, push, push_bytes); }
+  auto const *const bytes = static_cast<std::byte const *>(push);
+  std::span<std::byte const> const push_data{ bytes, push_bytes };
+  (void)detail::bind_and_push<detail::set_descriptor_backend>(
+    nullptr, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind, push_data);
   vkCmdDispatchIndirect(cmd, groups.buffer, groups.offset);
 }
 

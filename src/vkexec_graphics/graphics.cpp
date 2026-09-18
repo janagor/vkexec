@@ -3,7 +3,9 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/shader_module.hpp>
+#include <vkexec/detail/record_with_binding.hpp>
 #include <vkexec/detail/viewport.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -355,10 +357,8 @@ namespace {
 
   auto bind_graphics_draw_state(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent) -> void
   {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.pipeline);
-    if (bind.set != VK_NULL_HANDLE) {
-      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.layout, 0, 1, &bind.set, 0, nullptr);
-    }
+    (void)detail::bind_and_push<detail::set_descriptor_backend>(
+      nullptr, cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind, {});
 
     detail::set_dynamic_viewport_scissor(cmd, extent);
   }
