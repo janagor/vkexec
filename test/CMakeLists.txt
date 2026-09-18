@@ -37,6 +37,7 @@ add_executable(
   tests
   tests.cpp
   resource_table_tests.cpp
+  descriptor_schema_tests.cpp
   pass_detail_tests.cpp
   dispatch_tests.cpp
   spirv_compile_tests.cpp

@@ -10,6 +10,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/copy.hpp>
+#include <vkexec/descriptor_schema.hpp>
 #include <vkexec/descriptor_strategy.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/domain.hpp>
