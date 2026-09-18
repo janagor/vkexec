@@ -43,7 +43,9 @@ struct depth_attachment
  */
 struct rendering_info
 {
+  VkRenderingFlags flags{ 0 };
   VkExtent2D extent{};
+  VkOffset2D offset{};
   std::span<color_attachment const> color;
   depth_attachment const *depth{ nullptr };
   std::uint32_t layer_count{ 1 };
