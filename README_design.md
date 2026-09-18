@@ -75,14 +75,27 @@ headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA.
 
 ## Descriptor strategies
 
-`resource_table` is a core, heap-agnostic bag of logical storage-buffer bindings. A
-`descriptor_table_backend` lowers that bag into a backend-specific bound value and
-environment: descriptor sets use an empty core environment, while descriptor-heap
-indices and mapped bytes remain in the extension-only `heap_table_lower_env`.
+Descriptor handling has three independent layers:
 
-This table-lowering concept is intentionally separate from Phase 1's
-`descriptor_backend`, which owns pipeline layout/flags and command recording.
-`lower_and_bind_push` composes both concepts without adding heap knowledge to core.
+1. `descriptor_schema<storage_buffer<Slot>...>` is the compile-time shader contract.
+   It validates sorted, unique logical slots, builds a `resource_table` with checked
+   arity, and derives classic `layout_desc` values through `layout_desc_from_schema`.
+2. `resource_table` is the core, heap-agnostic runtime bag of logical storage-buffer
+   bindings. It contains Vulkan buffers and sizes, but no descriptor-heap metadata.
+3. `descriptor_backend` owns pipeline layout/flags and command recording, while the
+   sibling `descriptor_table_backend` lowers tables into backend-specific bound values.
+
+Schema-derived classic layouts retain explicit descriptor binding slots. Existing
+hand-written `layout_desc` callers leave `binding_slots` empty and continue to use
+positional bindings.
+
+Descriptor sets lower with an empty core environment. Descriptor-heap indices,
+mapped bytes, descriptor sizes, and stride remain extension-only in
+`heap_table_lower_env`. `lower_and_bind_push` composes the two backend concepts
+without adding heap knowledge to schema or table types.
+
+Stage 4 can add schema-aware pipe/sender sugar and richer resource kinds such as
+images and samplers without changing these layer boundaries.
 
 ## Testing
 
