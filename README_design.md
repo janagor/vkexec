@@ -65,12 +65,12 @@ IPO/LTO is on by default at top level. It is gated through
 [CPM](https://github.com/cpm-cmake/CPM.cmake) fetches sources at configure
 time. Each package is gated by `if(NOT TARGET ...)`, so a parent project can
 supply its own version. `SYSTEM YES` silences warnings from third-party
-headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA; glfw is linked only by `vkexec_graphics`.
+headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA. GLFW is fetched only for examples.
 
 ## Libraries
 
 * `vkexec` — compute runtime (`context`, `buffer`, `compute_pipeline`, `compute_pass`)
-* `vkexec_graphics` — optional GLFW window, graphics pipelines, and `draw` senders
+* `vkexec_graphics` — backend-neutral presenter, graphics pipelines, and `draw` senders
 
 ## Testing
 

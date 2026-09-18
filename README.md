@@ -6,7 +6,7 @@
 
 ## About
 
-`vkexec` is a C++23 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, and borrowable handles — plus optional owning RAII and GLFW helpers for greenfield apps.
+`vkexec` is a C++23 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, borrowable handles, and backend-neutral Vulkan presentation helpers.
 
 **Execution** — schedule work on a device; record with `compute_bind` / `pipeline_resources`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
@@ -222,7 +222,7 @@ Common entry points:
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
-| `window::create` / `window::headless` | sender → `set_value(window)` (owning present helper) |
+| `presenter::create` / `presenter::headless` | sender → `set_value(presenter)` (owning Vulkan present helper) |
 | `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
 | `create_mesh_buffers` / `destroy_mesh_buffers` | Borrowable vertex/index handle bag |
 | `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` (thin owning wrapper) |
@@ -279,11 +279,11 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 - Use `sync_wait_value` / `try_sync_wait_value` for factory senders when you are not composing stdexec graphs.
 - For bindless compute, link `vkexec::ext_descriptor_heap` and use `descriptor_heap_procs_for(ctx)` (or `ext::available<ext::descriptor_heap>(ctx)`) instead of core `context::procs()`.
 - With your own command buffers, bindless compute uses `record_heap_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.
-- Keep vk-bootstrap (or your WSI layer) for surface/swapchain when you need app-specific present extensions; use `vkexec_graphics::swapchain` only when a borrowed-surface helper is enough.
+- Use `presenter` when vkexec should own the presentation context and surface; use `swapchain` when an embedder already owns its Vulkan context and surface.
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, staging-backed `tensor<T>`, `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `window`.
+Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, staging-backed `tensor<T>`, `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `presenter`.
 
 ### Promoted features (`vkexec_features`)
 
@@ -431,31 +431,44 @@ cmake --build out/build/unixlike-clang-release -j12
 | Header | Role |
 |--------|------|
 | `<vkexec_graphics/execution.hpp>` | `graphics_pipeline_resources`, `mesh_buffers`, bind/record/draw free functions, swapchain (borrow surface) |
-| `<vkexec_graphics/resources.hpp>` | Owning `window`, `graphics_pipeline`, `mesh` |
+| `<vkexec_graphics/resources.hpp>` | Owning `presenter`, `graphics_pipeline`, `mesh` |
 | `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (execution + resources) |
 
-`window` / `swapchain` stay owning present/WSI helpers (like `context` owns the command pool). Pipeline create/bind/record is borrowable; `graphics_pipeline` / `mesh` are thin RAII wrappers.
+`presenter` owns its Vulkan context, surface, swapchain, and frame resources without owning a native window or event loop. `swapchain` borrows an embedder-owned context and surface. Pipeline create/bind/record is borrowable; `graphics_pipeline` / `mesh` are thin RAII wrappers.
 
-### Triangle window (owning pipeline)
+### User-owned window and surface factory
 
-Requires `vkexec_graphics` (GLFW + swapchain). Shaders are GLSL strings compiled at pipeline creation time. Each frame is a stdexec pipeline:
+The application supplies its window-system extensions and a callback that creates `VkSurfaceKHR` after vkexec creates the Vulkan instance. The presenter owns the returned surface; the native window must outlive the presenter. GLFW is used only by the examples:
 
 ```cpp
-#include <vkexec/sync_wait_outcome.hpp>
-#include <vkexec/sync_wait.hpp>
-#include <vkexec_graphics/resources.hpp>
-#include <vkexec_graphics/triangle_shaders.hpp>
+std::uint32_t extension_count = 0;
+auto extensions = glfwGetRequiredInstanceExtensions(&extension_count);
+std::vector<char const*> surface_extensions(extensions, extensions + extension_count);
 
-auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "triangle" }));
+auto present = vkexec::sync_wait_value(vkexec::presenter::create({
+  .width = 800,
+  .height = 600,
+  .surface_instance_extensions = std::move(surface_extensions),
+  .create_surface = [native_window](VkInstance instance) -> vkexec::result<VkSurfaceKHR> {
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkResult result = glfwCreateWindowSurface(instance, native_window, nullptr, &surface);
+    if (result != VK_SUCCESS) { return vkexec::fail(result, "glfwCreateWindowSurface failed"); }
+    return surface;
+  },
+}));
 
 auto pipeline = vkexec::sync_wait_value(vkexec::graphics_pipeline::create(
-  win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
+  present.ctx(), present.render_pass(), vertex_shader, fragment_shader));
 
-while (!win.should_close()) {
-  win.poll_events();
+while (!glfwWindowShouldClose(native_window)) {
+  glfwPollEvents();
+  if (framebuffer_resized || present.needs_resize()) {
+    glfwGetFramebufferSize(native_window, &width, &height);
+    present.resize(width, height); // zero extent suspends presentation while minimized
+  }
   vkexec::sync_wait(
-    ex::schedule(win.ctx().get_scheduler())
-    | vkexec::draw(win, pipeline, 3));
+    ex::schedule(present.ctx().get_scheduler())
+    | vkexec::draw(present, pipeline, 3));
 }
 ```
 
@@ -468,22 +481,19 @@ Same triangle present path without an owning `graphics_pipeline`. Prefer `#inclu
 ```cpp
 #include <vkexec_graphics/execution.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include <vkexec_graphics/window.hpp>  // owning present helper
-
-auto win = vkexec::sync_wait_value(vkexec::window::create({ .width = 800, .height = 600, .title = "graphics execution" }));
+// `present` is a vkexec::presenter created from the application's WSI callback.
 
 auto resources = vkexec::expected_take(vkexec::create_graphics_resources(
-  win.ctx(), win.render_pass(), {}, vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
+  present.ctx(), present.render_pass(), {}, vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
-while (!win.should_close()) {
-  win.poll_events();
+while (application_is_running) {
   vkexec::sync_wait(
-    ex::schedule(win.ctx().get_scheduler())
-    | vkexec::draw(win, resources, VK_NULL_HANDLE, 3));
+    ex::schedule(present.ctx().get_scheduler())
+    | vkexec::draw(present, resources, VK_NULL_HANDLE, 3));
 }
 
-win.wait_idle();
-vkexec::destroy_graphics_resources(win.ctx(), resources);
+present.wait_idle();
+vkexec::destroy_graphics_resources(present.ctx(), resources);
 ```
 
 Runnable sample: [`src/vkexec_examples/graphics_execution.cpp`](src/vkexec_examples/graphics_execution.cpp).
