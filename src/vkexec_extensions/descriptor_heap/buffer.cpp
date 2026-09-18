@@ -80,8 +80,8 @@ descriptor_heap_buffer::descriptor_heap_buffer(context *ctx,
 descriptor_heap_buffer::~descriptor_heap_buffer() { destroy(); }
 
 descriptor_heap_buffer::descriptor_heap_buffer(descriptor_heap_buffer &&other) noexcept
-  : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_), size_(other.size_),
-    host_coherent_(other.host_coherent_)
+  : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
+    size_(other.size_), host_coherent_(other.host_coherent_)
 {
   other.ctx_ = nullptr;
   other.buffer_ = VK_NULL_HANDLE;

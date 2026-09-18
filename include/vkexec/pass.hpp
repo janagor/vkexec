@@ -180,8 +180,8 @@ struct pass_graph_sender
     context *ctx{ nullptr };
     std::vector<pass_step> steps;
     Receiver receiver;
-    using submit_op_t =
-      decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<after_gpu_receiver<Receiver>>()));
+    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(),
+      std::declval<after_gpu_receiver<Receiver>>()));
     std::optional<submit_op_t> submit_op;
 
     auto start() noexcept -> void
@@ -400,9 +400,7 @@ auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compu
 
 //! Returns the specialized local workgroup size as a `dispatch`.
 [[nodiscard]] inline auto local_size(pipeline_resources const &pipe) noexcept -> dispatch
-{
-  return dispatch{ .x = pipe.local_size.at(0), .y = pipe.local_size.at(1), .z = pipe.local_size.at(2) };
-}
+{ return dispatch{ .x = pipe.local_size.at(0), .y = pipe.local_size.at(1), .z = pipe.local_size.at(2) }; }
 
 //! Returns workgroup counts covering `work_count` invocations along X.
 [[nodiscard]] inline auto groups_for(pipeline_resources const &pipe, std::uint32_t work_count) noexcept -> dispatch
@@ -434,9 +432,10 @@ namespace detail {
   template<typename Tag> auto make_barrier_step(Tag tag) -> pass_step
   {
     return pass_step{ .record = [tag](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-      tag(cmd);
-      return {};
-    }, .after_gpu = {} };
+                       tag(cmd);
+                       return {};
+                     },
+      .after_gpu = {} };
   }
 
   //! Appends `step` to `graph` and returns the updated graph sender.

@@ -101,15 +101,17 @@ namespace detail {
   {
     return pass_step{ .record = [closure = std::move(closure)](
                                   context & /*record_ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-      void const *push_ptr = closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
-      auto const push_size = static_cast<std::uint32_t>(closure.push.size());
-      if (closure.is_indirect) {
-        record_pass(cmd, closure.bind, push_ptr, push_size, closure.indirect);
-      } else {
-        record_pass(cmd, closure.bind, push_ptr, push_size, closure.groups);
-      }
-      return {};
-    }, .after_gpu = {} };
+                       void const *push_ptr =
+                         closure.push.empty() ? nullptr : static_cast<void const *>(closure.push.data());
+                       auto const push_size = static_cast<std::uint32_t>(closure.push.size());
+                       if (closure.is_indirect) {
+                         record_pass(cmd, closure.bind, push_ptr, push_size, closure.indirect);
+                       } else {
+                         record_pass(cmd, closure.bind, push_ptr, push_size, closure.groups);
+                       }
+                       return {};
+                     },
+      .after_gpu = {} };
   }
 
   auto append_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender

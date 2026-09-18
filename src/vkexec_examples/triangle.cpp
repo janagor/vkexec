@@ -1,9 +1,9 @@
 #include "sync_wait_helpers.hpp"
 
+#include "glfw_presenter.hpp"
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include "glfw_presenter.hpp"
 
 #include <stdexec/execution.hpp>
 

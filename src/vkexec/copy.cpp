@@ -105,9 +105,7 @@ auto download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   }
 
   auto staging_map = staging.mapped();
-  if (staging_map.size() < out.size()) {
-    return fail(errc::out_of_range, "download_to_host staging map is too small");
-  }
+  if (staging_map.size() < out.size()) { return fail(errc::out_of_range, "download_to_host staging map is too small"); }
 
   VKEXEC_TRY_ASSIGN(cmd, ctx.allocate_command_buffer());
 
@@ -163,16 +161,8 @@ auto download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   host_barrier.offset = 0;
   host_barrier.size = static_cast<VkDeviceSize>(out.size());
 
-  vkCmdPipelineBarrier(cmd,
-    VK_PIPELINE_STAGE_TRANSFER_BIT,
-    VK_PIPELINE_STAGE_HOST_BIT,
-    0,
-    0,
-    nullptr,
-    1,
-    &host_barrier,
-    0,
-    nullptr);
+  vkCmdPipelineBarrier(
+    cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1, &host_barrier, 0, nullptr);
 
   if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);

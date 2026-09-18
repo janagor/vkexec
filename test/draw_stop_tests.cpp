@@ -9,8 +9,8 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
-#include <vkexec_graphics/triangle_shaders.hpp>
 #include <vkexec_graphics/presenter.hpp>
+#include <vkexec_graphics/triangle_shaders.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -32,15 +32,14 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_headless_presenter() -> vkexec::presenter
 {
-  auto outcome = vkexec::try_sync_wait(vkexec::presenter::headless(
-    {
-      .width = k_presenter_width,
-      .height = k_presenter_height,
-      .validation_layers = false,
-      .surface_instance_extensions = {},
-      .create_surface = {},
-      .requirements = {},
-    }));
+  auto outcome = vkexec::try_sync_wait(vkexec::presenter::headless({
+    .width = k_presenter_width,
+    .height = k_presenter_height,
+    .validation_layers = false,
+    .surface_instance_extensions = {},
+    .create_surface = {},
+    .requirements = {},
+  }));
   if (outcome.failed()) { vkexec::test::skip_if_no_vulkan(outcome.take_error()); }
   if (outcome.stopped || !outcome.values.has_value()) { FAIL("presenter::headless stopped unexpectedly"); }
   return vkexec::detail::take_sync_value(std::move(*outcome.values));
@@ -143,9 +142,9 @@ TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
 
-  auto const waited = vkexec::test::sync_wait_sender(
-    ex::schedule(win.ctx().get_scheduler())
-    | vkexec::draw(win, resources, VK_NULL_HANDLE, k_triangle_vertices) | vkexec::submit);
+  auto const waited = vkexec::test::sync_wait_sender(ex::schedule(win.ctx().get_scheduler())
+                                                     | vkexec::draw(win, resources, VK_NULL_HANDLE, k_triangle_vertices)
+                                                     | vkexec::submit);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   win.wait_idle();

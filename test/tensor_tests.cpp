@@ -97,12 +97,10 @@ TEST_CASE("sync_to_device/sync_to_host round-trip via pass graph", "[vkexec][ten
   auto values = vkexec::test::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_count, k_fill));
   std::ranges::fill(values.span(), k_host_write);
 
-  auto uploaded =
-    vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_device(values));
+  auto uploaded = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_device(values));
   REQUIRE(vkexec::test::sync_wait_completed(uploaded));
   std::ranges::fill(values.span(), -1.F);
-  auto downloaded =
-    vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_host(values));
+  auto downloaded = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_host(values));
   REQUIRE(vkexec::test::sync_wait_completed(downloaded));
 
   REQUIRE(values.span().front() == k_host_write);

@@ -90,8 +90,9 @@ static auto run() -> int
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
-  vkexec::examples::sync_wait_graph(ex::schedule(ctx->get_scheduler())
-                                    | vkexec::compute_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_element_count)));
+  vkexec::examples::sync_wait_graph(
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::compute_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_element_count)));
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;
@@ -109,8 +110,7 @@ static auto run() -> int
     }
   }
 
-  std::cout << std::format(
-    "vkexec execution sim ok: p[0]={} v[0]={}\n", positions.data()[0], velocities.data()[0]);
+  std::cout << std::format("vkexec execution sim ok: p[0]={} v[0]={}\n", positions.data()[0], velocities.data()[0]);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
   vkexec::free_compute_set(*ctx, resources, bound.set);

@@ -28,7 +28,6 @@
 #include <vkexec/tensor_sync.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
-namespace vkexec {
-}// namespace vkexec
+namespace vkexec {}// namespace vkexec
 
 #endif// VKEXEC_EXECUTION_HPP

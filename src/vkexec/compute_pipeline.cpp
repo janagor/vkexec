@@ -138,9 +138,7 @@ auto destroy_compute_resources(context const &ctx, pipeline_resources &resources
 auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<pipeline_resources>
 {
-  if (spirv.empty()) {
-    return fail(errc::invalid_argument, "create_compute_resources requires non-empty SPIR-V");
-  }
+  if (spirv.empty()) { return fail(errc::invalid_argument, "create_compute_resources requires non-empty SPIR-V"); }
 
   pipeline_resources owned{};
   owned.binding_count = static_cast<std::uint32_t>(desc.bindings.size());

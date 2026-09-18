@@ -4,8 +4,8 @@
 //! \file
 //! Umbrella for `VK_EXT_descriptor_heap` bindless helpers and extension tag.
 
-#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>

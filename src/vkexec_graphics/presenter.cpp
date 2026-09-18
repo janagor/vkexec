@@ -76,8 +76,8 @@ auto presenter::headless(config cfg) -> detail::sync_sender_fn<presenter>
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
   cfg.create_surface = [](VkInstance instance) -> result<VkSurfaceKHR> {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
-      vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
+    auto const create_fn =
+      reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
     if (create_fn == nullptr) { return fail(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
 
     VkHeadlessSurfaceCreateInfoEXT create_info{};

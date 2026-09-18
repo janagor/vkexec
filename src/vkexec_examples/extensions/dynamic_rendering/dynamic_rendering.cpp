@@ -1,3 +1,4 @@
+#include "../../glfw_presenter.hpp"
 #include <vkexec/barrier.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -5,9 +6,8 @@
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
-#include <vkexec_graphics/swapchain.hpp>
 #include <vkexec_graphics/presenter.hpp>
-#include "../../glfw_presenter.hpp"
+#include <vkexec_graphics/swapchain.hpp>
 
 #include "../../sync_wait_helpers.hpp"
 

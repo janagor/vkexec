@@ -97,10 +97,13 @@ namespace detail {
   {
     return pass_step{ .record = [closure = std::move(closure)](
                                   context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-      std::span<std::byte const> const push_bytes{ closure.push };
-      if (closure.is_indirect) { return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect); }
-      return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
-    }, .after_gpu = {} };
+                       std::span<std::byte const> const push_bytes{ closure.push };
+                       if (closure.is_indirect) {
+                         return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
+                       }
+                       return record_heap_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
+                     },
+      .after_gpu = {} };
   }
 
   namespace {

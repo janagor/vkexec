@@ -99,8 +99,7 @@ public:
   [[nodiscard]] auto byte_size() const noexcept -> VkDeviceSize
   { return static_cast<VkDeviceSize>(size() * sizeof(T)); }
   //! Device-local Vulkan buffer handle (null when empty).
-  [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer
-  { return gpu_ ? gpu_->device.handle() : VK_NULL_HANDLE; }
+  [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return gpu_ ? gpu_->device.handle() : VK_NULL_HANDLE; }
 
   //! Host mirror pointer (null when empty).
   [[nodiscard]] auto data() noexcept -> T * { return host_.empty() ? nullptr : host_.data(); }
@@ -173,9 +172,7 @@ private:
     if (!device_buf) { return fail(device_buf.error()); }
 
     auto staging_map = staging_buf->mapped();
-    if (staging_map.size() < bytes) {
-      return fail(errc::unsupported, "vkexec::tensor staging map is too small");
-    }
+    if (staging_map.size() < bytes) { return fail(errc::unsupported, "vkexec::tensor staging map is too small"); }
     std::memcpy(staging_map.data(), host.data(), static_cast<std::size_t>(bytes));
 
     auto gpu = std::make_unique<gpu_storage>(gpu_storage{ std::move(*staging_buf), std::move(*device_buf) });

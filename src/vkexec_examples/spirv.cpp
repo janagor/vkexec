@@ -79,9 +79,8 @@ static auto run() -> int
     "scale.comp"));
 
   std::array<vkexec::storage_binding, 2> const buffers{
-    vkexec::storage_binding{ .buffer = input.vk_buffer(),
-      .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)),
-      .binding = 0 },
+    vkexec::storage_binding{
+      .buffer = input.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(input.size() * sizeof(float)), .binding = 0 },
     vkexec::storage_binding{ .buffer = output.vk_buffer(),
       .byte_size = static_cast<VkDeviceSize>(output.size() * sizeof(float)),
       .binding = 1 },

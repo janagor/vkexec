@@ -163,9 +163,9 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
   REQUIRE(resources.descriptor_pool == VK_NULL_HANDLE);
 
   heap_push const params{ .count = k_work_count };
-  auto waited = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler())
-                                               | vkexec::compute_heap_pass(
-                                                 vkexec::bind_heap(resources), params, vkexec::groups_for(resources, k_work_count)));
+  auto waited = vkexec::test::sync_wait_sender(
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::compute_heap_pass(vkexec::bind_heap(resources), params, vkexec::groups_for(resources, k_work_count)));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   vkexec::destroy_heap_compute_resources(*ctx, resources);

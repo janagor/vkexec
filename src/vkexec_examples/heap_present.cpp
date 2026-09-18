@@ -26,8 +26,8 @@
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
-#include <vkexec_graphics/triangle_shaders.hpp>
 #include <vkexec_graphics/presenter.hpp>
+#include <vkexec_graphics/triangle_shaders.hpp>
 
 #include <vulkan/vulkan_core.h>
 

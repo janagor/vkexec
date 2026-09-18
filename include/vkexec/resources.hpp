@@ -15,7 +15,6 @@
 #include <vkexec/sampler.hpp>
 #include <vkexec/tensor.hpp>
 
-namespace vkexec {
-}// namespace vkexec
+namespace vkexec {}// namespace vkexec
 
 #endif// VKEXEC_RESOURCES_HPP

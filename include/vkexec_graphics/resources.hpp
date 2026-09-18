@@ -10,7 +10,6 @@
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/presenter.hpp>
 
-namespace vkexec {
-}// namespace vkexec
+namespace vkexec {}// namespace vkexec
 
 #endif// VKEXEC_GRAPHICS_RESOURCES_HPP

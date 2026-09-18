@@ -69,9 +69,7 @@ auto destroy_heap_compute_resources(context const &ctx, pipeline_resources &reso
 auto create_heap_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
   -> result<pipeline_resources>
 {
-  if (spirv.empty()) {
-    return fail(errc::invalid_argument, "create_heap_compute_resources requires non-empty SPIR-V");
-  }
+  if (spirv.empty()) { return fail(errc::invalid_argument, "create_heap_compute_resources requires non-empty SPIR-V"); }
 
   pipeline_resources resources{};
   resources.local_size = desc.local_size;

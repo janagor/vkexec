@@ -10,7 +10,6 @@
 #include <vkexec_graphics/execution.hpp>
 #include <vkexec_graphics/resources.hpp>
 
-namespace vkexec {
-}// namespace vkexec
+namespace vkexec {}// namespace vkexec
 
 #endif// VKEXEC_GRAPHICS_VKEXEC_GRAPHICS_HPP

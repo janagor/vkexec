@@ -13,7 +13,6 @@
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
-namespace vkexec {
-}// namespace vkexec
+namespace vkexec {}// namespace vkexec
 
 #endif// VKEXEC_GRAPHICS_EXECUTION_HPP

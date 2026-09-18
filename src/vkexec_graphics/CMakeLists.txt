@@ -9,9 +9,7 @@ add_library(vkexec::vkexec_graphics ALIAS vkexec_graphics)
 
 target_link_libraries(
   vkexec_graphics
-  PUBLIC vkexec_options
-         vkexec_warnings
-         vkexec::vkexec
+  PUBLIC vkexec_options vkexec_warnings vkexec::vkexec
   PRIVATE vk-bootstrap::vk-bootstrap)
 
 target_include_directories(

@@ -43,8 +43,7 @@ struct storage_binding
  *
  * Each entry uses `storage_binding::binding` as `dstBinding`.
  */
-auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers)
-  -> void;
+auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<storage_binding const> buffers) -> void;
 
 /**
  * Descriptor and push-constant layout for a compute pipeline.
@@ -93,9 +92,8 @@ class context;
  *
  * Caller owns the returned handles and must call `destroy_compute_resources`.
  */
-[[nodiscard]] auto create_compute_resources(context &ctx,
-  std::span<std::uint32_t const> spirv,
-  layout_desc const &desc) -> result<pipeline_resources>;
+[[nodiscard]] auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+  -> result<pipeline_resources>;
 
 /**
  * Compiles `glsl` to SPIR-V then creates classic compute Vulkan objects.
@@ -125,8 +123,7 @@ struct bound_compute
 //!
 //! Return the set with `free_compute_set` when finished, or free all sets by
 //! destroying the pool via `destroy_compute_resources`.
-[[nodiscard]] auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe)
-  -> result<VkDescriptorSet>;
+[[nodiscard]] auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe) -> result<VkDescriptorSet>;
 
 /**
  * Allocates a set and writes `buffers` into it.

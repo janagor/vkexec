@@ -31,7 +31,8 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  [[nodiscard]] inline auto try_begin_frame(presenter &win) -> result<std::optional<frame>> { return win.begin_frame(); }
+  [[nodiscard]] inline auto try_begin_frame(presenter &win) -> result<std::optional<frame>>
+  { return win.begin_frame(); }
 
   [[nodiscard]] inline auto try_end_frame(presenter &win, frame const &drawn) -> result<VkFence>
   { return win.end_frame(drawn); }
@@ -143,26 +144,20 @@ struct draw_mesh_bind_closure
 };
 
 //! Present one frame using borrowable pipeline resources + descriptor set.
-inline auto draw(presenter &win,
-  graphics_pipeline_resources const &resources,
-  VkDescriptorSet set,
-  std::uint32_t vertex_count) -> draw_bind_closure
-{
-  return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count };
-}
+inline auto
+  draw(presenter &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, std::uint32_t vertex_count)
+    -> draw_bind_closure
+{ return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count }; }
 
 //! Present one indexed mesh frame from borrowed handles.
 inline auto draw(presenter &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, mesh_draw drawn)
   -> draw_mesh_bind_closure
-{
-  return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn };
-}
+{ return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn }; }
 
 //! Present one indexed mesh frame from `mesh_buffers`.
-inline auto draw(presenter &win,
-  graphics_pipeline_resources const &resources,
-  VkDescriptorSet set,
-  mesh_buffers const &buffers) -> draw_mesh_bind_closure
+inline auto
+  draw(presenter &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, mesh_buffers const &buffers)
+    -> draw_mesh_bind_closure
 { return draw(win, resources, set, make_mesh_draw(buffers)); }
 
 /**

@@ -58,6 +58,4 @@ TEST_CASE("storage_bindings_equal compares buffer bindings", "[vkexec][pass]")
 }
 
 TEST_CASE("write_storage_descriptors returns when no buffers are bound", "[vkexec][pass]")
-{
-  vkexec::write_storage_descriptors(VK_NULL_HANDLE, VK_NULL_HANDLE, std::span<vkexec::storage_binding const>{});
-}
+{ vkexec::write_storage_descriptors(VK_NULL_HANDLE, VK_NULL_HANDLE, std::span<vkexec::storage_binding const>{}); }

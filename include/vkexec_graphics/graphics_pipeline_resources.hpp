@@ -148,11 +148,9 @@ struct graphics_bind
 };
 
 //! Builds a `graphics_bind` from pipeline resources and an optional set.
-[[nodiscard]] inline auto bind_graphics(graphics_pipeline_resources const &pipe,
-  VkDescriptorSet set = VK_NULL_HANDLE) -> graphics_bind
-{
-  return graphics_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set };
-}
+[[nodiscard]] inline auto bind_graphics(graphics_pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
+  -> graphics_bind
+{ return graphics_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }
 
 //! Vertex/index buffer handles for an indexed mesh draw.
 struct mesh_draw

@@ -46,8 +46,8 @@ public:
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     glfw_presenter created;
-    created.window_ = glfwCreateWindow(
-      static_cast<int>(cfg.width), static_cast<int>(cfg.height), cfg.title.c_str(), nullptr, nullptr);
+    created.window_ =
+      glfwCreateWindow(static_cast<int>(cfg.width), static_cast<int>(cfg.height), cfg.title.c_str(), nullptr, nullptr);
     if (created.window_ == nullptr) {
       glfwTerminate();
       fail_check("glfwCreateWindow failed");
@@ -57,9 +57,7 @@ public:
 
     std::uint32_t extension_count = 0;
     char const *const *extensions = glfwGetRequiredInstanceExtensions(&extension_count);
-    if (extensions == nullptr || extension_count == 0) {
-      fail_check("glfwGetRequiredInstanceExtensions failed");
-    }
+    if (extensions == nullptr || extension_count == 0) { fail_check("glfwGetRequiredInstanceExtensions failed"); }
     std::vector<char const *> surface_extensions;
     surface_extensions.reserve(extension_count);
     for (std::uint32_t index = 0; index < extension_count; ++index) {
@@ -112,8 +110,7 @@ public:
     return *this;
   }
 
-  [[nodiscard]] auto should_close() const noexcept -> bool
-  { return glfwWindowShouldClose(window_) == GLFW_TRUE; }
+  [[nodiscard]] auto should_close() const noexcept -> bool { return glfwWindowShouldClose(window_) == GLFW_TRUE; }
 
   auto poll_events() -> void
   {

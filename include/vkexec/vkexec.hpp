@@ -10,7 +10,6 @@
 #include <vkexec/execution.hpp>
 #include <vkexec/resources.hpp>
 
-namespace vkexec {
-}// namespace vkexec
+namespace vkexec {}// namespace vkexec
 
 #endif// VKEXEC_VKEXEC_HPP

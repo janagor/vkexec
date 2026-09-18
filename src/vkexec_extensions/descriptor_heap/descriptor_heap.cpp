@@ -153,8 +153,12 @@ auto write_storage_image_descriptor(context const &ctx,
   std::span<std::byte> destination) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return write_image_descriptor(
-    ctx, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, view_info, layout, destination, "write_storage_image_descriptor destination is empty");
+  return write_image_descriptor(ctx,
+    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    view_info,
+    layout,
+    destination,
+    "write_storage_image_descriptor destination is empty");
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
@@ -164,8 +168,12 @@ auto write_sampled_image_descriptor(context const &ctx,
   std::span<std::byte> destination) -> status
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return write_image_descriptor(
-    ctx, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, view_info, layout, destination, "write_sampled_image_descriptor destination is empty");
+  return write_image_descriptor(ctx,
+    VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+    view_info,
+    layout,
+    destination,
+    "write_sampled_image_descriptor destination is empty");
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
@@ -178,9 +186,7 @@ auto write_sampler_descriptor(context const &ctx,
   if (procs.write_sampler_descriptors == nullptr) {
     return fail(errc::unsupported, "vkWriteSamplerDescriptorsEXT is unavailable");
   }
-  if (destination.empty()) {
-    return fail(errc::invalid_argument, "write_sampler_descriptor destination is empty");
-  }
+  if (destination.empty()) { return fail(errc::invalid_argument, "write_sampler_descriptor destination is empty"); }
 
   VkHostAddressRangeEXT host_range{};
   host_range.address = destination.data();

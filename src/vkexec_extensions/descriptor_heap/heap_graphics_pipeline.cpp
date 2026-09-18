@@ -222,7 +222,8 @@ auto create_heap_graphics_resources(context &ctx,
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
     return fail(errc::invalid_argument, "create_heap_graphics_resources requires non-empty GLSL");
   }
-  VKEXEC_TRY_ASSIGN(vert_spirv, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
+  VKEXEC_TRY_ASSIGN(
+    vert_spirv, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
   VKEXEC_TRY_ASSIGN(
     frag_spirv, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
   return create_heap_graphics_resources(ctx, vert_spirv, frag_spirv, desc);

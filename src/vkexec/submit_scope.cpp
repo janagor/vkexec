@@ -41,124 +41,126 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
 
 namespace detail {
 
-auto descriptor_cleanup::release(context const &ctx) noexcept -> void
-{
-  // Host lock matches allocate path; pool frees must be serialized with submits.
-  std::unique_lock const lock = ctx.lock_host();
-  for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
-  allocated.clear();
-  sets.clear();
-}
-
-auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool
-{
-  return lhs.size() == rhs.size()
-         && std::equal(
-           lhs.begin(), lhs.end(), rhs.begin(), [](storage_binding const &left, storage_binding const &right) -> bool {
-             return left.buffer == right.buffer && left.byte_size == right.byte_size && left.binding == right.binding;
-           });
-}
-
-auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
-  -> detail::result<VkDescriptorSet>
-{
-  std::unique_lock const lock = ctx.lock_host();
-  VkDescriptorSetAllocateInfo dsai{};
-  dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  dsai.descriptorPool = pipe.descriptor_pool;
-  dsai.descriptorSetCount = 1;
-  dsai.pSetLayouts = &pipe.set_layout;
-  VkDescriptorSet set{ VK_NULL_HANDLE };
-  if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-    return detail::fail(result, "vkAllocateDescriptorSets failed");
-  }
-  write_storage_descriptors(ctx.device(), set, buffers);
-  return set;
-}
-
-auto bind_or_allocate_set(context const &ctx,
-  pipeline_resources &pipe,
-  std::span<storage_binding const> buffers,
-  descriptor_cleanup &cleanup) -> detail::result<VkDescriptorSet>
-{
-  // Reuse a set already allocated for this pipeline in the same submit when bindings match.
-  if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-    if (storage_bindings_equal(found->second.buffers, buffers)) { return found->second.set; }
+  auto descriptor_cleanup::release(context const &ctx) noexcept -> void
+  {
+    // Host lock matches allocate path; pool frees must be serialized with submits.
+    std::unique_lock const lock = ctx.lock_host();
+    for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
+    allocated.clear();
+    sets.clear();
   }
 
-  auto set = allocate_compute_set(ctx, pipe, buffers);
-  if (!set) { return detail::fail(set); }
-  auto *allocated = detail::expected_take(set);
-  cleanup.sets.insert_or_assign(
-    &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
-  cleanup.track(pipe.descriptor_pool, allocated);
-  return allocated;
-}
-
-auto submit_scope::open(context &host) -> detail::result<submit_scope>
-{
-  auto cmd = host.allocate_command_buffer();
-  if (!cmd) { return detail::fail(cmd); }
-  auto *cmd_buf = detail::expected_take(cmd);
-
-  VkCommandBufferBeginInfo begin{};
-  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
-    host.free_command_buffer(cmd_buf);
-    return detail::fail(result, "vkBeginCommandBuffer failed");
+  auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool
+  {
+    return lhs.size() == rhs.size()
+           && std::equal(lhs.begin(),
+             lhs.end(),
+             rhs.begin(),
+             [](storage_binding const &left, storage_binding const &right) -> bool {
+               return left.buffer == right.buffer && left.byte_size == right.byte_size && left.binding == right.binding;
+             });
   }
 
-  submit_scope scope;
-  scope.ctx = &host;
-  scope.cmd = cmd_buf;
-  return scope;
-}
-
-// NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-auto submit_scope::end_recording() -> detail::status
-{
-  if (cmd == VK_NULL_HANDLE) { return detail::fail(errc::invalid_argument, "submit_scope has no command buffer"); }
-  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return detail::fail(result, "vkEndCommandBuffer failed");
+  auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
+    -> detail::result<VkDescriptorSet>
+  {
+    std::unique_lock const lock = ctx.lock_host();
+    VkDescriptorSetAllocateInfo dsai{};
+    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsai.descriptorPool = pipe.descriptor_pool;
+    dsai.descriptorSetCount = 1;
+    dsai.pSetLayouts = &pipe.set_layout;
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+    if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
+      return detail::fail(result, "vkAllocateDescriptorSets failed");
+    }
+    write_storage_descriptors(ctx.device(), set, buffers);
+    return set;
   }
-  return {};
-}
 
-auto submit_scope::release() noexcept -> void
-{
-  // Always free cmd before descriptors so a failed submit still returns loans.
-  if (ctx == nullptr) { return; }
-  if (cmd != VK_NULL_HANDLE) {
-    ctx->free_command_buffer(cmd);
-    cmd = VK_NULL_HANDLE;
+  auto bind_or_allocate_set(context const &ctx,
+    pipeline_resources &pipe,
+    std::span<storage_binding const> buffers,
+    descriptor_cleanup &cleanup) -> detail::result<VkDescriptorSet>
+  {
+    // Reuse a set already allocated for this pipeline in the same submit when bindings match.
+    if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
+      if (storage_bindings_equal(found->second.buffers, buffers)) { return found->second.set; }
+    }
+
+    auto set = allocate_compute_set(ctx, pipe, buffers);
+    if (!set) { return detail::fail(set); }
+    auto *allocated = detail::expected_take(set);
+    cleanup.sets.insert_or_assign(
+      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
+    cleanup.track(pipe.descriptor_pool, allocated);
+    return allocated;
   }
-  cleanup.release(*ctx);
-  ctx = nullptr;
-}
 
-// Same reclaim order as completion_waiter: wait, then destroy owned sync objects.
-auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
-  -> void
-{
-  if (fence != VK_NULL_HANDLE) {
-    (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
-  } else if (fallback_queue != VK_NULL_HANDLE) {
-    (void)vkQueueWaitIdle(fallback_queue);
+  auto submit_scope::open(context &host) -> detail::result<submit_scope>
+  {
+    auto cmd = host.allocate_command_buffer();
+    if (!cmd) { return detail::fail(cmd); }
+    auto *cmd_buf = detail::expected_take(cmd);
+
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
+      host.free_command_buffer(cmd_buf);
+      return detail::fail(result, "vkBeginCommandBuffer failed");
+    }
+
+    submit_scope scope;
+    scope.ctx = &host;
+    scope.cmd = cmd_buf;
+    return scope;
   }
-  if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
-  if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
-}
 
-auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender { return enter_submit_scope_sender{ .ctx = ctx }; }
+  // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
+  auto submit_scope::end_recording() -> detail::status
+  {
+    if (cmd == VK_NULL_HANDLE) { return detail::fail(errc::invalid_argument, "submit_scope has no command buffer"); }
+    if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
+      return detail::fail(result, "vkEndCommandBuffer failed");
+    }
+    return {};
+  }
 
-auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender { return enter_submit_scope(&ctx); }
+  auto submit_scope::release() noexcept -> void
+  {
+    // Always free cmd before descriptors so a failed submit still returns loans.
+    if (ctx == nullptr) { return; }
+    if (cmd != VK_NULL_HANDLE) {
+      ctx->free_command_buffer(cmd);
+      cmd = VK_NULL_HANDLE;
+    }
+    cleanup.release(*ctx);
+    ctx = nullptr;
+  }
 
-auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
-{ return submit_and_wait_sender{ .scope = std::move(scope) }; }
+  // Same reclaim order as completion_waiter: wait, then destroy owned sync objects.
+  auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+    -> void
+  {
+    if (fence != VK_NULL_HANDLE) {
+      (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    } else if (fallback_queue != VK_NULL_HANDLE) {
+      (void)vkQueueWaitIdle(fallback_queue);
+    }
+    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
+    if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+  }
 
-auto submit_fence(submit_scope scope) -> submit_fence_sender
-{ return submit_fence_sender{ .scope = std::move(scope) }; }
+  auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender { return enter_submit_scope_sender{ .ctx = ctx }; }
+
+  auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender { return enter_submit_scope(&ctx); }
+
+  auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
+  { return submit_and_wait_sender{ .scope = std::move(scope) }; }
+
+  auto submit_fence(submit_scope scope) -> submit_fence_sender
+  { return submit_fence_sender{ .scope = std::move(scope) }; }
 
 }// namespace detail
 }// namespace vkexec

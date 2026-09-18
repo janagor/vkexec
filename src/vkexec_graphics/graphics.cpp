@@ -301,8 +301,7 @@ auto create_graphics_resources(context &ctx,
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
     return fail(errc::invalid_argument, "create_graphics_resources requires non-empty GLSL");
   }
-  VKEXEC_TRY_ASSIGN(
-    vs_spv, compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
+  VKEXEC_TRY_ASSIGN(vs_spv, compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
   VKEXEC_TRY_ASSIGN(
     fs_spv, compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
   return create_graphics_resources(ctx, render_pass, cfg, vs_spv, fs_spv, storage_binding_count);
@@ -474,20 +473,20 @@ auto graphics_pipeline::create(context &ctx,
   std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return detail::make_sync_sender_fn<graphics_pipeline>([&ctx,
-                                                          render_pass,
-                                                          cfg,
-                                                          vertex_glsl = std::string(vertex_glsl),
-                                                          fragment_glsl = std::string(fragment_glsl),
-                                                          owned = std::vector(buffers.begin(), buffers.end())]() mutable
-    -> result<graphics_pipeline> {
-    VKEXEC_TRY_ASSIGN(owned_resources,
-      create_graphics_resources(
-        ctx, render_pass, cfg, vertex_glsl, fragment_glsl, static_cast<std::uint32_t>(owned.size())));
-    VKEXEC_TRY_ASSIGN(set, install_storage_set(ctx, owned_resources, owned));
-    return graphics_pipeline::make(
-      ctx, std::make_unique<graphics_pipeline_resources>(owned_resources), set, std::move(owned));
-  });
+  return detail::make_sync_sender_fn<graphics_pipeline>(
+    [&ctx,
+      render_pass,
+      cfg,
+      vertex_glsl = std::string(vertex_glsl),
+      fragment_glsl = std::string(fragment_glsl),
+      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<graphics_pipeline> {
+      VKEXEC_TRY_ASSIGN(owned_resources,
+        create_graphics_resources(
+          ctx, render_pass, cfg, vertex_glsl, fragment_glsl, static_cast<std::uint32_t>(owned.size())));
+      VKEXEC_TRY_ASSIGN(set, install_storage_set(ctx, owned_resources, owned));
+      return graphics_pipeline::make(
+        ctx, std::make_unique<graphics_pipeline_resources>(owned_resources), set, std::move(owned));
+    });
 }
 
 auto graphics_pipeline::create(context &ctx,
