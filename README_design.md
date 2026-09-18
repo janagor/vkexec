@@ -66,6 +66,7 @@ IPO/LTO is on by default at top level. It is gated through
 time. Each package is gated by `if(NOT TARGET ...)`, so a parent project can
 supply its own version. `SYSTEM YES` silences warnings from third-party
 headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA. GLFW is fetched only for examples.
+`vkexec::vkexec` propagates both `Vulkan::Headers` and `Vulkan::Vulkan` to consumers.
 
 ## Libraries
 

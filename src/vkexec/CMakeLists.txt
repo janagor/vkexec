@@ -26,6 +26,7 @@ target_link_libraries(
   PUBLIC vkexec_options
          vkexec_warnings
          Boost::system
+         Vulkan::Headers
          Vulkan::Vulkan
          STDEXEC::stdexec
          vk-bootstrap::vk-bootstrap
