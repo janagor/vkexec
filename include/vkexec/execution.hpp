@@ -19,6 +19,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/spirv_compile.hpp>
