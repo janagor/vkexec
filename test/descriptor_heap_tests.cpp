@@ -5,14 +5,19 @@
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
+#include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/resource_table.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -72,6 +77,22 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   auto mapped = heap.mapped();
   REQUIRE(mapped.size() >= slot.size());
   std::ranges::copy(slot, mapped.begin());
+
+  auto const table = vkexec::bindings(vkexec::resource_binding{
+    .slot = 5, .resource = { .buffer = storage.handle(), .byte_size = storage.size() } });
+  std::array<std::uint32_t, 1> const indices{ 1 };
+  vkexec::heap_table_lower_env const lower_env{ .resource_heap_bytes = mapped,
+    .buffer_descriptor_size = layout.buffer_descriptor_size,
+    .descriptor_stride = layout.descriptor_stride,
+    .indices = indices };
+  vkexec::pipeline_resources const pipe{};
+  auto lowered = vkexec::detail::heap_descriptor_backend::lower(*ctx, pipe, table, lower_env);
+  REQUIRE(lowered.has_value());
+  auto const map = vkexec::expected_take(lowered);
+  REQUIRE(map.index_for(5) == 1);
+  auto const bind = vkexec::detail::heap_descriptor_backend::make_bind(pipe, map);
+  REQUIRE(bind.layout == VK_NULL_HANDLE);
+  vkexec::detail::heap_descriptor_backend::release(*ctx, pipe, map);
 
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
