@@ -1,6 +1,6 @@
 add_library(
   vkexec_graphics
-  window.cpp
+  presenter.cpp
   swapchain.cpp
   graphics.cpp
   mesh.cpp)
@@ -12,7 +12,6 @@ target_link_libraries(
   PUBLIC vkexec_options
          vkexec_warnings
          vkexec::vkexec
-         glfw
   PRIVATE vk-bootstrap::vk-bootstrap)
 
 target_include_directories(

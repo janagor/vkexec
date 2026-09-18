@@ -10,7 +10,7 @@
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include <vkexec_graphics/window.hpp>
+#include <vkexec_graphics/presenter.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -24,22 +24,29 @@ namespace ex = stdexec;
 
 namespace {
 
-constexpr std::uint32_t k_window_width = 64;
-constexpr std::uint32_t k_window_height = 64;
+constexpr std::uint32_t k_presenter_width = 64;
+constexpr std::uint32_t k_presenter_height = 64;
 constexpr std::uint32_t k_triangle_vertices = 3;
 constexpr int k_frame_slots = 2;
 constexpr int k_post_stop_frames = 4;
 
-[[nodiscard]] auto make_headless_window() -> vkexec::window
+[[nodiscard]] auto make_headless_presenter() -> vkexec::presenter
 {
-  auto outcome = vkexec::try_sync_wait(vkexec::window::headless(
-    { .width = k_window_width, .height = k_window_height, .title = "vkexec draw stop tests" }));
+  auto outcome = vkexec::try_sync_wait(vkexec::presenter::headless(
+    {
+      .width = k_presenter_width,
+      .height = k_presenter_height,
+      .validation_layers = false,
+      .surface_instance_extensions = {},
+      .create_surface = {},
+      .requirements = {},
+    }));
   if (outcome.failed()) { vkexec::test::skip_if_no_vulkan(outcome.take_error()); }
-  if (outcome.stopped || !outcome.values.has_value()) { FAIL("window::headless stopped unexpectedly"); }
+  if (outcome.stopped || !outcome.values.has_value()) { FAIL("presenter::headless stopped unexpectedly"); }
   return vkexec::detail::take_sync_value(std::move(*outcome.values));
 }
 
-[[nodiscard]] auto make_triangle_pipeline(vkexec::window &win) -> vkexec::graphics_pipeline
+[[nodiscard]] auto make_triangle_pipeline(vkexec::presenter &win) -> vkexec::graphics_pipeline
 {
   return vkexec::test::sync_wait_value(vkexec::graphics_pipeline::create(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
@@ -47,10 +54,10 @@ constexpr int k_post_stop_frames = 4;
 
 struct headless_fixture
 {
-  vkexec::window win;
+  vkexec::presenter win;
   vkexec::graphics_pipeline pipeline;
 
-  headless_fixture() : win(make_headless_window()), pipeline(make_triangle_pipeline(win)) {}
+  headless_fixture() : win(make_headless_presenter()), pipeline(make_triangle_pipeline(win)) {}
 
   [[nodiscard]] auto draw_submit_sender() -> auto
   {
@@ -62,7 +69,7 @@ struct headless_fixture
 
 TEST_CASE("draw | submit completes with set_stopped when stop is already requested", "[vkexec][draw][gpu]")
 {
-  // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable window reference
+  // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable presenter reference
   headless_fixture fixture;
   ex::inplace_stop_source source;
   source.request_stop();
@@ -74,13 +81,13 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
 
 TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion", "[vkexec][draw][gpu]")
 {
-  // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable window reference
+  // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable presenter reference
   headless_fixture fixture;
   ex::inplace_stop_source source;
 
   auto env_sender = ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
 
-  // Concurrent stop: ensure the window can still acquire frames after a raced cancel.
+  // Concurrent stop: ensure the presenter can still acquire frames after a raced cancel.
   std::jthread const stopper{ [&source]() -> void { source.request_stop(); } };
 
   (void)vkexec::test::sync_wait_sender(std::move(env_sender));
@@ -103,9 +110,31 @@ TEST_CASE("draw | submit presents multiple headless frames without leaking frame
   fixture.win.wait_idle();
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("presenter suspends at zero extent and resumes after resize", "[vkexec][draw][gpu]")
+{
+  auto win = make_headless_presenter();
+
+  REQUIRE(win.resize(0, 0));
+  REQUIRE(win.needs_resize());
+  auto suspended = win.begin_frame();
+  REQUIRE(suspended.has_value());
+  REQUIRE_FALSE(suspended->has_value());
+
+  REQUIRE(win.resize(k_presenter_width, k_presenter_height));
+  REQUIRE_FALSE(win.needs_resize());
+  auto resumed = win.begin_frame();
+  REQUIRE(resumed.has_value());
+  if (!resumed->has_value()) { FAIL("presenter remained suspended after non-zero resize"); }
+  vkexec::frame const resumed_frame = **resumed;
+  REQUIRE(vkEndCommandBuffer(resumed_frame.command_buffer) == VK_SUCCESS);
+  REQUIRE(win.end_frame(resumed_frame));
+  win.wait_idle();
+}
+
 TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec][draw][gpu][execution]")
 {
-  auto win = make_headless_window();
+  auto win = make_headless_presenter();
   auto resources_result = vkexec::create_graphics_resources(win.ctx(),
     win.render_pass(),
     vkexec::graphics_pipeline_config{},

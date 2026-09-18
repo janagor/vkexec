@@ -117,7 +117,7 @@ namespace vulkan_library {
   //! Instance extensions always requested for compute-only contexts.
   [[nodiscard]] auto required_instance_extensions() noexcept -> std::span<char const *const>;
 
-  //! Instance extensions for `window::headless()` (`VK_EXT_headless_surface`).
+  //! Instance extensions for `presenter::headless()` (`VK_EXT_headless_surface`).
   [[nodiscard]] auto required_headless_surface_instance_extensions() noexcept -> std::span<char const *const>;
 
   //! Device extensions always requested for compute-only contexts.

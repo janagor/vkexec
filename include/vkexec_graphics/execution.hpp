@@ -4,7 +4,7 @@
 //! \file
 //! Execution umbrella: borrowable graphics pipeline handles, record helpers, draw adaptors.
 //!
-//! Prefer this for embedders that already own buffers / present via `window`.
+//! Prefer this for embedders that already own buffers / present via `presenter`.
 //! Owning RAII types live in `<vkexec_graphics/resources.hpp>`.
 
 #include <vkexec_graphics/draw.hpp>

@@ -1,8 +1,8 @@
-#ifndef VKEXEC_GRAPHICS_WINDOW_HPP
-#define VKEXEC_GRAPHICS_WINDOW_HPP
+#ifndef VKEXEC_GRAPHICS_PRESENTER_HPP
+#define VKEXEC_GRAPHICS_PRESENTER_HPP
 
 //! \file
-//! GLFW window with Vulkan swapchain, render pass, and per-frame sync.
+//! Backend-neutral Vulkan presentation with swapchain and per-frame sync.
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
@@ -11,21 +11,22 @@
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
-#include <string>
 #include <utility>
 #include <vector>
 
-struct GLFWwindow;
-
 namespace vkexec {
 
-constexpr std::uint32_t k_default_window_width = 800;
-constexpr std::uint32_t k_default_window_height = 600;
+constexpr std::uint32_t k_default_presenter_width = 800;
+constexpr std::uint32_t k_default_presenter_height = 600;
+
+//! Creates a Vulkan surface for an already-created instance.
+using surface_factory = std::function<result<VkSurfaceKHR>(VkInstance)>;
 
 /**
- * Per-frame recording handle returned by `window::begin_frame()`.
+ * Per-frame recording handle returned by `presenter::begin_frame()`.
  *
  * Record into `command_buffer`, then pass the same `frame` to `end_frame`.
  */
@@ -38,76 +39,68 @@ struct frame
 };
 
 /**
- * GLFW window with a Vulkan swapchain and render pass for presentation.
+ * Backend-neutral owner of a Vulkan presentation context and frame resources.
  *
  * Drawing (pipelines, meshes, etc.) belongs in the application, not here.
  * Use `begin_frame` / `end_frame`, or the `draw(...)` stdexec adaptors.
  *
- * ~~~~~~~~~~~{.cpp}
- * auto win = vkexec::sync_wait_value(vkexec::window::create({.title = "demo"}));
- * while (!win.should_close()) {
- *   win.poll_events();
- *   // schedule | draw(win, pipeline, 3) | ...
- * }
- * ~~~~~~~~~~~
- *
  * @see graphics_pipeline, draw, swapchain
  */
-class window
+class presenter
 {
 public:
   /**
-   * Window / context creation options.
+   * Presentation context creation options.
    *
-   * `headless` selects `VK_EXT_headless_surface` (no GLFW display). Extra Vulkan
-   * requirements are merged into the owned `context`.
+   * `surface_instance_extensions` and `create_surface` are supplied by the
+   * application's windowing system. The returned surface is owned by the presenter.
    */
   struct config
   {
-    std::uint32_t width{ k_default_window_width };
-    std::uint32_t height{ k_default_window_height };
-    std::string title{ "vkexec" };
+    std::uint32_t width{ k_default_presenter_width };
+    std::uint32_t height{ k_default_presenter_height };
     bool validation_layers{ false };
-    bool headless{ false };
+    std::vector<char const *> surface_instance_extensions;
+    surface_factory create_surface;
     vulkan_requirements requirements{};
   };
 
   /**
-   * Creates a GLFW window, Vulkan context with presentation, and swapchain.
+   * Creates a Vulkan context, invokes the surface factory, and creates presentation resources.
    *
-   * @param cfg Window size/title and Vulkan options.
+   * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
    */
-  [[nodiscard]] static auto create(config cfg) -> detail::sync_sender_fn<window>;
+  [[nodiscard]] static auto create(config cfg) -> detail::sync_sender_fn<presenter>;
 
   /**
    * Creates a swapchain without GLFW or a display (`VK_EXT_headless_surface`).
    *
    * Intended for CI and tests.
    */
-  [[nodiscard]] static auto headless(config cfg) -> detail::sync_sender_fn<window>;
-  //! Headless window with default config.
-  [[nodiscard]] static auto headless() -> detail::sync_sender_fn<window>;
+  [[nodiscard]] static auto headless(config cfg) -> detail::sync_sender_fn<presenter>;
+  //! Headless presenter with default config.
+  [[nodiscard]] static auto headless() -> detail::sync_sender_fn<presenter>;
 
-  ~window();
+  ~presenter();
 
-  window(window const &) = delete;
-  auto operator=(window const &) -> window & = delete;
-  window(window &&other) noexcept;
-  auto operator=(window &&other) noexcept -> window &;
+  presenter(presenter const &) = delete;
+  auto operator=(presenter const &) -> presenter & = delete;
+  presenter(presenter &&other) noexcept;
+  auto operator=(presenter &&other) noexcept -> presenter &;
 
   //! Owned Vulkan context used for queues, device, and VMA.
   [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
   //! Const owned Vulkan context.
   [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
-  //! Presentation surface (GLFW or headless).
+  //! Owned presentation surface.
   [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
-
-  //! True when the user requested window close (GLFW); false for headless.
-  [[nodiscard]] auto should_close() const noexcept -> bool;
-  //! Polls GLFW events (no-op when headless).
-  auto poll_events() const -> void;
   //! Waits for the device to become idle.
   auto wait_idle() -> void;
+
+  //! Recreates presentation resources, or suspends acquisition for a zero extent.
+  auto resize(std::uint32_t width, std::uint32_t height) -> status;
+  //! True when presentation is suspended until the application supplies an extent.
+  [[nodiscard]] auto needs_resize() const noexcept -> bool { return resize_required_; }
 
   //! Compatible render pass for swapchain framebuffers.
   [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
@@ -124,8 +117,7 @@ public:
   /**
    * Acquires the next swapchain image and begins a primary command buffer.
    *
-   * Disengaged optional means the swapchain was recreated (caller should retry
-   * on the next loop iteration).
+   * Disengaged optional means presentation is suspended or requires `resize`.
    */
   [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
 
@@ -133,7 +125,7 @@ public:
    * Submits the recorded command buffer and presents.
    *
    * The command buffer must already be ended. Returns the per-frame `in_flight`
-   * fence signalled by the submit (owned by the window).
+   * fence signalled by the submit (owned by the presenter).
    *
    * @param drawn Frame from a successful `begin_frame`.
    */
@@ -146,12 +138,9 @@ private:
     VkFence in_flight{ VK_NULL_HANDLE };
   };
 
-  window() = default;
+  presenter() = default;
 
   auto init(config cfg) -> status;
-  auto create_surface() -> status;
-  auto create_headless_surface() -> status;
-  [[nodiscard]] auto framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>;
   auto create_swapchain() -> status;
   auto create_render_pass() -> status;
   auto create_depth_resources() -> status;
@@ -161,11 +150,9 @@ private:
   auto create_swapchain_sync() -> status;
   auto destroy_swapchain_sync() noexcept -> void;
   auto cleanup_swapchain() -> void;
-  auto recreate_swapchain() -> status;
+  auto recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status;
 
   config cfg_;
-  bool headless_{ false };
-  GLFWwindow *glfw_{ nullptr };
   std::unique_ptr<context> ctx_;
   VkSurfaceKHR surface_{ VK_NULL_HANDLE };
 
@@ -186,12 +173,11 @@ private:
   std::vector<VkFence> images_in_flight_;
   std::uint32_t frame_index_{ 0 };
   std::uint32_t current_image_index_{ 0 };
-  bool framebuffer_resized_{ false };
+  bool resize_required_{ false };
+  bool suspended_{ false };
   bool frame_open_{ false };
-
-  static auto on_framebuffer_resize(GLFWwindow *win, int width, int height) -> void;
 };
 
 }// namespace vkexec
 
-#endif// VKEXEC_GRAPHICS_WINDOW_HPP
+#endif// VKEXEC_GRAPHICS_PRESENTER_HPP

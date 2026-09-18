@@ -37,10 +37,10 @@ struct swapchain_create_info
 /**
  * Presentable swapchain that borrows a surface (does not destroy it).
  *
- * Suitable for embedders that own the native window / surface separately.
- * Prefer `window` when using GLFW end-to-end.
+ * Suitable for embedders that own the native presenter / surface separately.
+ * Prefer `presenter` when vkexec should own the complete presentation stack.
  *
- * @see window, acquire_present_frame, swapchain_create_info
+ * @see presenter, acquire_present_frame, swapchain_create_info
  */
 class swapchain
 {

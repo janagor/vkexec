@@ -267,7 +267,7 @@ public:
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:
-  friend class window;
+  friend class presenter;
   template<typename T> friend class buffer;
 
   struct uninitialized_tag

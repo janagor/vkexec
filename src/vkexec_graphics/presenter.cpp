@@ -1,4 +1,4 @@
-#include <vkexec_graphics/window.hpp>
+#include <vkexec_graphics/presenter.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/sync_sender.hpp>
@@ -15,28 +15,16 @@
 
 #include <vulkan/vulkan_core.h>
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <string>
 #include <utility>
 #include <vector>
 
 namespace vkexec {
 namespace {
-
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-  std::string g_glfw_error;
-
-  auto glfw_error_callback(int code, char const *description) -> void
-  {
-    g_glfw_error = "GLFW " + std::to_string(code) + ": " + (description != nullptr ? description : "(no description)");
-  }
 
   constexpr std::uint32_t k_color_attachment_index = 0;
   constexpr std::uint32_t k_depth_attachment_index = 1;
@@ -73,106 +61,78 @@ namespace {
 
 }// namespace
 
-// GLFW callback signature is fixed (two adjacent int parameters).
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto window::on_framebuffer_resize(GLFWwindow *win, int width, int height) -> void
+auto presenter::create(config cfg) -> detail::sync_sender_fn<presenter>
 {
-  (void)width;
-  (void)height;
-  auto *self = static_cast<window *>(glfwGetWindowUserPointer(win));
-  if (self != nullptr) { self->framebuffer_resized_ = true; }
-}
-
-auto window::create(config cfg) -> detail::sync_sender_fn<window>
-{
-  return detail::make_sync_sender_fn<window>([cfg = std::move(cfg)]() mutable -> result<window> {
-    window created;
+  return detail::make_sync_sender_fn<presenter>([cfg = std::move(cfg)]() mutable -> result<presenter> {
+    presenter created;
     if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
     return created;
   });
 }
 
-auto window::headless(config cfg) -> detail::sync_sender_fn<window>
+auto presenter::headless(config cfg) -> detail::sync_sender_fn<presenter>
 {
-  cfg.headless = true;
+  auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
+  cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
+  cfg.create_surface = [](VkInstance instance) -> result<VkSurfaceKHR> {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
+      vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
+    if (create_fn == nullptr) { return fail(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
+
+    VkHeadlessSurfaceCreateInfoEXT create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    if (VkResult const result = create_fn(instance, &create_info, nullptr, &surface); result != VK_SUCCESS) {
+      return fail(result, "vkCreateHeadlessSurfaceEXT failed");
+    }
+    return surface;
+  };
   return create(std::move(cfg));
 }
 
-auto window::headless() -> detail::sync_sender_fn<window> { return headless(config{}); }
+auto presenter::headless() -> detail::sync_sender_fn<presenter> { return headless(config{}); }
 
-window::window(window &&other) noexcept
-  : cfg_(std::move(other.cfg_)), headless_(other.headless_), glfw_(other.glfw_), ctx_(std::move(other.ctx_)),
-    surface_(other.surface_), swapchain_(std::move(other.swapchain_)), depth_format_(other.depth_format_),
+presenter::presenter(presenter &&other) noexcept
+  : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
+    swapchain_(std::move(other.swapchain_)), depth_format_(other.depth_format_),
     framebuffers_(std::move(other.framebuffers_)), depth_image_(other.depth_image_),
     depth_allocation_(other.depth_allocation_), depth_view_(other.depth_view_), render_pass_(other.render_pass_),
     frames_(std::move(other.frames_)), command_buffers_(std::move(other.command_buffers_)),
     render_finished_(std::move(other.render_finished_)), images_in_flight_(std::move(other.images_in_flight_)),
     frame_index_(other.frame_index_), current_image_index_(other.current_image_index_),
-    framebuffer_resized_(other.framebuffer_resized_), frame_open_(other.frame_open_)
+    resize_required_(other.resize_required_), suspended_(other.suspended_), frame_open_(other.frame_open_)
 {
-  other.glfw_ = nullptr;
   other.surface_ = VK_NULL_HANDLE;
   other.depth_image_ = VK_NULL_HANDLE;
   other.depth_allocation_ = VK_NULL_HANDLE;
   other.depth_view_ = VK_NULL_HANDLE;
   other.render_pass_ = VK_NULL_HANDLE;
-  if (glfw_ != nullptr) { glfwSetWindowUserPointer(glfw_, this); }
 }
 
-auto window::operator=(window &&other) noexcept -> window &
+auto presenter::operator=(presenter &&other) noexcept -> presenter &
 {
   if (this == &other) { return *this; }
-  this->~window();
-  new (this) window(std::move(other));
+  this->~presenter();
+  new (this) presenter(std::move(other));
   return *this;
 }
 
-auto window::init(config cfg) -> status
+auto presenter::init(config cfg) -> status
 {
   cfg_ = std::move(cfg);
-  headless_ = cfg_.headless;
-
-  if (headless_) {
-    auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
-    ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
-      scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
-      std::vector<char const *>{ surface_exts.begin(), surface_exts.end() }));
-    if (auto headless_surface = create_headless_surface(); !headless_surface) { return fail(headless_surface); }
-  } else {
-    g_glfw_error.clear();
-    glfwSetErrorCallback(glfw_error_callback);
-    if (glfwInit() != GLFW_TRUE) {
-      return fail(
-        errc::io_error, g_glfw_error.empty() ? "glfwInit failed" : ("glfwInit failed (" + g_glfw_error + ")"));
-    }
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
-    glfw_ = glfwCreateWindow(
-      static_cast<int>(cfg_.width), static_cast<int>(cfg_.height), cfg_.title.c_str(), nullptr, nullptr);
-    if (glfw_ == nullptr) {
-      glfwTerminate();
-      return fail(errc::io_error, "glfwCreateWindow failed");
-    }
-    glfwSetWindowUserPointer(glfw_, this);
-    glfwSetFramebufferSizeCallback(glfw_, &window::on_framebuffer_resize);
-
-    std::uint32_t ext_count = 0;
-    char const *const *glfw_exts = glfwGetRequiredInstanceExtensions(&ext_count);
-    if (glfw_exts == nullptr || ext_count == 0) {
-      return fail(errc::unsupported, "glfwGetRequiredInstanceExtensions failed (no presentation support?)");
-    }
-    std::vector<char const *> instance_exts;
-    instance_exts.reserve(ext_count);
-    for (std::uint32_t index = 0; index < ext_count; ++index) {
-      instance_exts.push_back(glfw_exts[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    }
-
-    ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
-      scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
-      instance_exts));
-    if (auto created_surface = create_surface(); !created_surface) { return fail(created_surface); }
+  if (cfg_.width == 0 || cfg_.height == 0) {
+    return fail(errc::invalid_argument, "presenter requires a non-zero initial extent");
   }
+  if (!cfg_.create_surface) { return fail(errc::invalid_argument, "presenter requires a surface factory"); }
+
+  ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
+    scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
+    cfg_.surface_instance_extensions));
+  auto created_surface = cfg_.create_surface(ctx_->instance());
+  if (!created_surface) { return fail(created_surface); }
+  surface_ = expected_take(created_surface);
+  if (surface_ == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "surface factory returned a null surface"); }
 
   if (auto completed = ctx_->complete_for_surface(surface_); !completed) { return fail(completed); }
   if (auto swapchain = create_swapchain(); !swapchain) { return fail(swapchain); }
@@ -183,7 +143,7 @@ auto window::init(config cfg) -> status
   return {};
 }
 
-window::~window()
+presenter::~presenter()
 {
   if (ctx_ && ctx_->device() != VK_NULL_HANDLE) {
     vkDeviceWaitIdle(ctx_->device());
@@ -200,90 +160,38 @@ window::~window()
     }
     cleanup_swapchain();
     if (render_pass_ != VK_NULL_HANDLE) { vkDestroyRenderPass(ctx_->device(), render_pass_, nullptr); }
-    if (surface_ != VK_NULL_HANDLE) {
-      vkb::destroy_surface(ctx_->instance(), surface_);
-      surface_ = VK_NULL_HANDLE;
-    }
+  }
+  if (ctx_ && ctx_->instance() != VK_NULL_HANDLE && surface_ != VK_NULL_HANDLE) {
+    vkb::destroy_surface(ctx_->instance(), surface_);
+    surface_ = VK_NULL_HANDLE;
   }
   ctx_.reset();
-  if (glfw_ != nullptr) {
-    glfwDestroyWindow(glfw_);
-    glfw_ = nullptr;
-    glfwTerminate();
-  }
 }
 
-auto window::should_close() const noexcept -> bool
-{
-  if (headless_) { return false; }
-  return glfwWindowShouldClose(glfw_) == GLFW_TRUE;
-}
-
-// cppcheck-suppress functionStatic
-// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-auto window::poll_events() const -> void
-{
-  if (!headless_) { glfwPollEvents(); }
-}
-
-auto window::wait_idle() -> void
+auto presenter::wait_idle() -> void
 {
   if (ctx_ && ctx_->device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_->device()); }
 }
 
-auto window::create_surface() -> status
+auto presenter::create_swapchain() -> status
 {
-  if (VkResult const result = glfwCreateWindowSurface(ctx_->instance(), glfw_, nullptr, &surface_);
-    result != VK_SUCCESS) {
-    return fail(result, "glfwCreateWindowSurface failed");
-  }
-  return {};
-}
-
-auto window::create_headless_surface() -> status
-{
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  auto const create_fn = reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(
-    vkGetInstanceProcAddr(ctx_->instance(), "vkCreateHeadlessSurfaceEXT"));
-  if (create_fn == nullptr) { return fail(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
-
-  VkHeadlessSurfaceCreateInfoEXT create_info{};
-  create_info.sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
-  if (VkResult const result = create_fn(ctx_->instance(), &create_info, nullptr, &surface_); result != VK_SUCCESS) {
-    return fail(result, "vkCreateHeadlessSurfaceEXT failed");
-  }
-  return {};
-}
-
-auto window::framebuffer_size() const -> std::pair<std::uint32_t, std::uint32_t>
-{
-  if (headless_) { return { cfg_.width, cfg_.height }; }
-  int framebuffer_width = 0;
-  int framebuffer_height = 0;
-  glfwGetFramebufferSize(glfw_, &framebuffer_width, &framebuffer_height);
-  return { static_cast<std::uint32_t>(framebuffer_width), static_cast<std::uint32_t>(framebuffer_height) };
-}
-
-auto window::create_swapchain() -> status
-{
-  auto const [framebuffer_width, framebuffer_height] = framebuffer_size();
   if (!swapchain_.has_value()) {
     auto outcome = try_sync_wait(swapchain::create(*ctx_,
       swapchain_create_info{
         .surface = surface_,
-        .width = framebuffer_width,
-        .height = framebuffer_height,
+        .width = cfg_.width,
+        .height = cfg_.height,
       }));
     if (outcome.error.has_value()) { return fail(std::move(*outcome.error)); }
     if (outcome.stopped || !outcome.values.has_value()) { return fail(errc::cancelled, "swapchain create stopped"); }
     swapchain_.emplace(detail::take_sync_value(std::move(*outcome.values)));
-  } else if (auto recreated = swapchain_->recreate(framebuffer_width, framebuffer_height); !recreated) {
+  } else if (auto recreated = swapchain_->recreate(cfg_.width, cfg_.height); !recreated) {
     return fail(recreated);
   }
   return create_swapchain_sync();
 }
 
-auto window::create_render_pass() -> status
+auto presenter::create_render_pass() -> status
 {
   if (depth_format_ == VK_FORMAT_UNDEFINED) {
     auto format = pick_depth_format(ctx_->physical_device());
@@ -376,7 +284,7 @@ auto window::create_render_pass() -> status
   return {};
 }
 
-auto window::create_depth_resources() -> status
+auto presenter::create_depth_resources() -> status
 {
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   VkImageCreateInfo image_info{};
@@ -418,7 +326,7 @@ auto window::create_depth_resources() -> status
   return {};
 }
 
-auto window::destroy_depth_resources() noexcept -> void
+auto presenter::destroy_depth_resources() noexcept -> void
 {
   if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) { return; }
   if (depth_view_ != VK_NULL_HANDLE) {
@@ -432,7 +340,7 @@ auto window::destroy_depth_resources() noexcept -> void
   }
 }
 
-auto window::create_framebuffers() -> status
+auto presenter::create_framebuffers() -> status
 {
   if (!swapchain_) { return fail(errc::invalid_argument, "create_framebuffers requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
@@ -458,7 +366,7 @@ auto window::create_framebuffers() -> status
   return {};
 }
 
-auto window::create_frame_resources() -> status
+auto presenter::create_frame_resources() -> status
 {
   frames_.resize(static_cast<std::size_t>(k_frames));
   command_buffers_.resize(static_cast<std::size_t>(k_frames));
@@ -487,7 +395,7 @@ auto window::create_frame_resources() -> status
   return {};
 }
 
-auto window::create_swapchain_sync() -> status
+auto presenter::create_swapchain_sync() -> status
 {
   if (!swapchain_) { return fail(errc::invalid_argument, "create_swapchain_sync requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
@@ -508,7 +416,7 @@ auto window::create_swapchain_sync() -> status
   return {};
 }
 
-auto window::destroy_swapchain_sync() noexcept -> void
+auto presenter::destroy_swapchain_sync() noexcept -> void
 {
   if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) {
     render_finished_.clear();
@@ -522,7 +430,7 @@ auto window::destroy_swapchain_sync() noexcept -> void
   images_in_flight_.clear();
 }
 
-auto window::cleanup_swapchain() -> void
+auto presenter::cleanup_swapchain() -> void
 {
   destroy_swapchain_sync();
   for (VkFramebuffer framebuffer : framebuffers_) {
@@ -533,21 +441,29 @@ auto window::cleanup_swapchain() -> void
   swapchain_.reset();
 }
 
-auto window::recreate_swapchain() -> status
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+auto presenter::resize(std::uint32_t width, std::uint32_t height) -> status
 {
-  if (!headless_) {
-    int width = 0;
-    int height = 0;
-    glfwGetFramebufferSize(glfw_, &width, &height);
-    // Block while minimized: a zero-extent swapchain is illegal.
-    while (width == 0 || height == 0) {
-      glfwGetFramebufferSize(glfw_, &width, &height);
-      glfwWaitEvents();
-    }
+  if (frame_open_) { return fail(errc::invalid_argument, "resize called while a frame is open"); }
+  if (width == 0 || height == 0) {
+    suspended_ = true;
+    resize_required_ = true;
+    return {};
   }
+  if (!resize_required_ && !suspended_ && width == cfg_.width && height == cfg_.height) { return {}; }
+  return recreate_swapchain(width, height);
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+auto presenter::recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status
+{
+  cfg_.width = width;
+  cfg_.height = height;
 
   // Idle before destroying framebuffers/views that may still be referenced by in-flight frames.
-  vkDeviceWaitIdle(ctx_->device());
+  if (VkResult const idle = vkDeviceWaitIdle(ctx_->device()); idle != VK_SUCCESS) {
+    return fail(idle, "vkDeviceWaitIdle failed before swapchain recreation");
+  }
 
   for (VkFramebuffer framebuffer : framebuffers_) {
     if (framebuffer != VK_NULL_HANDLE) { vkDestroyFramebuffer(ctx_->device(), framebuffer, nullptr); }
@@ -558,12 +474,15 @@ auto window::recreate_swapchain() -> status
   if (auto swapchain = create_swapchain(); !swapchain) { return fail(swapchain); }
   if (auto depth = create_depth_resources(); !depth) { return fail(depth); }
   if (auto framebuffers = create_framebuffers(); !framebuffers) { return fail(framebuffers); }
+  suspended_ = false;
+  resize_required_ = false;
   return {};
 }
 
-auto window::begin_frame() -> result<std::optional<frame>>
+auto presenter::begin_frame() -> result<std::optional<frame>>
 {
   if (frame_open_) { return fail(errc::invalid_argument, "begin_frame called while a frame is already open"); }
+  if (suspended_ || resize_required_) { return std::optional<frame>{}; }
   if (!swapchain_) { return fail(errc::invalid_argument, "begin_frame requires a swapchain"); }
   swapchain &active_swapchain = *swapchain_;
 
@@ -576,8 +495,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
   auto acquired = active_swapchain.acquire_next_image(sync.image_available);
   if (!acquired) { return fail(acquired); }
   if (!acquired->has_value()) {
-    // OUT_OF_DATE / SUBOPTIMAL: recreate and ask the caller to retry next loop.
-    if (auto recreated = recreate_swapchain(); !recreated) { return fail(recreated); }
+    resize_required_ = true;
     return std::optional<frame>{};
   }
   std::uint32_t const image_index = **acquired;
@@ -611,7 +529,7 @@ auto window::begin_frame() -> result<std::optional<frame>>
   };
 }
 
-auto window::end_frame(frame const &drawn) -> result<VkFence>
+auto presenter::end_frame(frame const &drawn) -> result<VkFence>
 {
   if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
   if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }
@@ -639,14 +557,9 @@ auto window::end_frame(frame const &drawn) -> result<VkFence>
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
   auto present_result = active_swapchain.present(current_image_index_, wait_semaphores);
   if (!present_result) { return fail(present_result); }
-  bool const needs_recreate = !*present_result || framebuffer_resized_;
-  if (needs_recreate) {
-    // Recreate after present so the returned fence still refers to this frame's submit.
-    framebuffer_resized_ = false;
-    if (auto recreated = recreate_swapchain(); !recreated) { return fail(recreated); }
-  }
+  if (!*present_result) { resize_required_ = true; }
 
-  // Caller may enqueue_borrowed_fence_wait on this fence; window retains ownership.
+  // Caller may enqueue_borrowed_fence_wait on this fence; presenter retains ownership.
   VkFence submitted = sync.in_flight;
   frame_index_ = (frame_index_ + 1) % static_cast<std::uint32_t>(k_frames);
   frame_open_ = false;

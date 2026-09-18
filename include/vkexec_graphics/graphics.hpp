@@ -29,9 +29,9 @@ class mesh;
  *
  * Thin owning wrapper over `graphics_pipeline_resources` plus an optional retained
  * descriptor set for storage buffers passed at create time. Compatible with a
- * `window` render pass. Use `draw` / `record_draw` inside a begun frame.
+ * `presenter` render pass. Use `draw` / `record_draw` inside a begun frame.
  *
- * @see window, mesh, draw, create_graphics_resources
+ * @see presenter, mesh, draw, create_graphics_resources
  */
 class graphics_pipeline
 {
@@ -40,7 +40,7 @@ public:
    * Creates a graphics pipeline from SPIR-V with an explicit config.
    *
    * @param ctx Context that owns the device.
-   * @param render_pass Compatible render pass (typically from `window`).
+   * @param render_pass Compatible render pass (typically from `presenter`).
    * @param cfg Topology, blending, clears, depth, mesh vertex layout.
    * @param vertex_spirv Vertex shader SPIR-V.
    * @param fragment_spirv Fragment shader SPIR-V.
