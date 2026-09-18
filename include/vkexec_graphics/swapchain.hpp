@@ -42,6 +42,7 @@ struct swapchain_create_info
   VkFormat preferred_format{ VK_FORMAT_B8G8R8A8_SRGB };
   VkColorSpaceKHR preferred_color_space{ VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
   VkPresentModeKHR present_mode{ VK_PRESENT_MODE_FIFO_KHR };
+  VkSwapchainCreateFlagsKHR flags{ 0 };
 };
 
 /**
@@ -128,6 +129,7 @@ private:
   VkFormat preferred_format_{ VK_FORMAT_B8G8R8A8_SRGB };
   VkColorSpaceKHR preferred_color_space_{ VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
   VkPresentModeKHR present_mode_{ VK_PRESENT_MODE_FIFO_KHR };
+  VkSwapchainCreateFlagsKHR create_flags_{ 0 };
 
   vkb::Swapchain swapchain_{};
   VkFormat format_{ VK_FORMAT_B8G8R8A8_SRGB };

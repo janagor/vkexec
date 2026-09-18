@@ -34,6 +34,7 @@ auto swapchain::create(context &ctx, swapchain_create_info info) -> detail::sync
     created.preferred_format_ = info.preferred_format;
     created.preferred_color_space_ = info.preferred_color_space;
     created.present_mode_ = info.present_mode;
+    created.create_flags_ = info.flags;
     if (auto created_swapchain = created.create_or_recreate(info.width, info.height); !created_swapchain) {
       return fail(created_swapchain);
     }
@@ -46,8 +47,8 @@ swapchain::~swapchain() { destroy(); }
 swapchain::swapchain(swapchain &&other) noexcept
   : ctx_(other.ctx_), surface_(other.surface_), preferred_format_(other.preferred_format_),
     preferred_color_space_(other.preferred_color_space_), present_mode_(other.present_mode_),
-    swapchain_(other.swapchain_), format_(other.format_), extent_(other.extent_), images_(std::move(other.images_)),
-    views_(std::move(other.views_))
+    create_flags_(other.create_flags_), swapchain_(other.swapchain_), format_(other.format_), extent_(other.extent_),
+    images_(std::move(other.images_)), views_(std::move(other.views_))
 {
   other.ctx_ = nullptr;
   other.surface_ = VK_NULL_HANDLE;
@@ -63,6 +64,7 @@ auto swapchain::operator=(swapchain &&other) noexcept -> swapchain &
   preferred_format_ = other.preferred_format_;
   preferred_color_space_ = other.preferred_color_space_;
   present_mode_ = other.present_mode_;
+  create_flags_ = other.create_flags_;
   swapchain_ = other.swapchain_;
   format_ = other.format_;
   extent_ = other.extent_;
@@ -126,6 +128,7 @@ auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) ->
                    .set_desired_format({ .format = preferred_format_, .colorSpace = preferred_color_space_ })
                    .set_desired_present_mode(present_mode_)
                    .set_desired_extent(width, height)
+                   .set_create_flags(static_cast<VkSwapchainCreateFlagBitsKHR>(create_flags_))
                    .set_old_swapchain(old_swapchain);
 
   auto const built = builder.build();

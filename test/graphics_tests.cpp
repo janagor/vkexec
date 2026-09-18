@@ -35,6 +35,16 @@ TEST_CASE("present_options carries an extension-neutral pNext chain", "[vkexec][
   REQUIRE(options.p_next == &present_id);
 }
 
+TEST_CASE("swapchain create info carries Vulkan create flags", "[vkexec][graphics]")
+{
+  vkexec::swapchain_create_info const defaults{};
+  REQUIRE(defaults.flags == 0);
+
+  vkexec::swapchain_create_info configured{};
+  configured.flags = VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR;
+  REQUIRE(configured.flags == VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR);
+}
+
 TEST_CASE("make_clear_values maps pipeline config to Vulkan clears", "[vkexec][graphics]")
 {
   vkexec::graphics_pipeline_config cfg{};
