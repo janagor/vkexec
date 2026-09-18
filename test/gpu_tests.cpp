@@ -8,6 +8,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/descriptor_table_backend.hpp>
+#include <vkexec/detail/lower_and_bind_push.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
@@ -23,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -161,18 +163,30 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
       .resource = { .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float) } },
     vkexec::resource_binding{ .slot = 1,
       .resource = { .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float) } });
-  auto lowered = vkexec::detail::set_descriptor_backend::lower(
-    *ctx, resources, table, vkexec::detail::empty_table_lower_env{});
+  auto cmd_result = ctx->allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  auto *cmd = vkexec::expected_take(cmd_result);
+  VkCommandBufferBeginInfo begin{};
+  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
+
+  sim_params const params{ .dt = k_timestep, .damping = k_damping };
+  auto const push = std::as_bytes(std::span{ &params, 1 });
+  auto lowered = vkexec::detail::lower_and_bind_push<vkexec::detail::set_descriptor_backend>(*ctx,
+    cmd,
+    VK_PIPELINE_BIND_POINT_COMPUTE,
+    resources,
+    table,
+    vkexec::detail::empty_table_lower_env{},
+    push);
   REQUIRE(lowered.has_value());
   VkDescriptorSet set = vkexec::expected_take(lowered);
   REQUIRE(set != VK_NULL_HANDLE);
-  auto const bound = vkexec::detail::set_descriptor_backend::make_bind(resources, set);
-
-  sim_params const params{ .dt = k_timestep, .damping = k_damping };
-  auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_count)));
-  REQUIRE(vkexec::test::sync_wait_completed(waited));
+  auto const groups = vkexec::dispatch_groups_for(static_cast<std::uint32_t>(k_count), k_local_size);
+  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
+  REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
+  REQUIRE(ctx->submit_and_wait(cmd));
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;
@@ -182,6 +196,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
   vkexec::detail::set_descriptor_backend::release(*ctx, resources, set);
+  ctx->free_command_buffer(cmd);
   vkexec::destroy_compute_resources(*ctx, resources);
 }
 

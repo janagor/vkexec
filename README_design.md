@@ -73,6 +73,17 @@ headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA.
 * `vkexec` — compute runtime (`context`, `buffer`, `compute_pipeline`, `compute_pass`)
 * `vkexec_graphics` — backend-neutral presenter, graphics pipelines, and `draw` senders
 
+## Descriptor strategies
+
+`resource_table` is a core, heap-agnostic bag of logical storage-buffer bindings. A
+`descriptor_table_backend` lowers that bag into a backend-specific bound value and
+environment: descriptor sets use an empty core environment, while descriptor-heap
+indices and mapped bytes remain in the extension-only `heap_table_lower_env`.
+
+This table-lowering concept is intentionally separate from Phase 1's
+`descriptor_backend`, which owns pipeline layout/flags and command recording.
+`lower_and_bind_push` composes both concepts without adding heap knowledge to core.
+
 ## Testing
 
 * `test/tests.cpp` — Catch2 unit tests.

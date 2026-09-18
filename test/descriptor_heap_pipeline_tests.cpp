@@ -3,14 +3,18 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/lower_and_bind_push.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/resource_table.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 
 #include <stdexec/execution.hpp>
@@ -18,6 +22,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -162,11 +167,31 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
   REQUIRE(resources.set_layout == VK_NULL_HANDLE);
   REQUIRE(resources.descriptor_pool == VK_NULL_HANDLE);
 
+  auto cmd_result = ctx->allocate_command_buffer();
+  REQUIRE(cmd_result.has_value());
+  auto *cmd = vkexec::expected_take(cmd_result);
+  VkCommandBufferBeginInfo begin{};
+  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+  REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
+
   heap_push const params{ .count = k_work_count };
-  auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_heap_pass(vkexec::bind_heap(resources), params, vkexec::groups_for(resources, k_work_count)));
-  REQUIRE(vkexec::test::sync_wait_completed(waited));
+  auto const push = std::as_bytes(std::span{ &params, 1 });
+  auto lowered = vkexec::detail::lower_and_bind_push<vkexec::detail::heap_descriptor_backend>(*ctx,
+    cmd,
+    VK_PIPELINE_BIND_POINT_COMPUTE,
+    resources,
+    vkexec::resource_table{},
+    vkexec::heap_table_lower_env{},
+    push);
+  REQUIRE(lowered.has_value());
+  auto const map = vkexec::expected_take(lowered);
+  auto const groups = vkexec::groups_for(resources, k_work_count);
+  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
+  REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
+  REQUIRE(ctx->submit_and_wait(cmd));
+  vkexec::detail::heap_descriptor_backend::release(*ctx, resources, map);
+  ctx->free_command_buffer(cmd);
 
   vkexec::destroy_heap_compute_resources(*ctx, resources);
 }
