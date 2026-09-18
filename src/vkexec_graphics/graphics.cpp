@@ -40,6 +40,9 @@ namespace {
     VkShaderModule frag_module) -> result<VkPipeline>
   // NOLINTEND(bugprone-easily-swappable-parameters)
   {
+    VkPipelineCreateFlags2CreateInfo flags_info{};
+    flags_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
+    flags_info.flags = detail::set_descriptor_backend::pipeline_create_flags();
     static constexpr std::size_t k_graphics_stage_count = 2;
     // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
     std::array<VkPipelineShaderStageCreateInfo, k_graphics_stage_count> stages{};
@@ -135,6 +138,7 @@ namespace {
 
     VkGraphicsPipelineCreateInfo gpci{};
     gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    gpci.pNext = flags_info.flags == 0 ? nullptr : &flags_info;
     gpci.stageCount = static_cast<std::uint32_t>(stages.size());
     gpci.pStages = stages.data();
     gpci.pVertexInputState = &vertex_input;
@@ -184,13 +188,7 @@ auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources 
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
-  if (resources.pipeline_layout != VK_NULL_HANDLE) {
-    vkDestroyPipelineLayout(device, resources.pipeline_layout, nullptr);
-  }
-  if (resources.descriptor_pool != VK_NULL_HANDLE) {
-    vkDestroyDescriptorPool(device, resources.descriptor_pool, nullptr);
-  }
-  if (resources.set_layout != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, resources.set_layout, nullptr); }
+  detail::set_descriptor_backend::destroy_binding_objects(device, resources);
   resources = {};
 }
 
@@ -210,37 +208,27 @@ auto create_graphics_resources(context &ctx,
   owned.binding_count = storage_binding_count;
   VkDevice device = ctx.device();
 
-  if (storage_binding_count > 0) {
-    std::vector<VkDescriptorSetLayoutBinding> bindings(storage_binding_count);
-    for (std::uint32_t index = 0; index < storage_binding_count; ++index) {
-      bindings.at(index).binding = index;
-      bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      bindings.at(index).descriptorCount = 1;
-      bindings.at(index).stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    }
-    VkDescriptorSetLayoutCreateInfo dslci{};
-    dslci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    dslci.bindingCount = storage_binding_count;
-    dslci.pBindings = bindings.data();
-    if (VkResult const result = vkCreateDescriptorSetLayout(device, &dslci, nullptr, &owned.set_layout);
-      result != VK_SUCCESS) {
-      return fail(result, "vkCreateDescriptorSetLayout failed (graphics)");
-    }
-
-    VkDescriptorPoolSize pool_size{};
-    pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    pool_size.descriptorCount = storage_binding_count * k_graphics_descriptor_sets_per_pool;
-    VkDescriptorPoolCreateInfo dpci{};
-    dpci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    dpci.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    dpci.maxSets = k_graphics_descriptor_sets_per_pool;
-    dpci.poolSizeCount = 1;
-    dpci.pPoolSizes = &pool_size;
-    if (VkResult const result = vkCreateDescriptorPool(device, &dpci, nullptr, &owned.descriptor_pool);
-      result != VK_SUCCESS) {
-      destroy_graphics_resources(ctx, owned);
-      return fail(result, "vkCreateDescriptorPool failed (graphics)");
-    }
+  std::vector<VkDescriptorSetLayoutBinding> bindings(storage_binding_count);
+  for (std::uint32_t index = 0; index < storage_binding_count; ++index) {
+    bindings.at(index).binding = index;
+    bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings.at(index).descriptorCount = 1;
+    bindings.at(index).stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  }
+  detail::descriptor_layout_info const layout_info{ .bindings = bindings,
+    .push_stages = 0,
+    .push_bytes = 0,
+    .sets_per_pool = k_graphics_descriptor_sets_per_pool,
+    .create_set_layout = storage_binding_count > 0,
+    .create_pool = storage_binding_count > 0 };
+  if (auto created = detail::set_descriptor_backend::create_set_and_pipeline_layout(device, owned, layout_info);
+    !created) {
+    destroy_graphics_resources(ctx, owned);
+    return fail(created);
+  }
+  if (auto created = detail::set_descriptor_backend::create_descriptor_pool(device, owned, layout_info); !created) {
+    destroy_graphics_resources(ctx, owned);
+    return fail(created);
   }
 
   auto vert = detail::create_shader_module(device, vertex_spirv);
@@ -256,20 +244,6 @@ auto create_graphics_resources(context &ctx,
     return fail(frag);
   }
   VkShaderModule frag_module = expected_take(frag);
-
-  VkPipelineLayoutCreateInfo plci{};
-  plci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  if (owned.set_layout != VK_NULL_HANDLE) {
-    plci.setLayoutCount = 1;
-    plci.pSetLayouts = &owned.set_layout;
-  }
-  if (VkResult const layout_result = vkCreatePipelineLayout(device, &plci, nullptr, &owned.pipeline_layout);
-    layout_result != VK_SUCCESS) {
-    vkDestroyShaderModule(device, frag_module, nullptr);
-    vkDestroyShaderModule(device, vert_module, nullptr);
-    destroy_graphics_resources(ctx, owned);
-    return fail(layout_result, "vkCreatePipelineLayout failed");
-  }
 
   auto pipeline = build_graphics_pipeline(device, render_pass, cfg, owned.pipeline_layout, vert_module, frag_module);
   vkDestroyShaderModule(device, frag_module, nullptr);

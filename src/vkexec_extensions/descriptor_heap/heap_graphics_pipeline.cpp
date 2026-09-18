@@ -1,6 +1,7 @@
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/shader_module.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
@@ -8,6 +9,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/spirv_compile.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -128,7 +130,7 @@ namespace {
     VkPipelineCreateFlags2CreateInfo flags2{};
     flags2.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
     flags2.pNext = &rendering;
-    flags2.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
+    flags2.flags = detail::heap_descriptor_backend::pipeline_create_flags();
 
     VkGraphicsPipelineCreateInfo gpci{};
     gpci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -161,6 +163,7 @@ auto destroy_heap_graphics_resources(context const &ctx, pipeline_resources &res
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
+  detail::heap_descriptor_backend::destroy_binding_objects(device, resources);
   if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
   resources = {};
 }
@@ -179,6 +182,21 @@ auto create_heap_graphics_resources(context &ctx,
 
   pipeline_resources resources{};
   VkDevice device = ctx.device();
+  detail::descriptor_layout_info const layout_info{ .bindings = {},
+    .push_stages = 0,
+    .push_bytes = 0,
+    .sets_per_pool = detail::k_descriptor_sets_per_pool,
+    .create_set_layout = false,
+    .create_pool = false };
+  if (auto created = detail::heap_descriptor_backend::create_set_and_pipeline_layout(device, resources, layout_info);
+    !created) {
+    return fail(created);
+  }
+  if (auto created = detail::heap_descriptor_backend::create_descriptor_pool(device, resources, layout_info);
+    !created) {
+    destroy_heap_graphics_resources(ctx, resources);
+    return fail(created);
+  }
 
   auto vert_result = detail::create_shader_module(device, vertex_spirv);
   if (!vert_result) { return fail(vert_result); }
