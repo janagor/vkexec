@@ -102,7 +102,7 @@ function(vkexec_setup_dependencies)
       "STDEXEC_ENABLE_IO_URING OFF")
   endif()
 
-  if(NOT TARGET glfw)
+  if(vkexec_BUILD_EXAMPLES AND NOT TARGET glfw)
     cpmaddpackage(
       NAME
       glfw
