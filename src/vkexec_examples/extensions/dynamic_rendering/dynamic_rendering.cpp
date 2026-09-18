@@ -6,7 +6,8 @@
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
 #include <vkexec_graphics/swapchain.hpp>
-#include <vkexec_graphics/window.hpp>
+#include <vkexec_graphics/presenter.hpp>
+#include "../../glfw_presenter.hpp"
 
 #include "../../sync_wait_helpers.hpp"
 
@@ -99,10 +100,10 @@ auto record_swapchain_clear(vkexec::swapchain const &chain,
 
 auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create({ .width = k_window_width,
+  auto win = vkexec::examples::glfw_presenter::create({ .width = k_window_width,
     .height = k_window_height,
     .title = "vkexec dynamic_rendering",
-    .requirements = make_requirements() }));
+    .requirements = make_requirements() });
 
   std::cout << std::format("dynamic_rendering: close the window to exit\n");
 

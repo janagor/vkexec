@@ -4,7 +4,7 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include <vkexec_graphics/window.hpp>
+#include "glfw_presenter.hpp"
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -24,11 +24,10 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  // Window / swapchain stay owning present helpers, like context owns the command pool.
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create({ .width = k_window_width,
+  auto win = vkexec::examples::glfw_presenter::create({ .width = k_window_width,
     .height = k_window_height,
     .title = "vkexec graphics execution",
-    .validation_layers = true }));
+    .validation_layers = true });
 
   auto resources_result = vkexec::create_graphics_resources(win.ctx(),
     win.render_pass(),
@@ -42,7 +41,7 @@ static auto run() -> int
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler())
-                                      | vkexec::draw(win, resources, VK_NULL_HANDLE, k_triangle_vertices));
+                                      | vkexec::draw(win.target(), resources, VK_NULL_HANDLE, k_triangle_vertices));
   }
 
   win.wait_idle();

@@ -3,7 +3,7 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
-#include <vkexec_graphics/window.hpp>
+#include "glfw_presenter.hpp"
 
 #include <stdexec/execution.hpp>
 
@@ -67,8 +67,8 @@ void main() {
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
-    { .width = k_window_width, .height = k_window_height, .title = "vkexec layers", .validation_layers = true }));
+  auto win = vkexec::examples::glfw_presenter::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec layers", .validation_layers = true });
 
   vkexec::graphics_pipeline_config background_cfg{};
   background_cfg.clear_r = k_clear_r;
@@ -89,7 +89,7 @@ static auto run() -> int
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler())
-                                      | vkexec::draw_layers(win,
+                                      | vkexec::draw_layers(win.target(),
                                         {
                                           { .pipeline = &background, .vertex_count = k_fullscreen_vertices },
                                           { .pipeline = &foreground, .vertex_count = k_foreground_vertices },

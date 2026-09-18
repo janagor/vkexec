@@ -27,7 +27,7 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-#include <vkexec_graphics/window.hpp>
+#include <vkexec_graphics/presenter.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -296,7 +296,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
   return !outcome.failed() && outcome.values.has_value() && !outcome.stopped;
 }
 
-auto present_frames(vkexec::window &win, vkexec::graphics_pipeline &pipeline) -> void
+auto present_frames(vkexec::presenter &win, vkexec::graphics_pipeline &pipeline) -> void
 {
   for (std::uint32_t frame = 0; frame < k_present_frames; ++frame) {
     vkexec::examples::sync_wait_graph(
@@ -309,11 +309,12 @@ auto present_frames(vkexec::window &win, vkexec::graphics_pipeline &pipeline) ->
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::headless(vkexec::window::config{
+  auto win = vkexec::examples::sync_wait_value(vkexec::presenter::headless(vkexec::presenter::config{
     .width = k_width,
     .height = k_height,
-    .title = "vkexec heap_present",
-    .headless = true,
+    .validation_layers = false,
+    .surface_instance_extensions = {},
+    .create_surface = {},
     .requirements = make_requirements(),
   }));
 

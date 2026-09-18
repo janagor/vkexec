@@ -9,7 +9,7 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
-#include <vkexec_graphics/window.hpp>
+#include "glfw_presenter.hpp"
 
 #include <vulkan/vulkan_core.h>
 
@@ -103,8 +103,8 @@ struct particle_params
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
-    { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true }));
+  auto win = vkexec::examples::glfw_presenter::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true });
   auto &ctx = win.ctx();
 
   auto pos_x = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(ctx, k_particle_count));
@@ -221,7 +221,8 @@ static auto run() -> int
       ex::schedule(ctx.get_scheduler())
       | vkexec::compute_pass(*compute_bound.pipe, compute_bound.set, params, k_particle_count));
 
-    vkexec::examples::sync_wait_graph(ex::schedule(ctx.get_scheduler()) | vkexec::draw(win, gfx, k_particle_count));
+    vkexec::examples::sync_wait_graph(
+      ex::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), gfx, k_particle_count));
   }
 
   win.wait_idle();

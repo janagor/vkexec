@@ -5,7 +5,7 @@
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/mesh.hpp>
-#include <vkexec_graphics/window.hpp>
+#include "glfw_presenter.hpp"
 
 #include <stdexec/execution.hpp>
 
@@ -50,8 +50,8 @@ void main() {
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::window::create(
-    { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true }));
+  auto win = vkexec::examples::glfw_presenter::create(
+    { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true });
   auto mesh_data = vkexec::examples::sync_wait_value(vkexec::examples::load_gltf_mesh(k_gltf_path));
   auto drawn =
     vkexec::examples::sync_wait_value(vkexec::mesh::create(win.ctx(), mesh_data.vertices, mesh_data.indices));
@@ -66,7 +66,8 @@ static auto run() -> int
   std::cout << std::format("vkexec indexed mesh (gltf: {}) - close the window to exit\n", k_gltf_path);
   while (!win.should_close()) {
     win.poll_events();
-    vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, drawn));
+    vkexec::examples::sync_wait_graph(
+      ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win.target(), pipeline, drawn));
   }
   win.wait_idle();
   return 0;

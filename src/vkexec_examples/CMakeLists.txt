@@ -1,3 +1,6 @@
+add_library(vkexec_examples_glfw INTERFACE)
+target_link_libraries(vkexec_examples_glfw INTERFACE glfw)
+
 add_subdirectory(extensions)
 
 add_executable(compute compute.cpp)
@@ -30,14 +33,16 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
-          vkexec::vkexec_graphics)
+          vkexec::vkexec_graphics
+          vkexec_examples_glfw)
 
 target_link_libraries(
   graphics_execution
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
-          vkexec::vkexec_graphics)
+          vkexec::vkexec_graphics
+          vkexec_examples_glfw)
 
 target_link_libraries(
   heap_present
@@ -53,14 +58,16 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
-          vkexec::vkexec_graphics)
+          vkexec::vkexec_graphics
+          vkexec_examples_glfw)
 
 target_link_libraries(
   layers
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
-          vkexec::vkexec_graphics)
+          vkexec::vkexec_graphics
+          vkexec_examples_glfw)
 
 set(vkexec_mesh_gltf "${CMAKE_CURRENT_SOURCE_DIR}/resources/suzanne_blender_monkey/scene.gltf")
 
@@ -70,6 +77,7 @@ target_link_libraries(
           vkexec::vkexec_warnings
           vkexec::vkexec
           vkexec::vkexec_graphics
+          vkexec_examples_glfw
           tinygltf::tinygltf)
 
 target_compile_definitions(mesh PRIVATE "VKEXEC_MESH_GLTF_PATH=\"${vkexec_mesh_gltf}\"")

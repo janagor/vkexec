@@ -6,6 +6,7 @@ target_link_libraries(
           vkexec::vkexec_warnings
           vkexec::vkexec
           vkexec::ext_dynamic_rendering
-          vkexec::vkexec_graphics)
+          vkexec::vkexec_graphics
+          vkexec_examples_glfw)
 
 vkexec_configure_linker(dynamic_rendering)
