@@ -68,13 +68,15 @@ struct present_acquire_result
  * @param chain Swapchain to present.
  * @param frame Frame from a successful `acquire_present_frame`.
  * @param command_buffers Recorded command buffers to submit.
+ * @param options Optional `VkPresentInfoKHR::pNext` chain.
  * @return `false` when the swapchain must be recreated; `true` on success.
  */
 [[nodiscard]] auto submit_and_present(context &ctx,
   frame_ring &ring,
   swapchain &chain,
   acquired_present_frame const &frame,
-  std::span<VkCommandBuffer const> command_buffers) -> result<bool>;
+  std::span<VkCommandBuffer const> command_buffers,
+  present_options options = {}) -> result<bool>;
 
 }// namespace vkexec
 

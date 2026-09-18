@@ -92,7 +92,8 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
   return image_index;
 }
 
-auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>
+auto swapchain::present(
+  std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores, present_options options) -> result<bool>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "swapchain::present on empty swapchain");
@@ -100,6 +101,7 @@ auto swapchain::present(std::uint32_t image_index, std::span<VkSemaphore const> 
 
   VkPresentInfoKHR present_info{};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  present_info.pNext = options.p_next;
   present_info.waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size());
   present_info.pWaitSemaphores = wait_semaphores.empty() ? nullptr : wait_semaphores.data();
   present_info.swapchainCount = 1;

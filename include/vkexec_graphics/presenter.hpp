@@ -128,8 +128,9 @@ public:
    * fence signalled by the submit (owned by the presenter).
    *
    * @param drawn Frame from a successful `begin_frame`.
+   * @param options Optional `VkPresentInfoKHR::pNext` chain.
    */
-  [[nodiscard]] auto end_frame(frame const &drawn) -> result<VkFence>;
+  [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
 private:
   struct frame_sync

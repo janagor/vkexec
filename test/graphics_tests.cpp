@@ -7,8 +7,10 @@
 #include <vkexec/submit.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
+#include <vkexec_graphics/swapchain.hpp>
 
 #include <stdexec/execution.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <concepts>
 #include <type_traits>
@@ -23,6 +25,15 @@ constexpr float k_clear_b = 0.3F;
 constexpr float k_clear_a = 0.4F;
 
 }// namespace
+
+TEST_CASE("present_options carries an extension-neutral pNext chain", "[vkexec][graphics]")
+{
+  VkPresentIdKHR present_id{};
+  present_id.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
+  vkexec::present_options const options{ .p_next = &present_id };
+
+  REQUIRE(options.p_next == &present_id);
+}
 
 TEST_CASE("make_clear_values maps pipeline config to Vulkan clears", "[vkexec][graphics]")
 {

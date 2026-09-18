@@ -50,7 +50,8 @@ auto submit_and_present(context &ctx,
   frame_ring &ring,
   swapchain &chain,
   acquired_present_frame const &frame,
-  std::span<VkCommandBuffer const> command_buffers) -> result<bool>
+  std::span<VkCommandBuffer const> command_buffers,
+  present_options options) -> result<bool>
 {
   VkQueue submit_queue = ctx.graphics_queue() != VK_NULL_HANDLE ? ctx.graphics_queue() : ctx.present_queue();
   if (submit_queue == VK_NULL_HANDLE) {
@@ -69,7 +70,7 @@ auto submit_and_present(context &ctx,
   auto const finished = ring.render_finished_semaphore(frame.image_index);
   if (!finished) { return fail(finished); }
   std::array<VkSemaphore, 1> const present_waits{ *finished };
-  return chain.present(frame.image_index, present_waits);
+  return chain.present(frame.image_index, present_waits, options);
 }
 
 }// namespace vkexec

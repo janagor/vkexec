@@ -20,6 +20,16 @@
 namespace vkexec {
 
 /**
+ * Optional extension chain for `VkPresentInfoKHR`.
+ *
+ * The pointed chain only needs to remain valid for the duration of `present`.
+ */
+struct present_options
+{
+  void const *p_next{ nullptr };
+};
+
+/**
  * Creation parameters for `swapchain::create`.
  *
  * `surface` is borrowed and never destroyed by the swapchain.
@@ -86,9 +96,12 @@ public:
    *
    * @param image_index Swapchain image index from acquire.
    * @param wait_semaphores Semaphores to wait on before present.
+   * @param options Optional `VkPresentInfoKHR::pNext` chain.
    * @return `false` when the swapchain must be recreated; `true` on success.
    */
-  [[nodiscard]] auto present(std::uint32_t image_index, std::span<VkSemaphore const> wait_semaphores) -> result<bool>;
+  [[nodiscard]] auto present(std::uint32_t image_index,
+    std::span<VkSemaphore const> wait_semaphores,
+    present_options options = {}) -> result<bool>;
 
   //! Vulkan swapchain handle.
   [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR { return swapchain_.swapchain; }

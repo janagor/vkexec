@@ -75,8 +75,8 @@ auto presenter::headless(config cfg) -> detail::sync_sender_fn<presenter>
   auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
   cfg.create_surface = [](VkInstance instance) -> result<VkSurfaceKHR> {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto const create_fn =
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
       reinterpret_cast<PFN_vkCreateHeadlessSurfaceEXT>(vkGetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
     if (create_fn == nullptr) { return fail(errc::unsupported, "vkCreateHeadlessSurfaceEXT not available"); }
 
@@ -529,7 +529,7 @@ auto presenter::begin_frame() -> result<std::optional<frame>>
   };
 }
 
-auto presenter::end_frame(frame const &drawn) -> result<VkFence>
+auto presenter::end_frame(frame const &drawn, present_options options) -> result<VkFence>
 {
   if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
   if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }
@@ -555,7 +555,7 @@ auto presenter::end_frame(frame const &drawn) -> result<VkFence>
   }
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
-  auto present_result = active_swapchain.present(current_image_index_, wait_semaphores);
+  auto present_result = active_swapchain.present(current_image_index_, wait_semaphores, options);
   if (!present_result) { return fail(present_result); }
   if (!*present_result) { resize_required_ = true; }
 
