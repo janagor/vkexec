@@ -7,6 +7,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <concepts>
+#include <cstddef>
 #include <utility>
 
 namespace {
@@ -41,4 +42,20 @@ TEST_CASE("descriptor_schema builds an ordered resource_table", "[vkexec][descri
   REQUIRE(table.entries().front().resource.byte_size == 64);
   REQUIRE(table.entries().back().slot == velocities::slot);
   REQUIRE(table.entries().back().resource.byte_size == 128);
+}
+
+TEST_CASE("descriptor_schema derives explicit compute layout slots", "[vkexec][descriptor_schema]")
+{
+  constexpr std::size_t k_push_bytes = 16;
+  auto const layout = vkexec::layout_desc_from_schema(sim_schema{}, k_push_bytes, { 32, 2, 1 });
+
+  REQUIRE(layout.bindings.size() == sim_schema::binding_count);
+  REQUIRE(layout.bindings.front() == vkexec::buffer_access::readwrite);
+  REQUIRE(layout.bindings.back() == vkexec::buffer_access::readonly);
+  REQUIRE(layout.binding_slots.front() == positions::slot);
+  REQUIRE(layout.binding_slots.back() == velocities::slot);
+  REQUIRE(layout.push_constant_size == k_push_bytes);
+  REQUIRE(layout.local_size.at(0) == 32);
+  REQUIRE(layout.local_size.at(1) == 2);
+  REQUIRE(layout.local_size.at(2) == 1);
 }

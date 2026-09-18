@@ -24,11 +24,15 @@
 namespace vkexec {
 namespace {
 
-  auto make_compute_bindings(std::size_t count) -> std::vector<VkDescriptorSetLayoutBinding>
+  auto make_compute_bindings(layout_desc const &desc) -> result<std::vector<VkDescriptorSetLayoutBinding>>
   {
-    std::vector<VkDescriptorSetLayoutBinding> layout_bindings(count);
-    for (std::uint32_t index = 0; index < count; ++index) {
-      layout_bindings.at(index).binding = index;
+    if (!desc.binding_slots.empty() && desc.binding_slots.size() != desc.bindings.size()) {
+      return fail(errc::invalid_argument, "layout_desc binding_slots must match bindings");
+    }
+    std::vector<VkDescriptorSetLayoutBinding> layout_bindings(desc.bindings.size());
+    for (std::size_t index = 0; index < desc.bindings.size(); ++index) {
+      layout_bindings.at(index).binding =
+        desc.binding_slots.empty() ? static_cast<std::uint32_t>(index) : desc.binding_slots.at(index);
       layout_bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
       layout_bindings.at(index).descriptorCount = 1;
       layout_bindings.at(index).stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -44,7 +48,7 @@ auto destroy_compute_resources(context const &ctx, pipeline_resources &resources
 auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<pipeline_resources>
 {
-  auto const layout_bindings = make_compute_bindings(desc.bindings.size());
+  VKEXEC_TRY_ASSIGN(layout_bindings, make_compute_bindings(desc));
   detail::compute_create_info const info{ .bindings = layout_bindings,
     .push_bytes = desc.push_constant_size,
     .specialization = desc.specialization,

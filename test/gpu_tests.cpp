@@ -6,6 +6,7 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/descriptor_schema.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/descriptor_table_backend.hpp>
 #include <vkexec/detail/lower_and_bind_push.hpp>
@@ -82,9 +83,12 @@ struct pass_params
   float value;
 };
 
+using sim_schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>, vkexec::storage_buffer<1>>;
+
 auto make_one_buffer_layout() -> vkexec::layout_desc
 {
   return vkexec::layout_desc{
+    .binding_slots = {},
     .bindings = { vkexec::buffer_access::readwrite },
     .push_constant_size = sizeof(pass_params),
     .specialization = {},
@@ -95,6 +99,7 @@ auto make_one_buffer_layout() -> vkexec::layout_desc
 auto make_sim_layout() -> vkexec::layout_desc
 {
   return vkexec::layout_desc{
+    .binding_slots = {},
     .bindings = { vkexec::buffer_access::readwrite, vkexec::buffer_access::readwrite },
     .push_constant_size = sizeof(sim_params),
     .specialization = {},
@@ -154,15 +159,16 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   auto positions = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, 0.0F));
   auto velocities = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_initial_velocity));
 
-  auto resources_result = vkexec::create_compute_resources(*ctx, k_sim_glsl, make_sim_layout(), "sim_execution.comp");
+  auto resources_result = vkexec::create_compute_resources(*ctx,
+    k_sim_glsl,
+    vkexec::layout_desc_from_schema(sim_schema{}, sizeof(sim_params), { k_local_size, 1, 1 }),
+    "sim_execution.comp");
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
 
-  auto const table = vkexec::bindings(
-    vkexec::resource_binding{ .slot = 0,
-      .resource = { .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float) } },
-    vkexec::resource_binding{ .slot = 1,
-      .resource = { .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float) } });
+  auto const table = vkexec::make_resource_table(sim_schema{},
+    vkexec::resource_ref{ .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float) },
+    vkexec::resource_ref{ .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float) });
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
   auto *cmd = vkexec::expected_take(cmd_result);

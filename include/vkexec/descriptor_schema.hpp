@@ -70,6 +70,19 @@ struct descriptor_schema
   static constexpr std::size_t binding_count = sizeof...(Entries);
 };
 
+//! Derives a classic compute layout from a schema's slots and access modes.
+template<class... Entries>
+[[nodiscard]] auto layout_desc_from_schema(descriptor_schema<Entries...> /*schema*/,
+  std::size_t push_constant_size = 0,
+  std::array<std::uint32_t, 3> local_size = k_default_local_size) -> layout_desc
+{
+  return layout_desc{ .binding_slots = { Entries::slot... },
+    .bindings = { Entries::access... },
+    .push_constant_size = push_constant_size,
+    .specialization = {},
+    .local_size = local_size };
+}
+
 //! Builds a resource table whose logical slots come from `schema`.
 template<class... Entries, class... Resources>
   requires(sizeof...(Entries) == sizeof...(Resources))

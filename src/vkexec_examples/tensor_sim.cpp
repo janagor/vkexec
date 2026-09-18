@@ -75,6 +75,7 @@ static auto run() -> int
   auto resources_result = vkexec::create_compute_resources(*ctx,
     k_sim_glsl,
     vkexec::layout_desc{
+      .binding_slots = {},
       .bindings = { readwrite, readwrite },
       .push_constant_size = sizeof(sim_params),
       .specialization = {},

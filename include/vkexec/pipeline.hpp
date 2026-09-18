@@ -48,11 +48,14 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
 /**
  * Descriptor and push-constant layout for a compute pipeline.
  *
- * Binding index is the position in `bindings` (0, 1, …). `specialization` and
- * `local_size` feed shader specialization constants when compiling / creating.
+ * Binding index is the position in `bindings` (0, 1, …) unless `binding_slots`
+ * supplies explicit indices. `specialization` and `local_size` feed shader
+ * specialization constants when compiling / creating.
  */
 struct layout_desc
 {
+  //! Optional explicit descriptor binding index for each entry in `bindings`.
+  std::vector<std::uint32_t> binding_slots;
   //! Binding index is the position in this list (0, 1, ...).
   std::vector<buffer_access> bindings;
   std::size_t push_constant_size{ 0 };
