@@ -6,9 +6,12 @@
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/descriptor_backend.hpp>
+#include <vkexec/detail/descriptor_table_backend.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/submit.hpp>
 
 #include <stdexec/execution.hpp>
@@ -153,17 +156,17 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
 
-  std::array const bindings{
-    vkexec::storage_binding{ .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float), .binding = 0 },
-    vkexec::storage_binding{ .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float), .binding = 1 },
-  };
-  auto bound_result = vkexec::bind_storage(*ctx, resources, bindings);
-  REQUIRE(bound_result.has_value());
-  auto bound = vkexec::expected_take(bound_result);
-  REQUIRE(bound.pipe == &resources);
-  REQUIRE(bound.set != VK_NULL_HANDLE);
-  REQUIRE(bindings.at(0).binding == 0);
-  REQUIRE(bindings.at(1).binding == 1);
+  auto const table = vkexec::bindings(
+    vkexec::resource_binding{ .slot = 0,
+      .resource = { .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float) } },
+    vkexec::resource_binding{ .slot = 1,
+      .resource = { .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float) } });
+  auto lowered = vkexec::detail::set_descriptor_backend::lower(
+    *ctx, resources, table, vkexec::detail::empty_table_lower_env{});
+  REQUIRE(lowered.has_value());
+  VkDescriptorSet set = vkexec::expected_take(lowered);
+  REQUIRE(set != VK_NULL_HANDLE);
+  auto const bound = vkexec::detail::set_descriptor_backend::make_bind(resources, set);
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto waited = vkexec::test::sync_wait_sender(
@@ -178,7 +181,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   REQUIRE(std::fabs(velocities.data()[0] - expected_v) <= k_epsilon);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-  vkexec::free_compute_set(*ctx, resources, bound.set);
+  vkexec::detail::set_descriptor_backend::release(*ctx, resources, set);
   vkexec::destroy_compute_resources(*ctx, resources);
 }
 

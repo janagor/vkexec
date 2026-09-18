@@ -208,14 +208,14 @@ auto create_graphics_resources(context &ctx,
   owned.binding_count = storage_binding_count;
   VkDevice device = ctx.device();
 
-  std::vector<VkDescriptorSetLayoutBinding> bindings(storage_binding_count);
+  std::vector<VkDescriptorSetLayoutBinding> layout_bindings(storage_binding_count);
   for (std::uint32_t index = 0; index < storage_binding_count; ++index) {
-    bindings.at(index).binding = index;
-    bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings.at(index).descriptorCount = 1;
-    bindings.at(index).stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layout_bindings.at(index).binding = index;
+    layout_bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    layout_bindings.at(index).descriptorCount = 1;
+    layout_bindings.at(index).stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   }
-  detail::descriptor_layout_info const layout_info{ .bindings = bindings,
+  detail::descriptor_layout_info const layout_info{ .bindings = layout_bindings,
     .push_stages = 0,
     .push_bytes = 0,
     .sets_per_pool = k_graphics_descriptor_sets_per_pool,

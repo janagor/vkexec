@@ -26,14 +26,14 @@ namespace {
 
   auto make_compute_bindings(std::size_t count) -> std::vector<VkDescriptorSetLayoutBinding>
   {
-    std::vector<VkDescriptorSetLayoutBinding> bindings(count);
+    std::vector<VkDescriptorSetLayoutBinding> layout_bindings(count);
     for (std::uint32_t index = 0; index < count; ++index) {
-      bindings.at(index).binding = index;
-      bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-      bindings.at(index).descriptorCount = 1;
-      bindings.at(index).stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+      layout_bindings.at(index).binding = index;
+      layout_bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      layout_bindings.at(index).descriptorCount = 1;
+      layout_bindings.at(index).stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     }
-    return bindings;
+    return layout_bindings;
   }
 
 }// namespace
@@ -44,8 +44,8 @@ auto destroy_compute_resources(context const &ctx, pipeline_resources &resources
 auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
   -> result<pipeline_resources>
 {
-  auto const bindings = make_compute_bindings(desc.bindings.size());
-  detail::compute_create_info const info{ .bindings = bindings,
+  auto const layout_bindings = make_compute_bindings(desc.bindings.size());
+  detail::compute_create_info const info{ .bindings = layout_bindings,
     .push_bytes = desc.push_constant_size,
     .specialization = desc.specialization,
     .local_size = desc.local_size };

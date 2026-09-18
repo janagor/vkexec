@@ -2,6 +2,7 @@
 #define VKEXEC_DETAIL_DESCRIPTOR_BACKEND_HPP
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/descriptor_table_backend.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -14,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace vkexec::detail {
 
@@ -48,6 +50,9 @@ concept descriptor_backend = requires(context const *ctx,
 
 struct set_descriptor_backend
 {
+  using bound_type = VkDescriptorSet;
+  using lower_env = empty_table_lower_env;
+
   [[nodiscard]] static constexpr auto pipeline_create_flags() noexcept -> VkPipelineCreateFlags2 { return 0; }
 
   template<class Resources>
@@ -146,9 +151,37 @@ struct set_descriptor_backend
     }
     return {};
   }
+
+  [[nodiscard]] static auto lower(context &ctx,
+    pipeline_resources const &pipe,
+    resource_table const &table,
+    lower_env const & /*env*/) -> result<bound_type>
+  {
+    if (table.size() != pipe.binding_count) {
+      return fail(errc::invalid_argument, "resource_table size must match pipeline binding count");
+    }
+    auto allocated = allocate_compute_set(ctx, pipe);
+    if (!allocated) { return fail(allocated); }
+    bound_type const set = expected_take(allocated);
+    std::vector<storage_binding> buffers(table.size());
+    std::ranges::transform(table.entries(), buffers.begin(), [](resource_binding const &entry) -> storage_binding {
+      return storage_binding{ .buffer = entry.resource.buffer,
+        .byte_size = entry.resource.byte_size,
+        .binding = entry.slot };
+    });
+    write_storage_descriptors(ctx.device(), set, buffers);
+    return set;
+  }
+
+  [[nodiscard]] static auto make_bind(pipeline_resources const &pipe, bound_type bound) -> compute_bind
+  { return bind_compute(pipe, bound); }
+
+  static auto release(context &ctx, pipeline_resources const &pipe, bound_type bound) -> void
+  { free_compute_set(ctx, pipe, bound); }
 };
 
 static_assert(descriptor_backend<set_descriptor_backend>);
+static_assert(descriptor_table_backend<set_descriptor_backend>);
 
 }// namespace vkexec::detail
 
