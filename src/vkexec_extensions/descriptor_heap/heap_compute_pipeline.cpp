@@ -1,16 +1,13 @@
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/compute_specialization.hpp>
-#include <vkexec/detail/shader_module.hpp>
+#include <vkexec/detail/compute_create.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/spirv_compile.hpp>
-
-#include <vulkan/vulkan_core.h>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -18,66 +15,19 @@
 #include <string>
 
 namespace vkexec {
-namespace {
-
-  auto create_heap_vk_pipeline(VkDevice device, VkShaderModule shader, VkSpecializationInfo const *specialization)
-    -> result<VkPipeline>
-  {
-    VkPipelineCreateFlags2CreateInfo flags2{};
-    flags2.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;
-    flags2.flags = VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT;
-
-    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
-    VkComputePipelineCreateInfo compute_info{};
-    compute_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    compute_info.pNext = &flags2;
-    compute_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    compute_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    compute_info.stage.module = shader;
-    compute_info.stage.pName = "main";
-    compute_info.stage.pSpecializationInfo = specialization;
-    compute_info.layout = VK_NULL_HANDLE;
-    VkPipeline pipeline{ VK_NULL_HANDLE };
-    VkResult const create_result =
-      vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &compute_info, nullptr, &pipeline);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateComputePipelines failed"); }
-    return pipeline;
-  }
-
-}// namespace
-
 auto destroy_heap_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void
-{
-  VkDevice device = ctx.device();
-  if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
-  if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
-  resources = {};
-}
+{ detail::destroy_compute_resources_with<detail::heap_descriptor_backend>(ctx, resources); }
 
 auto create_heap_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
   -> result<pipeline_resources>
 {
-  if (spirv.empty()) { return fail(errc::invalid_argument, "create_heap_compute_resources requires non-empty SPIR-V"); }
-
-  pipeline_resources resources{};
-  resources.local_size = desc.local_size;
-
-  // Same constantID = index convention as classic compute_pipeline.
-  auto const specialization = detail::make_uint32_specialization(desc.specialization);
-
-  VkDevice device = ctx.device();
-  auto shader_result = detail::create_shader_module(device, spirv);
-  if (!shader_result) { return fail(shader_result); }
-  resources.shader = expected_take(shader_result);
-
-  auto pipeline_result = create_heap_vk_pipeline(device, resources.shader, specialization.get());
-  if (!pipeline_result) {
-    destroy_heap_compute_resources(ctx, resources);
-    return fail(pipeline_result);
-  }
-  resources.pipeline = expected_take(pipeline_result);
-
-  return resources;
+  detail::compute_create_info const info{ .bindings = {},
+    .push_bytes = 0,
+    .specialization = desc.specialization,
+    .local_size = desc.local_size,
+    .create_binding_objects = false };
+  return detail::create_compute_resources_with<detail::heap_descriptor_backend>(
+    ctx, spirv, info, "create_heap_compute_resources requires non-empty SPIR-V");
 }
 
 auto create_heap_compute_resources(context &ctx,
