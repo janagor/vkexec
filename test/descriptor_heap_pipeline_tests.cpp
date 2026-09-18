@@ -4,13 +4,16 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/lower_and_bind_push.hpp>
+#include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
+#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/resource_table.hpp>
@@ -20,6 +23,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -31,6 +35,7 @@ namespace ex = stdexec;
 namespace {
 
 constexpr std::uint32_t k_work_count = 64;
+constexpr VkDeviceSize k_storage_bytes = 256;
 
 constexpr std::string_view k_heap_compute_glsl = R"(#version 460
 layout(local_size_x = 64) in;
@@ -145,6 +150,10 @@ TEST_CASE("dispatch_heap aliases compute_heap_pass for heap_algorithm", "[vkexec
 
 TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexec][descriptor_heap][gpu][execution]")
 {
+  VkPhysicalDeviceVulkan12Features features_12{};
+  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+  features_12.bufferDeviceAddress = VK_TRUE;
+
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
   features_heap.descriptorHeap = VK_TRUE;
@@ -153,9 +162,27 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
+  REQUIRE(layout_result.has_value());
+  auto const &layout = vkexec::expected_get(layout_result);
+  auto storage = vkexec::test::sync_wait_value(vkexec::gpu_buffer::create(*ctx,
+    vkexec::gpu_buffer_create_info{
+      .size = k_storage_bytes,
+      .memory = vkexec::gpu_buffer_memory::device_local,
+      .shader_device_address = true,
+    }));
+  auto heap = vkexec::test::sync_wait_value(
+    vkexec::descriptor_heap_buffer::create(*ctx, vkexec::descriptor_heap_byte_size(layout, 1)));
+  auto const table = vkexec::bindings(vkexec::resource_binding{
+    .slot = 0, .resource = { .buffer = storage.handle(), .byte_size = storage.size() } });
+  std::array<std::uint32_t, 1> const indices{ 0 };
+  vkexec::heap_table_lower_env const lower_env{ .resource_heap_bytes = heap.mapped(),
+    .buffer_descriptor_size = layout.buffer_descriptor_size,
+    .descriptor_stride = layout.descriptor_stride,
+    .indices = indices };
   auto resources_result = vkexec::create_heap_compute_resources(*ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -181,11 +208,13 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
     cmd,
     VK_PIPELINE_BIND_POINT_COMPUTE,
     resources,
-    vkexec::resource_table{},
-    vkexec::heap_table_lower_env{},
+    table,
+    lower_env,
     push);
   REQUIRE(lowered.has_value());
   auto const map = vkexec::expected_take(lowered);
+  REQUIRE(map.size() == 1);
+  REQUIRE(map.index_for(0) == 0);
   auto const groups = vkexec::groups_for(resources, k_work_count);
   vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
