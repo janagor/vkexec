@@ -1,6 +1,7 @@
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/shader_module.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -21,18 +22,6 @@
 
 namespace vkexec {
 namespace {
-
-  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> result<VkShaderModule>
-  {
-    VkShaderModuleCreateInfo module_info{};
-    module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    module_info.codeSize = spirv.size_bytes();
-    module_info.pCode = spirv.data();
-    VkShaderModule shader{ VK_NULL_HANDLE };
-    VkResult const create_result = vkCreateShaderModule(device, &module_info, nullptr, &shader);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateShaderModule failed"); }
-    return shader;
-  }
 
   auto apply_blend(blend_mode mode, VkPipelineColorBlendAttachmentState &attachment) -> void
   {
@@ -191,11 +180,11 @@ auto create_heap_graphics_resources(context &ctx,
   pipeline_resources resources{};
   VkDevice device = ctx.device();
 
-  auto vert_result = create_shader_module(device, vertex_spirv);
+  auto vert_result = detail::create_shader_module(device, vertex_spirv);
   if (!vert_result) { return fail(vert_result); }
   VkShaderModule vert_module = expected_take(vert_result);
 
-  auto frag_result = create_shader_module(device, fragment_spirv);
+  auto frag_result = detail::create_shader_module(device, fragment_spirv);
   if (!frag_result) {
     vkDestroyShaderModule(device, vert_module, nullptr);
     return fail(frag_result);

@@ -3,6 +3,8 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/shader_module.hpp>
+#include <vkexec/detail/viewport.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -26,19 +28,6 @@ namespace vkexec {
 namespace {
 
   constexpr std::uint32_t k_graphics_descriptor_sets_per_pool = 64;
-
-  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> result<VkShaderModule>
-  {
-    VkShaderModuleCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    create_info.codeSize = spirv.size_bytes();
-    create_info.pCode = spirv.data();
-    VkShaderModule module{ VK_NULL_HANDLE };
-    if (VkResult const result = vkCreateShaderModule(device, &create_info, nullptr, &module); result != VK_SUCCESS) {
-      return fail(result, "vkCreateShaderModule failed");
-    }
-    return module;
-  }
 
   // NOLINTBEGIN(bugprone-easily-swappable-parameters)
   auto build_graphics_pipeline(VkDevice device,
@@ -252,13 +241,13 @@ auto create_graphics_resources(context &ctx,
     }
   }
 
-  auto vert = create_shader_module(device, vertex_spirv);
+  auto vert = detail::create_shader_module(device, vertex_spirv);
   if (!vert) {
     destroy_graphics_resources(ctx, owned);
     return fail(vert);
   }
   VkShaderModule vert_module = expected_take(vert);
-  auto frag = create_shader_module(device, fragment_spirv);
+  auto frag = detail::create_shader_module(device, fragment_spirv);
   if (!frag) {
     vkDestroyShaderModule(device, vert_module, nullptr);
     destroy_graphics_resources(ctx, owned);
@@ -371,19 +360,7 @@ namespace {
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.layout, 0, 1, &bind.set, 0, nullptr);
     }
 
-    VkViewport viewport{};
-    viewport.x = 0.0F;
-    viewport.y = 0.0F;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0F;
-    viewport.maxDepth = 1.0F;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = { .x = 0, .y = 0 };
-    scissor.extent = extent;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    detail::set_dynamic_viewport_scissor(cmd, extent);
   }
 
 }// namespace

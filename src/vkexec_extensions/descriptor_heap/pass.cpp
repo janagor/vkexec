@@ -3,6 +3,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/result.hpp>
+#include <vkexec/detail/viewport.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
@@ -51,19 +52,7 @@ namespace {
   {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind.pipeline);
 
-    VkViewport viewport{};
-    viewport.x = 0.0F;
-    viewport.y = 0.0F;
-    viewport.width = static_cast<float>(extent.width);
-    viewport.height = static_cast<float>(extent.height);
-    viewport.minDepth = 0.0F;
-    viewport.maxDepth = 1.0F;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = { .x = 0, .y = 0 };
-    scissor.extent = extent;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    detail::set_dynamic_viewport_scissor(cmd, extent);
   }
 
 }// namespace

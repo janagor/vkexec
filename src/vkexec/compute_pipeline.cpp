@@ -1,5 +1,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/compute_specialization.hpp>
+#include <vkexec/detail/shader_module.hpp>
 #include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -24,18 +26,6 @@ namespace vkexec {
 namespace {
 
   constexpr std::uint32_t k_descriptor_sets_per_pool = 64;
-
-  auto create_shader_module(VkDevice device, std::span<std::uint32_t const> spirv) -> result<VkShaderModule>
-  {
-    VkShaderModuleCreateInfo module_info{};
-    module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    module_info.codeSize = spirv.size_bytes();
-    module_info.pCode = spirv.data();
-    VkShaderModule shader{ VK_NULL_HANDLE };
-    VkResult const create_result = vkCreateShaderModule(device, &module_info, nullptr, &shader);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateShaderModule failed"); }
-    return shader;
-  }
 
   auto create_set_layout(VkDevice device, std::uint32_t binding_count) -> result<VkDescriptorSetLayout>
   {
@@ -145,25 +135,11 @@ auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv
   owned.push_bytes = desc.push_constant_size;
   owned.local_size = desc.local_size;
 
-  std::vector<VkSpecializationMapEntry> spec_entries(desc.specialization.size());
-  for (std::size_t index = 0; index < desc.specialization.size(); ++index) {
-    spec_entries.at(index).constantID = static_cast<std::uint32_t>(index);
-    spec_entries.at(index).offset = static_cast<std::uint32_t>(index * sizeof(std::uint32_t));
-    spec_entries.at(index).size = sizeof(std::uint32_t);
-  }
-  VkSpecializationInfo spec_info{};
-  VkSpecializationInfo const *spec_ptr = nullptr;
-  if (!desc.specialization.empty()) {
-    spec_info.mapEntryCount = static_cast<std::uint32_t>(spec_entries.size());
-    spec_info.pMapEntries = spec_entries.data();
-    spec_info.dataSize = desc.specialization.size() * sizeof(std::uint32_t);
-    spec_info.pData = desc.specialization.data();
-    spec_ptr = &spec_info;
-  }
+  auto const specialization = detail::make_uint32_specialization(desc.specialization);
 
   VkDevice device = ctx.device();
 
-  auto shader_result = create_shader_module(device, spirv);
+  auto shader_result = detail::create_shader_module(device, spirv);
   if (!shader_result) { return fail(shader_result); }
   owned.shader = expected_take(shader_result);
 
@@ -181,7 +157,7 @@ auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv
   }
   owned.pipeline_layout = expected_take(pipeline_layout_result);
 
-  auto pipeline_result = create_vk_compute_pipeline(device, owned.shader, owned.pipeline_layout, spec_ptr);
+  auto pipeline_result = create_vk_compute_pipeline(device, owned.shader, owned.pipeline_layout, specialization.get());
   if (!pipeline_result) {
     destroy_compute_resources(ctx, owned);
     return fail(pipeline_result);
