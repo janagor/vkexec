@@ -127,3 +127,36 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
   REQUIRE(ring.wait_slot(1));
   REQUIRE(ring.wait_image(3));
 }
+
+TEST_CASE("frame_ring reset preserves live timeline sequence", "[vkexec][frame_ring][gpu]")
+{
+  auto ctx = open_timeline_context();
+  auto ring = vkexec::test::sync_wait_value(
+    vkexec::frame_ring::create(*ctx, vkexec::frame_ring::create_info{ .slot_count = 1, .image_count = 1 }));
+
+  (void)ring.allocate_signal_value();
+  (void)ring.allocate_signal_value();
+  (void)ring.allocate_signal_value();
+  auto const signal_value = ring.allocate_signal_value();
+  REQUIRE(signal_value == 4);
+
+  std::array<vkexec::semaphore_submit, 1> const signals{ vkexec::semaphore_submit{
+    .semaphore = ring.timeline().handle(),
+    .value = signal_value,
+    .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+  } };
+  auto *cmd = record_empty(*ctx);
+  std::array<VkCommandBuffer, 1> const commands{ cmd };
+  REQUIRE(ctx->submit(vkexec::queue_submit{
+    .command_buffers = commands,
+    .waits = {},
+    .signals = signals,
+    .fence = VK_NULL_HANDLE,
+    .queue = VK_NULL_HANDLE,
+  }));
+  REQUIRE(ring.timeline().wait(signal_value));
+  ctx->free_command_buffer(cmd);
+
+  ring.reset_completion_tracking();
+  REQUIRE(ring.allocate_signal_value() == 5);
+}

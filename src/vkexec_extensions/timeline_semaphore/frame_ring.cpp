@@ -108,10 +108,10 @@ auto frame_ring::resize_images(std::size_t image_count) -> status
 
 auto frame_ring::reset_completion_tracking() -> void
 {
-  // After device idle + swapchain recreate, prior timeline values are obsolete.
+  // Device idle makes the old gates obsolete, but the live Vulkan timeline and
+  // its monotonically increasing signal sequence cannot be reset.
   std::ranges::fill(slot_timeline_value_, 0);
   std::ranges::fill(image_timeline_value_, 0);
-  next_timeline_value_ = 0;
 }
 
 auto frame_ring::acquire_semaphore(std::size_t slot) const -> result<VkSemaphore>

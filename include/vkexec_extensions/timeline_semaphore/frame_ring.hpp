@@ -89,9 +89,11 @@ public:
   auto resize_images(std::size_t image_count) -> status;
 
   /**
-   * Clears slot/image completion values.
+   * Clears slot/image completion gates without rewinding the timeline sequence.
    *
-   * Call after device idle + swapchain recreate when prior timeline values are obsolete.
+   * Call only after device idle, typically during swapchain recreation. A Vulkan
+   * timeline semaphore cannot be reset, so future signal values remain strictly
+   * greater than every value previously allocated by this ring.
    */
   auto reset_completion_tracking() -> void;
 
