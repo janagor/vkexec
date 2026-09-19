@@ -123,7 +123,7 @@ vkexec::sync_wait(
   | vkexec::sync_to_host(velocities));
 ```
 
-For bindless/vkgsplat-style naming, `heap_algorithm` + `dispatch_heap` thin-wrap `heap_compute_pipeline` / `compute_heap_pass` in `<vkexec_extensions/descriptor_heap/algorithm.hpp>` (named `dispatch_heap` so it does not shadow `struct dispatch`).
+For descriptor-heap algorithms, select the strategy once with `descriptor_heap` and use `compute_pipeline::create`, `compute_pass`, or `dispatch_compute`. The longer `dispatch_compute` name avoids colliding with `struct dispatch`; the old `heap_algorithm` / `dispatch_heap` spellings remain deprecated for one release.
 
 ### Embedder path — adopt + raw `VkBuffer`s
 
@@ -217,8 +217,8 @@ Common entry points:
 |-----|---------|
 | `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
 | `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
-| `create_heap_compute_resources` / `bind_heap` / `destroy_heap_compute_resources` | Borrowable bindless heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
-| `create_heap_graphics_resources` / `bind_heap` / `destroy_heap_graphics_resources` | Borrowable bindless heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
+| `create_compute_resources(descriptor_heap, …)` / `bind_compute` / `destroy_compute_resources` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
+| `create_graphics_resources(descriptor_heap, …)` / `bind_compute` / `destroy_graphics_resources(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
 | `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
 | `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
@@ -278,7 +278,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
 - Destroy adopted `context` and any owning pipelines before tearing down the borrowed device/VMA — vkexec owns a command pool on that device.
 - Use `sync_wait_value` / `try_sync_wait_value` for factory senders when you are not composing stdexec graphs.
 - For bindless compute, link `vkexec::ext_descriptor_heap` and use `descriptor_heap_procs_for(ctx)` (or `ext::available<ext::descriptor_heap>(ctx)`) instead of core `context::procs()`.
-- With your own command buffers, bindless compute uses `record_heap_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.
+- With your own command buffers, descriptor-heap compute uses `record_pass(ctx, cmd, pipe.bind(), push_bytes, groups)` after `cmd_bind_resource_heap`.
 - Use `presenter` when vkexec should own the presentation context and surface; use `swapchain` when an embedder already owns its Vulkan context and surface.
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
@@ -340,9 +340,9 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
-**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), `create_heap_compute_resources` / `create_heap_graphics_resources` / `bind_heap` / `destroy_heap_*_resources`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_heap_pass`, `record_heap_draw` / `record_heap_draw_indirect`, `cmd_begin_rendering`, etc.
+**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), tagged `create_compute_resources` / `create_graphics_resources`, `bind_compute`, tagged graphics destroy, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_pass`, `record_draw` / `record_draw_indirect`, `cmd_begin_rendering`, etc.
 
-**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, `heap_compute_pipeline`, `heap_graphics_pipeline`, `compute_heap_pass`, rendering helpers built on top of the free functions.
+**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, tagged `compute_pipeline::create` / `graphics_pipeline::create`, `compute_pass`, and rendering helpers built on top of the free functions.
 
 **Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
@@ -355,7 +355,7 @@ auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
 // optional: acquire_present_frame(ring, chain, slot) / submit_and_present(...)
 ```
 
-**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline (borrowable bag or owning `heap_compute_pipeline` / `heap_graphics_pipeline`), allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data. Heap **graphics** pipelines use dynamic-rendering formats (`VkPipelineRenderingCreateInfo`) with no `VkRenderPass`; compose with `cmd_begin_rendering` + `record_heap_draw` (classic `vkexec_graphics` stays render-pass based).
+**Descriptor heap (bindless):** link `vkexec::ext_descriptor_heap`, create a null-layout pipeline by passing `descriptor_heap` to the regular factory verb, allocate a `descriptor_heap_buffer`, write descriptors into host-mapped heap memory, then bind + push data. Heap **graphics** pipelines use dynamic-rendering formats (`VkPipelineRenderingCreateInfo`) with no `VkRenderPass`; compose with `cmd_begin_rendering` + `record_draw(ctx, …)` (classic `vkexec_graphics` stays render-pass based).
 
 ```cpp
 #include <vkexec_extensions/descriptor_heap.hpp>
@@ -366,13 +366,18 @@ auto heap = vkexec::sync_wait_value(
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
 // also: write_sampled_image_descriptor / write_sampler_descriptor into resource / sampler heaps
 
-auto resources = vkexec::expected_take(vkexec::create_heap_compute_resources(ctx, glsl,
+auto resources = vkexec::expected_take(vkexec::create_compute_resources(vkexec::descriptor_heap, ctx, glsl,
   vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size }));
-// or owning: heap_compute_pipeline::create(...)
+// or owning: compute_pipeline::create(descriptor_heap, ...)
 
-// stdexec path:
+using schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>>;
+auto table = vkexec::make_resource_table(schema{}, vkexec::buffer_resource(buffer, buffer_size));
+vkexec::heap_table_lower_env heap_env{ /* mapped bytes, descriptor sizes, indices */ };
+
+// stdexec path: lower + bind + push, then dispatch.
 ex::schedule(ctx.get_scheduler())
-  | vkexec::compute_heap_pass(vkexec::bind_heap(resources), push, groups);
+  | vkexec::bind_resources(vkexec::descriptor_heap, resources, table, heap_env, push)
+  | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
 
 // manual command buffer:
 vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
@@ -381,8 +386,12 @@ vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
 vkexec::cmd_push_data(ctx, cmd, push);
 // peel VkPipeline with resources.pipeline when recording yourself
 
-vkexec::destroy_heap_compute_resources(ctx, resources);
+vkexec::destroy_compute_resources(ctx, resources);
 ```
+
+`resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets.
+
+The former `create_heap_*`, `record_heap_*`, `compute_heap_pass`, `heap_compute_pipeline`, and `heap_graphics_pipeline` compatibility APIs are deprecated for one release. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
 
 Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
 
@@ -422,7 +431,7 @@ cmake --build out/build/unixlike-clang-release -j12
 
 `extensions/dynamic_rendering` opens a window and presents an animated color clear each frame via dynamic rendering.
 
-`heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute and heap graphics (DR + `record_heap_draw`), dynamic rendering clear to an offscreen color target, then a few swapchain present frames.
+`heap_present` is a headless smoke of public Phase 2–4 APIs: optional descriptor-heap compute and heap graphics (DR + `record_draw`), dynamic rendering clear to an offscreen color target, then a few swapchain present frames.
 
 ### Graphics execution / resources
 

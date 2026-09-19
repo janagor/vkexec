@@ -2,7 +2,7 @@
 #define VKEXEC_DESCRIPTOR_SCHEMA_HPP
 
 //! \file
-//! Compile-time logical storage-buffer binding schemas.
+//! Compile-time logical descriptor binding schemas.
 
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>

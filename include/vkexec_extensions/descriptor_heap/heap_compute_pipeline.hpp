@@ -42,7 +42,7 @@ struct heap_layout_desc
  *
  * Returns a `pipeline_resources` bag with null `set_layout` / `pipeline_layout` /
  * `descriptor_pool`. Do not call classic `bind_storage` on these bags. Caller owns
- * the handles and must call `destroy_heap_compute_resources`.
+ * the handles and must call `destroy_compute_resources`.
  */
 [[nodiscard]] auto create_compute_resources(descriptor_heap_t strategy,
   context &ctx,
@@ -98,9 +98,9 @@ inline auto destroy_heap_compute_resources(context const &ctx, pipeline_resource
  * Thin owning wrapper over heap `pipeline_resources`.
  *
  * Bind returns a `compute_bind` with null layout/set for use with
- * `compute_heap_pass` / `record_heap_pass`.
+ * `compute_pass(descriptor_heap, ...)` / `record_pass(context, ...)`.
  *
- * @see create_heap_compute_resources, compute_heap_pass, heap_layout_desc
+ * @see create_compute_resources, compute_pass, heap_layout_desc
  */
 class heap_compute_pipeline
 {
@@ -125,7 +125,7 @@ public:
     create(context &ctx, std::string_view glsl, heap_layout_desc const &desc, std::string_view name = "heap.comp")
       -> detail::sync_sender_fn<heap_compute_pipeline>;
 
-  //! Owning factory used after `create_heap_compute_resources`.
+  //! Compatibility owning factory; prefer `compute_pipeline::create(descriptor_heap, ...)`.
   [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> heap_compute_pipeline
   { return heap_compute_pipeline{ &ctx, std::move(resources) }; }
 

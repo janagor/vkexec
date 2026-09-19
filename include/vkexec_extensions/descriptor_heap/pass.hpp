@@ -2,7 +2,7 @@
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_PASS_HPP
 
 //! \file
-//! Bindless compute/graphics pass recording and pipeable `heap_compute_pass_closure`.
+//! Descriptor-heap compute/graphics recording and pipeable compute pass closure.
 
 #include <vkexec/pass.hpp>
 #include <vkexec_extensions/descriptor_heap/push_data.hpp>
@@ -81,7 +81,7 @@ auto record_draw_indirect(context const &ctx,
   VkDeviceSize offset) -> void
 { record_draw_indirect(ctx, cmd, bind, extent, buffer, offset); }
 
-//! Embedder alias for bindless `record_heap_pass` (bind + push-data + dispatch).
+//! Embedder alias for descriptor-heap `record_pass` (bind + push-data + dispatch).
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
@@ -89,7 +89,7 @@ auto record_draw_indirect(context const &ctx,
   dispatch groups) -> status
 { return record_pass(ctx, cmd, bind, push, groups); }
 
-//! Embedder alias for bindless indirect `record_heap_pass`.
+//! Embedder alias for descriptor-heap indirect `record_pass`.
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
@@ -102,7 +102,7 @@ auto record_draw_indirect(context const &ctx,
  *
  * Pipe onto `schedule()` or a `pass_graph_sender` like `prebuilt_compute_pass_closure`.
  *
- * @see compute_heap_pass
+ * @see compute_pass
  */
 struct descriptor_compute_pass_closure
 {

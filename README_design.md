@@ -77,11 +77,14 @@ headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA.
 
 Descriptor handling has three independent layers:
 
-1. `descriptor_schema<storage_buffer<Slot>...>` is the compile-time shader contract.
-   It validates sorted, unique logical slots, builds a `resource_table` with checked
+1. `descriptor_schema<...>` is the compile-time shader contract. Entries are
+   `storage_buffer<Slot>`, `storage_image<Slot>`, `sampled_image<Slot>`, and
+   `sampler_binding<Slot>` (`sampler` remains the owning Vulkan wrapper). A schema
+   validates sorted, unique logical slots, builds a `resource_table` with checked
    arity, and derives classic `layout_desc` values through `layout_desc_from_schema`.
-2. `resource_table` is the core, heap-agnostic runtime bag of logical storage-buffer
-   bindings. It contains Vulkan buffers and sizes, but no descriptor-heap metadata.
+2. `resource_table` is the core, heap-agnostic runtime bag of logical buffer,
+   image-view, and sampler bindings. It contains Vulkan handles, sizes, and layouts,
+   but no descriptor-heap metadata.
 3. `descriptor_backend` owns pipeline layout/flags and command recording, while the
    sibling `descriptor_table_backend` lowers tables into backend-specific bound values.
 
@@ -89,13 +92,25 @@ Schema-derived classic layouts retain explicit descriptor binding slots. Existin
 hand-written `layout_desc` callers leave `binding_slots` empty and continue to use
 positional bindings.
 
-Descriptor sets lower with an empty core environment. Descriptor-heap indices,
-mapped bytes, descriptor sizes, and stride remain extension-only in
-`heap_table_lower_env`. `lower_and_bind_push` composes the two backend concepts
-without adding heap knowledge to schema or table types.
+Descriptor sets lower with an empty core environment. Descriptor-heap resource and
+sampler indices, mapped bytes, descriptor sizes/strides, and image/sampler create-info
+metadata remain extension-only in `heap_table_lower_env`. `lower_and_bind_push`
+composes the two backend concepts without adding heap knowledge to schema or table
+types. `bind_resources` exposes that operation as a pass-graph step; its default
+backend is descriptor sets, while the extension overload is selected with
+`descriptor_heap`.
 
-Stage 4 can add schema-aware pipe/sender sugar and richer resource kinds such as
-images and samplers without changing these layer boundaries.
+Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
+select heap behavior once with `descriptor_heap`, then use `create_compute_resources`,
+`compute_pipeline::create`, `create_graphics_resources`, `graphics_pipeline::create`,
+`record_pass`, `record_draw`, and `compute_pass`. The old `*_heap_*` algorithm names
+are deprecated aliases for one release. Literal heap mechanism APIs such as
+`descriptor_heap_buffer`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, and
+descriptor writers keep their names.
+
+The core intentionally provides neither set-to-heap emulation nor a descriptor-heap
+slot allocator. Applications own physical heap indices and pass them explicitly in
+`heap_table_lower_env`.
 
 ## Testing
 
