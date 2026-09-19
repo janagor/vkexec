@@ -62,7 +62,7 @@ namespace {
 }// namespace
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto record_heap_draw(context const & /*ctx*/,
+auto record_draw(context const & /*ctx*/,
   VkCommandBuffer cmd,
   compute_bind bind,
   VkExtent2D extent,
@@ -72,7 +72,7 @@ auto record_heap_draw(context const & /*ctx*/,
   vkCmdDraw(cmd, vertex_count, 1, 0, 0);
 }
 
-auto record_heap_draw_indirect(context const & /*ctx*/,
+auto record_draw_indirect(context const & /*ctx*/,
   VkCommandBuffer cmd,
   compute_bind bind,
   VkExtent2D extent,

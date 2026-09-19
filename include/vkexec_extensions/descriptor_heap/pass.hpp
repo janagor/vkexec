@@ -43,11 +43,11 @@ namespace vkexec {
  * Does not begin/end rendering and does not bind heaps (`cmd_bind_resource_heap` is
  * the caller's responsibility). Use inside `cmd_begin_rendering`…`cmd_end_rendering`.
  *
- * @param bind Null-layout graphics bind from `bind_heap` on a heap graphics bag.
+ * @param bind Null-layout graphics bind from `bind_compute` on a descriptor graphics bag.
  * @param extent Dynamic viewport and scissor extent.
  * @param vertex_count Vertices for `vkCmdDraw`.
  */
-auto record_heap_draw(context const &ctx,
+auto record_draw(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   VkExtent2D extent,
@@ -59,12 +59,27 @@ auto record_heap_draw(context const &ctx,
  * @param buffer Buffer containing `VkDrawIndirectCommand`.
  * @param offset Byte offset into `buffer`.
  */
-auto record_heap_draw_indirect(context const &ctx,
+auto record_draw_indirect(context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
   VkExtent2D extent,
   VkBuffer buffer,
   VkDeviceSize offset) -> void;
+
+[[deprecated("use record_draw(ctx, ...)")]] inline auto record_heap_draw(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  VkExtent2D extent,
+  std::uint32_t vertex_count) -> void
+{ record_draw(ctx, cmd, bind, extent, vertex_count); }
+
+[[deprecated("use record_draw_indirect(ctx, ...)")]] inline auto record_heap_draw_indirect(context const &ctx,
+  VkCommandBuffer cmd,
+  compute_bind bind,
+  VkExtent2D extent,
+  VkBuffer buffer,
+  VkDeviceSize offset) -> void
+{ record_draw_indirect(ctx, cmd, bind, extent, buffer, offset); }
 
 //! Embedder alias for bindless `record_heap_pass` (bind + push-data + dispatch).
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,

@@ -19,6 +19,7 @@
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/resource_table.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
+#include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 
 #include <stdexec/execution.hpp>
@@ -219,7 +220,7 @@ TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vke
   vkexec::destroy_compute_resources(*ctx, resources);
 }
 
-TEST_CASE("create_heap_graphics_resources builds null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("create_graphics_resources builds null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -232,7 +233,8 @@ TEST_CASE("create_heap_graphics_resources builds null-layout DR pipeline", "[vke
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  auto resources_result = vkexec::create_heap_graphics_resources(*ctx,
+  auto resources_result = vkexec::create_graphics_resources(vkexec::descriptor_heap,
+    *ctx,
     vkexec::shaders::k_triangle_vert,
     vkexec::shaders::k_triangle_frag,
     vkexec::heap_graphics_layout_desc{
@@ -253,11 +255,11 @@ TEST_CASE("create_heap_graphics_resources builds null-layout DR pipeline", "[vke
   REQUIRE(resources.descriptor_pool == VK_NULL_HANDLE);
   REQUIRE(resources.shader == VK_NULL_HANDLE);
 
-  vkexec::destroy_heap_graphics_resources(*ctx, resources);
+  vkexec::destroy_graphics_resources(vkexec::descriptor_heap, *ctx, resources);
   REQUIRE(resources.pipeline == VK_NULL_HANDLE);
 }
 
-TEST_CASE("heap_graphics_pipeline owns null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("graphics_pipeline tag factory owns null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -270,7 +272,8 @@ TEST_CASE("heap_graphics_pipeline owns null-layout DR pipeline", "[vkexec][descr
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::heap_graphics_pipeline::create(*ctx,
+  auto pipe = vkexec::test::sync_wait_value(vkexec::graphics_pipeline::create(vkexec::descriptor_heap,
+    *ctx,
     vkexec::shaders::k_triangle_vert,
     vkexec::shaders::k_triangle_frag,
     vkexec::heap_graphics_layout_desc{

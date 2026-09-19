@@ -164,7 +164,8 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
 {
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::heap_graphics_pipeline::create(ctx,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(vkexec::descriptor_heap,
+    ctx,
     vkexec::shaders::k_triangle_vert,
     vkexec::shaders::k_triangle_frag,
     vkexec::heap_graphics_layout_desc{
@@ -220,7 +221,7 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
     return false;
   }
 
-  vkexec::record_heap_draw(ctx, cmd, pipe.bind(), img.extent(), k_triangle_vertices);
+  vkexec::record_draw(ctx, cmd, pipe.bind(), img.extent(), k_triangle_vertices);
 
   if (auto ended = vkexec::cmd_end_rendering(cmd); !ended) {
     ctx.free_command_buffer(cmd);

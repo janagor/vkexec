@@ -75,6 +75,31 @@ public:
     std::string_view fragment_glsl,
     std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
 
+  //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
+  template<class Strategy, class Desc>
+  [[nodiscard]] static auto create(Strategy strategy,
+    context &ctx,
+    std::span<std::uint32_t const> vertex_spirv,
+    std::span<std::uint32_t const> fragment_spirv,
+    Desc const &desc)
+  {
+    return create_graphics_pipeline(strategy, ctx, vertex_spirv, fragment_spirv, desc);
+  }
+
+  //! Compiles GLSL and creates a graphics pipeline through an extension-owned strategy tag.
+  template<class Strategy, class Desc>
+  [[nodiscard]] static auto create(Strategy strategy,
+    context &ctx,
+    std::string_view vertex_glsl,
+    std::string_view fragment_glsl,
+    Desc const &desc,
+    std::string_view vertex_name = "vkexec.vert",
+    std::string_view fragment_name = "vkexec.frag")
+  {
+    return create_graphics_pipeline(
+      strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
+  }
+
   //! Owning factory used after `create_graphics_resources` + optional set install.
   [[nodiscard]] static auto make(context &ctx,
     std::unique_ptr<graphics_pipeline_resources> resources,

@@ -11,6 +11,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
+#include <vkexec_graphics/graphics.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -36,7 +37,7 @@ enum class blend_mode : std::uint8_t { none, alpha, premultiplied };
  * No render pass and no descriptor sets. Color formats feed
  * `VkPipelineRenderingCreateInfo`. Depth is optional (`UNDEFINED` = none).
  *
- * @see create_heap_graphics_resources, heap_graphics_pipeline
+ * @see create_graphics_resources, descriptor_graphics_pipeline
  */
 struct heap_graphics_layout_desc
 {
@@ -53,12 +54,13 @@ struct heap_graphics_layout_desc
  *
  * Returns a `pipeline_resources` bag with null layouts/pool and a live pipeline.
  * Shader modules are destroyed after pipeline creation. Caller owns the bag and
- * must call `destroy_heap_graphics_resources`.
+ * must call `destroy_graphics_resources(descriptor_heap, ...)`.
  *
  * Requires `VK_EXT_descriptor_heap` and a Vulkan 1.3+ device (dynamic rendering
  * pipeline create info).
  */
-[[nodiscard]] auto create_heap_graphics_resources(context &ctx,
+[[nodiscard]] auto create_graphics_resources(descriptor_heap_t strategy,
+  context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   heap_graphics_layout_desc const &desc) -> result<pipeline_resources>;
@@ -69,25 +71,50 @@ struct heap_graphics_layout_desc
  * @param vertex_name Debug name for the vertex shader compiler.
  * @param fragment_name Debug name for the fragment shader compiler.
  */
-[[nodiscard]] auto create_heap_graphics_resources(context &ctx,
+[[nodiscard]] auto create_graphics_resources(descriptor_heap_t strategy,
+  context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name = "heap.vert",
   std::string_view fragment_name = "heap.frag") -> result<pipeline_resources>;
 
-//! Destroys the heap graphics pipeline handle in `resources` and resets the bag.
-auto destroy_heap_graphics_resources(context const &ctx, pipeline_resources &resources) noexcept -> void;
+//! Destroys a descriptor-heap graphics resource bag and resets it.
+auto destroy_graphics_resources(
+  descriptor_heap_t strategy, context const &ctx, pipeline_resources &resources) noexcept -> void;
+
+[[deprecated("use create_graphics_resources(descriptor_heap, ...)")]]
+[[nodiscard]] inline auto create_heap_graphics_resources(context &ctx,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  heap_graphics_layout_desc const &desc) -> result<pipeline_resources>
+{ return create_graphics_resources(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc); }
+
+[[deprecated("use create_graphics_resources(descriptor_heap, ...)")]]
+[[nodiscard]] inline auto create_heap_graphics_resources(context &ctx,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  heap_graphics_layout_desc const &desc,
+  std::string_view vertex_name = "heap.vert",
+  std::string_view fragment_name = "heap.frag") -> result<pipeline_resources>
+{
+  return create_graphics_resources(
+    descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
+}
+
+[[deprecated("use destroy_graphics_resources(descriptor_heap, ...)")]] inline auto destroy_heap_graphics_resources(
+  context const &ctx, pipeline_resources &resources) noexcept -> void
+{ destroy_graphics_resources(descriptor_heap, ctx, resources); }
 
 /**
  * Thin owning wrapper over heap graphics `pipeline_resources`.
  *
  * Bind returns a `compute_bind` with null layout/set (same bag shape as heap
- * compute) for use with `record_heap_draw`.
+ * compute) for use with `record_draw(context, ...)`.
  *
- * @see create_heap_graphics_resources, heap_graphics_layout_desc
+ * @see create_graphics_resources, heap_graphics_layout_desc
  */
-class heap_graphics_pipeline
+class descriptor_graphics_pipeline
 {
 public:
   /**
@@ -101,7 +128,7 @@ public:
   [[nodiscard]] static auto create(context &ctx,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<heap_graphics_pipeline>;
+    heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
 
   /**
    * Compiles GLSL then creates a heap graphics pipeline.
@@ -114,20 +141,21 @@ public:
     std::string_view fragment_glsl,
     heap_graphics_layout_desc const &desc,
     std::string_view vertex_name = "heap.vert",
-    std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<heap_graphics_pipeline>;
+    std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
 
-  //! Owning factory used after `create_heap_graphics_resources`.
-  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> heap_graphics_pipeline
-  { return heap_graphics_pipeline{ &ctx, std::move(resources) }; }
+  //! Owning factory used after `create_graphics_resources(descriptor_heap, ...)`.
+  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources)
+    -> descriptor_graphics_pipeline
+  { return descriptor_graphics_pipeline{ &ctx, std::move(resources) }; }
 
-  heap_graphics_pipeline(heap_graphics_pipeline const &) = delete;
-  auto operator=(heap_graphics_pipeline const &) -> heap_graphics_pipeline & = delete;
+  descriptor_graphics_pipeline(descriptor_graphics_pipeline const &) = delete;
+  auto operator=(descriptor_graphics_pipeline const &) -> descriptor_graphics_pipeline & = delete;
 
-  heap_graphics_pipeline(heap_graphics_pipeline &&other) noexcept
+  descriptor_graphics_pipeline(descriptor_graphics_pipeline &&other) noexcept
     : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
   {}
 
-  auto operator=(heap_graphics_pipeline &&other) noexcept -> heap_graphics_pipeline &
+  auto operator=(descriptor_graphics_pipeline &&other) noexcept -> descriptor_graphics_pipeline &
   {
     if (this != &other) {
       reset();
@@ -137,7 +165,7 @@ public:
     return *this;
   }
 
-  ~heap_graphics_pipeline() { reset(); }
+  ~descriptor_graphics_pipeline() { reset(); }
 
   //! Const owned Vulkan resources for this pipeline.
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
@@ -146,7 +174,7 @@ public:
   [[nodiscard]] auto bind() const -> compute_bind { return bind_compute(*resources_); }
 
 private:
-  heap_graphics_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
+  descriptor_graphics_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
     : ctx_(ctx), resources_(std::move(resources))
   {}
 
@@ -155,6 +183,25 @@ private:
   context *ctx_{ nullptr };
   std::unique_ptr<pipeline_resources> resources_;
 };
+
+//! Owning factory customization used by `graphics_pipeline::create(descriptor_heap, ...)`.
+[[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
+  context &ctx,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
+
+//! Owning GLSL factory customization used by `graphics_pipeline::create(descriptor_heap, ...)`.
+[[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
+  context &ctx,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  heap_graphics_layout_desc const &desc,
+  std::string_view vertex_name = "heap.vert",
+  std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
+
+using heap_graphics_pipeline [[deprecated("use graphics_pipeline::create(descriptor_heap, ...)")]] =
+  descriptor_graphics_pipeline;
 
 }// namespace vkexec
 

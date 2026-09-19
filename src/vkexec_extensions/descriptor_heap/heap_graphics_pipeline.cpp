@@ -160,7 +160,8 @@ namespace {
 
 }// namespace
 
-auto destroy_heap_graphics_resources(context const &ctx, pipeline_resources &resources) noexcept -> void
+auto destroy_graphics_resources(
+  descriptor_heap_t /*strategy*/, context const &ctx, pipeline_resources &resources) noexcept -> void
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
@@ -169,16 +170,17 @@ auto destroy_heap_graphics_resources(context const &ctx, pipeline_resources &res
   resources = {};
 }
 
-auto create_heap_graphics_resources(context &ctx,
+auto create_graphics_resources(descriptor_heap_t /*strategy*/,
+  context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   heap_graphics_layout_desc const &desc) -> result<pipeline_resources>
 {
   if (vertex_spirv.empty() || fragment_spirv.empty()) {
-    return fail(errc::invalid_argument, "create_heap_graphics_resources requires non-empty SPIR-V");
+    return fail(errc::invalid_argument, "create_graphics_resources requires non-empty SPIR-V");
   }
   if (desc.color_formats.empty()) {
-    return fail(errc::invalid_argument, "create_heap_graphics_resources requires at least one color format");
+    return fail(errc::invalid_argument, "create_graphics_resources requires at least one color format");
   }
 
   pipeline_resources resources{};
@@ -195,7 +197,7 @@ auto create_heap_graphics_resources(context &ctx,
   }
   if (auto created = detail::heap_descriptor_backend::create_descriptor_pool(device, resources, layout_info);
     !created) {
-    destroy_heap_graphics_resources(ctx, resources);
+    destroy_graphics_resources(descriptor_heap, ctx, resources);
     return fail(created);
   }
 
@@ -220,7 +222,8 @@ auto create_heap_graphics_resources(context &ctx,
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto create_heap_graphics_resources(context &ctx,
+auto create_graphics_resources(descriptor_heap_t /*strategy*/,
+  context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
@@ -229,54 +232,76 @@ auto create_heap_graphics_resources(context &ctx,
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
-    return fail(errc::invalid_argument, "create_heap_graphics_resources requires non-empty GLSL");
+    return fail(errc::invalid_argument, "create_graphics_resources requires non-empty GLSL");
   }
   VKEXEC_TRY_ASSIGN(
     vert_spirv, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
   VKEXEC_TRY_ASSIGN(
     frag_spirv, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
-  return create_heap_graphics_resources(ctx, vert_spirv, frag_spirv, desc);
+  return create_graphics_resources(descriptor_heap, ctx, vert_spirv, frag_spirv, desc);
 }
 
-auto heap_graphics_pipeline::reset() noexcept -> void
+auto descriptor_graphics_pipeline::reset() noexcept -> void
 {
-  if (ctx_ != nullptr && resources_ != nullptr) { destroy_heap_graphics_resources(*ctx_, *resources_); }
+  if (ctx_ != nullptr && resources_ != nullptr) {
+    destroy_graphics_resources(descriptor_heap, *ctx_, *resources_);
+  }
   resources_.reset();
   ctx_ = nullptr;
 }
 
-auto heap_graphics_pipeline::create(context &ctx,
+auto descriptor_graphics_pipeline::create(context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<heap_graphics_pipeline>
+  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
 {
-  return detail::make_sync_sender_fn<heap_graphics_pipeline>(
-    [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<heap_graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned, create_heap_graphics_resources(ctx, vertex_spirv, fragment_spirv, desc));
+  return detail::make_sync_sender_fn<descriptor_graphics_pipeline>(
+    [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<descriptor_graphics_pipeline> {
+      VKEXEC_TRY_ASSIGN(owned, create_graphics_resources(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc));
       return make(ctx, std::make_unique<pipeline_resources>(owned));
     });
 }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto heap_graphics_pipeline::create(context &ctx,
+auto descriptor_graphics_pipeline::create(context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
-  std::string_view fragment_name) -> detail::sync_sender_fn<heap_graphics_pipeline>
+  std::string_view fragment_name) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return detail::make_sync_sender_fn<heap_graphics_pipeline>(
+  return detail::make_sync_sender_fn<descriptor_graphics_pipeline>(
     [&ctx,
       vertex_glsl = std::string(vertex_glsl),
       fragment_glsl = std::string(fragment_glsl),
       desc,
       vertex_name = std::string(vertex_name),
-      fragment_name = std::string(fragment_name)]() -> result<heap_graphics_pipeline> {
+      fragment_name = std::string(fragment_name)]() -> result<descriptor_graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(
-        owned, create_heap_graphics_resources(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
+        owned,
+        create_graphics_resources(
+          descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
       return make(ctx, std::make_unique<pipeline_resources>(owned));
     });
+}
+
+auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
+  context &ctx,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
+{ return descriptor_graphics_pipeline::create(ctx, vertex_spirv, fragment_spirv, desc); }
+
+auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
+  context &ctx,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  heap_graphics_layout_desc const &desc,
+  std::string_view vertex_name,
+  std::string_view fragment_name) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
+{
+  return descriptor_graphics_pipeline::create(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
 }
 
 }// namespace vkexec
