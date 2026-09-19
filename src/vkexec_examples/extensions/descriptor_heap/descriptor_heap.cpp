@@ -1,3 +1,4 @@
+#include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pipeline.hpp>
@@ -9,6 +10,7 @@
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_extensions/extension.hpp>
 
 #include "../../sync_wait_helpers.hpp"
@@ -80,14 +82,16 @@ auto run() -> int
     vkexec::examples::abort_with_error(written.error());
   }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::heap_compute_pipeline::create(*ctx,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+    *ctx,
     k_heap_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "descriptor_heap.comp"));
 
   heap_push const params{ .count = k_work_count };
   auto outcome =
-    vkexec::try_sync_wait(ex::schedule(ctx->get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
+    vkexec::try_sync_wait(
+      ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
   if (outcome.failed() || outcome.stopped || !outcome.values.has_value()) {
     vkexec::examples::fail_check("bindless compute dispatch failed");
   }

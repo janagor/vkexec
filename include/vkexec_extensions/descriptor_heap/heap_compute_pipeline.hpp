@@ -10,6 +10,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -28,7 +29,7 @@ namespace vkexec {
  *
  * No descriptor sets or classic push constants; parameters use `cmd_push_data`.
  *
- * @see create_heap_compute_resources, heap_compute_pipeline
+ * @see create_compute_resources, compute_pipeline
  */
 struct heap_layout_desc
 {
@@ -43,7 +44,8 @@ struct heap_layout_desc
  * `descriptor_pool`. Do not call classic `bind_storage` on these bags. Caller owns
  * the handles and must call `destroy_heap_compute_resources`.
  */
-[[nodiscard]] auto create_heap_compute_resources(context &ctx,
+[[nodiscard]] auto create_compute_resources(descriptor_heap_t strategy,
+  context &ctx,
   std::span<std::uint32_t const> spirv,
   heap_layout_desc const &desc) -> result<pipeline_resources>;
 
@@ -52,17 +54,45 @@ struct heap_layout_desc
  *
  * @param name Debug name for the compiler.
  */
-[[nodiscard]] auto create_heap_compute_resources(context &ctx,
+[[nodiscard]] auto create_compute_resources(descriptor_heap_t strategy,
+  context &ctx,
   std::string_view glsl,
   heap_layout_desc const &desc,
   std::string_view name = "heap.comp") -> result<pipeline_resources>;
 
-//! Destroys heap pipeline/shader handles in `resources` and resets them to null.
-auto destroy_heap_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void;
+//! Owning factory customization used by `compute_pipeline::create(descriptor_heap, ...)`.
+[[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
+  context &ctx,
+  std::span<std::uint32_t const> spirv,
+  heap_layout_desc const &desc) -> detail::sync_sender_fn<compute_pipeline>;
+
+//! Owning GLSL factory customization used by `compute_pipeline::create(descriptor_heap, ...)`.
+[[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
+  context &ctx,
+  std::string_view glsl,
+  heap_layout_desc const &desc,
+  std::string_view name = "heap.comp") -> detail::sync_sender_fn<compute_pipeline>;
+
+[[deprecated("use create_compute_resources(descriptor_heap, ...)")]]
+[[nodiscard]] inline auto create_heap_compute_resources(context &ctx,
+  std::span<std::uint32_t const> spirv,
+  heap_layout_desc const &desc) -> result<pipeline_resources>
+{ return create_compute_resources(descriptor_heap, ctx, spirv, desc); }
+
+[[deprecated("use create_compute_resources(descriptor_heap, ...)")]]
+[[nodiscard]] inline auto create_heap_compute_resources(context &ctx,
+  std::string_view glsl,
+  heap_layout_desc const &desc,
+  std::string_view name = "heap.comp") -> result<pipeline_resources>
+{ return create_compute_resources(descriptor_heap, ctx, glsl, desc, name); }
+
+[[deprecated("use destroy_compute_resources")]]
+inline auto destroy_heap_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void
+{ destroy_compute_resources(ctx, resources); }
 
 //! Builds a bindless `compute_bind` (null layout and descriptor set).
-[[nodiscard]] inline auto bind_heap(pipeline_resources const &pipe) -> compute_bind
-{ return compute_bind{ .pipeline = pipe.pipeline, .layout = VK_NULL_HANDLE, .set = VK_NULL_HANDLE }; }
+[[deprecated("use bind_compute")]] [[nodiscard]] inline auto bind_heap(pipeline_resources const &pipe) -> compute_bind
+{ return bind_compute(pipe); }
 
 /**
  * Thin owning wrapper over heap `pipeline_resources`.
@@ -82,6 +112,7 @@ public:
    * @param spirv SPIR-V words for the compute shader.
    * @param desc Specialization and local size.
    */
+  [[deprecated("use compute_pipeline::create(descriptor_heap, ...)")]]
   [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
     -> detail::sync_sender_fn<heap_compute_pipeline>;
 
@@ -90,7 +121,7 @@ public:
    *
    * @param name Debug name for the compiler.
    */
-  [[nodiscard]] static auto
+  [[deprecated("use compute_pipeline::create(descriptor_heap, ...)")]] [[nodiscard]] static auto
     create(context &ctx, std::string_view glsl, heap_layout_desc const &desc, std::string_view name = "heap.comp")
       -> detail::sync_sender_fn<heap_compute_pipeline>;
 
@@ -121,7 +152,7 @@ public:
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
 
   //! Builds a bindless `compute_bind` (null layout and descriptor set).
-  [[nodiscard]] auto bind() const -> compute_bind { return bind_heap(*resources_); }
+  [[nodiscard]] auto bind() const -> compute_bind { return bind_compute(*resources_); }
 
   //! Returns workgroup counts covering `work_count` invocations along X.
   [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch

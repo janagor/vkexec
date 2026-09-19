@@ -143,7 +143,7 @@ public:
   [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
 
   //! Builds a bindless bind (null layout and descriptor set).
-  [[nodiscard]] auto bind() const -> compute_bind { return bind_heap(*resources_); }
+  [[nodiscard]] auto bind() const -> compute_bind { return bind_compute(*resources_); }
 
 private:
   heap_graphics_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept

@@ -4,6 +4,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/bind_resources.hpp>
+#include <vkexec/compute_pipeline.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -56,7 +57,7 @@ struct heap_push
 
 }// namespace
 
-TEST_CASE("heap_compute_pipeline can create a descriptor-heap null layout", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -69,7 +70,8 @@ TEST_CASE("heap_compute_pipeline can create a descriptor-heap null layout", "[vk
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::heap_compute_pipeline::create(*ctx,
+  auto pipe = vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+    *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "heap.comp"));
@@ -79,7 +81,7 @@ TEST_CASE("heap_compute_pipeline can create a descriptor-heap null layout", "[vk
   REQUIRE(pipe.resources().descriptor_pool == VK_NULL_HANDLE);
 }
 
-TEST_CASE("heap_compute_pipeline accepts specialization constants", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("descriptor-heap compute_pipeline accepts specialization constants", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -92,14 +94,15 @@ TEST_CASE("heap_compute_pipeline accepts specialization constants", "[vkexec][de
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::heap_compute_pipeline::create(*ctx,
+  auto pipe = vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+    *ctx,
     k_heap_spec_glsl,
     vkexec::heap_layout_desc{ .specialization = { k_work_count }, .local_size = vkexec::k_default_local_size },
     "heap_spec.comp"));
   REQUIRE(pipe.resources().pipeline != VK_NULL_HANDLE);
 }
 
-TEST_CASE("compute_heap_pass records bindless push data for heap pipelines", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("compute_pass records push data for descriptor-heap pipelines", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -112,18 +115,19 @@ TEST_CASE("compute_heap_pass records bindless push data for heap pipelines", "[v
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::heap_compute_pipeline::create(*ctx,
+  auto pipe = vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+    *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "heap_pass.comp"));
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
+    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 
-TEST_CASE("dispatch_heap aliases compute_heap_pass for heap_algorithm", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -136,18 +140,21 @@ TEST_CASE("dispatch_heap aliases compute_heap_pass for heap_algorithm", "[vkexec
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  vkexec::heap_algorithm const algo = vkexec::test::sync_wait_value(vkexec::heap_algorithm::create(*ctx,
+  vkexec::algorithm const algo = vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(
+    vkexec::descriptor_heap,
+    *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "heap_dispatch.comp"));
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler()) | vkexec::dispatch_heap(algo, params, k_work_count));
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::dispatch_compute(vkexec::descriptor_heap, algo, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 
-TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexec][descriptor_heap][gpu][execution]")
+TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vkexec][descriptor_heap][gpu][execution]")
 {
   VkPhysicalDeviceVulkan12Features features_12{};
   features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -189,7 +196,8 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
     .sampler_indices = {},
     .image_view_infos = {},
     .sampler_infos = {} };
-  auto resources_result = vkexec::create_heap_compute_resources(*ctx,
+  auto resources_result = vkexec::create_compute_resources(vkexec::descriptor_heap,
+    *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "heap_execution.comp");
@@ -204,11 +212,11 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
   auto const groups = vkexec::groups_for(resources, k_work_count);
   auto graph = ex::schedule(ctx->get_scheduler())
     | vkexec::bind_resources(vkexec::descriptor_heap, resources, table, lower_env, params)
-    | vkexec::compute_pass(vkexec::bind_heap(resources), groups);
+    | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
-  vkexec::destroy_heap_compute_resources(*ctx, resources);
+  vkexec::destroy_compute_resources(*ctx, resources);
 }
 
 TEST_CASE("create_heap_graphics_resources builds null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")

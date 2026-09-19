@@ -1,5 +1,6 @@
 #include "sync_wait_helpers.hpp"
 #include <vkexec/barrier.hpp>
+#include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -18,6 +19,7 @@
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/pass.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_extensions/extension.hpp>
 #include <vkexec_features/bundles/vulkan_13.hpp>
@@ -285,14 +287,16 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     return false;
   }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::heap_compute_pipeline::create(ctx,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+    ctx,
     k_heap_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
     "heap_present.comp"));
 
   heap_push const params{ .count = k_work_count };
   auto outcome =
-    vkexec::try_sync_wait(ex::schedule(ctx.get_scheduler()) | vkexec::compute_heap_pass(pipe, params, k_work_count));
+    vkexec::try_sync_wait(
+      ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
   return !outcome.failed() && outcome.values.has_value() && !outcome.stopped;
 }
 
