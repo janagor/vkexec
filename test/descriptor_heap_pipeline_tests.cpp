@@ -3,7 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/lower_and_bind_push.hpp>
+#include <vkexec/bind_resources.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -26,7 +26,6 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <string_view>
 #include <utility>
 
@@ -201,33 +200,13 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
   REQUIRE(resources.set_layout == VK_NULL_HANDLE);
   REQUIRE(resources.descriptor_pool == VK_NULL_HANDLE);
 
-  auto cmd_result = ctx->allocate_command_buffer();
-  REQUIRE(cmd_result.has_value());
-  auto *cmd = vkexec::expected_take(cmd_result);
-  VkCommandBufferBeginInfo begin{};
-  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
-
   heap_push const params{ .count = k_work_count };
-  auto const push = std::as_bytes(std::span{ &params, 1 });
-  auto lowered = vkexec::detail::lower_and_bind_push<vkexec::detail::heap_descriptor_backend>(*ctx,
-    cmd,
-    VK_PIPELINE_BIND_POINT_COMPUTE,
-    resources,
-    table,
-    lower_env,
-    push);
-  REQUIRE(lowered.has_value());
-  auto const map = vkexec::expected_take(lowered);
-  REQUIRE(map.size() == 1);
-  REQUIRE(map.index_for(0) == 0);
   auto const groups = vkexec::groups_for(resources, k_work_count);
-  vkCmdDispatch(cmd, groups.x, groups.y, groups.z);
-  REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
-  REQUIRE(ctx->submit_and_wait(cmd));
-  vkexec::detail::heap_descriptor_backend::release(*ctx, resources, map);
-  ctx->free_command_buffer(cmd);
+  auto graph = ex::schedule(ctx->get_scheduler())
+    | vkexec::bind_resources(vkexec::descriptor_heap, resources, table, lower_env, params)
+    | vkexec::compute_pass(vkexec::bind_heap(resources), groups);
+  auto waited = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   vkexec::destroy_heap_compute_resources(*ctx, resources);
 }

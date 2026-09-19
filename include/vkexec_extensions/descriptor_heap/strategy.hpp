@@ -1,6 +1,7 @@
 #ifndef VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_STRATEGY_HPP
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_STRATEGY_HPP
 
+#include <vkexec/bind_resources.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec_extensions/descriptor_heap/resource_table.hpp>
 
@@ -71,6 +72,29 @@ private:
 static_assert(descriptor_backend<heap_descriptor_backend>);
 
 }// namespace detail
+
+//! Builds a heap-backed resource-table graph step selected by strategy tag.
+[[nodiscard]] inline auto bind_resources(descriptor_heap_t /*strategy*/,
+  pipeline_resources const &pipe,
+  resource_table const &table,
+  heap_table_lower_env env,
+  std::span<std::byte const> push = {}) -> bind_resources_closure<detail::heap_descriptor_backend>
+{
+  return bind_resources<detail::heap_descriptor_backend>(pipe, table, env, push);
+}
+
+//! Typed push-data overload selected by `descriptor_heap`.
+template<class Params>
+  requires std::is_trivially_copyable_v<Params>
+[[nodiscard]] auto bind_resources(descriptor_heap_t /*strategy*/,
+  pipeline_resources const &pipe,
+  resource_table const &table,
+  heap_table_lower_env env,
+  Params const &params) -> bind_resources_closure<detail::heap_descriptor_backend>
+{
+  return bind_resources<detail::heap_descriptor_backend>(pipe, table, env, params);
+}
+
 }// namespace vkexec
 
 #endif// VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_STRATEGY_HPP

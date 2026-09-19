@@ -8,6 +8,7 @@
 //! Owning RAII types live in `<vkexec/resources.hpp>`.
 
 #include <vkexec/barrier.hpp>
+#include <vkexec/bind_resources.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/copy.hpp>
 #include <vkexec/descriptor_schema.hpp>
