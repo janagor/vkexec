@@ -14,8 +14,8 @@
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/submit.hpp>
 
@@ -87,8 +87,8 @@ struct pass_params
 };
 
 using sim_schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>, vkexec::storage_buffer<1>>;
-using image_schema = vkexec::descriptor_schema<
-  vkexec::storage_image<0>, vkexec::sampled_image<1>, vkexec::sampler_binding<2>>;
+using image_schema =
+  vkexec::descriptor_schema<vkexec::storage_image<0>, vkexec::sampled_image<1>, vkexec::sampler_binding<2>>;
 
 auto make_one_buffer_layout() -> vkexec::layout_desc
 {
@@ -179,8 +179,8 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto const groups = vkexec::dispatch_groups_for(static_cast<std::uint32_t>(k_count), k_local_size);
   auto graph = ex::schedule(ctx->get_scheduler())
-    | vkexec::bind_resources(resources, table, vkexec::detail::empty_table_lower_env{}, params)
-    | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
+               | vkexec::bind_resources(resources, table, vkexec::detail::empty_table_lower_env{}, params)
+               | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -202,8 +202,8 @@ void main() {}
 )";
 
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,
-    vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
+  auto img = vkexec::test::sync_wait_value(vkexec::image::create(
+    *ctx, vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
   auto view = vkexec::test::sync_wait_value(vkexec::image_view::create(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::sampler::create(*ctx));
   auto resources_result = vkexec::create_compute_resources(
@@ -215,8 +215,8 @@ void main() {}
     vkexec::sampled_image_resource(view.handle(), VK_IMAGE_LAYOUT_GENERAL),
     vkexec::sampler_resource(image_sampler.handle()));
 
-  auto lowered = vkexec::detail::set_descriptor_backend::lower(
-    *ctx, resources, table, vkexec::detail::empty_table_lower_env{});
+  auto lowered =
+    vkexec::detail::set_descriptor_backend::lower(*ctx, resources, table, vkexec::detail::empty_table_lower_env{});
   REQUIRE(lowered.has_value());
   VkDescriptorSet set = vkexec::expected_take(lowered);
   REQUIRE(set != VK_NULL_HANDLE);

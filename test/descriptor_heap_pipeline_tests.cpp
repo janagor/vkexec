@@ -2,14 +2,14 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/context.hpp>
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/compute_pipeline.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
@@ -141,8 +141,7 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
-  vkexec::algorithm const algo = vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(
-    vkexec::descriptor_heap,
+  vkexec::algorithm const algo = vkexec::test::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
     *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -150,8 +149,7 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler())
-    | vkexec::dispatch_compute(vkexec::descriptor_heap, algo, params, k_work_count));
+    ex::schedule(ctx->get_scheduler()) | vkexec::dispatch_compute(vkexec::descriptor_heap, algo, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 
@@ -212,8 +210,8 @@ TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vke
   heap_push const params{ .count = k_work_count };
   auto const groups = vkexec::groups_for(resources, k_work_count);
   auto graph = ex::schedule(ctx->get_scheduler())
-    | vkexec::bind_resources(vkexec::descriptor_heap, resources, table, lower_env, params)
-    | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
+               | vkexec::bind_resources(vkexec::descriptor_heap, resources, table, lower_env, params)
+               | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 

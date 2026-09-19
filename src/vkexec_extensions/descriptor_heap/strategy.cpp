@@ -88,10 +88,8 @@ namespace {
     case resource_kind::sampler: {
       std::uint32_t const index = env.sampler_indices.subspan(positions.sampler).front();
       VKEXEC_TRY_ASSIGN(destination,
-        descriptor_destination(env.sampler_heap_bytes,
-          env.sampler_descriptor_size,
-          env.sampler_descriptor_stride,
-          index));
+        descriptor_destination(
+          env.sampler_heap_bytes, env.sampler_descriptor_size, env.sampler_descriptor_stride, index));
       VkSamplerCreateInfo const &sampler_info = env.sampler_infos.subspan(positions.sampler).front();
       VKEXEC_TRY(write_sampler_descriptor(ctx, sampler_info, destination));
       ++positions.sampler;
@@ -103,18 +101,16 @@ namespace {
 
 }// namespace
 
-auto heap_descriptor_backend::lower(
-  context &ctx, pipeline_resources const & /*pipe*/, resource_table const &table, lower_env const &env)
-  -> result<bound_type>
+auto heap_descriptor_backend::lower(context &ctx,
+  pipeline_resources const & /*pipe*/,
+  resource_table const &table,
+  lower_env const &env) -> result<bound_type>
 {
-  auto const sampler_count = static_cast<std::size_t>(std::ranges::count_if(
-    table.entries(), [](resource_binding const &entry) -> bool {
-      return entry.resource.kind == resource_kind::sampler;
-    }));
-  auto const image_count = static_cast<std::size_t>(
-    std::ranges::count_if(table.entries(), [](resource_binding const &entry) -> bool {
-      return entry.resource.kind == resource_kind::storage_image
-             || entry.resource.kind == resource_kind::sampled_image;
+  auto const sampler_count = static_cast<std::size_t>(std::ranges::count_if(table.entries(),
+    [](resource_binding const &entry) -> bool { return entry.resource.kind == resource_kind::sampler; }));
+  auto const image_count =
+    static_cast<std::size_t>(std::ranges::count_if(table.entries(), [](resource_binding const &entry) -> bool {
+      return entry.resource.kind == resource_kind::storage_image || entry.resource.kind == resource_kind::sampled_image;
     }));
   if (env.indices.size() != table.size() - sampler_count || env.sampler_indices.size() != sampler_count) {
     return fail(errc::invalid_argument, "heap descriptor indices must match resource kinds");
@@ -127,9 +123,8 @@ auto heap_descriptor_backend::lower(
   lowered.reserve(table.size());
   lower_positions positions{};
   for (resource_binding const &entry : table.entries()) {
-    if (std::ranges::any_of(lowered, [&entry](heap_index_binding const &existing) -> bool {
-          return existing.slot == entry.slot;
-        })) {
+    if (std::ranges::any_of(
+          lowered, [&entry](heap_index_binding const &existing) -> bool { return existing.slot == entry.slot; })) {
       return fail(errc::invalid_argument, "resource_table contains duplicate logical slots");
     }
     VKEXEC_TRY_ASSIGN(index, lower_entry(ctx, entry, env, positions));
@@ -156,9 +151,8 @@ namespace vkexec {
 
 auto heap_index_map::index_for(std::uint32_t slot) const noexcept -> std::optional<std::uint32_t>
 {
-  auto const found = std::ranges::find_if(entries_, [slot](heap_index_binding const &entry) -> bool {
-    return entry.slot == slot;
-  });
+  auto const found =
+    std::ranges::find_if(entries_, [slot](heap_index_binding const &entry) -> bool { return entry.slot == slot; });
   if (found != entries_.end()) { return found->index; }
   return std::nullopt;
 }

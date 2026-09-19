@@ -28,10 +28,14 @@ namespace {
   [[nodiscard]] auto descriptor_type(resource_kind kind) noexcept -> VkDescriptorType
   {
     switch (kind) {
-    case resource_kind::storage_buffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    case resource_kind::storage_image: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    case resource_kind::sampled_image: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-    case resource_kind::sampler: return VK_DESCRIPTOR_TYPE_SAMPLER;
+    case resource_kind::storage_buffer:
+      return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case resource_kind::storage_image:
+      return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case resource_kind::sampled_image:
+      return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    case resource_kind::sampler:
+      return VK_DESCRIPTOR_TYPE_SAMPLER;
     }
     return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   }

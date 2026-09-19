@@ -40,8 +40,8 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
   vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
-auto write_resource_descriptors(
-  VkDevice device, VkDescriptorSet set, std::span<resource_binding const> resources) -> void
+auto write_resource_descriptors(VkDevice device, VkDescriptorSet set, std::span<resource_binding const> resources)
+  -> void
 {
   if (resources.empty()) { return; }
   std::vector<VkDescriptorBufferInfo> buffer_infos(resources.size());

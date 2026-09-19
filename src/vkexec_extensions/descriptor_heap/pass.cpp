@@ -2,8 +2,8 @@
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/detail/viewport.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/result.hpp>
@@ -25,8 +25,8 @@ auto record_pass(context const &ctx,
   std::span<std::byte const> push,
   dispatch groups) -> status
 {
-  if (auto bound = detail::bind_and_push<detail::heap_descriptor_backend>(
-        &ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind, push);
+  if (auto bound =
+        detail::bind_and_push<detail::heap_descriptor_backend>(&ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind, push);
     !bound) {
     return fail(bound);
   }
@@ -40,8 +40,8 @@ auto record_pass(context const &ctx,
   std::span<std::byte const> push,
   indirect_dispatch groups) -> status
 {
-  if (auto bound = detail::bind_and_push<detail::heap_descriptor_backend>(
-        &ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind, push);
+  if (auto bound =
+        detail::bind_and_push<detail::heap_descriptor_backend>(&ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, bind, push);
     !bound) {
     return fail(bound);
   }

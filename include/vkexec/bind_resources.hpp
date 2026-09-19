@@ -104,13 +104,8 @@ namespace detail {
                   context &ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) mutable -> status {
         if (closure.pipe == nullptr) { return fail(errc::invalid_argument, "bind_resources requires a pipeline"); }
         state->release();
-        auto lowered = lower_and_bind_push<Backend>(ctx,
-          cmd,
-          VK_PIPELINE_BIND_POINT_COMPUTE,
-          *closure.pipe,
-          closure.table,
-          closure.env,
-          closure.push);
+        auto lowered = lower_and_bind_push<Backend>(
+          ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *closure.pipe, closure.table, closure.env, closure.push);
         if (!lowered) { return fail(lowered); }
         state->ctx = &ctx;
         state->pipe = closure.pipe;
@@ -136,9 +131,7 @@ template<class Backend>
 //! Appends a resource-table lowering step to an existing pass graph.
 template<class Backend>
 [[nodiscard]] auto operator|(pass_graph_sender graph, bind_resources_closure<Backend> closure) -> pass_graph_sender
-{
-  return detail::append_step(std::move(graph), detail::make_bind_resources_step(std::move(closure)));
-}
+{ return detail::append_step(std::move(graph), detail::make_bind_resources_step(std::move(closure))); }
 
 }// namespace vkexec
 

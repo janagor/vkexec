@@ -6,8 +6,8 @@
 
 #include <vulkan/vulkan.h>
 
-#include <vkexec/result.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/result.hpp>
 
 #include <array>
 #include <cstddef>

@@ -89,9 +89,8 @@ auto run() -> int
     "descriptor_heap.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome =
-    vkexec::try_sync_wait(
-      ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
+  auto outcome = vkexec::try_sync_wait(
+    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
   if (outcome.failed() || outcome.stopped || !outcome.values.has_value()) {
     vkexec::examples::fail_check("bindless compute dispatch failed");
   }

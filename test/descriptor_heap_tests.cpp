@@ -6,8 +6,8 @@
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec/result.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
@@ -69,8 +69,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
       .shader_device_address = true,
     }));
   auto heap = vkexec::test::sync_wait_value(vkexec::descriptor_heap_buffer::create(*ctx, heap_bytes));
-  auto sampler_heap =
-    vkexec::test::sync_wait_value(vkexec::descriptor_heap_buffer::create(*ctx, sampler_bytes));
+  auto sampler_heap = vkexec::test::sync_wait_value(vkexec::descriptor_heap_buffer::create(*ctx, sampler_bytes));
   auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,
     vkexec::image_create_info{
       .width = k_image_extent,

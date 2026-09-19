@@ -58,19 +58,18 @@ public:
 
   //! Creates a pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] static auto create(
-    Strategy strategy, context &ctx, std::span<std::uint32_t const> spirv, Desc const &desc)
-  {
-    return create_compute_pipeline(strategy, ctx, spirv, desc);
-  }
+  [[nodiscard]] static auto
+    create(Strategy strategy, context &ctx, std::span<std::uint32_t const> spirv, Desc const &desc)
+  { return create_compute_pipeline(strategy, ctx, spirv, desc); }
 
   //! Compiles GLSL and creates a pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] static auto create(
-    Strategy strategy, context &ctx, std::string_view glsl, Desc const &desc, std::string_view name = "vkexec.comp")
-  {
-    return create_compute_pipeline(strategy, ctx, glsl, desc, name);
-  }
+  [[nodiscard]] static auto create(Strategy strategy,
+    context &ctx,
+    std::string_view glsl,
+    Desc const &desc,
+    std::string_view name = "vkexec.comp")
+  { return create_compute_pipeline(strategy, ctx, glsl, desc, name); }
 
   //! Adopts an owned pipeline resource bag.
   [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> compute_pipeline

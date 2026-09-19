@@ -4,10 +4,10 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
-#include <vkexec/detail/shader_module.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
-#include <vkexec/detail/viewport.hpp>
+#include <vkexec/detail/shader_module.hpp>
 #include <vkexec/detail/sync_sender.hpp>
+#include <vkexec/detail/viewport.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>

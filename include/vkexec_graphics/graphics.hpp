@@ -82,9 +82,7 @@ public:
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
     Desc const &desc)
-  {
-    return create_graphics_pipeline(strategy, ctx, vertex_spirv, fragment_spirv, desc);
-  }
+  { return create_graphics_pipeline(strategy, ctx, vertex_spirv, fragment_spirv, desc); }
 
   //! Compiles GLSL and creates a graphics pipeline through an extension-owned strategy tag.
   template<class Strategy, class Desc>
@@ -95,10 +93,7 @@ public:
     Desc const &desc,
     std::string_view vertex_name = "vkexec.vert",
     std::string_view fragment_name = "vkexec.frag")
-  {
-    return create_graphics_pipeline(
-      strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
-  }
+  { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
 
   //! Owning factory used after `create_graphics_resources` + optional set install.
   [[nodiscard]] static auto make(context &ctx,

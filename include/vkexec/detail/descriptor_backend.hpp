@@ -56,8 +56,8 @@ struct set_descriptor_backend
   [[nodiscard]] static constexpr auto pipeline_create_flags() noexcept -> VkPipelineCreateFlags2 { return 0; }
 
   template<class Resources>
-  [[nodiscard]] static auto create_set_and_pipeline_layout(
-    VkDevice device, Resources &resources, descriptor_layout_info const &info) -> status
+  [[nodiscard]] static auto
+    create_set_and_pipeline_layout(VkDevice device, Resources &resources, descriptor_layout_info const &info) -> status
   {
     if (info.create_set_layout) {
       VkDescriptorSetLayoutCreateInfo set_info{};
@@ -91,15 +91,14 @@ struct set_descriptor_backend
   }
 
   template<class Resources>
-  [[nodiscard]] static auto create_descriptor_pool(
-    VkDevice device, Resources &resources, descriptor_layout_info const &info) -> status
+  [[nodiscard]] static auto
+    create_descriptor_pool(VkDevice device, Resources &resources, descriptor_layout_info const &info) -> status
   {
     if (!info.create_pool) { return {}; }
     std::vector<VkDescriptorPoolSize> pool_sizes;
     for (VkDescriptorSetLayoutBinding const &binding : info.bindings) {
-      auto const found = std::ranges::find_if(pool_sizes, [&binding](VkDescriptorPoolSize const &size) -> bool {
-        return size.type == binding.descriptorType;
-      });
+      auto const found = std::ranges::find_if(pool_sizes,
+        [&binding](VkDescriptorPoolSize const &size) -> bool { return size.type == binding.descriptorType; });
       std::uint32_t const count = binding.descriptorCount * info.sets_per_pool;
       if (found == pool_sizes.end()) {
         pool_sizes.push_back(VkDescriptorPoolSize{ .type = binding.descriptorType, .descriptorCount = count });
@@ -132,9 +131,7 @@ struct set_descriptor_backend
     if (resources.descriptor_pool != VK_NULL_HANDLE) {
       vkDestroyDescriptorPool(device, resources.descriptor_pool, nullptr);
     }
-    if (resources.set_layout != VK_NULL_HANDLE) {
-      vkDestroyDescriptorSetLayout(device, resources.set_layout, nullptr);
-    }
+    if (resources.set_layout != VK_NULL_HANDLE) { vkDestroyDescriptorSetLayout(device, resources.set_layout, nullptr); }
     resources.pipeline_layout = VK_NULL_HANDLE;
     resources.descriptor_pool = VK_NULL_HANDLE;
     resources.set_layout = VK_NULL_HANDLE;
@@ -156,18 +153,18 @@ struct set_descriptor_backend
     std::span<std::byte const> bytes) -> status
   {
     if (bind.layout != VK_NULL_HANDLE && !bytes.empty()) {
-      VkShaderStageFlags const stages = bind_point == VK_PIPELINE_BIND_POINT_COMPUTE
-        ? VK_SHADER_STAGE_COMPUTE_BIT
-        : static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+      VkShaderStageFlags const stages =
+        bind_point == VK_PIPELINE_BIND_POINT_COMPUTE
+          ? VK_SHADER_STAGE_COMPUTE_BIT
+          : static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
       vkCmdPushConstants(cmd, bind.layout, stages, 0, static_cast<std::uint32_t>(bytes.size()), bytes.data());
     }
     return {};
   }
 
-  [[nodiscard]] static auto lower(context &ctx,
-    pipeline_resources const &pipe,
-    resource_table const &table,
-    lower_env const & /*env*/) -> result<bound_type>
+  [[nodiscard]] static auto
+    lower(context &ctx, pipeline_resources const &pipe, resource_table const &table, lower_env const & /*env*/)
+      -> result<bound_type>
   {
     if (table.size() != pipe.binding_count) {
       return fail(errc::invalid_argument, "resource_table size must match pipeline binding count");

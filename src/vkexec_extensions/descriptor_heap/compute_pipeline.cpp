@@ -6,8 +6,7 @@
 
 namespace vkexec {
 
-auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, dispatch groups)
-  -> descriptor_compute_pass_closure
+auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, dispatch groups) -> descriptor_compute_pass_closure
 { return descriptor_compute_pass_closure{ .inner = compute_pass(bind, groups) }; }
 
 auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, indirect_dispatch groups)

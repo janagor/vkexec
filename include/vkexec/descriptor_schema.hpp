@@ -17,8 +17,7 @@
 namespace vkexec {
 
 //! One logical storage-buffer slot in a descriptor schema.
-template<std::uint32_t Slot, buffer_access Access = buffer_access::readwrite>
-struct storage_buffer
+template<std::uint32_t Slot, buffer_access Access = buffer_access::readwrite> struct storage_buffer
 {
   // NOLINTNEXTLINE(readability-identifier-naming)
   static constexpr std::uint32_t slot = Slot;
@@ -29,8 +28,7 @@ struct storage_buffer
 };
 
 //! One logical storage-image slot in a descriptor schema.
-template<std::uint32_t Slot>
-struct storage_image
+template<std::uint32_t Slot> struct storage_image
 {
   // NOLINTNEXTLINE(readability-identifier-naming)
   static constexpr std::uint32_t slot = Slot;
@@ -41,8 +39,7 @@ struct storage_image
 };
 
 //! One logical sampled-image slot in a descriptor schema.
-template<std::uint32_t Slot>
-struct sampled_image
+template<std::uint32_t Slot> struct sampled_image
 {
   // NOLINTNEXTLINE(readability-identifier-naming)
   static constexpr std::uint32_t slot = Slot;
@@ -53,8 +50,7 @@ struct sampled_image
 };
 
 //! One logical sampler slot; named to avoid colliding with the owning `sampler` type.
-template<std::uint32_t Slot>
-struct sampler_binding
+template<std::uint32_t Slot> struct sampler_binding
 {
   // NOLINTNEXTLINE(readability-identifier-naming)
   static constexpr std::uint32_t slot = Slot;
@@ -73,8 +69,7 @@ namespace detail {
     { Entry::kind } -> std::convertible_to<resource_kind>;
   };
 
-  template<class... Entries>
-  consteval auto descriptor_schema_slots_unique() -> bool
+  template<class... Entries> consteval auto descriptor_schema_slots_unique() -> bool
   {
     constexpr std::array<std::uint32_t, sizeof...(Entries)> k_slots{ Entries::slot... };
     for (std::size_t current = 0; current < k_slots.size(); ++current) {
@@ -85,8 +80,7 @@ namespace detail {
     return true;
   }
 
-  template<class... Entries>
-  consteval auto descriptor_schema_slots_sorted() -> bool
+  template<class... Entries> consteval auto descriptor_schema_slots_sorted() -> bool
   {
     constexpr std::array<std::uint32_t, sizeof...(Entries)> k_slots{ Entries::slot... };
     for (std::size_t index = 1; index < k_slots.size(); ++index) {
@@ -95,8 +89,7 @@ namespace detail {
     return true;
   }
 
-  template<class Entry, class Resource>
-  [[nodiscard]] auto schema_resource(Resource &&resource) -> resource_ref
+  template<class Entry, class Resource> [[nodiscard]] auto schema_resource(Resource &&resource) -> resource_ref
   {
     auto result = static_cast<resource_ref>(std::forward<Resource>(resource));
     result.kind = Entry::kind;
@@ -106,8 +99,7 @@ namespace detail {
 }// namespace detail
 
 //! Ordered compile-time descriptor contract for logical resource slots.
-template<class... Entries>
-struct descriptor_schema
+template<class... Entries> struct descriptor_schema
 {
   static_assert((detail::descriptor_schema_entry<Entries> && ...), "descriptor_schema entries must be resource slots");
   static_assert(detail::descriptor_schema_slots_unique<Entries...>(), "descriptor_schema slots must be unique");
@@ -133,8 +125,7 @@ template<class... Entries>
 
 //! Builds a resource table whose logical slots come from `schema`.
 template<class... Entries, class... Resources>
-  requires(sizeof...(Entries) == sizeof...(Resources))
-       && (std::convertible_to<Resources &&, resource_ref> && ...)
+  requires(sizeof...(Entries) == sizeof...(Resources)) && (std::convertible_to<Resources &&, resource_ref> && ...)
 [[nodiscard]] auto make_resource_table(descriptor_schema<Entries...> /*schema*/, Resources &&...resources)
   -> resource_table
 {

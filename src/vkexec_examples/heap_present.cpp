@@ -295,9 +295,8 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     "heap_present.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome =
-    vkexec::try_sync_wait(
-      ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
+  auto outcome = vkexec::try_sync_wait(
+    ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
   return !outcome.failed() && outcome.values.has_value() && !outcome.stopped;
 }
 

@@ -3,8 +3,8 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
-#include <vkexec/detail/result.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
+#include <vkexec/detail/result.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>

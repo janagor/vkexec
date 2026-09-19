@@ -15,12 +15,10 @@ struct uint32_specialization
   std::vector<VkSpecializationMapEntry> entries;
   VkSpecializationInfo info{};
 
-  [[nodiscard]] auto get() const noexcept -> VkSpecializationInfo const *
-  { return entries.empty() ? nullptr : &info; }
+  [[nodiscard]] auto get() const noexcept -> VkSpecializationInfo const * { return entries.empty() ? nullptr : &info; }
 };
 
-[[nodiscard]] inline auto make_uint32_specialization(std::span<std::uint32_t const> values)
-  -> uint32_specialization
+[[nodiscard]] inline auto make_uint32_specialization(std::span<std::uint32_t const> values) -> uint32_specialization
 {
   uint32_specialization specialization{};
   specialization.entries.resize(values.size());

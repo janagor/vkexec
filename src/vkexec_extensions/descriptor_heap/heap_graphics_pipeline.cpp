@@ -160,8 +160,9 @@ namespace {
 
 }// namespace
 
-auto destroy_graphics_resources(
-  descriptor_heap_t /*strategy*/, context const &ctx, pipeline_resources &resources) noexcept -> void
+auto destroy_graphics_resources(descriptor_heap_t /*strategy*/,
+  context const &ctx,
+  pipeline_resources &resources) noexcept -> void
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
@@ -243,9 +244,7 @@ auto create_graphics_resources(descriptor_heap_t /*strategy*/,
 
 auto descriptor_graphics_pipeline::reset() noexcept -> void
 {
-  if (ctx_ != nullptr && resources_ != nullptr) {
-    destroy_graphics_resources(descriptor_heap, *ctx_, *resources_);
-  }
+  if (ctx_ != nullptr && resources_ != nullptr) { destroy_graphics_resources(descriptor_heap, *ctx_, *resources_); }
   resources_.reset();
   ctx_ = nullptr;
 }
@@ -278,10 +277,8 @@ auto descriptor_graphics_pipeline::create(context &ctx,
       desc,
       vertex_name = std::string(vertex_name),
       fragment_name = std::string(fragment_name)]() -> result<descriptor_graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(
-        owned,
-        create_graphics_resources(
-          descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
+      VKEXEC_TRY_ASSIGN(owned,
+        create_graphics_resources(descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
       return make(ctx, std::make_unique<pipeline_resources>(owned));
     });
 }
@@ -300,8 +297,6 @@ auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
-{
-  return descriptor_graphics_pipeline::create(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
-}
+{ return descriptor_graphics_pipeline::create(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
 
 }// namespace vkexec

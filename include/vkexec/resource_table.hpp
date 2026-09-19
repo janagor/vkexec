@@ -42,8 +42,8 @@ struct resource_ref
 }
 
 //! Creates a storage-image resource reference.
-[[nodiscard]] inline auto storage_image_resource(
-  VkImageView image_view, VkImageLayout image_layout = VK_IMAGE_LAYOUT_GENERAL) noexcept -> resource_ref
+[[nodiscard]] inline auto storage_image_resource(VkImageView image_view,
+  VkImageLayout image_layout = VK_IMAGE_LAYOUT_GENERAL) noexcept -> resource_ref
 {
   return resource_ref{ .kind = resource_kind::storage_image,
     .buffer = VK_NULL_HANDLE,
@@ -54,9 +54,8 @@ struct resource_ref
 }
 
 //! Creates a sampled-image resource reference.
-[[nodiscard]] inline auto sampled_image_resource(
-  VkImageView image_view, VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) noexcept
-  -> resource_ref
+[[nodiscard]] inline auto sampled_image_resource(VkImageView image_view,
+  VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) noexcept -> resource_ref
 {
   return resource_ref{ .kind = resource_kind::sampled_image,
     .buffer = VK_NULL_HANDLE,

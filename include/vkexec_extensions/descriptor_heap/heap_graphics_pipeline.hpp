@@ -80,8 +80,8 @@ struct heap_graphics_layout_desc
   std::string_view fragment_name = "heap.frag") -> result<pipeline_resources>;
 
 //! Destroys a descriptor-heap graphics resource bag and resets it.
-auto destroy_graphics_resources(
-  descriptor_heap_t strategy, context const &ctx, pipeline_resources &resources) noexcept -> void;
+auto destroy_graphics_resources(descriptor_heap_t strategy, context const &ctx, pipeline_resources &resources) noexcept
+  -> void;
 
 /**
  * Thin owning wrapper over heap graphics `pipeline_resources`.

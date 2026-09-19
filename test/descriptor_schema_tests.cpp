@@ -15,8 +15,8 @@ namespace {
 using positions = vkexec::storage_buffer<0>;
 using velocities = vkexec::storage_buffer<3, vkexec::buffer_access::readonly>;
 using sim_schema = vkexec::descriptor_schema<positions, velocities>;
-using image_schema = vkexec::descriptor_schema<
-  vkexec::storage_image<1>, vkexec::sampled_image<2>, vkexec::sampler_binding<3>>;
+using image_schema =
+  vkexec::descriptor_schema<vkexec::storage_image<1>, vkexec::sampled_image<2>, vkexec::sampler_binding<3>>;
 
 template<class Schema, class... Resources>
 concept makes_resource_table = requires(Schema schema, Resources... resources) {
@@ -35,9 +35,8 @@ static_assert(!makes_resource_table<sim_schema, vkexec::resource_ref>);
 
 TEST_CASE("descriptor_schema builds an ordered resource_table", "[vkexec][descriptor_schema]")
 {
-  auto const table = vkexec::make_resource_table(sim_schema{},
-    vkexec::buffer_resource(VK_NULL_HANDLE, 64),
-    vkexec::buffer_resource(VK_NULL_HANDLE, 128));
+  auto const table = vkexec::make_resource_table(
+    sim_schema{}, vkexec::buffer_resource(VK_NULL_HANDLE, 64), vkexec::buffer_resource(VK_NULL_HANDLE, 128));
 
   REQUIRE(table.size() == sim_schema::binding_count);
   REQUIRE(table.entries().front().slot == positions::slot);
