@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include <vulkan/vulkan_core.h>
+
 namespace vkexec {
 
 struct heap_index_binding
@@ -34,13 +36,24 @@ private:
   std::vector<heap_index_binding> entries_;
 };
 
-//! Extension-only state needed to lower storage buffers into mapped heap slots.
+//! Extension-only state needed to lower resource tables into mapped heap slots.
 struct heap_table_lower_env
 {
   std::span<std::byte> resource_heap_bytes;
+  std::span<std::byte> sampler_heap_bytes;
   std::size_t buffer_descriptor_size{ 0 };
+  std::size_t image_descriptor_size{ 0 };
   std::size_t descriptor_stride{ 0 };
+  std::size_t sampler_descriptor_size{ 0 };
+  std::size_t sampler_descriptor_stride{ 0 };
+  //! Physical indices for non-sampler entries, in table order with samplers removed.
   std::span<std::uint32_t const> indices;
+  //! Physical indices for sampler entries, in table order with other kinds removed.
+  std::span<std::uint32_t const> sampler_indices;
+  //! Create infos for image entries, in table order with non-images removed.
+  std::span<VkImageViewCreateInfo const> image_view_infos;
+  //! Create infos for sampler entries, in table order with other kinds removed.
+  std::span<VkSamplerCreateInfo const> sampler_infos;
 };
 
 }// namespace vkexec

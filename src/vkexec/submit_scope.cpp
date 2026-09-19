@@ -5,6 +5,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -34,6 +35,50 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
     writes.at(index).descriptorCount = 1;
     writes.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     writes.at(index).pBufferInfo = &buf_infos.at(index);
+    ++index;
+  }
+  vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+auto write_resource_descriptors(
+  VkDevice device, VkDescriptorSet set, std::span<resource_binding const> resources) -> void
+{
+  if (resources.empty()) { return; }
+  std::vector<VkDescriptorBufferInfo> buffer_infos(resources.size());
+  std::vector<VkDescriptorImageInfo> image_infos(resources.size());
+  std::vector<VkWriteDescriptorSet> writes(resources.size());
+  std::size_t index = 0;
+  for (resource_binding const &binding : resources) {
+    VkWriteDescriptorSet &write = writes.at(index);
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = set;
+    write.dstBinding = binding.slot;
+    write.descriptorCount = 1;
+    switch (binding.resource.kind) {
+    case resource_kind::storage_buffer:
+      buffer_infos.at(index).buffer = binding.resource.buffer;
+      buffer_infos.at(index).range = binding.resource.byte_size;
+      write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      write.pBufferInfo = &buffer_infos.at(index);
+      break;
+    case resource_kind::storage_image:
+      image_infos.at(index).imageView = binding.resource.image_view;
+      image_infos.at(index).imageLayout = binding.resource.image_layout;
+      write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      write.pImageInfo = &image_infos.at(index);
+      break;
+    case resource_kind::sampled_image:
+      image_infos.at(index).imageView = binding.resource.image_view;
+      image_infos.at(index).imageLayout = binding.resource.image_layout;
+      write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+      write.pImageInfo = &image_infos.at(index);
+      break;
+    case resource_kind::sampler:
+      image_infos.at(index).sampler = binding.resource.sampler;
+      write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+      write.pImageInfo = &image_infos.at(index);
+      break;
+    }
     ++index;
   }
   vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);

@@ -1,7 +1,7 @@
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
-#include <vkexec_extensions/descriptor_heap/push_data.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/push_data.hpp>
 #include <vkexec_extensions/descriptor_heap/resource_table.hpp>
 
 #include <vkexec/context.hpp>
@@ -27,21 +27,78 @@ namespace vkexec::detail {
 
 namespace {
 
-  [[nodiscard]] auto descriptor_destination(
-    heap_table_lower_env const &env, std::uint32_t index) -> result<std::span<std::byte>>
+  [[nodiscard]] auto descriptor_destination(std::span<std::byte> bytes,
+    std::size_t descriptor_size,
+    std::size_t descriptor_stride,
+    std::uint32_t index) -> result<std::span<std::byte>>
   {
-    if (env.buffer_descriptor_size == 0 || env.descriptor_stride == 0) {
+    if (descriptor_size == 0 || descriptor_stride == 0) {
       return fail(errc::invalid_argument, "heap descriptor sizes must be non-zero");
     }
-    if (index > std::numeric_limits<std::size_t>::max() / env.descriptor_stride) {
+    if (index > std::numeric_limits<std::size_t>::max() / descriptor_stride) {
       return fail(errc::invalid_argument, "heap descriptor index overflows mapped range");
     }
-    std::size_t const offset = static_cast<std::size_t>(index) * env.descriptor_stride;
-    if (offset > env.resource_heap_bytes.size()
-      || env.buffer_descriptor_size > env.resource_heap_bytes.size() - offset) {
+    std::size_t const offset = static_cast<std::size_t>(index) * descriptor_stride;
+    if (offset > bytes.size() || descriptor_size > bytes.size() - offset) {
       return fail(errc::invalid_argument, "heap descriptor index is outside mapped range");
     }
-    return env.resource_heap_bytes.subspan(offset, env.buffer_descriptor_size);
+    return bytes.subspan(offset, descriptor_size);
+  }
+
+  struct lower_positions
+  {
+    std::size_t resource{ 0 };
+    std::size_t image{ 0 };
+    std::size_t sampler{ 0 };
+  };
+
+  [[nodiscard]] auto lower_entry(context &ctx,
+    resource_binding const &entry,
+    heap_table_lower_env const &env,
+    lower_positions &positions) -> result<std::uint32_t>
+  {
+    switch (entry.resource.kind) {
+    case resource_kind::storage_buffer: {
+      std::uint32_t const index = env.indices.subspan(positions.resource).front();
+      VKEXEC_TRY_ASSIGN(destination,
+        descriptor_destination(env.resource_heap_bytes, env.buffer_descriptor_size, env.descriptor_stride, index));
+      VkBufferDeviceAddressInfo address_info{};
+      address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+      address_info.buffer = entry.resource.buffer;
+      VkDeviceAddress const address = vkGetBufferDeviceAddress(ctx.device(), &address_info);
+      VKEXEC_TRY(write_storage_buffer_descriptor(ctx, address, entry.resource.byte_size, destination));
+      ++positions.resource;
+      return index;
+    }
+    case resource_kind::storage_image:
+    case resource_kind::sampled_image: {
+      std::uint32_t const index = env.indices.subspan(positions.resource).front();
+      VKEXEC_TRY_ASSIGN(destination,
+        descriptor_destination(env.resource_heap_bytes, env.image_descriptor_size, env.descriptor_stride, index));
+      VkImageViewCreateInfo const &view_info = env.image_view_infos.subspan(positions.image).front();
+      if (entry.resource.kind == resource_kind::storage_image) {
+        VKEXEC_TRY(write_storage_image_descriptor(ctx, view_info, entry.resource.image_layout, destination));
+      } else {
+        VKEXEC_TRY(write_sampled_image_descriptor(ctx, view_info, entry.resource.image_layout, destination));
+      }
+      ++positions.resource;
+      ++positions.image;
+      return index;
+    }
+    case resource_kind::sampler: {
+      std::uint32_t const index = env.sampler_indices.subspan(positions.sampler).front();
+      VKEXEC_TRY_ASSIGN(destination,
+        descriptor_destination(env.sampler_heap_bytes,
+          env.sampler_descriptor_size,
+          env.sampler_descriptor_stride,
+          index));
+      VkSamplerCreateInfo const &sampler_info = env.sampler_infos.subspan(positions.sampler).front();
+      VKEXEC_TRY(write_sampler_descriptor(ctx, sampler_info, destination));
+      ++positions.sampler;
+      return index;
+    }
+    }
+    return fail(errc::invalid_argument, "resource_table contains an unknown resource kind");
   }
 
 }// namespace
@@ -50,29 +107,33 @@ auto heap_descriptor_backend::lower(
   context &ctx, pipeline_resources const & /*pipe*/, resource_table const &table, lower_env const &env)
   -> result<bound_type>
 {
-  if (env.indices.size() != table.size()) {
-    return fail(errc::invalid_argument, "heap descriptor indices must match resource_table size");
+  auto const sampler_count = static_cast<std::size_t>(std::ranges::count_if(
+    table.entries(), [](resource_binding const &entry) -> bool {
+      return entry.resource.kind == resource_kind::sampler;
+    }));
+  auto const image_count = static_cast<std::size_t>(
+    std::ranges::count_if(table.entries(), [](resource_binding const &entry) -> bool {
+      return entry.resource.kind == resource_kind::storage_image
+             || entry.resource.kind == resource_kind::sampled_image;
+    }));
+  if (env.indices.size() != table.size() - sampler_count || env.sampler_indices.size() != sampler_count) {
+    return fail(errc::invalid_argument, "heap descriptor indices must match resource kinds");
+  }
+  if (env.image_view_infos.size() != image_count || env.sampler_infos.size() != sampler_count) {
+    return fail(errc::invalid_argument, "heap descriptor create infos must match resource kinds");
   }
 
   std::vector<heap_index_binding> lowered;
   lowered.reserve(table.size());
-  auto index = env.indices.begin();
+  lower_positions positions{};
   for (resource_binding const &entry : table.entries()) {
     if (std::ranges::any_of(lowered, [&entry](heap_index_binding const &existing) -> bool {
           return existing.slot == entry.slot;
         })) {
       return fail(errc::invalid_argument, "resource_table contains duplicate logical slots");
     }
-    VKEXEC_TRY_ASSIGN(destination, descriptor_destination(env, *index));
-    VkBufferDeviceAddressInfo address_info{};
-    address_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-    address_info.buffer = entry.resource.buffer;
-    VkDeviceAddress const address = vkGetBufferDeviceAddress(ctx.device(), &address_info);
-    if (auto written = write_storage_buffer_descriptor(ctx, address, entry.resource.byte_size, destination); !written) {
-      return fail(written);
-    }
-    lowered.push_back(heap_index_binding{ .slot = entry.slot, .index = *index });
-    ++index;
+    VKEXEC_TRY_ASSIGN(index, lower_entry(ctx, entry, env, positions));
+    lowered.push_back(heap_index_binding{ .slot = entry.slot, .index = index });
   }
   return heap_index_map{ std::move(lowered) };
 }

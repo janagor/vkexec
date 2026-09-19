@@ -176,13 +176,20 @@ TEST_CASE("create_heap_compute_resources draws without owning pipeline", "[vkexe
     }));
   auto heap = vkexec::test::sync_wait_value(
     vkexec::descriptor_heap_buffer::create(*ctx, vkexec::descriptor_heap_byte_size(layout, 1)));
-  auto const table = vkexec::bindings(vkexec::resource_binding{
-    .slot = 0, .resource = { .buffer = storage.handle(), .byte_size = storage.size() } });
+  auto const table = vkexec::bindings(
+    vkexec::resource_binding{ .slot = 0, .resource = vkexec::buffer_resource(storage.handle(), storage.size()) });
   std::array<std::uint32_t, 1> const indices{ 0 };
   vkexec::heap_table_lower_env const lower_env{ .resource_heap_bytes = heap.mapped(),
+    .sampler_heap_bytes = {},
     .buffer_descriptor_size = layout.buffer_descriptor_size,
+    .image_descriptor_size = layout.image_descriptor_size,
     .descriptor_stride = layout.descriptor_stride,
-    .indices = indices };
+    .sampler_descriptor_size = layout.sampler_descriptor_size,
+    .sampler_descriptor_stride = layout.sampler_descriptor_size,
+    .indices = indices,
+    .sampler_indices = {},
+    .image_view_infos = {},
+    .sampler_infos = {} };
   auto resources_result = vkexec::create_heap_compute_resources(*ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },

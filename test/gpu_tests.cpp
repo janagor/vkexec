@@ -10,10 +10,13 @@
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/descriptor_table_backend.hpp>
 #include <vkexec/detail/lower_and_bind_push.hpp>
+#include <vkexec/image.hpp>
+#include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/sampler.hpp>
 #include <vkexec/submit.hpp>
 
 #include <stdexec/execution.hpp>
@@ -84,10 +87,13 @@ struct pass_params
 };
 
 using sim_schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>, vkexec::storage_buffer<1>>;
+using image_schema = vkexec::descriptor_schema<
+  vkexec::storage_image<0>, vkexec::sampled_image<1>, vkexec::sampler_binding<2>>;
 
 auto make_one_buffer_layout() -> vkexec::layout_desc
 {
   return vkexec::layout_desc{
+    .binding_kinds = {},
     .binding_slots = {},
     .bindings = { vkexec::buffer_access::readwrite },
     .push_constant_size = sizeof(pass_params),
@@ -99,6 +105,7 @@ auto make_one_buffer_layout() -> vkexec::layout_desc
 auto make_sim_layout() -> vkexec::layout_desc
 {
   return vkexec::layout_desc{
+    .binding_kinds = {},
     .binding_slots = {},
     .bindings = { vkexec::buffer_access::readwrite, vkexec::buffer_access::readwrite },
     .push_constant_size = sizeof(sim_params),
@@ -167,8 +174,8 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   auto resources = vkexec::expected_take(resources_result);
 
   auto const table = vkexec::make_resource_table(sim_schema{},
-    vkexec::resource_ref{ .buffer = positions.vk_buffer(), .byte_size = k_count * sizeof(float) },
-    vkexec::resource_ref{ .buffer = velocities.vk_buffer(), .byte_size = k_count * sizeof(float) });
+    vkexec::buffer_resource(positions.vk_buffer(), k_count * sizeof(float)),
+    vkexec::buffer_resource(velocities.vk_buffer(), k_count * sizeof(float)));
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
   auto *cmd = vkexec::expected_take(cmd_result);
@@ -203,6 +210,37 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
 
   vkexec::detail::set_descriptor_backend::release(*ctx, resources, set);
   ctx->free_command_buffer(cmd);
+  vkexec::destroy_compute_resources(*ctx, resources);
+}
+
+TEST_CASE("classic resource_table lowers image and sampler entries", "[vkexec][gpu][resource_table]")
+{
+  constexpr std::string_view k_empty_compute_glsl = R"(#version 450
+layout(local_size_x = 1) in;
+void main() {}
+)";
+
+  auto ctx = vkexec::test::require_context();
+  auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,
+    vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
+  auto view = vkexec::test::sync_wait_value(vkexec::image_view::create(*ctx, img));
+  auto image_sampler = vkexec::test::sync_wait_value(vkexec::sampler::create(*ctx));
+  auto resources_result = vkexec::create_compute_resources(
+    *ctx, k_empty_compute_glsl, vkexec::layout_desc_from_schema(image_schema{}), "table_images.comp");
+  REQUIRE(resources_result.has_value());
+  auto resources = vkexec::expected_take(resources_result);
+  auto const table = vkexec::make_resource_table(image_schema{},
+    vkexec::storage_image_resource(view.handle()),
+    vkexec::sampled_image_resource(view.handle(), VK_IMAGE_LAYOUT_GENERAL),
+    vkexec::sampler_resource(image_sampler.handle()));
+
+  auto lowered = vkexec::detail::set_descriptor_backend::lower(
+    *ctx, resources, table, vkexec::detail::empty_table_lower_env{});
+  REQUIRE(lowered.has_value());
+  VkDescriptorSet set = vkexec::expected_take(lowered);
+  REQUIRE(set != VK_NULL_HANDLE);
+
+  vkexec::detail::set_descriptor_backend::release(*ctx, resources, set);
   vkexec::destroy_compute_resources(*ctx, resources);
 }
 

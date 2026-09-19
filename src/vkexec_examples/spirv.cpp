@@ -71,6 +71,7 @@ static auto run() -> int
   auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
     k_scale_glsl,
     vkexec::layout_desc{
+      .binding_kinds = {},
       .binding_slots = {},
       .bindings = { readonly, writeonly },
       .push_constant_size = sizeof(host_push),

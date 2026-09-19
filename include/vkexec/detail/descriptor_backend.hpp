@@ -95,16 +95,28 @@ struct set_descriptor_backend
     VkDevice device, Resources &resources, descriptor_layout_info const &info) -> status
   {
     if (!info.create_pool) { return {}; }
-    VkDescriptorPoolSize pool_size{};
-    pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    pool_size.descriptorCount =
-      std::max(1U, static_cast<std::uint32_t>(info.bindings.size())) * info.sets_per_pool;
+    std::vector<VkDescriptorPoolSize> pool_sizes;
+    for (VkDescriptorSetLayoutBinding const &binding : info.bindings) {
+      auto const found = std::ranges::find_if(pool_sizes, [&binding](VkDescriptorPoolSize const &size) -> bool {
+        return size.type == binding.descriptorType;
+      });
+      std::uint32_t const count = binding.descriptorCount * info.sets_per_pool;
+      if (found == pool_sizes.end()) {
+        pool_sizes.push_back(VkDescriptorPoolSize{ .type = binding.descriptorType, .descriptorCount = count });
+      } else {
+        found->descriptorCount += count;
+      }
+    }
+    if (pool_sizes.empty()) {
+      pool_sizes.push_back(
+        VkDescriptorPoolSize{ .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = info.sets_per_pool });
+    }
     VkDescriptorPoolCreateInfo pool_info{};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pool_info.maxSets = info.sets_per_pool;
-    pool_info.poolSizeCount = 1;
-    pool_info.pPoolSizes = &pool_size;
+    pool_info.poolSizeCount = static_cast<std::uint32_t>(pool_sizes.size());
+    pool_info.pPoolSizes = pool_sizes.data();
     if (VkResult const result = vkCreateDescriptorPool(device, &pool_info, nullptr, &resources.descriptor_pool);
       result != VK_SUCCESS) {
       return fail(result, "vkCreateDescriptorPool failed");
@@ -163,13 +175,7 @@ struct set_descriptor_backend
     auto allocated = allocate_compute_set(ctx, pipe);
     if (!allocated) { return fail(allocated); }
     bound_type const set = expected_take(allocated);
-    std::vector<storage_binding> buffers(table.size());
-    std::ranges::transform(table.entries(), buffers.begin(), [](resource_binding const &entry) -> storage_binding {
-      return storage_binding{ .buffer = entry.resource.buffer,
-        .byte_size = entry.resource.byte_size,
-        .binding = entry.slot };
-    });
-    write_storage_descriptors(ctx.device(), set, buffers);
+    write_resource_descriptors(ctx.device(), set, table.entries());
     return set;
   }
 

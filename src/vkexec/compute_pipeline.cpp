@@ -7,6 +7,7 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/spirv_compile.hpp>
 
@@ -24,16 +25,31 @@
 namespace vkexec {
 namespace {
 
+  [[nodiscard]] auto descriptor_type(resource_kind kind) noexcept -> VkDescriptorType
+  {
+    switch (kind) {
+    case resource_kind::storage_buffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case resource_kind::storage_image: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case resource_kind::sampled_image: return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    case resource_kind::sampler: return VK_DESCRIPTOR_TYPE_SAMPLER;
+    }
+    return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  }
+
   auto make_compute_bindings(layout_desc const &desc) -> result<std::vector<VkDescriptorSetLayoutBinding>>
   {
     if (!desc.binding_slots.empty() && desc.binding_slots.size() != desc.bindings.size()) {
       return fail(errc::invalid_argument, "layout_desc binding_slots must match bindings");
     }
+    if (!desc.binding_kinds.empty() && desc.binding_kinds.size() != desc.bindings.size()) {
+      return fail(errc::invalid_argument, "layout_desc binding_kinds must match bindings");
+    }
     std::vector<VkDescriptorSetLayoutBinding> layout_bindings(desc.bindings.size());
     for (std::size_t index = 0; index < desc.bindings.size(); ++index) {
       layout_bindings.at(index).binding =
         desc.binding_slots.empty() ? static_cast<std::uint32_t>(index) : desc.binding_slots.at(index);
-      layout_bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      layout_bindings.at(index).descriptorType =
+        descriptor_type(desc.binding_kinds.empty() ? resource_kind::storage_buffer : desc.binding_kinds.at(index));
       layout_bindings.at(index).descriptorCount = 1;
       layout_bindings.at(index).stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
     }

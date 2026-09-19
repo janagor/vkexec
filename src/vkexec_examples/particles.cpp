@@ -151,6 +151,7 @@ static auto run() -> int
   auto compute_pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(ctx,
     k_particle_update_glsl,
     vkexec::layout_desc{
+      .binding_kinds = {},
       .binding_slots = {},
       .bindings = { readwrite, readwrite, readwrite, readwrite },
       .push_constant_size = sizeof(particle_params),

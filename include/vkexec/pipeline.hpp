@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 
 #include <vkexec/result.hpp>
+#include <vkexec/resource_table.hpp>
 
 #include <array>
 #include <cstddef>
@@ -54,6 +55,8 @@ auto write_storage_descriptors(VkDevice device, VkDescriptorSet set, std::span<s
  */
 struct layout_desc
 {
+  //! Optional descriptor resource kind for each entry in `bindings`.
+  std::vector<resource_kind> binding_kinds;
   //! Optional explicit descriptor binding index for each entry in `bindings`.
   std::vector<std::uint32_t> binding_slots;
   //! Binding index is the position in this list (0, 1, ...).

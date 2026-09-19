@@ -24,6 +24,44 @@ struct storage_buffer
   static constexpr std::uint32_t slot = Slot;
   // NOLINTNEXTLINE(readability-identifier-naming)
   static constexpr buffer_access access = Access;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr resource_kind kind = resource_kind::storage_buffer;
+};
+
+//! One logical storage-image slot in a descriptor schema.
+template<std::uint32_t Slot>
+struct storage_image
+{
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr std::uint32_t slot = Slot;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr buffer_access access = buffer_access::readwrite;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr resource_kind kind = resource_kind::storage_image;
+};
+
+//! One logical sampled-image slot in a descriptor schema.
+template<std::uint32_t Slot>
+struct sampled_image
+{
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr std::uint32_t slot = Slot;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr buffer_access access = buffer_access::readonly;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr resource_kind kind = resource_kind::sampled_image;
+};
+
+//! One logical sampler slot; named to avoid colliding with the owning `sampler` type.
+template<std::uint32_t Slot>
+struct sampler_binding
+{
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr std::uint32_t slot = Slot;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr buffer_access access = buffer_access::readonly;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  static constexpr resource_kind kind = resource_kind::sampler;
 };
 
 namespace detail {
@@ -32,6 +70,7 @@ namespace detail {
   concept descriptor_schema_entry = requires {
     { Entry::slot } -> std::convertible_to<std::uint32_t>;
     { Entry::access } -> std::convertible_to<buffer_access>;
+    { Entry::kind } -> std::convertible_to<resource_kind>;
   };
 
   template<class... Entries>
@@ -56,6 +95,14 @@ namespace detail {
     return true;
   }
 
+  template<class Entry, class Resource>
+  [[nodiscard]] auto schema_resource(Resource &&resource) -> resource_ref
+  {
+    auto result = static_cast<resource_ref>(std::forward<Resource>(resource));
+    result.kind = Entry::kind;
+    return result;
+  }
+
 }// namespace detail
 
 //! Ordered compile-time descriptor contract for logical resource slots.
@@ -76,7 +123,8 @@ template<class... Entries>
   std::size_t push_constant_size = 0,
   std::array<std::uint32_t, 3> local_size = k_default_local_size) -> layout_desc
 {
-  return layout_desc{ .binding_slots = { Entries::slot... },
+  return layout_desc{ .binding_kinds = { Entries::kind... },
+    .binding_slots = { Entries::slot... },
     .bindings = { Entries::access... },
     .push_constant_size = push_constant_size,
     .specialization = {},
@@ -93,7 +141,7 @@ template<class... Entries, class... Resources>
   std::vector<resource_binding> entries;
   entries.reserve(sizeof...(Entries));
   (entries.push_back(resource_binding{
-     .slot = Entries::slot, .resource = static_cast<resource_ref>(std::forward<Resources>(resources)) }),
+     .slot = Entries::slot, .resource = detail::schema_resource<Entries>(std::forward<Resources>(resources)) }),
     ...);
   return resource_table{ std::move(entries) };
 }

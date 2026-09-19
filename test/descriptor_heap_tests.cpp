@@ -26,7 +26,7 @@
 
 namespace {
 
-constexpr std::size_t k_slot_count = 2;
+constexpr std::size_t k_slot_count = 4;
 constexpr VkDeviceSize k_storage_bytes = 256;
 constexpr std::uint32_t k_image_extent = 64;
 
@@ -69,6 +69,33 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
       .shader_device_address = true,
     }));
   auto heap = vkexec::test::sync_wait_value(vkexec::descriptor_heap_buffer::create(*ctx, heap_bytes));
+  auto sampler_heap =
+    vkexec::test::sync_wait_value(vkexec::descriptor_heap_buffer::create(*ctx, sampler_bytes));
+  auto img = vkexec::test::sync_wait_value(vkexec::image::create(*ctx,
+    vkexec::image_create_info{
+      .width = k_image_extent,
+      .height = k_image_extent,
+      .usage = vkexec::image_usage::color_storage,
+    }));
+  VkImageViewCreateInfo view_info{};
+  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_info.image = img.handle();
+  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_info.format = img.format();
+  view_info.subresourceRange = {
+    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel = 0,
+    .levelCount = 1,
+    .baseArrayLayer = 0,
+    .layerCount = 1,
+  };
+  VkSamplerCreateInfo sampler_info{};
+  sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  sampler_info.magFilter = VK_FILTER_LINEAR;
+  sampler_info.minFilter = VK_FILTER_LINEAR;
+  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
   std::vector<std::byte> slot(layout.buffer_descriptor_size);
   auto const storage_addr = storage.device_address();
@@ -78,18 +105,34 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   REQUIRE(mapped.size() >= slot.size());
   std::ranges::copy(slot, mapped.begin());
 
-  auto const table = vkexec::bindings(vkexec::resource_binding{
-    .slot = 5, .resource = { .buffer = storage.handle(), .byte_size = storage.size() } });
-  std::array<std::uint32_t, 1> const indices{ 1 };
+  auto const table = vkexec::bindings(
+    vkexec::resource_binding{ .slot = 5, .resource = vkexec::buffer_resource(storage.handle(), storage.size()) },
+    vkexec::resource_binding{ .slot = 6, .resource = vkexec::storage_image_resource(VK_NULL_HANDLE) },
+    vkexec::resource_binding{ .slot = 7, .resource = vkexec::sampled_image_resource(VK_NULL_HANDLE) },
+    vkexec::resource_binding{ .slot = 8, .resource = vkexec::sampler_resource(VK_NULL_HANDLE) });
+  std::array<std::uint32_t, 3> const indices{ 1, 2, 3 };
+  std::array<std::uint32_t, 1> const sampler_indices{ 1 };
+  std::array<VkImageViewCreateInfo, 2> const image_view_infos{ view_info, view_info };
+  std::array<VkSamplerCreateInfo, 1> const sampler_infos{ sampler_info };
   vkexec::heap_table_lower_env const lower_env{ .resource_heap_bytes = mapped,
+    .sampler_heap_bytes = sampler_heap.mapped(),
     .buffer_descriptor_size = layout.buffer_descriptor_size,
+    .image_descriptor_size = layout.image_descriptor_size,
     .descriptor_stride = layout.descriptor_stride,
-    .indices = indices };
+    .sampler_descriptor_size = layout.sampler_descriptor_size,
+    .sampler_descriptor_stride = layout.sampler_descriptor_size,
+    .indices = indices,
+    .sampler_indices = sampler_indices,
+    .image_view_infos = image_view_infos,
+    .sampler_infos = sampler_infos };
   vkexec::pipeline_resources const pipe{};
   auto lowered = vkexec::detail::heap_descriptor_backend::lower(*ctx, pipe, table, lower_env);
   REQUIRE(lowered.has_value());
   auto const map = vkexec::expected_take(lowered);
   REQUIRE(map.index_for(5) == 1);
+  REQUIRE(map.index_for(6) == 2);
+  REQUIRE(map.index_for(7) == 3);
+  REQUIRE(map.index_for(8) == 1);
   auto const bind = vkexec::detail::heap_descriptor_backend::make_bind(pipe, map);
   REQUIRE(bind.layout == VK_NULL_HANDLE);
   vkexec::detail::heap_descriptor_backend::release(*ctx, pipe, map);

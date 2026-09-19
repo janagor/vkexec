@@ -15,6 +15,8 @@ namespace {
 using positions = vkexec::storage_buffer<0>;
 using velocities = vkexec::storage_buffer<3, vkexec::buffer_access::readonly>;
 using sim_schema = vkexec::descriptor_schema<positions, velocities>;
+using image_schema = vkexec::descriptor_schema<
+  vkexec::storage_image<1>, vkexec::sampled_image<2>, vkexec::sampler_binding<3>>;
 
 template<class Schema, class... Resources>
 concept makes_resource_table = requires(Schema schema, Resources... resources) {
@@ -34,8 +36,8 @@ static_assert(!makes_resource_table<sim_schema, vkexec::resource_ref>);
 TEST_CASE("descriptor_schema builds an ordered resource_table", "[vkexec][descriptor_schema]")
 {
   auto const table = vkexec::make_resource_table(sim_schema{},
-    vkexec::resource_ref{ .buffer = VK_NULL_HANDLE, .byte_size = 64 },
-    vkexec::resource_ref{ .buffer = VK_NULL_HANDLE, .byte_size = 128 });
+    vkexec::buffer_resource(VK_NULL_HANDLE, 64),
+    vkexec::buffer_resource(VK_NULL_HANDLE, 128));
 
   REQUIRE(table.size() == sim_schema::binding_count);
   REQUIRE(table.entries().front().slot == positions::slot);
@@ -58,4 +60,20 @@ TEST_CASE("descriptor_schema derives explicit compute layout slots", "[vkexec][d
   REQUIRE(layout.local_size.at(0) == 32);
   REQUIRE(layout.local_size.at(1) == 2);
   REQUIRE(layout.local_size.at(2) == 1);
+}
+
+TEST_CASE("descriptor_schema assigns image and sampler resource kinds", "[vkexec][descriptor_schema]")
+{
+  auto const table = vkexec::make_resource_table(image_schema{},
+    vkexec::storage_image_resource(VK_NULL_HANDLE),
+    vkexec::sampled_image_resource(VK_NULL_HANDLE),
+    vkexec::sampler_resource(VK_NULL_HANDLE));
+  auto const layout = vkexec::layout_desc_from_schema(image_schema{});
+
+  REQUIRE(table.entries().front().resource.kind == vkexec::resource_kind::storage_image);
+  REQUIRE(table.entries().subspan(1).front().resource.kind == vkexec::resource_kind::sampled_image);
+  REQUIRE(table.entries().back().resource.kind == vkexec::resource_kind::sampler);
+  REQUIRE(layout.binding_kinds.at(0) == vkexec::resource_kind::storage_image);
+  REQUIRE(layout.binding_kinds.at(1) == vkexec::resource_kind::sampled_image);
+  REQUIRE(layout.binding_kinds.at(2) == vkexec::resource_kind::sampler);
 }
