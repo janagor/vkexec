@@ -16,10 +16,8 @@
 
 #include <array>
 #include <cstdint>
-#include <memory>
 #include <span>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -72,102 +70,6 @@ struct heap_layout_desc
   std::string_view glsl,
   heap_layout_desc const &desc,
   std::string_view name = "heap.comp") -> detail::sync_sender_fn<compute_pipeline>;
-
-[[deprecated("use create_compute_resources(descriptor_heap, ...)")]]
-[[nodiscard]] inline auto create_heap_compute_resources(context &ctx,
-  std::span<std::uint32_t const> spirv,
-  heap_layout_desc const &desc) -> result<pipeline_resources>
-{ return create_compute_resources(descriptor_heap, ctx, spirv, desc); }
-
-[[deprecated("use create_compute_resources(descriptor_heap, ...)")]]
-[[nodiscard]] inline auto create_heap_compute_resources(context &ctx,
-  std::string_view glsl,
-  heap_layout_desc const &desc,
-  std::string_view name = "heap.comp") -> result<pipeline_resources>
-{ return create_compute_resources(descriptor_heap, ctx, glsl, desc, name); }
-
-[[deprecated("use destroy_compute_resources")]]
-inline auto destroy_heap_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void
-{ destroy_compute_resources(ctx, resources); }
-
-//! Builds a bindless `compute_bind` (null layout and descriptor set).
-[[deprecated("use bind_compute")]] [[nodiscard]] inline auto bind_heap(pipeline_resources const &pipe) -> compute_bind
-{ return bind_compute(pipe); }
-
-/**
- * Thin owning wrapper over heap `pipeline_resources`.
- *
- * Bind returns a `compute_bind` with null layout/set for use with
- * `compute_pass(descriptor_heap, ...)` / `record_pass(context, ...)`.
- *
- * @see create_compute_resources, compute_pass, heap_layout_desc
- */
-class heap_compute_pipeline
-{
-public:
-  /**
-   * Creates a heap compute pipeline from SPIR-V.
-   *
-   * @param ctx Context whose device creates the Vulkan objects.
-   * @param spirv SPIR-V words for the compute shader.
-   * @param desc Specialization and local size.
-   */
-  [[deprecated("use compute_pipeline::create(descriptor_heap, ...)")]]
-  [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
-    -> detail::sync_sender_fn<heap_compute_pipeline>;
-
-  /**
-   * Compiles `glsl` then creates a heap compute pipeline.
-   *
-   * @param name Debug name for the compiler.
-   */
-  [[deprecated("use compute_pipeline::create(descriptor_heap, ...)")]] [[nodiscard]] static auto
-    create(context &ctx, std::string_view glsl, heap_layout_desc const &desc, std::string_view name = "heap.comp")
-      -> detail::sync_sender_fn<heap_compute_pipeline>;
-
-  //! Compatibility owning factory; prefer `compute_pipeline::create(descriptor_heap, ...)`.
-  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> heap_compute_pipeline
-  { return heap_compute_pipeline{ &ctx, std::move(resources) }; }
-
-  heap_compute_pipeline(heap_compute_pipeline const &) = delete;
-  auto operator=(heap_compute_pipeline const &) -> heap_compute_pipeline & = delete;
-
-  heap_compute_pipeline(heap_compute_pipeline &&other) noexcept
-    : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
-  {}
-
-  auto operator=(heap_compute_pipeline &&other) noexcept -> heap_compute_pipeline &
-  {
-    if (this != &other) {
-      reset();
-      ctx_ = std::exchange(other.ctx_, nullptr);
-      resources_ = std::move(other.resources_);
-    }
-    return *this;
-  }
-
-  ~heap_compute_pipeline() { reset(); }
-
-  //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
-
-  //! Builds a bindless `compute_bind` (null layout and descriptor set).
-  [[nodiscard]] auto bind() const -> compute_bind { return bind_compute(*resources_); }
-
-  //! Returns workgroup counts covering `work_count` invocations along X.
-  [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
-  { return dispatch_groups_for(work_count, resources_->local_size.at(0)); }
-
-private:
-  heap_compute_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
-    : ctx_(ctx), resources_(std::move(resources))
-  {}
-
-  auto reset() noexcept -> void;
-
-  context *ctx_{ nullptr };
-  std::unique_ptr<pipeline_resources> resources_;
-};
 
 }// namespace vkexec
 

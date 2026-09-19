@@ -65,32 +65,4 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
     });
 }
 
-auto heap_compute_pipeline::reset() noexcept -> void
-{
-  if (ctx_ != nullptr && resources_ != nullptr) { destroy_compute_resources(*ctx_, *resources_); }
-  resources_.reset();
-  ctx_ = nullptr;
-}
-
-auto heap_compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
-  -> detail::sync_sender_fn<heap_compute_pipeline>
-{
-  return detail::make_sync_sender_fn<heap_compute_pipeline>([&ctx, spirv, desc]() -> result<heap_compute_pipeline> {
-    VKEXEC_TRY_ASSIGN(owned, create_compute_resources(descriptor_heap, ctx, spirv, desc));
-    return make(ctx, std::make_unique<pipeline_resources>(owned));
-  });
-}
-
-auto heap_compute_pipeline::create(context &ctx,
-  std::string_view glsl,
-  heap_layout_desc const &desc,
-  std::string_view name) -> detail::sync_sender_fn<heap_compute_pipeline>
-{
-  return detail::make_sync_sender_fn<heap_compute_pipeline>(
-    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<heap_compute_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned, create_compute_resources(descriptor_heap, ctx, glsl, desc, name));
-      return make(ctx, std::make_unique<pipeline_resources>(owned));
-    });
-}
-
 }// namespace vkexec

@@ -10,7 +10,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_graphics/graphics.hpp>
 
 #include <vulkan/vulkan.h>
@@ -82,29 +82,6 @@ struct heap_graphics_layout_desc
 //! Destroys a descriptor-heap graphics resource bag and resets it.
 auto destroy_graphics_resources(
   descriptor_heap_t strategy, context const &ctx, pipeline_resources &resources) noexcept -> void;
-
-[[deprecated("use create_graphics_resources(descriptor_heap, ...)")]]
-[[nodiscard]] inline auto create_heap_graphics_resources(context &ctx,
-  std::span<std::uint32_t const> vertex_spirv,
-  std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> result<pipeline_resources>
-{ return create_graphics_resources(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc); }
-
-[[deprecated("use create_graphics_resources(descriptor_heap, ...)")]]
-[[nodiscard]] inline auto create_heap_graphics_resources(context &ctx,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  heap_graphics_layout_desc const &desc,
-  std::string_view vertex_name = "heap.vert",
-  std::string_view fragment_name = "heap.frag") -> result<pipeline_resources>
-{
-  return create_graphics_resources(
-    descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
-}
-
-[[deprecated("use destroy_graphics_resources(descriptor_heap, ...)")]] inline auto destroy_heap_graphics_resources(
-  context const &ctx, pipeline_resources &resources) noexcept -> void
-{ destroy_graphics_resources(descriptor_heap, ctx, resources); }
 
 /**
  * Thin owning wrapper over heap graphics `pipeline_resources`.
@@ -199,9 +176,6 @@ private:
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name = "heap.vert",
   std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
-
-using heap_graphics_pipeline [[deprecated("use graphics_pipeline::create(descriptor_heap, ...)")]] =
-  descriptor_graphics_pipeline;
 
 }// namespace vkexec
 

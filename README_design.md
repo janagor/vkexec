@@ -103,8 +103,7 @@ backend is descriptor sets, while the extension overload is selected with
 Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
 select heap behavior once with `descriptor_heap`, then use `create_compute_resources`,
 `compute_pipeline::create`, `create_graphics_resources`, `graphics_pipeline::create`,
-`record_pass`, `record_draw`, and `compute_pass`. The old `*_heap_*` algorithm names
-are deprecated aliases for one release. Literal heap mechanism APIs such as
+`record_pass`, `record_draw`, and `compute_pass`. Literal heap mechanism APIs such as
 `descriptor_heap_buffer`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, and
 descriptor writers keep their names.
 

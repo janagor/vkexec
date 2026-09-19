@@ -55,47 +55,6 @@ inline auto compute_pass(descriptor_heap_t strategy, compute_pipeline const &pip
   -> descriptor_compute_pass_closure
 { return compute_pass(strategy, pipe.bind(), groups); }
 
-template<typename Params>
-[[deprecated("use compute_pass(descriptor_heap, ...)")]] auto
-  compute_heap_pass(compute_bind bind, Params const &params, dispatch groups) -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, bind, params, groups); }
-
-template<typename Params>
-[[deprecated("use compute_pass(descriptor_heap, ...)")]] auto
-  compute_heap_pass(compute_bind bind, Params const &params, indirect_dispatch groups)
-    -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, bind, params, groups); }
-
-[[deprecated("use compute_pass(descriptor_heap, ...)")]] inline auto
-  compute_heap_pass(compute_bind bind, dispatch groups) -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, bind, groups); }
-
-[[deprecated("use compute_pass(descriptor_heap, ...)")]] inline auto
-  compute_heap_pass(compute_bind bind, indirect_dispatch groups) -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, bind, groups); }
-
-template<typename Params>
-[[deprecated("use compute_pass(descriptor_heap, ...)")]] auto compute_heap_pass(
-  heap_compute_pipeline const &pipe, Params const &params, std::uint32_t work_count)
-  -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, pipe.bind(), params, pipe.groups_for(work_count)); }
-
-[[deprecated("use compute_pipeline::create(descriptor_heap, ...) and compute_pass(descriptor_heap, ...)")]]
-inline auto compute_heap_pass(heap_compute_pipeline const &pipe, std::uint32_t work_count)
-  -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, pipe.bind(), pipe.groups_for(work_count)); }
-
-template<typename Params>
-[[deprecated("use compute_pass(descriptor_heap, ...)")]] auto compute_heap_pass(
-  heap_compute_pipeline const &pipe, Params const &params, indirect_dispatch groups)
-  -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, pipe.bind(), params, groups); }
-
-[[deprecated("use compute_pipeline::create(descriptor_heap, ...) and compute_pass(descriptor_heap, ...)")]]
-inline auto compute_heap_pass(heap_compute_pipeline const &pipe, indirect_dispatch groups)
-  -> descriptor_compute_pass_closure
-{ return compute_pass(descriptor_heap, pipe.bind(), groups); }
-
 }// namespace vkexec
 
 #endif// VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_COMPUTE_PIPELINE_HPP

@@ -123,7 +123,7 @@ vkexec::sync_wait(
   | vkexec::sync_to_host(velocities));
 ```
 
-For descriptor-heap algorithms, select the strategy once with `descriptor_heap` and use `compute_pipeline::create`, `compute_pass`, or `dispatch_compute`. The longer `dispatch_compute` name avoids colliding with `struct dispatch`; the old `heap_algorithm` / `dispatch_heap` spellings remain deprecated for one release.
+For descriptor-heap algorithms, select the strategy once with `descriptor_heap` and use `compute_pipeline::create`, `compute_pass`, or `dispatch_compute`. The longer `dispatch_compute` name avoids colliding with `struct dispatch`.
 
 ### Embedder path — adopt + raw `VkBuffer`s
 
@@ -389,9 +389,7 @@ vkexec::cmd_push_data(ctx, cmd, push);
 vkexec::destroy_compute_resources(ctx, resources);
 ```
 
-`resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets.
-
-The former `create_heap_*`, `record_heap_*`, `compute_heap_pass`, `heap_compute_pipeline`, and `heap_graphics_pipeline` compatibility APIs are deprecated for one release. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
+`resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
 
 Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
 

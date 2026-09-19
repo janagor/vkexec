@@ -66,21 +66,6 @@ auto record_draw_indirect(context const &ctx,
   VkBuffer buffer,
   VkDeviceSize offset) -> void;
 
-[[deprecated("use record_draw(ctx, ...)")]] inline auto record_heap_draw(context const &ctx,
-  VkCommandBuffer cmd,
-  compute_bind bind,
-  VkExtent2D extent,
-  std::uint32_t vertex_count) -> void
-{ record_draw(ctx, cmd, bind, extent, vertex_count); }
-
-[[deprecated("use record_draw_indirect(ctx, ...)")]] inline auto record_heap_draw_indirect(context const &ctx,
-  VkCommandBuffer cmd,
-  compute_bind bind,
-  VkExtent2D extent,
-  VkBuffer buffer,
-  VkDeviceSize offset) -> void
-{ record_draw_indirect(ctx, cmd, bind, extent, buffer, offset); }
-
 //! Embedder alias for descriptor-heap `record_pass` (bind + push-data + dispatch).
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
@@ -109,8 +94,6 @@ struct descriptor_compute_pass_closure
   prebuilt_compute_pass_closure inner;
 };
 
-using heap_compute_pass_closure [[deprecated("use descriptor_compute_pass_closure")]] = descriptor_compute_pass_closure;
-
 namespace detail {
 
   //! Wraps a prebuilt closure as a heap (push-data) `pass_step`.
@@ -123,20 +106,6 @@ namespace detail {
 
 //! Appends a bindless compute step to an existing pass graph.
 [[nodiscard]] auto operator|(pass_graph_sender graph, descriptor_compute_pass_closure closure) -> pass_graph_sender;
-
-[[deprecated("use record_pass(ctx, ...)")]] [[nodiscard]] inline auto record_heap_pass(context const &ctx,
-  VkCommandBuffer cmd,
-  compute_bind bind,
-  std::span<std::byte const> push,
-  dispatch groups) -> status
-{ return record_pass(ctx, cmd, bind, push, groups); }
-
-[[deprecated("use record_pass(ctx, ...)")]] [[nodiscard]] inline auto record_heap_pass(context const &ctx,
-  VkCommandBuffer cmd,
-  compute_bind bind,
-  std::span<std::byte const> push,
-  indirect_dispatch groups) -> status
-{ return record_pass(ctx, cmd, bind, push, groups); }
 
 }// namespace vkexec
 
