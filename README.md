@@ -99,7 +99,7 @@ ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set
 
 ### Staging tensors
 
-Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload → dispatch → download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`examples/tensor_sim.cpp`](examples/tensor_sim.cpp).
+Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload -> dispatch -> download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`examples/tensor_sim.cpp`](examples/tensor_sim.cpp).
 
 ```cpp
 #include <vkexec/execution.hpp>
@@ -135,7 +135,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
   .instance = instance,
   .physical_device = phys,
   .device = device,
-  .allocator = vma,  // or null → vkexec creates one
+  .allocator = vma,  // or null -> vkexec creates one
   .compute_queue = compute_q,
   .compute_queue_family = compute_family,
 }));
@@ -211,19 +211,19 @@ Common entry points:
 
 | API | Returns |
 |-----|---------|
-| `context::create` / `context::adopt` | sender → `set_value(std::unique_ptr<context>)` |
+| `context::create` / `context::adopt` | sender -> `set_value(std::unique_ptr<context>)` |
 | `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
 | `create_compute_resources(descriptor_heap, …)` / `bind_compute` / `destroy_compute_resources` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
 | `create_graphics_resources(descriptor_heap, …)` / `bind_compute` / `destroy_graphics_resources(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
-| `buffer<T>::allocate` / `create` | sender → `set_value(buffer<T>)` |
-| `compute_pipeline::create` | sender → `set_value(compute_pipeline)` |
-| `bind_storage_sender` | sender → `set_value(bound_compute_pipeline)` |
-| `presenter::create` / `presenter::headless` | sender → `set_value(presenter)` (owning Vulkan present helper) |
+| `buffer<T>::allocate` / `create` | sender -> `set_value(buffer<T>)` |
+| `compute_pipeline::create` | sender -> `set_value(compute_pipeline)` |
+| `bind_storage_sender` | sender -> `set_value(bound_compute_pipeline)` |
+| `presenter::create` / `presenter::headless` | sender -> `set_value(presenter)` (owning Vulkan present helper) |
 | `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
 | `create_mesh_buffers` / `destroy_mesh_buffers` | Borrowable vertex/index handle bag |
-| `graphics_pipeline::create` | sender → `set_value(graphics_pipeline)` (thin owning wrapper) |
-| `mesh::create` | sender → `set_value(mesh)` (thin owning wrapper) |
-| `gpu_buffer::create`, `image::create`, … | sender → `set_value(...)` |
+| `graphics_pipeline::create` | sender -> `set_value(graphics_pipeline)` (thin owning wrapper) |
+| `mesh::create` | sender -> `set_value(mesh)` (thin owning wrapper) |
+| `gpu_buffer::create`, `image::create`, … | sender -> `set_value(...)` |
 | `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
 | `sync_wait` / `try_sync_wait` (exceptions OFF) | `sync_wait_outcome<tuple<...>>` |
@@ -261,7 +261,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
   .instance = instance,
   .physical_device = phys,
   .device = device,
-  .allocator = vma,              // or null → vkexec creates one
+  .allocator = vma,              // or null -> vkexec creates one
   .compute_queue = compute_q,
   .compute_queue_family = compute_family,
   .graphics_queue = graphics_q,  // optional; defaults to compute

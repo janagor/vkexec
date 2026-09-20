@@ -12,7 +12,7 @@
 
 namespace vkexec {
 
-//! Shader stage kind for GLSL→SPIR-V compilation.
+//! Shader stage kind for GLSL->SPIR-V compilation.
 enum class shader_kind : std::uint8_t { compute, vertex, fragment };
 
 /**

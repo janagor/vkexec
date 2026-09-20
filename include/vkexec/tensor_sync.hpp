@@ -24,7 +24,7 @@ namespace vkexec {
 /**
  * Pass-graph closure that copies a tensor host mirror to device storage.
  *
- * Records: host→staging memcpy, staging→device `vkCmdCopyBuffer`, and
+ * Records: host->staging memcpy, staging->device `vkCmdCopyBuffer`, and
  * `barrier::transfer_to_compute`. Pipe onto `schedule()` or a `pass_graph_sender`.
  *
  * @see sync_to_host, tensor
@@ -37,7 +37,7 @@ template<typename T> struct sync_to_device_closure
 /**
  * Pass-graph closure that copies device storage back into a tensor host mirror.
  *
- * Records device→staging copy + host visibility barriers. Updates the host mirror
+ * Records device->staging copy + host visibility barriers. Updates the host mirror
  * after the graph's GPU submit completes (`pass_step::after_gpu`).
  *
  * @see sync_to_device, tensor

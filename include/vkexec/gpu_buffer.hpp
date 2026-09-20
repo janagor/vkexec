@@ -28,7 +28,7 @@ enum class gpu_buffer_memory : std::uint8_t {
   host_visible,
   //! Device-local storage with transfer + indirect usage.
   device_local,
-  //! Host-visible transfer destination for GPU→CPU readback.
+  //! Host-visible transfer destination for GPU->CPU readback.
   staging,
 };
 

@@ -107,7 +107,7 @@ auto record_pass(VkCommandBuffer cmd,
  *
  * `record` may allocate descriptor sets into the provided cleanup object.
  * `after_gpu` runs after the graph's submit completes successfully (host-side
- * work such as staging→CPU readback).
+ * work such as staging->CPU readback).
  */
 struct pass_step
 {
@@ -529,16 +529,16 @@ template<vkexec_predecessor Pred>
   };
 }
 
-//! Appends a transfer→compute barrier step to the graph.
+//! Appends a transfer->compute barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::transfer_to_compute_t tag) -> pass_graph_sender;
 
-//! Appends a compute→compute barrier step to the graph.
+//! Appends a compute->compute barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_to_compute_t tag) -> pass_graph_sender;
 
-//! Appends a compute→graphics barrier step to the graph.
+//! Appends a compute->graphics barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_to_graphics_t tag) -> pass_graph_sender;
 
-//! Appends a graphics→compute barrier step to the graph.
+//! Appends a graphics->compute barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> pass_graph_sender;
 
 //! Appends a compute read-after-write barrier step to the graph.

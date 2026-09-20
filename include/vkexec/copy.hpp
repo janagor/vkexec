@@ -2,7 +2,7 @@
 #define VKEXEC_COPY_HPP
 
 //! \file
-//! Buffer copy helpers for command recording and host→device upload.
+//! Buffer copy helpers for command recording and host->device upload.
 
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>

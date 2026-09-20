@@ -35,7 +35,7 @@ auto upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   }
   std::memcpy(staging_map.data(), bytes.data(), bytes.size());
 
-  // One-shot transfer: host→staging visibility, copy, then submit_and_wait.
+  // One-shot transfer: host->staging visibility, copy, then submit_and_wait.
   VKEXEC_TRY_ASSIGN(cmd, ctx.allocate_command_buffer());
 
   VkCommandBufferBeginInfo begin{};

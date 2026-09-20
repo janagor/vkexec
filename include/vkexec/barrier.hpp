@@ -59,31 +59,31 @@ namespace barrier {
   //! Casts bit flags to `VkFlags` for designated-init call sites.
   [[nodiscard]] inline auto flags(std::uint32_t bits) -> VkFlags { return static_cast<VkFlags>(bits); }
 
-  //! Transfer writes → compute shader reads/writes.
+  //! Transfer writes -> compute shader reads/writes.
   struct transfer_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
   };
 
-  //! Compute → compute (shader write to shader read/write).
+  //! Compute -> compute (shader write to shader read/write).
   struct compute_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
   };
 
-  //! Compute → graphics (shader write to vertex/fragment read).
+  //! Compute -> graphics (shader write to vertex/fragment read).
   struct compute_to_graphics_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
   };
 
-  //! Graphics → compute.
+  //! Graphics -> compute.
   struct graphics_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
   };
 
-  //! Compute shader write → compute shader read (read-after-write).
+  //! Compute shader write -> compute shader read (read-after-write).
   struct compute_read_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;

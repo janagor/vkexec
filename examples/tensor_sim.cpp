@@ -96,7 +96,7 @@ static auto run() -> int
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
-  // Upload → dispatch → download on the existing pass graph.
+  // Upload -> dispatch -> download on the existing pass graph.
   vkexec::examples::sync_wait_graph(
     ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_device(positions) | vkexec::sync_to_device(velocities)
     | vkexec::compute_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_element_count))

@@ -112,7 +112,7 @@ struct draw_layers_closure
 };
 
 /**
- * Builds a closure that presents one frame: acquire → record draw → submit → present.
+ * Builds a closure that presents one frame: acquire -> record draw -> submit -> present.
  *
  * Pipe onto a vkexec schedule predecessor: `schedule(ctx) | draw(win, pipe, 3)`.
  *
