@@ -86,7 +86,7 @@ int main() {
 
 ### Greenfield owning factories
 
-For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`src/vkexec_examples/compute.cpp`](src/vkexec_examples/compute.cpp)). The borrowable path above matches [`src/vkexec_examples/compute_execution.cpp`](src/vkexec_examples/compute_execution.cpp).
+For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
 
 ```cpp
 auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
@@ -100,7 +100,7 @@ ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set
 
 ### Staging tensors
 
-Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload → dispatch → download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`src/vkexec_examples/tensor_sim.cpp`](src/vkexec_examples/tensor_sim.cpp).
+Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload → dispatch → download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`examples/tensor_sim.cpp`](examples/tensor_sim.cpp).
 
 ```cpp
 #include <vkexec/execution.hpp>
@@ -391,7 +391,7 @@ vkexec::destroy_compute_resources(ctx, resources);
 
 `resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
 
-Example: [`src/vkexec_examples/extensions/descriptor_heap/`](src/vkexec_examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
+Example: [`examples/extensions/descriptor_heap/`](examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
 
 **Dynamic rendering:** enable with `feat::configure<feat::dynamic_rendering>` (or `configure_vulkan_13`), then use free-function helpers from the extensions target:
 
@@ -404,7 +404,7 @@ vkexec::cmd_begin_rendering(cmd, vkexec::rendering_info{ .extent = { w, h }, .co
 vkexec::cmd_end_rendering(cmd);
 ```
 
-Example: [`src/vkexec_examples/extensions/dynamic_rendering/`](src/vkexec_examples/extensions/dynamic_rendering/) clears the swapchain each frame with dynamic rendering (`vkexec::features` + `vkexec::ext_dynamic_rendering` + `vkexec_graphics` for the window).
+Example: [`examples/extensions/dynamic_rendering/`](examples/extensions/dynamic_rendering/) clears the swapchain each frame with dynamic rendering (`vkexec::features` + `vkexec::ext_dynamic_rendering` + `vkexec_graphics` for the window).
 
 Build and run the sample:
 
@@ -412,17 +412,17 @@ Build and run the sample:
 nix develop
 cmake --preset unixlike-clang-release
 cmake --build out/build/unixlike-clang-release -j12
-./out/build/unixlike-clang-release/src/vkexec_examples/compute
-./out/build/unixlike-clang-release/src/vkexec_examples/compute_execution
-./out/build/unixlike-clang-release/src/vkexec_examples/tensor_sim
-./out/build/unixlike-clang-release/src/vkexec_examples/sort
-./out/build/unixlike-clang-release/src/vkexec_examples/passes
-./out/build/unixlike-clang-release/src/vkexec_examples/spirv
-./out/build/unixlike-clang-release/src/vkexec_examples/triangle
-./out/build/unixlike-clang-release/src/vkexec_examples/graphics_execution
-./out/build/unixlike-clang-release/src/vkexec_examples/heap_present
-./out/build/unixlike-clang-release/src/vkexec_examples/extensions/descriptor_heap/descriptor_heap
-./out/build/unixlike-clang-release/src/vkexec_examples/extensions/dynamic_rendering/dynamic_rendering
+./out/build/unixlike-clang-release/examples/compute
+./out/build/unixlike-clang-release/examples/compute_execution
+./out/build/unixlike-clang-release/examples/tensor_sim
+./out/build/unixlike-clang-release/examples/sort
+./out/build/unixlike-clang-release/examples/passes
+./out/build/unixlike-clang-release/examples/spirv
+./out/build/unixlike-clang-release/examples/triangle
+./out/build/unixlike-clang-release/examples/graphics_execution
+./out/build/unixlike-clang-release/examples/heap_present
+./out/build/unixlike-clang-release/examples/extensions/descriptor_heap/descriptor_heap
+./out/build/unixlike-clang-release/examples/extensions/dynamic_rendering/dynamic_rendering
 ```
 
 `extensions/descriptor_heap` runs a bindless compute smoke test when `VK_EXT_descriptor_heap` is available.
@@ -479,7 +479,7 @@ while (!glfwWindowShouldClose(native_window)) {
 }
 ```
 
-See [`src/vkexec_examples/triangle.cpp`](src/vkexec_examples/triangle.cpp).
+See [`examples/triangle.cpp`](examples/triangle.cpp).
 
 ### Graphics execution — borrowed pipeline handles
 
@@ -503,7 +503,7 @@ present.wait_idle();
 vkexec::destroy_graphics_resources(present.ctx(), resources);
 ```
 
-Runnable sample: [`src/vkexec_examples/graphics_execution.cpp`](src/vkexec_examples/graphics_execution.cpp).
+Runnable sample: [`examples/graphics_execution.cpp`](examples/graphics_execution.cpp).
 
 ### Embedder path — raw `VkBuffer` storage bindings
 

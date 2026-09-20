@@ -59,8 +59,12 @@ add_library(vkexec::vkexec_warnings ALIAS vkexec_warnings)
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
 
-# Adding the src:
+# Adding the library source:
 add_subdirectory(src)
+
+if(vkexec_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 # Don't even look at tests if we're not top level
 if(NOT PROJECT_IS_TOP_LEVEL)
