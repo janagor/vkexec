@@ -36,6 +36,7 @@ add_test(NAME cmake.sanitizers.non_apple_includes_leak
 add_executable(
   tests
   tests.cpp
+  sender_tests.cpp
   resource_table_tests.cpp
   descriptor_schema_tests.cpp
   pass_detail_tests.cpp

@@ -2,10 +2,13 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_strategy.hpp>
+#include <vkexec/sender.hpp>
 
 #include <concepts>
+#include <memory>
 
 static_assert(std::same_as<decltype(vkexec::descriptor_sets), vkexec::descriptor_sets_t const>);
+static_assert(std::same_as<decltype(vkexec::context::create()), vkexec::sender<std::unique_ptr<vkexec::context>>>);
 
 TEST_CASE("vkexec headers compile", "[vkexec]")
 {

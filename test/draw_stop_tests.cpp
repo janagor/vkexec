@@ -2,7 +2,6 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
@@ -32,7 +31,7 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_headless_presenter() -> vkexec::presenter
 {
-  auto outcome = vkexec::try_sync_wait(vkexec::presenter::headless({
+  auto outcome = vkexec::try_sync_wait_value(vkexec::presenter::headless({
     .width = k_presenter_width,
     .height = k_presenter_height,
     .validation_layers = false,
@@ -40,9 +39,8 @@ constexpr int k_post_stop_frames = 4;
     .create_surface = {},
     .requirements = {},
   }));
-  if (outcome.failed()) { vkexec::test::skip_if_no_vulkan(outcome.take_error()); }
-  if (outcome.stopped || !outcome.values.has_value()) { FAIL("presenter::headless stopped unexpectedly"); }
-  return vkexec::detail::take_sync_value(std::move(*outcome.values));
+  if (!outcome) { vkexec::test::skip_if_no_vulkan(outcome.error()); }
+  return vkexec::expected_take(outcome);
 }
 
 [[nodiscard]] auto make_triangle_pipeline(vkexec::presenter &win) -> vkexec::graphics_pipeline

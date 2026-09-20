@@ -8,8 +8,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_schema.hpp>
-#include <vkexec/detail/descriptor_backend.hpp>
-#include <vkexec/detail/descriptor_table_backend.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
@@ -178,8 +176,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
     vkexec::buffer_resource(velocities.vk_buffer(), k_count * sizeof(float)));
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto const groups = vkexec::dispatch_groups_for(static_cast<std::uint32_t>(k_count), k_local_size);
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::bind_resources(resources, table, vkexec::detail::empty_table_lower_env{}, params)
+  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::bind_resources(resources, table, params)
                | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
@@ -215,13 +212,11 @@ void main() {}
     vkexec::sampled_image_resource(view.handle(), VK_IMAGE_LAYOUT_GENERAL),
     vkexec::sampler_resource(image_sampler.handle()));
 
-  auto lowered =
-    vkexec::detail::set_descriptor_backend::lower(*ctx, resources, table, vkexec::detail::empty_table_lower_env{});
-  REQUIRE(lowered.has_value());
-  VkDescriptorSet set = vkexec::expected_take(lowered);
-  REQUIRE(set != VK_NULL_HANDLE);
+  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::bind_resources(resources, table)
+               | vkexec::compute_pass(vkexec::bind_compute(resources), vkexec::dispatch{});
+  auto waited = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
 
-  vkexec::detail::set_descriptor_backend::release(*ctx, resources, set);
   vkexec::destroy_compute_resources(*ctx, resources);
 }
 
