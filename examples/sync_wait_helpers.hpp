@@ -1,9 +1,9 @@
 #ifndef VKEXEC_EXAMPLES_SYNC_WAIT_HELPERS_HPP
 #define VKEXEC_EXAMPLES_SYNC_WAIT_HELPERS_HPP
 
-#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec/sync_wait_outcome.hpp>
 
 #include <format>
 #include <iostream>

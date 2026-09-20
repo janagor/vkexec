@@ -1,9 +1,9 @@
 #include "load_gltf_mesh.hpp"
 
 #include <utility>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_graphics/mesh.hpp>
 
 #include <tiny_gltf_v3.h>
@@ -560,9 +560,9 @@ namespace {
 
 }// namespace
 
-auto load_gltf_mesh(std::string const &path) -> vkexec::detail::sync_sender_fn<gltf_mesh_data>
+auto load_gltf_mesh(std::string const &path) -> vkexec::sender<gltf_mesh_data>
 {
-  return vkexec::detail::make_sync_sender_fn<gltf_mesh_data>([path]() -> vkexec::result<gltf_mesh_data> {
+  return vkexec::make_sender<gltf_mesh_data>([path]() -> vkexec::result<gltf_mesh_data> {
     tinygltf3::Model model;
     tinygltf3::ErrorStack errors;
     tg3_parse_options options{};

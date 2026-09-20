@@ -93,7 +93,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   if (vkBeginCommandBuffer(cmd, &begin) != VK_SUCCESS) {
-    return vkexec::detail::fail(VK_ERROR_UNKNOWN, "vkBeginCommandBuffer failed (dynamic rendering)");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkBeginCommandBuffer failed (dynamic rendering)");
   }
 
   vkexec::image_barrier(cmd,
@@ -128,7 +128,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 
   if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);
-    return vkexec::detail::fail(VK_ERROR_UNKNOWN, "vkEndCommandBuffer failed");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkEndCommandBuffer failed");
   }
   std::array<VkCommandBuffer, 1> const cmds{ cmd };
 
@@ -137,7 +137,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   VkFence fence{ VK_NULL_HANDLE };
   if (vkCreateFence(ctx.device(), &fence_info, nullptr, &fence) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);
-    return vkexec::detail::fail(VK_ERROR_UNKNOWN, "vkCreateFence failed (dynamic rendering)");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkCreateFence failed (dynamic rendering)");
   }
 
   if (auto submitted = ctx.submit(vkexec::queue_submit{
@@ -153,7 +153,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
   if (vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
     vkDestroyFence(ctx.device(), fence, nullptr);
     ctx.free_command_buffer(cmd);
-    return vkexec::detail::fail(VK_ERROR_UNKNOWN, "vkWaitForFences failed (dynamic rendering)");
+    return vkexec::fail(VK_ERROR_UNKNOWN, "vkWaitForFences failed (dynamic rendering)");
   }
   vkDestroyFence(ctx.device(), fence, nullptr);
   ctx.free_command_buffer(cmd);

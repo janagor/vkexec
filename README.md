@@ -52,10 +52,10 @@ void main() {
 
 int main() {
   try {
-    auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create()));
+    auto ctx = vkexec::sync_wait_value(vkexec::context::create());
     // Owning buffer helpers for host-visible storage (or use your own VkBuffers):
-    auto positions = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 0.0f)));
-    auto velocities = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, 10000, 1.5f)));
+    auto positions = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, 10000, 0.0f));
+    auto velocities = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, 10000, 1.5f));
 
     using enum vkexec::buffer_access;
     auto resources = vkexec::expected_take(vkexec::create_compute_resources(*ctx, k_sim_glsl,
@@ -89,12 +89,11 @@ int main() {
 For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
 
 ```cpp
-auto pipe = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::compute_pipeline::create(*ctx,
+auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
   k_sim_glsl,
   vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
-  "sim.comp")));
-auto bound = vkexec::detail::take_sync_value(*vkexec::sync_wait(
-  vkexec::bind_storage_sender(pipe, bindings)));
+  "sim.comp"));
+auto bound = vkexec::sync_wait_value(vkexec::bind_storage_sender(pipe, bindings));
 ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
 ```
 
@@ -165,7 +164,7 @@ Public APIs are **senders** (stdexec). Completions follow stdexec semantics:
 - **`set_error(vkexec::error)`** — failure (same error type everywhere async)
 - **`set_stopped()`** — cancellation (not an error)
 
-There is no public `std::expected`, `result<T>`, `status`, `value_or_throw`, or `create_sync`. Factory functions such as `context::create`, `buffer::allocate`, and `compute_pipeline::create` return senders; compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait`.
+Factory functions such as `context::create`, `buffer::allocate`, and `compute_pipeline::create` return `vkexec::sender<T>`; compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait_value`.
 
 - **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
@@ -175,10 +174,8 @@ There is no public `std::expected`, `result<T>`, `status`, `value_or_throw`, or 
 
 ```cpp
 try {
-  auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create({ .requirements = reqs })));
-  auto waited = vkexec::sync_wait(vkexec::buffer<float>::allocate(*ctx, n, fill));
-  if (!waited.has_value()) { /* stopped */ }
-  auto buf = vkexec::detail::take_sync_value(std::move(*waited));
+  auto ctx = vkexec::sync_wait_value(vkexec::context::create({ .requirements = reqs }));
+  auto buf = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, n, fill));
 } catch (vkexec::error const &err) {
   std::cout << std::format("{}\n", err.message());
 }
@@ -187,13 +184,12 @@ try {
 **`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `vkexec::sync_wait_outcome<...>` with `values`, `error`, and `stopped` fields — no throwing, no `std::expected`.
 
 ```cpp
-auto outcome = vkexec::sync_wait(vkexec::context::create({ .requirements = reqs }));
-if (outcome.failed()) {
-  std::cout << std::format("{}\n", outcome.take_error().message());
+auto outcome = vkexec::try_sync_wait_value(vkexec::context::create({ .requirements = reqs }));
+if (!outcome) {
+  std::cout << std::format("{}\n", outcome.error().message());
   return;
 }
-if (outcome.stopped || !outcome.values.has_value()) { /* stopped */ return; }
-auto ctx = vkexec::detail::take_sync_value(std::move(*outcome.values));
+auto ctx = vkexec::expected_take(outcome);
 ```
 
 For tests without exceptions, use `vkexec::try_sync_wait` (same `sync_wait_outcome` shape).

@@ -85,8 +85,9 @@ Descriptor handling has three independent layers:
 2. `resource_table` is the core, heap-agnostic runtime bag of logical buffer,
    image-view, and sampler bindings. It contains Vulkan handles, sizes, and layouts,
    but no descriptor-heap metadata.
-3. `descriptor_backend` owns pipeline layout/flags and command recording, while the
-   sibling `descriptor_table_backend` lowers tables into backend-specific bound values.
+3. Private descriptor backends own pipeline layout/flags, command recording, and
+   lowering into backend-specific bound values. Public callers select only the
+   `descriptor_sets` or `descriptor_heap` strategy.
 
 Schema-derived classic layouts retain explicit descriptor binding slots. Existing
 hand-written `layout_desc` callers leave `binding_slots` empty and continue to use
@@ -99,6 +100,14 @@ composes the two backend concepts without adding heap knowledge to schema or tab
 types. `bind_resources` exposes that operation as a pass-graph step; its default
 backend is descriptor sets, while the extension overload is selected with
 `descriptor_heap`.
+
+## Public and private headers
+
+Installed headers live under `include/` and contain the supported API. Template
+machinery may use a local `detail` namespace inside its owning public header, but
+detail types do not appear in public signatures. Shared implementation headers
+live under `src/**/detail/`, are supplied through the non-exported
+`vkexec_private_headers` target, and are never installed.
 
 Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
 select heap behavior once with `descriptor_heap`, then use `create_compute_resources`,
