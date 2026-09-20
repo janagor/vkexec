@@ -2,18 +2,74 @@
 #define VKEXEC_SYNC_WAIT_OUTCOME_HPP
 
 //! \file
-//! Public alias for the non-throwing `sync_wait` / `try_sync_wait` outcome type.
+//! Non-throwing outcome type and helpers for `try_sync_wait` / `sync_wait_value`.
 
-#include <vkexec/detail/sync_wait_outcome.hpp>
+#include <vkexec/error.hpp>
+
+#include <cstdlib>
+#include <optional>
+#include <tuple>
 
 namespace vkexec {
 
 /**
- * Result of a non-throwing blocking wait: values, error, or stopped.
+ * Outcome of a blocking wait: values, error, or stopped (exactly one path).
  *
- * @see try_sync_wait, sync_wait
+ * @see try_sync_wait, sync_wait_outcome
  */
-template<class... Values> using sync_wait_outcome = detail::sync_wait_outcome<Values...>;
+template<class... Values> struct sync_wait_outcome
+{
+  std::optional<std::tuple<Values...>> values{};
+  std::optional<error> error;
+  bool stopped{ false };
+
+  //! True when the sender completed with `set_value`.
+  [[nodiscard]] auto has_value() const noexcept -> bool { return values.has_value(); }
+  //! True when the sender completed with `set_error`.
+  [[nodiscard]] auto failed() const noexcept -> bool { return error.has_value(); }
+
+  /**
+   * Returns the stored error.
+   *
+   * Terminates if `failed()` is false (programming error).
+   */
+  [[nodiscard]] auto take_error() const -> vkexec::error
+  {
+    if (!error.has_value()) { std::terminate(); }
+    return *error;
+  }
+};
+
+//! Trait: unwraps nested single-element tuples to the underlying value type.
+namespace detail {
+
+  template<class Value> struct sync_unwrapped_value
+  {
+    using type = Value;
+  };
+
+  template<class Head, class... Rest> struct sync_unwrapped_value<std::tuple<Head, Rest...>>
+  {
+    using type = sync_unwrapped_value<Head>::type;
+  };
+
+  template<class Value> using sync_unwrapped_value_t = sync_unwrapped_value<Value>::type;
+
+  /**
+   * Recursively unwraps a single-element tuple completion to the inner value.
+   *
+   * Used by `try_sync_wait_value` / `sync_wait_value`.
+   */
+  template<class Value> [[nodiscard]] inline auto take_sync_value(Value &&value) -> decltype(auto)
+  {
+    if constexpr (requires { std::get<0>(value); }) {
+      return take_sync_value(std::get<0>(std::forward<Value>(value)));
+    } else {
+      return std::forward<Value>(value);
+    }
+  }
+
+}// namespace detail
 
 }// namespace vkexec
 

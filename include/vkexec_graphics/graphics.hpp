@@ -5,10 +5,10 @@
 //! Owning graphics pipelines for swapchain render passes.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 
 #include <vulkan/vulkan.h>
@@ -51,14 +51,14 @@ public:
     graphics_pipeline_config cfg,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
 
   //! Creates a graphics pipeline from SPIR-V with default config.
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
 
   //! Creates a graphics pipeline by compiling GLSL with an explicit config.
   [[nodiscard]] static auto create(context &ctx,
@@ -66,14 +66,14 @@ public:
     graphics_pipeline_config cfg,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
 
   //! Creates a graphics pipeline by compiling GLSL with default config.
   [[nodiscard]] static auto create(context &ctx,
     VkRenderPass render_pass,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> detail::sync_sender_fn<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
 
   //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>

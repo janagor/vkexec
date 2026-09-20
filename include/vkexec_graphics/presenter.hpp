@@ -5,9 +5,9 @@
 //! Backend-neutral Vulkan presentation with swapchain and per-frame sync.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>
@@ -70,16 +70,16 @@ public:
    *
    * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
    */
-  [[nodiscard]] static auto create(config cfg) -> detail::sync_sender_fn<presenter>;
+  [[nodiscard]] static auto create(config cfg) -> sender<presenter>;
 
   /**
    * Creates a swapchain without GLFW or a display (`VK_EXT_headless_surface`).
    *
    * Intended for CI and tests.
    */
-  [[nodiscard]] static auto headless(config cfg) -> detail::sync_sender_fn<presenter>;
+  [[nodiscard]] static auto headless(config cfg) -> sender<presenter>;
   //! Headless presenter with default config.
-  [[nodiscard]] static auto headless() -> detail::sync_sender_fn<presenter>;
+  [[nodiscard]] static auto headless() -> sender<presenter>;
 
   ~presenter();
 

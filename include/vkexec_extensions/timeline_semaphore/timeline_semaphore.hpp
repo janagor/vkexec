@@ -5,9 +5,9 @@
 //! RAII timeline semaphore (`VK_SEMAPHORE_TYPE_TIMELINE`).
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -42,8 +42,7 @@ public:
    * @param ctx Context that owns the device.
    * @param initial_value Starting timeline value (often 0).
    */
-  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0)
-    -> detail::sync_sender_fn<timeline_semaphore>;
+  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0) -> sender<timeline_semaphore>;
 
   ~timeline_semaphore();
 

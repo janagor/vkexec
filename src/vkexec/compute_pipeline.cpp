@@ -2,13 +2,13 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/compute_create.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -123,18 +123,18 @@ auto compute_pipeline::reset() noexcept -> void
 }
 
 auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> detail::sync_sender_fn<compute_pipeline>
+  -> sender<compute_pipeline>
 {
-  return detail::make_sync_sender_fn<compute_pipeline>([&ctx, spirv, desc]() -> result<compute_pipeline> {
+  return make_sender<compute_pipeline>([&ctx, spirv, desc]() -> result<compute_pipeline> {
     VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, spirv, desc));
     return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(owned) };
   });
 }
 
 auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
-  -> detail::sync_sender_fn<compute_pipeline>
+  -> sender<compute_pipeline>
 {
-  return detail::make_sync_sender_fn<compute_pipeline>(
+  return make_sender<compute_pipeline>(
     [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<compute_pipeline> {
       // Capture by value: the sender may outlive the caller's string_views.
       VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, glsl, desc, name));
@@ -142,17 +142,16 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
     });
 }
 
-auto compute_pipeline::allocate_set_sender() const -> detail::sync_sender_fn<VkDescriptorSet>
+auto compute_pipeline::allocate_set_sender() const -> sender<VkDescriptorSet>
 {
-  return detail::make_sync_sender_fn<VkDescriptorSet>([this]() -> result<VkDescriptorSet> { return allocate_set(); });
+  return make_sender<VkDescriptorSet>([this]() -> result<VkDescriptorSet> { return allocate_set(); });
 }
 
 auto compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
-  -> detail::sync_void_sender_fn
+  -> void_sender
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
-  return detail::make_sync_void_sender_fn(
-    [this, set, owned = std::move(owned)]() -> status { return update_set(set, owned); });
+  return make_void_sender([this, set, owned = std::move(owned)]() -> status { return update_set(set, owned); });
 }
 
 auto compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
@@ -168,10 +167,10 @@ auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding
 }
 
 auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding const> buffers)
-  -> detail::sync_sender_fn<bound_compute_pipeline>
+  -> sender<bound_compute_pipeline>
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
-  return detail::make_sync_sender_fn<bound_compute_pipeline>(
+  return make_sender<bound_compute_pipeline>(
     [&pipe, owned = std::move(owned)]() mutable -> result<bound_compute_pipeline> {
       VKEXEC_TRY_ASSIGN(set, pipe.allocate_set());
       VKEXEC_TRY(pipe.update_set(set, owned));

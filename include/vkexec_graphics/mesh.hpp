@@ -5,9 +5,9 @@
 //! Host-visible indexed triangle meshes: borrowable handle bag + owning RAII.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 
 #include <vk_mem_alloc.h>
@@ -80,9 +80,8 @@ public:
    * @param vertices Vertex data (copied into the vertex buffer).
    * @param indices Triangle indices (copied into the index buffer).
    */
-  [[nodiscard]] static auto create(context &ctx,
-    std::span<mesh_vertex const> vertices,
-    std::span<std::uint32_t const> indices) -> detail::sync_sender_fn<mesh>;
+  [[nodiscard]] static auto
+    create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> sender<mesh>;
 
   ~mesh() { reset(); }
 

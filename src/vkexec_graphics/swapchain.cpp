@@ -1,10 +1,10 @@
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <VkBootstrap.h>
 
@@ -19,9 +19,9 @@
 
 namespace vkexec {
 
-auto swapchain::create(context &ctx, swapchain_create_info info) -> detail::sync_sender_fn<swapchain>
+auto swapchain::create(context &ctx, swapchain_create_info info) -> sender<swapchain>
 {
-  return detail::make_sync_sender_fn<swapchain>([&ctx, info]() -> result<swapchain> {
+  return make_sender<swapchain>([&ctx, info]() -> result<swapchain> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
     if (info.surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"); }
     if (ctx.present_queue() == VK_NULL_HANDLE) {

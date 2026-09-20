@@ -1,11 +1,11 @@
 #include <vkexec/image_view.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -17,9 +17,9 @@ namespace {
 
 }// namespace
 
-auto image_view::create(context &ctx, image const &img) -> detail::sync_sender_fn<image_view>
+auto image_view::create(context &ctx, image const &img) -> sender<image_view>
 {
-  return detail::make_sync_sender_fn<image_view>([&ctx, &img]() -> result<image_view> {
+  return make_sender<image_view>([&ctx, &img]() -> result<image_view> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
     if (img.handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
 

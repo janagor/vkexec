@@ -4,8 +4,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
-#include <vkexec/detail/result.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -73,25 +73,23 @@ auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compu
 
 namespace detail {
 
-  auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> detail::status
+  auto record_pass_steps(submit_scope &scope, std::span<pass_step const> steps) -> status
   {
     for (pass_step const &step : steps) {
-      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) {
-        return detail::fail(recorded);
-      }
+      if (auto recorded = step.record(*scope.ctx, scope.cmd, scope.cleanup); !recorded) { return fail(recorded); }
     }
     return scope.end_recording();
   }
 
-  auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> detail::result<submit_scope>
+  auto open_and_record_pass(context *ctx, std::span<pass_step const> steps) -> result<submit_scope>
   {
     auto opened = submit_scope::open(*ctx);
-    if (!opened) { return detail::fail(opened); }
-    submit_scope scope = detail::expected_take(opened);
+    if (!opened) { return fail(opened); }
+    submit_scope scope = expected_take(opened);
     // Release loans on record failure so callers never see a half-open scope.
     if (auto recorded = record_pass_steps(scope, steps); !recorded) {
       scope.release();
-      return detail::fail(recorded);
+      return fail(recorded);
     }
     return scope;
   }

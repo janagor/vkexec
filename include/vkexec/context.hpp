@@ -4,12 +4,11 @@
 //! \file
 //! Vulkan device context: queues, VMA, command pool, and host/completion agents.
 
-#include <vkexec/detail/move_only_function.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include <VkBootstrap.h>
@@ -18,6 +17,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -31,11 +31,6 @@ namespace vkexec {
 
 class scheduler;
 class window;
-
-namespace detail {
-  class completion_waiter;
-  class host_agent;
-}// namespace detail
 
 /**
  * Options passed when creating a `context`.
@@ -91,7 +86,7 @@ struct context_adopt_info
  * serialized with `lock_host()` (or use the provided sender adaptors).
  *
  * ~~~~~~~~~~~{.cpp}
- * auto ctx = vkexec::detail::take_sync_value(*vkexec::sync_wait(vkexec::context::create()));
+ * auto ctx = vkexec::sync_wait_value(vkexec::context::create());
  * auto sched = ctx->get_scheduler();
  * ~~~~~~~~~~~
  *
@@ -111,8 +106,7 @@ public:
    * @param opts Validation and extra Vulkan requirements.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
-  [[nodiscard]] static auto create(scheduler_options const &opts = {})
-    -> detail::sync_sender_fn<std::unique_ptr<context>>;
+  [[nodiscard]] static auto create(scheduler_options const &opts = {}) -> sender<std::unique_ptr<context>>;
 
   /**
    * Adopts embedder-owned Vulkan handles without taking destruction ownership.
@@ -120,7 +114,7 @@ public:
    * @param info Borrowed instance, device, allocator, and queues.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
-  [[nodiscard]] static auto adopt(context_adopt_info const &info) -> detail::sync_sender_fn<std::unique_ptr<context>>;
+  [[nodiscard]] static auto adopt(context_adopt_info const &info) -> sender<std::unique_ptr<context>>;
 
   context(context const &) = delete;
   auto operator=(context const &) -> context & = delete;
@@ -131,39 +125,39 @@ public:
   [[nodiscard]] auto get_scheduler() noexcept -> scheduler;
 
   //! Borrowed Vulkan instance handle.
-  [[nodiscard]] auto instance() const noexcept -> VkInstance { return instance_.instance; }
+  [[nodiscard]] auto instance() const noexcept -> VkInstance;
   //! Borrowed physical device handle.
-  [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice { return physical_device_.physical_device; }
+  [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice;
   //! Borrowed logical device handle.
-  [[nodiscard]] auto device() const noexcept -> VkDevice { return device_.device; }
+  [[nodiscard]] auto device() const noexcept -> VkDevice;
   //! Mutable VkBootstrap device wrapper.
-  [[nodiscard]] auto vkb_device() noexcept -> vkb::Device & { return device_; }
+  [[nodiscard]] auto vkb_device() noexcept -> vkb::Device &;
   //! Const VkBootstrap device wrapper.
-  [[nodiscard]] auto vkb_device() const noexcept -> vkb::Device const & { return device_; }
+  [[nodiscard]] auto vkb_device() const noexcept -> vkb::Device const &;
   //! Compute queue used for dispatch and most submits.
-  [[nodiscard]] auto compute_queue() const noexcept -> VkQueue { return compute_queue_; }
+  [[nodiscard]] auto compute_queue() const noexcept -> VkQueue;
   //! Graphics queue when presentation or graphics work is enabled; may be null.
-  [[nodiscard]] auto graphics_queue() const noexcept -> VkQueue { return graphics_queue_; }
+  [[nodiscard]] auto graphics_queue() const noexcept -> VkQueue;
   //! Present queue when swapchain presentation is enabled; may be null.
-  [[nodiscard]] auto present_queue() const noexcept -> VkQueue { return present_queue_; }
+  [[nodiscard]] auto present_queue() const noexcept -> VkQueue;
   //! Queue family index for `compute_queue()`.
-  [[nodiscard]] auto queue_family() const noexcept -> std::uint32_t { return queue_family_; }
+  [[nodiscard]] auto queue_family() const noexcept -> std::uint32_t;
   //! Queue family index for `graphics_queue()`.
-  [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t { return graphics_family_; }
+  [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t;
   //! Queue family index for `present_queue()`.
-  [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t { return present_family_; }
+  [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t;
   //! Shared command pool for transient primary command buffers.
-  [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool { return command_pool_; }
+  [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool;
   //! VMA allocator used for buffers and images.
-  [[nodiscard]] auto allocator() const noexcept -> VmaAllocator { return allocator_; }
+  [[nodiscard]] auto allocator() const noexcept -> VmaAllocator;
   //! True when graphics/present queues were configured for swapchain use.
-  [[nodiscard]] auto presentation_enabled() const noexcept -> bool { return presentation_enabled_; }
+  [[nodiscard]] auto presentation_enabled() const noexcept -> bool;
   //! Effective Vulkan requirements after merging library baselines.
-  [[nodiscard]] auto requirements() const noexcept -> vulkan_requirements const & { return requirements_; }
+  [[nodiscard]] auto requirements() const noexcept -> vulkan_requirements const &;
   //! Negotiated Vulkan API version for this device.
-  [[nodiscard]] auto api_version() const noexcept -> std::uint32_t { return api_version_; }
+  [[nodiscard]] auto api_version() const noexcept -> std::uint32_t;
   //! Core device function pointers loaded via `vkGetDeviceProcAddr`.
-  [[nodiscard]] auto procs() const noexcept -> device_procs const & { return procs_; }
+  [[nodiscard]] auto procs() const noexcept -> device_procs const &;
 
   /**
    * Allocates a primary command buffer from the context command pool.
@@ -226,14 +220,16 @@ public:
   template<class StopToken, class Done>
   [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
-    detail::move_only_function<bool()> stop_requested;
+    std::function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
-      stop_requested = [token]() -> bool { return token.stop_requested(); };
+      auto state = std::make_shared<std::remove_cvref_t<StopToken>>(std::move(token));
+      stop_requested = [state]() -> bool { return state->stop_requested(); };
     }
-    return do_enqueue_fence_wait(semaphore,
-      fence,
-      std::move(stop_requested),
-      detail::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
+    auto done = std::make_shared<std::remove_cvref_t<Done>>(std::forward<Done>(on_done));
+    return do_enqueue_fence_wait(
+      semaphore, fence, std::move(stop_requested), [done](std::optional<error> failure, bool stopped) mutable -> void {
+        std::invoke(*done, std::move(failure), stopped);
+      });
   }
 
   /**
@@ -246,13 +242,16 @@ public:
   template<class StopToken, class Done>
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
-    detail::move_only_function<bool()> stop_requested;
+    std::function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
-      stop_requested = [token]() -> bool { return token.stop_requested(); };
+      auto state = std::make_shared<std::remove_cvref_t<StopToken>>(std::move(token));
+      stop_requested = [state]() -> bool { return state->stop_requested(); };
     }
-    return do_enqueue_borrowed_fence_wait(fence,
-      std::move(stop_requested),
-      detail::move_only_function<void(std::optional<error>, bool)>{ std::forward<Done>(on_done) });
+    auto done = std::make_shared<std::remove_cvref_t<Done>>(std::forward<Done>(on_done));
+    return do_enqueue_borrowed_fence_wait(
+      fence, std::move(stop_requested), [done](std::optional<error> failure, bool stopped) mutable -> void {
+        std::invoke(*done, std::move(failure), stopped);
+      });
   }
 
   /**
@@ -261,7 +260,10 @@ public:
    * @param task Callable invoked on the host agent thread.
    */
   template<class Task> [[nodiscard]] auto enqueue_host(Task &&task) -> status
-  { return do_enqueue_host(detail::move_only_function<void()>{ std::forward<Task>(task) }); }
+  {
+    auto state = std::make_shared<std::remove_cvref_t<Task>>(std::forward<Task>(task));
+    return do_enqueue_host([state]() mutable -> void { std::invoke(*state); });
+  }
 
   //! Returns the thread id of the host agent, creating it if needed.
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
@@ -291,40 +293,17 @@ private:
   auto create_allocator() -> status;
   auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> void;
-  auto ensure_completion_waiter() -> result<detail::completion_waiter *>;
-  auto ensure_host_agent() -> result<detail::host_agent *>;
   [[nodiscard]] auto do_enqueue_fence_wait(VkSemaphore semaphore,
     VkFence fence,
-    detail::move_only_function<bool()> stop_requested,
-    detail::move_only_function<void(std::optional<error>, bool)> on_done) -> status;
+    std::function<bool()> stop_requested,
+    std::function<void(std::optional<error>, bool)> on_done) -> status;
   [[nodiscard]] auto do_enqueue_borrowed_fence_wait(VkFence fence,
-    detail::move_only_function<bool()> stop_requested,
-    detail::move_only_function<void(std::optional<error>, bool)> on_done) -> status;
-  [[nodiscard]] auto do_enqueue_host(detail::move_only_function<void()> task) -> status;
+    std::function<bool()> stop_requested,
+    std::function<void(std::optional<error>, bool)> on_done) -> status;
+  [[nodiscard]] auto do_enqueue_host(std::function<void()> task) -> status;
 
-  vulkan_requirements requirements_{};
-  std::uint32_t api_version_{ VK_API_VERSION_1_0 };
-  device_procs procs_{};
-  vkb::Instance instance_{};
-  vkb::PhysicalDevice physical_device_{};
-  vkb::Device device_{};
-  VmaAllocator allocator_{ VK_NULL_HANDLE };
-  VkQueue compute_queue_{ VK_NULL_HANDLE };
-  VkQueue graphics_queue_{ VK_NULL_HANDLE };
-  VkQueue present_queue_{ VK_NULL_HANDLE };
-  std::uint32_t queue_family_{ 0 };
-  std::uint32_t graphics_family_{ 0 };
-  std::uint32_t present_family_{ 0 };
-  VkCommandPool command_pool_{ VK_NULL_HANDLE };
-  std::unique_ptr<detail::completion_waiter> completion_waiter_;
-  std::unique_ptr<detail::host_agent> host_agent_;
-  mutable std::mutex host_mutex_;
-  bool presentation_enabled_{ false };
-  bool has_instance_{ false };
-  bool has_device_{ false };
-  bool owns_instance_{ false };
-  bool owns_device_{ false };
-  bool owns_allocator_{ false };
+  struct impl;
+  std::unique_ptr<impl> impl_;
 };
 
 }// namespace vkexec

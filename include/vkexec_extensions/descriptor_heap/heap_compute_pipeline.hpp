@@ -5,11 +5,11 @@
 //! Bindless compute pipelines (`VK_PIPELINE_CREATE_2_DESCRIPTOR_HEAP_BIT_EXT`).
 
 #include <vkexec/compute_pipeline.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vulkan/vulkan.h>
@@ -62,14 +62,14 @@ struct heap_layout_desc
 [[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> spirv,
-  heap_layout_desc const &desc) -> detail::sync_sender_fn<compute_pipeline>;
+  heap_layout_desc const &desc) -> sender<compute_pipeline>;
 
 //! Owning GLSL factory customization used by `compute_pipeline::create(descriptor_heap, ...)`.
 [[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view glsl,
   heap_layout_desc const &desc,
-  std::string_view name = "heap.comp") -> detail::sync_sender_fn<compute_pipeline>;
+  std::string_view name = "heap.comp") -> sender<compute_pipeline>;
 
 }// namespace vkexec
 

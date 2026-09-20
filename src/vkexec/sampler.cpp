@@ -1,18 +1,18 @@
 #include <vkexec/sampler.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 namespace vkexec {
 
-auto sampler::create(context &ctx, sampler_create_info info) -> detail::sync_sender_fn<sampler>
+auto sampler::create(context &ctx, sampler_create_info info) -> sender<sampler>
 {
-  return detail::make_sync_sender_fn<sampler>([&ctx, info]() -> result<sampler> {
+  return make_sender<sampler>([&ctx, info]() -> result<sampler> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "sampler requires a VkDevice"); }
 
     VkSamplerCreateInfo create_info{};

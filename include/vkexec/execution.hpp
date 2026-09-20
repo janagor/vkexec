@@ -24,6 +24,7 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/spirv_compile.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>

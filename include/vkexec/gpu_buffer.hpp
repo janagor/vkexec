@@ -5,9 +5,9 @@
 //! Untyped VMA GPU buffers for hybrid / embedder paths.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -65,11 +65,10 @@ public:
    * @param info Size, memory preset, and optional device address flag.
    * @return Sender that completes with ownership of the buffer.
    */
-  [[nodiscard]] static auto create(context &ctx, gpu_buffer_create_info info) -> detail::sync_sender_fn<gpu_buffer>;
+  [[nodiscard]] static auto create(context &ctx, gpu_buffer_create_info info) -> sender<gpu_buffer>;
 
   //! Creates a buffer of `size` bytes with the given memory preset.
-  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
-    -> detail::sync_sender_fn<gpu_buffer>;
+  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> sender<gpu_buffer>;
 
   ~gpu_buffer();
 

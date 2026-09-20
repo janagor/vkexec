@@ -1,3 +1,6 @@
+add_library(vkexec_private_headers INTERFACE)
+target_include_directories(vkexec_private_headers INTERFACE "${PROJECT_SOURCE_DIR}/src")
+
 add_subdirectory(vkexec)
 add_subdirectory(vkexec_features)
 add_subdirectory(vkexec_graphics)

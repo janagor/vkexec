@@ -1,10 +1,10 @@
 #include <vkexec/gpu_buffer.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -66,9 +66,9 @@ namespace {
 
 }// namespace
 
-auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> detail::sync_sender_fn<gpu_buffer>
+auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> sender<gpu_buffer>
 {
-  return detail::make_sync_sender_fn<gpu_buffer>([&ctx, info]() -> result<gpu_buffer> {
+  return make_sender<gpu_buffer>([&ctx, info]() -> result<gpu_buffer> {
     if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
     if (ctx.allocator() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
@@ -109,7 +109,7 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> detail::sy
   });
 }
 
-auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> detail::sync_sender_fn<gpu_buffer>
+auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> sender<gpu_buffer>
 { return create(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
 gpu_buffer::gpu_buffer(context *ctx,

@@ -1,12 +1,12 @@
 #include <vkexec_graphics/presenter.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
-#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec/sync_wait_outcome.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
@@ -61,16 +61,16 @@ namespace {
 
 }// namespace
 
-auto presenter::create(config cfg) -> detail::sync_sender_fn<presenter>
+auto presenter::create(config cfg) -> sender<presenter>
 {
-  return detail::make_sync_sender_fn<presenter>([cfg = std::move(cfg)]() mutable -> result<presenter> {
+  return make_sender<presenter>([cfg = std::move(cfg)]() mutable -> result<presenter> {
     presenter created;
     if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
     return created;
   });
 }
 
-auto presenter::headless(config cfg) -> detail::sync_sender_fn<presenter>
+auto presenter::headless(config cfg) -> sender<presenter>
 {
   auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
@@ -91,7 +91,7 @@ auto presenter::headless(config cfg) -> detail::sync_sender_fn<presenter>
   return create(std::move(cfg));
 }
 
-auto presenter::headless() -> detail::sync_sender_fn<presenter> { return headless(config{}); }
+auto presenter::headless() -> sender<presenter> { return headless(config{}); }
 
 presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),

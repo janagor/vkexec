@@ -1,13 +1,15 @@
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 
+#include "detail/strategy.hpp"
+
 #include <vkexec/context.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/shader_module.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/spirv_compile.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
@@ -252,9 +254,9 @@ auto descriptor_graphics_pipeline::reset() noexcept -> void
 auto descriptor_graphics_pipeline::create(context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
+  heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>
 {
-  return detail::make_sync_sender_fn<descriptor_graphics_pipeline>(
+  return make_sender<descriptor_graphics_pipeline>(
     [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<descriptor_graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create_graphics_resources(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc));
       return make(ctx, std::make_unique<pipeline_resources>(owned));
@@ -267,10 +269,10 @@ auto descriptor_graphics_pipeline::create(context &ctx,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
-  std::string_view fragment_name) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
+  std::string_view fragment_name) -> sender<descriptor_graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return detail::make_sync_sender_fn<descriptor_graphics_pipeline>(
+  return make_sender<descriptor_graphics_pipeline>(
     [&ctx,
       vertex_glsl = std::string(vertex_glsl),
       fragment_glsl = std::string(fragment_glsl),
@@ -287,7 +289,7 @@ auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
+  heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>
 { return descriptor_graphics_pipeline::create(ctx, vertex_spirv, fragment_spirv, desc); }
 
 auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
@@ -296,7 +298,7 @@ auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
-  std::string_view fragment_name) -> detail::sync_sender_fn<descriptor_graphics_pipeline>
+  std::string_view fragment_name) -> sender<descriptor_graphics_pipeline>
 { return descriptor_graphics_pipeline::create(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
 
 }// namespace vkexec

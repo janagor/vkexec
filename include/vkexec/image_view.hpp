@@ -2,9 +2,9 @@
 #define VKEXEC_IMAGE_VIEW_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/image.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -27,7 +27,7 @@ public:
    * @param ctx Context that owns the device.
    * @param img Image to view (must remain alive while the view is used).
    */
-  [[nodiscard]] static auto create(context &ctx, image const &img) -> detail::sync_sender_fn<image_view>;
+  [[nodiscard]] static auto create(context &ctx, image const &img) -> sender<image_view>;
 
   ~image_view();
 

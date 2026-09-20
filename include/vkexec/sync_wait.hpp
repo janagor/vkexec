@@ -4,7 +4,6 @@
 //! \file
 //! Blocking wait helpers for vkexec senders (`sync_wait`, `try_sync_wait`, …).
 
-#include <vkexec/detail/sync_wait_outcome.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait_outcome.hpp>

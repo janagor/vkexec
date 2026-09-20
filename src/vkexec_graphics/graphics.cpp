@@ -6,12 +6,12 @@
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
 #include <vkexec/detail/shader_module.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/detail/viewport.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -402,9 +402,9 @@ auto graphics_pipeline::create(context &ctx,
   graphics_pipeline_config cfg,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
+  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
 {
-  return detail::make_sync_sender_fn<graphics_pipeline>(
+  return make_sender<graphics_pipeline>(
     [&ctx,
       render_pass,
       cfg,
@@ -421,10 +421,10 @@ auto graphics_pipeline::create(context &ctx,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
-  std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
+  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return detail::make_sync_sender_fn<graphics_pipeline>(
+  return make_sender<graphics_pipeline>(
     [&ctx,
       render_pass,
       cfg,
@@ -444,7 +444,7 @@ auto graphics_pipeline::create(context &ctx,
   VkRenderPass render_pass,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
+  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
 { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
 
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
@@ -452,7 +452,7 @@ auto graphics_pipeline::create(context &ctx,
   VkRenderPass render_pass,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
-  std::span<storage_binding const> buffers) -> detail::sync_sender_fn<graphics_pipeline>
+  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
 

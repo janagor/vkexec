@@ -1,9 +1,9 @@
 #include <vkexec_extensions/descriptor_heap/pass.hpp>
-#include <vkexec_extensions/descriptor_heap/strategy.hpp>
+
+#include "detail/strategy.hpp"
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
-#include <vkexec/detail/result.hpp>
 #include <vkexec/detail/viewport.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/result.hpp>

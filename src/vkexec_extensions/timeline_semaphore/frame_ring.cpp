@@ -4,11 +4,11 @@
 #include <vkexec_features/timeline_semaphore.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -34,9 +34,9 @@ namespace {
 
 }// namespace
 
-auto frame_ring::create(context &ctx, create_info info) -> detail::sync_sender_fn<frame_ring>
+auto frame_ring::create(context &ctx, create_info info) -> sender<frame_ring>
 {
-  return detail::make_sync_sender_fn<frame_ring>([&ctx, info]() -> result<frame_ring> {
+  return make_sender<frame_ring>([&ctx, info]() -> result<frame_ring> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }
     if (info.slot_count == 0) { return fail(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
     if (!feat::available<feat::timeline_semaphore>(ctx)) {

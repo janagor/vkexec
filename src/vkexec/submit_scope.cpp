@@ -1,11 +1,11 @@
 #include <vkexec/submit_scope.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -107,7 +107,7 @@ namespace detail {
   }
 
   auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
-    -> detail::result<VkDescriptorSet>
+    -> result<VkDescriptorSet>
   {
     std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};
@@ -117,7 +117,7 @@ namespace detail {
     dsai.pSetLayouts = &pipe.set_layout;
     VkDescriptorSet set{ VK_NULL_HANDLE };
     if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-      return detail::fail(result, "vkAllocateDescriptorSets failed");
+      return fail(result, "vkAllocateDescriptorSets failed");
     }
     write_storage_descriptors(ctx.device(), set, buffers);
     return set;
@@ -126,7 +126,7 @@ namespace detail {
   auto bind_or_allocate_set(context const &ctx,
     pipeline_resources &pipe,
     std::span<storage_binding const> buffers,
-    descriptor_cleanup &cleanup) -> detail::result<VkDescriptorSet>
+    descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
   {
     // Reuse a set already allocated for this pipeline in the same submit when bindings match.
     if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
@@ -134,26 +134,26 @@ namespace detail {
     }
 
     auto set = allocate_compute_set(ctx, pipe, buffers);
-    if (!set) { return detail::fail(set); }
-    auto *allocated = detail::expected_take(set);
+    if (!set) { return fail(set); }
+    auto *allocated = expected_take(set);
     cleanup.sets.insert_or_assign(
       &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
     cleanup.track(pipe.descriptor_pool, allocated);
     return allocated;
   }
 
-  auto submit_scope::open(context &host) -> detail::result<submit_scope>
+  auto submit_scope::open(context &host) -> result<submit_scope>
   {
     auto cmd = host.allocate_command_buffer();
-    if (!cmd) { return detail::fail(cmd); }
-    auto *cmd_buf = detail::expected_take(cmd);
+    if (!cmd) { return fail(cmd); }
+    auto *cmd_buf = expected_take(cmd);
 
     VkCommandBufferBeginInfo begin{};
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
       host.free_command_buffer(cmd_buf);
-      return detail::fail(result, "vkBeginCommandBuffer failed");
+      return fail(result, "vkBeginCommandBuffer failed");
     }
 
     submit_scope scope;
@@ -163,11 +163,11 @@ namespace detail {
   }
 
   // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-  auto submit_scope::end_recording() -> detail::status
+  auto submit_scope::end_recording() -> status
   {
-    if (cmd == VK_NULL_HANDLE) { return detail::fail(errc::invalid_argument, "submit_scope has no command buffer"); }
+    if (cmd == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "submit_scope has no command buffer"); }
     if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-      return detail::fail(result, "vkEndCommandBuffer failed");
+      return fail(result, "vkEndCommandBuffer failed");
     }
     return {};
   }

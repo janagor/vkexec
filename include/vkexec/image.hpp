@@ -5,8 +5,8 @@
 //! Untyped VMA images for offscreen (non-swapchain) targets.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -56,7 +56,7 @@ public:
    * @param ctx Context whose VMA allocator owns the allocation.
    * @param info Extent, usage, and optional format override.
    */
-  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> detail::sync_sender_fn<image>;
+  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> sender<image>;
 
   ~image();
 

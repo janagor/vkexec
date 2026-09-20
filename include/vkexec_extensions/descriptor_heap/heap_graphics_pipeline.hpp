@@ -5,11 +5,11 @@
 //! Bindless graphics pipelines (`DESCRIPTOR_HEAP_BIT_EXT` + dynamic-rendering formats).
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_graphics/graphics.hpp>
 
@@ -105,7 +105,7 @@ public:
   [[nodiscard]] static auto create(context &ctx,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
+    heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>;
 
   /**
    * Compiles GLSL then creates a heap graphics pipeline.
@@ -118,7 +118,7 @@ public:
     std::string_view fragment_glsl,
     heap_graphics_layout_desc const &desc,
     std::string_view vertex_name = "heap.vert",
-    std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
+    std::string_view fragment_name = "heap.frag") -> sender<descriptor_graphics_pipeline>;
 
   //! Owning factory used after `create_graphics_resources(descriptor_heap, ...)`.
   [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources)
@@ -166,7 +166,7 @@ private:
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
+  heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>;
 
 //! Owning GLSL factory customization used by `graphics_pipeline::create(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
@@ -175,7 +175,7 @@ private:
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name = "heap.vert",
-  std::string_view fragment_name = "heap.frag") -> detail::sync_sender_fn<descriptor_graphics_pipeline>;
+  std::string_view fragment_name = "heap.frag") -> sender<descriptor_graphics_pipeline>;
 
 }// namespace vkexec
 

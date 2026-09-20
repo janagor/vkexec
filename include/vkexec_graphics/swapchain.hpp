@@ -5,9 +5,9 @@
 //! Presentable Vulkan swapchain that borrows an external surface.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <VkBootstrap.h>
 #include <vulkan/vulkan.h>
@@ -62,7 +62,7 @@ public:
    * @param ctx Context with presentation queues enabled.
    * @param info Surface, extent, and present preferences.
    */
-  [[nodiscard]] static auto create(context &ctx, swapchain_create_info info) -> detail::sync_sender_fn<swapchain>;
+  [[nodiscard]] static auto create(context &ctx, swapchain_create_info info) -> sender<swapchain>;
 
   ~swapchain();
 

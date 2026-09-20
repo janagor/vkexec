@@ -2,9 +2,9 @@
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_BUFFER_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -35,7 +35,7 @@ public:
    * @param ctx Context whose VMA allocator owns the allocation.
    * @param size Byte size (must accommodate descriptors + reserved range).
    */
-  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size) -> detail::sync_sender_fn<descriptor_heap_buffer>;
+  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size) -> sender<descriptor_heap_buffer>;
 
   ~descriptor_heap_buffer();
 

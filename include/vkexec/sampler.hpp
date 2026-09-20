@@ -2,8 +2,8 @@
 #define VKEXEC_SAMPLER_HPP
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -35,7 +35,7 @@ public:
    * @param ctx Context that owns the device.
    * @param info Filter and addressing parameters.
    */
-  [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> detail::sync_sender_fn<sampler>;
+  [[nodiscard]] static auto create(context &ctx, sampler_create_info info = {}) -> sender<sampler>;
 
   ~sampler();
 

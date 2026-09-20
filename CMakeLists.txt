@@ -20,7 +20,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Set the project name and language
 project(
   vkexec
-  VERSION 0.1.0
+  VERSION 0.2.0
   DESCRIPTION "stdexec Vulkan compute backend with optional extensions and graphics helpers"
   HOMEPAGE_URL "https://github.com/janagor/vkexec"
   LANGUAGES CXX C)
@@ -61,6 +61,38 @@ add_subdirectory(configured_files)
 
 # Adding the library source:
 add_subdirectory(src)
+
+# Public headers are owned by exported targets. Source-only detail headers are
+# deliberately absent from these sets and can never enter an install package.
+file(GLOB VKEXEC_CORE_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec/*.hpp")
+file(GLOB_RECURSE VKEXEC_FEATURE_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_features/*.hpp")
+file(GLOB_RECURSE VKEXEC_GRAPHICS_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_graphics/*.hpp")
+file(GLOB_RECURSE VKEXEC_DESCRIPTOR_HEAP_HEADERS CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/common/*.hpp"
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/descriptor_heap/*.hpp")
+list(APPEND VKEXEC_DESCRIPTOR_HEAP_HEADERS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/descriptor_heap.hpp"
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/extension.hpp")
+file(GLOB_RECURSE VKEXEC_DYNAMIC_RENDERING_HEADERS CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/dynamic_rendering/*.hpp")
+list(APPEND VKEXEC_DYNAMIC_RENDERING_HEADERS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/dynamic_rendering.hpp")
+file(GLOB_RECURSE VKEXEC_TIMELINE_HEADERS CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/timeline_semaphore/*.hpp")
+list(APPEND VKEXEC_TIMELINE_HEADERS "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/timeline_semaphore.hpp")
+
+target_sources(vkexec PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
+                            FILES ${VKEXEC_CORE_HEADERS})
+target_sources(vkexec_features PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
+                                     FILES ${VKEXEC_FEATURE_HEADERS})
+target_sources(vkexec_graphics PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
+                                     FILES ${VKEXEC_GRAPHICS_HEADERS})
+target_sources(vkexec_ext_descriptor_heap PUBLIC FILE_SET public_headers TYPE HEADERS
+  BASE_DIRS "${PROJECT_SOURCE_DIR}/include" FILES ${VKEXEC_DESCRIPTOR_HEAP_HEADERS})
+target_sources(vkexec_ext_dynamic_rendering PUBLIC FILE_SET public_headers TYPE HEADERS
+  BASE_DIRS "${PROJECT_SOURCE_DIR}/include" FILES ${VKEXEC_DYNAMIC_RENDERING_HEADERS})
+target_sources(vkexec_ext_timeline_semaphore PUBLIC FILE_SET public_headers TYPE HEADERS
+  BASE_DIRS "${PROJECT_SOURCE_DIR}/include" FILES ${VKEXEC_TIMELINE_HEADERS})
 
 if(vkexec_BUILD_EXAMPLES)
   add_subdirectory(examples)
@@ -113,10 +145,10 @@ install(
           vkexec_ext_dynamic_rendering
           vkexec_ext_timeline_semaphore
           vkexec_graphics
+  FILE_SET public_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you

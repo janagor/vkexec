@@ -5,12 +5,12 @@
 //! Staging-backed typed tensor (host mirror + device storage) for compute ergonomics.
 
 #include <vkexec/copy.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec/sync_wait.hpp>
 
 #include <vulkan/vulkan.h>
@@ -53,9 +53,9 @@ public:
    * @param count Element count (must be > 0).
    * @param fill Initial value for every host element.
    */
-  [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> detail::sync_sender_fn<tensor>
+  [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> sender<tensor>
   {
-    return detail::make_sync_sender_fn<tensor>([&ctx, count, fill]() -> result<tensor> {
+    return make_sender<tensor>([&ctx, count, fill]() -> result<tensor> {
       if (count == 0) { return fail(errc::invalid_argument, "vkexec::tensor count must be > 0"); }
       return make_allocated(ctx, std::vector<T>(count, fill));
     });
@@ -67,18 +67,18 @@ public:
    * @param ctx Context whose VMA allocator owns the GPU buffers.
    * @param values Source elements (must be non-empty).
    */
-  [[nodiscard]] static auto create(context &ctx, std::span<T const> values) -> detail::sync_sender_fn<tensor>
+  [[nodiscard]] static auto create(context &ctx, std::span<T const> values) -> sender<tensor>
   {
-    return detail::make_sync_sender_fn<tensor>([&ctx, values]() -> result<tensor> {
+    return make_sender<tensor>([&ctx, values]() -> result<tensor> {
       if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor span must be non-empty"); }
       return make_allocated(ctx, std::vector<T>(values.begin(), values.end()));
     });
   }
 
   //! Convenience overload that copies from a `std::vector`.
-  [[nodiscard]] static auto create(context &ctx, std::vector<T> values) -> detail::sync_sender_fn<tensor>
+  [[nodiscard]] static auto create(context &ctx, std::vector<T> values) -> sender<tensor>
   {
-    return detail::make_sync_sender_fn<tensor>([&ctx, values = std::move(values)]() mutable -> result<tensor> {
+    return make_sender<tensor>([&ctx, values = std::move(values)]() mutable -> result<tensor> {
       if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
       return make_allocated(ctx, std::move(values));
     });

@@ -5,10 +5,10 @@
 //! Frames-in-flight sync: binary acquire/present semaphores plus a timeline ring.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 #include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
 
 #include <vulkan/vulkan.h>
@@ -69,7 +69,7 @@ public:
    * @param ctx Context that owns the device (timeline + binary semaphores).
    * @param info Slot count and initial image count.
    */
-  [[nodiscard]] static auto create(context &ctx, create_info info) -> detail::sync_sender_fn<frame_ring>;
+  [[nodiscard]] static auto create(context &ctx, create_info info) -> sender<frame_ring>;
 
   ~frame_ring();
 

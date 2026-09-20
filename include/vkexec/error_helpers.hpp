@@ -25,17 +25,9 @@ namespace vkexec {
  */
 [[nodiscard]] auto make_vk_error(VkResult result, std::string_view context) -> error;
 
-namespace detail {
-
-  //! Returns `unexpected` wrapping `make_vk_error(result, context)`.
-  [[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> unexpected<detail::error_type>
-  { return fail(make_vk_error(result, context)); }
-
-}// namespace detail
-
 //! Returns `unexpected` wrapping `make_vk_error(result, context)`.
-[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> unexpected<detail::error_type>
-{ return detail::fail(make_vk_error(result, context)); }
+[[nodiscard]] inline auto fail(VkResult result, std::string_view context = {}) -> unexpected<error>
+{ return fail(make_vk_error(result, context)); }
 
 //! Dereferences a successful `vkb::Result` (caller must check success first).
 template<typename T> [[nodiscard, clang::suppress]] auto vkb_take(vkb::Result<T> const &result) -> T { return *result; }

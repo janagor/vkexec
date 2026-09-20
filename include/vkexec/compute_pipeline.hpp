@@ -5,11 +5,11 @@
 //! Owning compute pipelines and helpers that build `compute_pass` closures.
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan.h>
 
@@ -42,7 +42,7 @@ public:
    * @param desc Descriptor and push-constant layout.
    */
   [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> detail::sync_sender_fn<compute_pipeline>;
+    -> sender<compute_pipeline>;
 
   /**
    * Compiles `glsl` to SPIR-V then creates a pipeline.
@@ -54,7 +54,7 @@ public:
    */
   [[nodiscard]] static auto
     create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
-      -> detail::sync_sender_fn<compute_pipeline>;
+      -> sender<compute_pipeline>;
 
   //! Creates a pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
@@ -111,10 +111,10 @@ public:
   { return vkexec::groups_for(*resources_, work_count); }
 
   //! Sender that allocates an empty descriptor set from this pipeline's pool.
-  [[nodiscard]] auto allocate_set_sender() const -> detail::sync_sender_fn<VkDescriptorSet>;
+  [[nodiscard]] auto allocate_set_sender() const -> sender<VkDescriptorSet>;
   //! Sender that writes `buffers` into `set`.
   [[nodiscard]] auto update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
-    -> detail::sync_void_sender_fn;
+    -> void_sender;
 
   //! Allocates an empty descriptor set from this pipeline's pool.
   [[nodiscard]] auto allocate_set() const -> result<VkDescriptorSet>;
@@ -152,7 +152,7 @@ struct bound_compute_pipeline
  * @param buffers Storage bindings to write into the set.
  */
 [[nodiscard]] auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding const> buffers)
-  -> detail::sync_sender_fn<bound_compute_pipeline>;
+  -> sender<bound_compute_pipeline>;
 
 /**
  * Builds a prebuilt compute pass with push constants and automatic group counts.

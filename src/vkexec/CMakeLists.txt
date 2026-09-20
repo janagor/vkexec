@@ -5,6 +5,7 @@ add_library(
   context.cpp
   completion_waiter.cpp
   host_agent.cpp
+  bind_resources.cpp
   compute_pipeline.cpp
   spirv_compile.cpp
   push.cpp
@@ -32,6 +33,7 @@ target_link_libraries(
          vk-bootstrap::vk-bootstrap
          GPUOpen::VulkanMemoryAllocator
   PRIVATE glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
+target_link_libraries(vkexec PRIVATE vkexec_private_headers)
 
 target_include_directories(
   vkexec ${WARNING_GUARD}

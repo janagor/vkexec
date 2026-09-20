@@ -1,16 +1,20 @@
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
+#include "detail/strategy.hpp"
+
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/push_data.hpp>
 #include <vkexec_extensions/descriptor_heap/resource_table.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/bind_resources.hpp>
 #include <vkexec/detail/descriptor_table_backend.hpp>
-#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/scheduler.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -148,6 +152,31 @@ static_assert(descriptor_table_backend<heap_descriptor_backend>);
 }// namespace vkexec::detail
 
 namespace vkexec {
+
+auto bind_resources(descriptor_heap_t /*strategy*/,
+  pipeline_resources const &pipe,
+  resource_table const &table,
+  heap_table_lower_env env,
+  std::span<std::byte const> push) -> descriptor_heap_bind_resources_closure
+{
+  return descriptor_heap_bind_resources_closure{
+    .pipe = &pipe, .table = table, .env = env, .push = { push.begin(), push.end() }
+  };
+}
+
+auto operator|(schedule_sender snd, descriptor_heap_bind_resources_closure closure) -> pass_graph_sender
+{
+  auto step = detail::make_bind_resources_step<detail::heap_descriptor_backend>(
+    closure.pipe, std::move(closure.table), closure.env, std::move(closure.push));
+  return pass_graph_sender{ .ctx = snd.ctx, .steps = { std::move(step) } };
+}
+
+auto operator|(pass_graph_sender graph, descriptor_heap_bind_resources_closure closure) -> pass_graph_sender
+{
+  return detail::append_step(std::move(graph),
+    detail::make_bind_resources_step<detail::heap_descriptor_backend>(
+      closure.pipe, std::move(closure.table), closure.env, std::move(closure.push)));
+}
 
 auto heap_index_map::index_for(std::uint32_t slot) const noexcept -> std::optional<std::uint32_t>
 {

@@ -4,11 +4,10 @@
 #include <vkexec_features/timeline_semaphore.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/result.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -18,13 +17,11 @@
 
 namespace vkexec {
 
-auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> detail::result<timeline_semaphore>
+auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>
 {
-  if (ctx.device() == VK_NULL_HANDLE) {
-    return detail::fail(errc::invalid_argument, "timeline_semaphore requires a VkDevice");
-  }
+  if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "timeline_semaphore requires a VkDevice"); }
   if (!feat::available<feat::timeline_semaphore>(ctx)) {
-    return detail::fail(errc::unsupported, "timeline_semaphore requires feat::timeline_semaphore");
+    return fail(errc::unsupported, "timeline_semaphore requires feat::timeline_semaphore");
   }
 
   VkSemaphoreTypeCreateInfo type_info{};
@@ -38,13 +35,13 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
 
   VkSemaphore semaphore{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateSemaphore(ctx.device(), &info, nullptr, &semaphore);
-  if (create_result != VK_SUCCESS) { return detail::fail(create_result, "vkCreateSemaphore (timeline) failed"); }
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSemaphore (timeline) failed"); }
   return timeline_semaphore{ &ctx, semaphore };
 }
 
-auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> detail::sync_sender_fn<timeline_semaphore>
+auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> sender<timeline_semaphore>
 {
-  return detail::make_sync_sender_fn<timeline_semaphore>([&ctx, initial_value]() -> result<timeline_semaphore> {
+  return make_sender<timeline_semaphore>([&ctx, initial_value]() -> result<timeline_semaphore> {
     return detail::make_timeline_semaphore(ctx, initial_value);
   });
 }

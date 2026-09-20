@@ -1,10 +1,10 @@
 #include <vkexec/image.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -41,9 +41,9 @@ namespace {
 
 }// namespace
 
-auto image::create(context &ctx, image_create_info info) -> detail::sync_sender_fn<image>
+auto image::create(context &ctx, image_create_info info) -> sender<image>
 {
-  return detail::make_sync_sender_fn<image>([&ctx, info]() -> result<image> {
+  return make_sender<image>([&ctx, info]() -> result<image> {
     if (info.width == 0 || info.height == 0) {
       return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
     }

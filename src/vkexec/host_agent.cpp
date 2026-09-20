@@ -1,7 +1,7 @@
-#include "host_agent.hpp"
+#include "detail/host_agent.hpp"
 
-#include <vkexec/detail/result.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/result.hpp>
 
 #include <future>
 #include <mutex>
@@ -56,7 +56,7 @@ auto host_agent::on_agent_thread() const noexcept -> bool { return std::this_thr
 
 auto host_agent::thread_id() const noexcept -> std::thread::id { return thread_id_; }
 
-auto host_agent::enqueue(task_fn task) -> detail::status
+auto host_agent::enqueue(task_fn task) -> status
 {
   if (!task) { return {}; }
   // Inline execution avoids deadlock when a completion enqueues more work on the same agent.
@@ -68,7 +68,7 @@ auto host_agent::enqueue(task_fn task) -> detail::status
 
   {
     std::scoped_lock const lock(mutex_);
-    if (shutting_down_) { return detail::fail(errc::invalid_argument, "host_agent enqueue after shutdown"); }
+    if (shutting_down_) { return fail(errc::invalid_argument, "host_agent enqueue after shutdown"); }
     pending_.push_back(std::move(task));
   }
   cv_.notify_one();

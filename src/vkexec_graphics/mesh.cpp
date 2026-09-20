@@ -1,10 +1,10 @@
 #include <vkexec_graphics/mesh.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -115,9 +115,9 @@ auto mesh::reset() noexcept -> void
 }
 
 auto mesh::create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-  -> detail::sync_sender_fn<mesh>
+  -> sender<mesh>
 {
-  return detail::make_sync_sender_fn<mesh>([&ctx, vertices, indices]() -> result<mesh> {
+  return make_sender<mesh>([&ctx, vertices, indices]() -> result<mesh> {
     VKEXEC_TRY_ASSIGN(owned, create_mesh_buffers(ctx, vertices, indices));
     return mesh{ &ctx, owned };
   });

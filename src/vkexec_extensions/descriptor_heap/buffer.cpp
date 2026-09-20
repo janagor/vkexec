@@ -1,10 +1,10 @@
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/detail/sync_sender.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -19,9 +19,9 @@ namespace {
 
 }// namespace
 
-auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> detail::sync_sender_fn<descriptor_heap_buffer>
+auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> sender<descriptor_heap_buffer>
 {
-  return detail::make_sync_sender_fn<descriptor_heap_buffer>([&ctx, size]() -> result<descriptor_heap_buffer> {
+  return make_sender<descriptor_heap_buffer>([&ctx, size]() -> result<descriptor_heap_buffer> {
     if (size == 0) { return fail(errc::invalid_argument, "descriptor_heap_buffer size must be > 0"); }
     if (ctx.allocator() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "descriptor_heap_buffer requires a VMA allocator");

@@ -22,7 +22,8 @@ add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
 target_include_directories(vkexec_ext_descriptor_heap PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
                                                              $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(vkexec_ext_descriptor_heap PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
+target_link_libraries(vkexec_ext_descriptor_heap PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features
+                                                    PRIVATE vkexec_private_headers)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -37,7 +38,8 @@ set_target_properties(
 target_include_directories(vkexec_ext_dynamic_rendering PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
                                                                $<INSTALL_INTERFACE:include>)
 
-target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features)
+target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC Vulkan::Vulkan vkexec::vkexec vkexec::features
+                                                      PRIVATE vkexec_private_headers)
 
 target_compile_features(vkexec_ext_dynamic_rendering PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -57,7 +59,8 @@ target_link_libraries(
   PUBLIC Vulkan::Vulkan
          vkexec::vkexec
          vkexec::features
-         vkexec::vkexec_graphics)
+         vkexec::vkexec_graphics
+  PRIVATE vkexec_private_headers)
 
 target_compile_features(vkexec_ext_timeline_semaphore PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
