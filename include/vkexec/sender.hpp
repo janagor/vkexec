@@ -26,7 +26,7 @@ namespace ex = stdexec;
  */
 template<class Value> struct sender
 {
-  using factory_type = std::function<result<std::remove_cvref_t<Value>>() >;
+  using factory_type = std::function<result<std::remove_cvref_t<Value>>()>;
   using sender_concept = ex::sender_t;
   using value_type = std::remove_cvref_t<Value>;
   using completion_signatures =

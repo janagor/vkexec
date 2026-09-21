@@ -24,8 +24,8 @@ add_library(vkexec::vkexec ALIAS vkexec)
 target_link_libraries(
   vkexec
   PUBLIC
-         "$<BUILD_INTERFACE:Boost::system;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
-         "$<INSTALL_INTERFACE:Boost::system;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
+    "$<BUILD_INTERFACE:Boost::system;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
+    "$<INSTALL_INTERFACE:Boost::system;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
   PRIVATE vkexec_warnings)
 
 target_include_directories(

@@ -45,8 +45,7 @@ template<class Backend, class LowerEnv>
                 context &ctx, VkCommandBuffer cmd, pass_cleanup &) mutable -> status {
       if (pipe == nullptr) { return fail(errc::invalid_argument, "bind_resources requires a pipeline"); }
       state->release();
-      auto lowered = lower_and_bind_push<Backend>(
-        ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipe, table, env, push);
+      auto lowered = lower_and_bind_push<Backend>(ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipe, table, env, push);
       if (!lowered) { return fail(lowered); }
       state->ctx = &ctx;
       state->pipe = pipe;

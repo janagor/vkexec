@@ -10,15 +10,14 @@
 static_assert(stdexec::sender<vkexec::sender<int>>);
 static_assert(stdexec::sender<vkexec::void_sender>);
 
-namespace
-{
+namespace {
 constexpr auto k_expected_value = 42;
 }
 
 TEST_CASE("public sender completes with a value", "[vkexec][sender]")
 {
-  auto outcome = vkexec::try_sync_wait_value(
-    vkexec::make_sender<int>([]() -> vkexec::result<int> { return k_expected_value; }));
+  auto outcome =
+    vkexec::try_sync_wait_value(vkexec::make_sender<int>([]() -> vkexec::result<int> { return k_expected_value; }));
   REQUIRE(outcome.has_value());
   REQUIRE(vkexec::expected_take(outcome) == k_expected_value);
 }

@@ -132,7 +132,15 @@ function(vkexec_package_project)
     get_target_property(_header_sets ${_target} HEADER_SETS)
     set(_file_set_args)
     foreach(_header_set IN LISTS _header_sets)
-      list(APPEND _file_set_args FILE_SET ${_header_set} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" COMPONENT dev)
+      list(
+        APPEND
+        _file_set_args
+        FILE_SET
+        ${_header_set}
+        DESTINATION
+        "${CMAKE_INSTALL_INCLUDEDIR}"
+        COMPONENT
+        dev)
     endforeach()
     install(
       TARGETS ${_target}
@@ -140,8 +148,10 @@ function(vkexec_package_project)
       LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT shlib
       ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
       RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT bin
-      PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${_PackageProject_NAME}" COMPONENT dev
-      ${_file_set_args})
+      PUBLIC_HEADER
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${_PackageProject_NAME}"
+        COMPONENT dev
+        ${_file_set_args})
   endforeach()
 
   # install the usage file

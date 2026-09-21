@@ -88,7 +88,20 @@ target_link_libraries(
 target_compile_definitions(mesh PRIVATE "VKEXEC_MESH_GLTF_PATH=\"${vkexec_mesh_gltf}\"")
 
 if(vkexec_BUILD_TOOLS)
-  foreach(example compute compute_execution tensor_sim sort passes spirv triangle graphics_execution heap_present particles layers mesh)
+  foreach(
+    example
+    compute
+    compute_execution
+    tensor_sim
+    sort
+    passes
+    spirv
+    triangle
+    graphics_execution
+    heap_present
+    particles
+    layers
+    mesh)
     target_link_libraries(${example} PRIVATE vkexec::tools)
   endforeach()
 endif()

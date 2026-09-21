@@ -19,12 +19,15 @@ add_library(vkexec_ext_timeline_semaphore timeline_semaphore/timeline_semaphore.
                                           timeline_semaphore/frame_present.cpp)
 add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
 
-target_include_directories(vkexec_ext_descriptor_heap PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                                             $<INSTALL_INTERFACE:include>
-                                                       PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
+target_include_directories(
+  vkexec_ext_descriptor_heap
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
+  PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
-target_link_libraries(vkexec_ext_descriptor_heap PUBLIC vkexec::vkexec vkexec::features
-                                                    PRIVATE vkexec_warnings Vulkan::Vulkan)
+target_link_libraries(
+  vkexec_ext_descriptor_heap
+  PUBLIC vkexec::vkexec vkexec::features
+  PRIVATE vkexec_warnings Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -36,12 +39,15 @@ set_target_properties(
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)
 
-target_include_directories(vkexec_ext_dynamic_rendering PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                                               $<INSTALL_INTERFACE:include>
-                                                         PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
+target_include_directories(
+  vkexec_ext_dynamic_rendering
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
+  PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
-target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC vkexec::vkexec vkexec::features
-                                                      PRIVATE vkexec_warnings Vulkan::Vulkan)
+target_link_libraries(
+  vkexec_ext_dynamic_rendering
+  PUBLIC vkexec::vkexec vkexec::features
+  PRIVATE vkexec_warnings Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_dynamic_rendering PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -53,15 +59,14 @@ set_target_properties(
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)
 
-target_include_directories(vkexec_ext_timeline_semaphore PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                                                                $<INSTALL_INTERFACE:include>
-                                                          PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
+target_include_directories(
+  vkexec_ext_timeline_semaphore
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
+  PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_link_libraries(
   vkexec_ext_timeline_semaphore
-  PUBLIC vkexec::vkexec
-         vkexec::features
-         vkexec::vkexec_graphics
+  PUBLIC vkexec::vkexec vkexec::features vkexec::vkexec_graphics
   PRIVATE vkexec_warnings Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_timeline_semaphore PUBLIC cxx_std_${CMAKE_CXX_STANDARD})

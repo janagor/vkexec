@@ -34,11 +34,10 @@ add_test(NAME cmake.sanitizers.non_apple_includes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_non_apple_includes_leak.cmake)
 add_test(
   NAME vkexec.install_consumer
-  COMMAND "${CMAKE_COMMAND}"
-          "-DVKEXEC_SOURCE_DIR=${CMAKE_SOURCE_DIR}"
-          "-DVKEXEC_BINARY_DIR=${CMAKE_BINARY_DIR}"
-          "-DCONSUMER_SOURCE_DIR=${CMAKE_SOURCE_DIR}/test/install_consumer"
-          -P "${CMAKE_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
+  COMMAND
+    "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${CMAKE_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${CMAKE_BINARY_DIR}"
+    "-DCONSUMER_SOURCE_DIR=${CMAKE_SOURCE_DIR}/test/install_consumer" -P
+    "${CMAKE_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
 
 add_executable(
   tests
@@ -64,10 +63,14 @@ add_executable(
   sampler_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
-  vulkan_requirements_tests.cpp
-  )
+  vulkan_requirements_tests.cpp)
 if(vkexec_BUILD_TOOLS)
-  target_sources(tests PRIVATE spirv_compile_tests.cpp descriptor_heap_pipeline_tests.cpp draw_stop_tests.cpp gpu_tests.cpp)
+  target_sources(
+    tests
+    PRIVATE spirv_compile_tests.cpp
+            descriptor_heap_pipeline_tests.cpp
+            draw_stop_tests.cpp
+            gpu_tests.cpp)
 endif()
 target_link_libraries(
   tests

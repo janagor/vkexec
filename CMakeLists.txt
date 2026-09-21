@@ -64,40 +64,122 @@ add_subdirectory(src)
 
 # Public headers are owned by exported targets. Source-only detail headers are
 # deliberately absent from these sets and can never enter an install package.
-file(GLOB VKEXEC_CORE_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec/*.hpp")
-file(GLOB_RECURSE VKEXEC_TOOLS_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_tools/*.hpp")
-file(GLOB_RECURSE VKEXEC_FEATURE_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_features/*.hpp")
-file(GLOB_RECURSE VKEXEC_GRAPHICS_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_graphics/*.hpp")
-file(GLOB_RECURSE VKEXEC_DESCRIPTOR_HEAP_HEADERS CONFIGURE_DEPENDS
+file(
+  GLOB
+  VKEXEC_CORE_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec/*.hpp")
+file(
+  GLOB_RECURSE
+  VKEXEC_TOOLS_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_tools/*.hpp")
+file(
+  GLOB_RECURSE
+  VKEXEC_FEATURE_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_features/*.hpp")
+file(
+  GLOB_RECURSE
+  VKEXEC_GRAPHICS_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_graphics/*.hpp")
+file(
+  GLOB_RECURSE
+  VKEXEC_DESCRIPTOR_HEAP_HEADERS
+  CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/common/*.hpp"
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/descriptor_heap/*.hpp")
-list(APPEND VKEXEC_DESCRIPTOR_HEAP_HEADERS
+list(
+  APPEND
+  VKEXEC_DESCRIPTOR_HEAP_HEADERS
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/descriptor_heap.hpp"
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/extension.hpp")
-file(GLOB_RECURSE VKEXEC_DYNAMIC_RENDERING_HEADERS CONFIGURE_DEPENDS
+file(
+  GLOB_RECURSE
+  VKEXEC_DYNAMIC_RENDERING_HEADERS
+  CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/dynamic_rendering/*.hpp")
-list(APPEND VKEXEC_DYNAMIC_RENDERING_HEADERS
-  "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/dynamic_rendering.hpp")
-file(GLOB_RECURSE VKEXEC_TIMELINE_HEADERS CONFIGURE_DEPENDS
+list(APPEND VKEXEC_DYNAMIC_RENDERING_HEADERS "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/dynamic_rendering.hpp")
+file(
+  GLOB_RECURSE
+  VKEXEC_TIMELINE_HEADERS
+  CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/timeline_semaphore/*.hpp")
 list(APPEND VKEXEC_TIMELINE_HEADERS "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/timeline_semaphore.hpp")
 
-target_sources(vkexec PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
-                            FILES ${VKEXEC_CORE_HEADERS})
+target_sources(
+  vkexec
+  PUBLIC FILE_SET
+         public_headers
+         TYPE
+         HEADERS
+         BASE_DIRS
+         "${PROJECT_SOURCE_DIR}/include"
+         FILES
+         ${VKEXEC_CORE_HEADERS})
 if(vkexec_BUILD_TOOLS)
-  target_sources(vkexec_tools PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
-                              FILES ${VKEXEC_TOOLS_HEADERS})
+  target_sources(
+    vkexec_tools
+    PUBLIC FILE_SET
+           public_headers
+           TYPE
+           HEADERS
+           BASE_DIRS
+           "${PROJECT_SOURCE_DIR}/include"
+           FILES
+           ${VKEXEC_TOOLS_HEADERS})
 endif()
-target_sources(vkexec_features PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
-                                     FILES ${VKEXEC_FEATURE_HEADERS})
-target_sources(vkexec_graphics PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
-                                     FILES ${VKEXEC_GRAPHICS_HEADERS})
-target_sources(vkexec_ext_descriptor_heap PUBLIC FILE_SET public_headers TYPE HEADERS
-  BASE_DIRS "${PROJECT_SOURCE_DIR}/include" FILES ${VKEXEC_DESCRIPTOR_HEAP_HEADERS})
-target_sources(vkexec_ext_dynamic_rendering PUBLIC FILE_SET public_headers TYPE HEADERS
-  BASE_DIRS "${PROJECT_SOURCE_DIR}/include" FILES ${VKEXEC_DYNAMIC_RENDERING_HEADERS})
-target_sources(vkexec_ext_timeline_semaphore PUBLIC FILE_SET public_headers TYPE HEADERS
-  BASE_DIRS "${PROJECT_SOURCE_DIR}/include" FILES ${VKEXEC_TIMELINE_HEADERS})
+target_sources(
+  vkexec_features
+  PUBLIC FILE_SET
+         public_headers
+         TYPE
+         HEADERS
+         BASE_DIRS
+         "${PROJECT_SOURCE_DIR}/include"
+         FILES
+         ${VKEXEC_FEATURE_HEADERS})
+target_sources(
+  vkexec_graphics
+  PUBLIC FILE_SET
+         public_headers
+         TYPE
+         HEADERS
+         BASE_DIRS
+         "${PROJECT_SOURCE_DIR}/include"
+         FILES
+         ${VKEXEC_GRAPHICS_HEADERS})
+target_sources(
+  vkexec_ext_descriptor_heap
+  PUBLIC FILE_SET
+         public_headers
+         TYPE
+         HEADERS
+         BASE_DIRS
+         "${PROJECT_SOURCE_DIR}/include"
+         FILES
+         ${VKEXEC_DESCRIPTOR_HEAP_HEADERS})
+target_sources(
+  vkexec_ext_dynamic_rendering
+  PUBLIC FILE_SET
+         public_headers
+         TYPE
+         HEADERS
+         BASE_DIRS
+         "${PROJECT_SOURCE_DIR}/include"
+         FILES
+         ${VKEXEC_DYNAMIC_RENDERING_HEADERS})
+target_sources(
+  vkexec_ext_timeline_semaphore
+  PUBLIC FILE_SET
+         public_headers
+         TYPE
+         HEADERS
+         BASE_DIRS
+         "${PROJECT_SOURCE_DIR}/include"
+         FILES
+         ${VKEXEC_TIMELINE_HEADERS})
 
 if(vkexec_BUILD_EXAMPLES)
   add_subdirectory(examples)
@@ -158,23 +240,30 @@ set(VKEXEC_PACKAGE_TARGETS
     vk-bootstrap-compiler-warnings
     VulkanMemoryAllocator)
 if(vkexec_BUILD_TOOLS)
-  list(APPEND VKEXEC_PACKAGE_TARGETS
-      vkexec_tools
-      glslang
-      SPIRV
-      glslang-default-resource-limits)
+  list(
+    APPEND
+    VKEXEC_PACKAGE_TARGETS
+    vkexec_tools
+    glslang
+    SPIRV
+    glslang-default-resource-limits)
 endif()
 vkexec_package_project(
-  TARGETS ${VKEXEC_PACKAGE_TARGETS}
-  PUBLIC_DEPENDENCIES Vulkan Threads)
+  TARGETS
+  ${VKEXEC_PACKAGE_TARGETS}
+  PUBLIC_DEPENDENCIES
+  Vulkan
+  Threads)
 
 # Static libraries pull CPM targets that are not themselves exported. Install the
 # archives and public headers so consumers can still stage a prefix; prefer
 # add_subdirectory / CPM for full target propagation until deps are packaged.
 include(GNUInstallDirs)
-install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
-file(GLOB_RECURSE VKEXEC_BOOST_INCLUDE_DIRS LIST_DIRECTORIES true "${Boost_SOURCE_DIR}/libs/*/include")
+install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
+file(
+  GLOB_RECURSE VKEXEC_BOOST_INCLUDE_DIRS
+  LIST_DIRECTORIES true
+  "${Boost_SOURCE_DIR}/libs/*/include")
 foreach(_boost_include_dir IN LISTS VKEXEC_BOOST_INCLUDE_DIRS)
   if(IS_DIRECTORY "${_boost_include_dir}/boost")
     install(DIRECTORY "${_boost_include_dir}/boost" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
@@ -182,10 +271,8 @@ foreach(_boost_include_dir IN LISTS VKEXEC_BOOST_INCLUDE_DIRS)
 endforeach()
 install(FILES "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrap.h"
               "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapDispatch.h"
-              "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapFeatureChain.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+              "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapFeatureChain.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you
