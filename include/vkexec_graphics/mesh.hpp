@@ -65,14 +65,10 @@ auto destroy_mesh_buffers(context const &ctx, mesh_buffers &buffers) noexcept ->
   };
 }
 
-/**
- * Host-visible indexed triangle mesh (owning wrapper over `mesh_buffers`).
- *
- * @see create_mesh_buffers, graphics_pipeline, draw
- */
-class mesh
-{
-public:
+class mesh;
+
+namespace factory {
+
   /**
    * Creates a mesh from `vertices` and `indices`.
    *
@@ -80,9 +76,19 @@ public:
    * @param vertices Vertex data (copied into the vertex buffer).
    * @param indices Triangle indices (copied into the index buffer).
    */
-  [[nodiscard]] static auto
-    create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) -> sender<mesh>;
+  [[nodiscard]] auto mesh(::vkexec::context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+    -> sender<::vkexec::mesh>;
 
+}// namespace factory
+
+/**
+ * Host-visible indexed triangle mesh (owning wrapper over `mesh_buffers`).
+ *
+ * @see create_mesh_buffers, graphics_pipeline, draw, factory::mesh
+ */
+class mesh
+{
+public:
   ~mesh() { reset(); }
 
   mesh(mesh const &) = delete;
@@ -113,6 +119,9 @@ public:
   [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
 
 private:
+  friend auto factory::mesh(::vkexec::context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+    -> sender<::vkexec::mesh>;
+
   mesh(context *ctx, mesh_buffers buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
 
   auto reset() noexcept -> void;

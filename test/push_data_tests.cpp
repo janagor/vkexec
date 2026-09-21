@@ -36,7 +36,7 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
 
   REQUIRE(vkexec::descriptor_heap_available(vkexec::descriptor_heap_procs_for(*ctx)));
 

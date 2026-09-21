@@ -19,16 +19,16 @@
 
 namespace vkexec {
 
-auto swapchain::create(context &ctx, swapchain_create_info info) -> sender<swapchain>
+auto factory::swapchain(::vkexec::context &ctx, swapchain_create_info info) -> sender<::vkexec::swapchain>
 {
-  return make_sender<swapchain>([&ctx, info]() -> result<swapchain> {
+  return make_sender<::vkexec::swapchain>([&ctx, info]() -> result<::vkexec::swapchain> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
     if (info.surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"); }
     if (ctx.present_queue() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "swapchain requires a present queue");
     }
 
-    swapchain created;
+    ::vkexec::swapchain created;
     created.ctx_ = &ctx;
     created.surface_ = info.surface;
     created.preferred_format_ = info.preferred_format;

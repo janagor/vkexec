@@ -113,12 +113,12 @@ auto compute_pipeline::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> sender<compute_pipeline>
+auto factory::compute_pipeline(::vkexec::context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+  -> sender<::vkexec::compute_pipeline>
 {
-  return make_sender<compute_pipeline>([&ctx, spirv, desc]() -> result<compute_pipeline> {
+  return make_sender<::vkexec::compute_pipeline>([&ctx, spirv, desc]() -> result<::vkexec::compute_pipeline> {
     VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, spirv, desc));
-    return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(owned) };
+    return ::vkexec::compute_pipeline::make(ctx, std::make_unique<pipeline_resources>(owned));
   });
 }
 

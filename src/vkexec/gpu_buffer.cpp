@@ -66,9 +66,9 @@ namespace {
 
 }// namespace
 
-auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> sender<gpu_buffer>
+auto factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) -> sender<::vkexec::gpu_buffer>
 {
-  return make_sender<gpu_buffer>([&ctx, info]() -> result<gpu_buffer> {
+  return make_sender<::vkexec::gpu_buffer>([&ctx, info]() -> result<::vkexec::gpu_buffer> {
     if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
     if (ctx.allocator() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
@@ -105,12 +105,12 @@ auto gpu_buffer::create(context &ctx, gpu_buffer_create_info info) -> sender<gpu
       }
     }
 
-    return gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
+    return ::vkexec::gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
   });
 }
 
-auto gpu_buffer::create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> sender<gpu_buffer>
-{ return create(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
+auto factory::gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> sender<::vkexec::gpu_buffer>
+{ return factory::gpu_buffer(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
 gpu_buffer::gpu_buffer(context *ctx,
   VkBuffer buffer,

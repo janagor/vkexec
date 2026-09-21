@@ -41,7 +41,7 @@ template<typename T> class buffer;
  * Completes with `set_stopped` when the stop token is already requested, otherwise
  * `set_value(buffer<T>)` or `set_error`.
  *
- * @see buffer::allocate
+ * @see factory::buffer
  */
 template<typename T> struct buffer_allocate_sender
 {
@@ -108,27 +108,13 @@ template<typename T> struct buffer_allocate_sender
  * Elements are trivially copyable `T`. Creation fills every element with the
  * provided value. Persistently mapped for host access via `data()`.
  *
- * Prefer `allocate` / `create` senders over constructing directly.
+ * Prefer `factory::buffer` over constructing directly.
  *
- * @see buffer_allocate_sender, gpu_buffer
+ * @see factory::buffer, buffer_allocate_sender, gpu_buffer
  */
 template<typename T> class buffer
 {
 public:
-  /**
-   * Returns a sender that allocates `count` elements filled with `fill`.
-   *
-   * @param ctx Context whose VMA allocator owns the buffer.
-   * @param count Element count (must be > 0).
-   * @param fill Initial value written to every element.
-   */
-  [[nodiscard]] static auto allocate(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
-  { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
-
-  //! Async-object factory sender (same as `allocate`).
-  [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
-  { return allocate(ctx, count, std::move(fill)); }
-
   ~buffer()
   {
     if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
@@ -251,6 +237,21 @@ private:
   std::size_t count_{ 0 };
   std::string name_;
 };
+
+namespace factory {
+
+  /**
+   * Returns a sender that allocates `count` elements filled with `fill`.
+   *
+   * @param ctx Context whose VMA allocator owns the buffer.
+   * @param count Element count (must be > 0).
+   * @param fill Initial value written to every element.
+   */
+  template<typename T>
+  [[nodiscard]] auto buffer(::vkexec::context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
+  { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
+
+}// namespace factory
 
 }// namespace vkexec
 

@@ -34,6 +34,30 @@ struct frame_ring_submit_sync
   std::array<semaphore_submit, 2> signals{};
 };
 
+//! Default CPU frame-slot count for `frame_ring_create_info`.
+constexpr std::size_t k_default_frame_ring_slot_count = 2;
+
+//! Creation parameters for `factory::frame_ring`: CPU slots and initial swapchain image count.
+struct frame_ring_create_info
+{
+  std::size_t slot_count{ k_default_frame_ring_slot_count };
+  std::size_t image_count{ 0 };
+};
+
+class frame_ring;
+
+namespace factory {
+
+  /**
+   * Creates a frame ring on `ctx`.
+   *
+   * @param ctx Context that owns the device (timeline + binary semaphores).
+   * @param info Slot count and initial image count.
+   */
+  [[nodiscard]] auto frame_ring(::vkexec::context &ctx, frame_ring_create_info info) -> sender<::vkexec::frame_ring>;
+
+}// namespace factory
+
 /**
  * Frames-in-flight sync: per-slot acquire semaphores, per-image present
  * semaphores, and one timeline that gates reuse of CPU slots and swapchain images.
@@ -42,34 +66,22 @@ struct frame_ring_submit_sync
  * with `make_submit_sync`, then `mark_submitted`.
  *
  * ~~~~~~~~~~~{.cpp}
- * auto ring = vkexec::sync_wait_value(vkexec::frame_ring::create(*ctx, {.slot_count = 2, .image_count = n}));
+ * auto ring = vkexec::sync_wait_value(vkexec::factory::frame_ring(*ctx, {.slot_count = 2, .image_count = n}));
  * auto value = ring.allocate_signal_value();
  * auto sync = *ring.make_submit_sync(slot, image, value);
  * // ... queue_submit with sync.waits / sync.signals ...
  * ring.mark_submitted(slot, image, value);
  * ~~~~~~~~~~~
  *
- * @see timeline_semaphore, frame_present
+ * @see timeline_semaphore, frame_present, factory::frame_ring
  */
 class frame_ring
 {
 public:
-  static constexpr std::size_t k_default_slot_count = 2;
+  static constexpr std::size_t k_default_slot_count = k_default_frame_ring_slot_count;
 
-  //! Creation parameters: CPU slots and initial swapchain image count.
-  struct create_info
-  {
-    std::size_t slot_count{ k_default_slot_count };
-    std::size_t image_count{ 0 };
-  };
-
-  /**
-   * Creates a frame ring on `ctx`.
-   *
-   * @param ctx Context that owns the device (timeline + binary semaphores).
-   * @param info Slot count and initial image count.
-   */
-  [[nodiscard]] static auto create(context &ctx, create_info info) -> sender<frame_ring>;
+  //! @see frame_ring_create_info
+  using create_info = frame_ring_create_info;
 
   ~frame_ring();
 
@@ -142,6 +154,8 @@ public:
     -> result<frame_ring_submit_sync>;
 
 private:
+  friend auto factory::frame_ring(::vkexec::context &ctx, frame_ring_create_info info) -> sender<::vkexec::frame_ring>;
+
   frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept;
 
   auto destroy() noexcept -> void;

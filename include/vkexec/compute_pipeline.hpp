@@ -22,18 +22,10 @@
 
 namespace vkexec {
 
-/**
- * Move-only compute pipeline built from SPIR-V or GLSL.
- *
- * Owns shader module, layouts, pipeline, and descriptor pool. Use `bind` /
- * `allocate_set` with `compute_pass` to dispatch. Destroy only after GPU work
- * that uses this pipeline has finished.
- *
- * @see layout_desc, compute_pass, pipeline_resources
- */
-class compute_pipeline
-{
-public:
+class compute_pipeline;
+
+namespace factory {
+
   /**
    * Creates a pipeline from existing SPIR-V words.
    *
@@ -41,8 +33,8 @@ public:
    * @param spirv SPIR-V words for the compute shader.
    * @param desc Descriptor and push-constant layout.
    */
-  [[nodiscard]] static auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> sender<compute_pipeline>;
+  [[nodiscard]] auto compute_pipeline(::vkexec::context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+    -> sender<::vkexec::compute_pipeline>;
 
   /**
    * Compiles `glsl` to SPIR-V then creates a pipeline.
@@ -52,25 +44,42 @@ public:
    * @param desc Descriptor and push-constant layout.
    * @param name Debug name for the compiler.
    */
-  [[nodiscard]] static auto
-    create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
-      -> sender<compute_pipeline>;
+  [[nodiscard]] auto compute_pipeline(::vkexec::context &ctx,
+    std::string_view glsl,
+    layout_desc const &desc,
+    std::string_view name = "vkexec.comp") -> sender<::vkexec::compute_pipeline>;
 
   //! Creates a pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] static auto
-    create(Strategy strategy, context &ctx, std::span<std::uint32_t const> spirv, Desc const &desc)
+  [[nodiscard]] auto compute_pipeline(Strategy strategy,
+    ::vkexec::context &ctx,
+    std::span<std::uint32_t const> spirv,
+    Desc const &desc)
   { return create_compute_pipeline(strategy, ctx, spirv, desc); }
 
   //! Compiles GLSL and creates a pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] static auto create(Strategy strategy,
-    context &ctx,
+  [[nodiscard]] auto compute_pipeline(Strategy strategy,
+    ::vkexec::context &ctx,
     std::string_view glsl,
     Desc const &desc,
     std::string_view name = "vkexec.comp")
   { return create_compute_pipeline(strategy, ctx, glsl, desc, name); }
 
+}// namespace factory
+
+/**
+ * Move-only compute pipeline built from SPIR-V or GLSL.
+ *
+ * Owns shader module, layouts, pipeline, and descriptor pool. Use `bind` /
+ * `allocate_set` with `compute_pass` to dispatch. Destroy only after GPU work
+ * that uses this pipeline has finished.
+ *
+ * @see factory::compute_pipeline, layout_desc, compute_pass, pipeline_resources
+ */
+class compute_pipeline
+{
+public:
   //! Adopts an owned pipeline resource bag.
   [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> compute_pipeline
   { return compute_pipeline{ &ctx, std::move(resources) }; }

@@ -17,9 +17,9 @@ namespace {
 
 }// namespace
 
-auto image_view::create(context &ctx, image const &img) -> sender<image_view>
+auto factory::image_view(::vkexec::context &ctx, ::vkexec::image const &img) -> sender<::vkexec::image_view>
 {
-  return make_sender<image_view>([&ctx, &img]() -> result<image_view> {
+  return make_sender<::vkexec::image_view>([&ctx, &img]() -> result<::vkexec::image_view> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
     if (img.handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
 
@@ -37,7 +37,7 @@ auto image_view::create(context &ctx, image const &img) -> sender<image_view>
     VkImageView view{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
     if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateImageView failed"); }
-    return image_view{ &ctx, view };
+    return ::vkexec::image_view{ &ctx, view };
   });
 }
 

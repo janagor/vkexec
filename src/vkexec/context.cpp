@@ -196,21 +196,21 @@ namespace {
 
 context::context([[maybe_unused]] uninitialized_tag tag) noexcept : impl_(std::make_unique<impl>()) {}
 
-auto context::create(scheduler_options const &opts) -> sender<std::unique_ptr<context>>
+auto factory::context(scheduler_options const &opts) -> sender<std::unique_ptr<::vkexec::context>>
 {
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-  return make_sender<std::unique_ptr<context>>([opts]() -> result<std::unique_ptr<context>> {
-    auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
+  return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
+    auto ctx = std::unique_ptr<::vkexec::context>(new ::vkexec::context(::vkexec::context::uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_headless(opts));
     return ctx;
   });
 }
 
-auto context::adopt(context_adopt_info const &info) -> sender<std::unique_ptr<context>>
+auto factory::adopt_context(context_adopt_info const &info) -> sender<std::unique_ptr<::vkexec::context>>
 {
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-  return make_sender<std::unique_ptr<context>>([info]() -> result<std::unique_ptr<context>> {
-    auto ctx = std::unique_ptr<context>(new context(uninitialized_tag{}));
+  return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {
+    auto ctx = std::unique_ptr<::vkexec::context>(new ::vkexec::context(::vkexec::context::uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_adopted(info));
     return ctx;
   });

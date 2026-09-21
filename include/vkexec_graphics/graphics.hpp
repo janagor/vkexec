@@ -23,19 +23,10 @@
 namespace vkexec {
 
 class mesh;
+class graphics_pipeline;
 
-/**
- * Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
- *
- * Thin owning wrapper over `graphics_pipeline_resources` plus an optional retained
- * descriptor set for storage buffers passed at create time. Compatible with a
- * `presenter` render pass. Use `draw` / `record_draw` inside a begun frame.
- *
- * @see presenter, mesh, draw, create_graphics_resources
- */
-class graphics_pipeline
-{
-public:
+namespace factory {
+
   /**
    * Creates a graphics pipeline from SPIR-V with an explicit config.
    *
@@ -46,39 +37,39 @@ public:
    * @param fragment_spirv Fragment shader SPIR-V.
    * @param buffers Optional storage buffers bound as descriptors.
    */
-  [[nodiscard]] static auto create(context &ctx,
+  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
 
   //! Creates a graphics pipeline from SPIR-V with default config.
-  [[nodiscard]] static auto create(context &ctx,
+  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
     VkRenderPass render_pass,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
 
   //! Creates a graphics pipeline by compiling GLSL with an explicit config.
-  [[nodiscard]] static auto create(context &ctx,
+  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
 
   //! Creates a graphics pipeline by compiling GLSL with default config.
-  [[nodiscard]] static auto create(context &ctx,
+  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
     VkRenderPass render_pass,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> sender<graphics_pipeline>;
+    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
 
   //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] static auto create(Strategy strategy,
-    context &ctx,
+  [[nodiscard]] auto graphics_pipeline(Strategy strategy,
+    ::vkexec::context &ctx,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
     Desc const &desc)
@@ -86,15 +77,31 @@ public:
 
   //! Compiles GLSL and creates a graphics pipeline through an extension-owned strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] static auto create(Strategy strategy,
-    context &ctx,
+  [[nodiscard]] auto graphics_pipeline(Strategy strategy,
+    ::vkexec::context &ctx,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
     Desc const &desc,
     std::string_view vertex_name = "vkexec.vert",
     std::string_view fragment_name = "vkexec.frag")
-  { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
+  {
+    return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
+  }
 
+}// namespace factory
+
+/**
+ * Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
+ *
+ * Thin owning wrapper over `graphics_pipeline_resources` plus an optional retained
+ * descriptor set for storage buffers passed at create time. Compatible with a
+ * `presenter` render pass. Use `draw` / `record_draw` inside a begun frame.
+ *
+ * @see presenter, mesh, draw, create_graphics_resources, factory::graphics_pipeline
+ */
+class graphics_pipeline
+{
+public:
   //! Owning factory used after `create_graphics_resources` + optional set install.
   [[nodiscard]] static auto make(context &ctx,
     std::unique_ptr<graphics_pipeline_resources> resources,

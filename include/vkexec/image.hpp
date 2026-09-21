@@ -28,7 +28,7 @@ enum class image_usage : std::uint8_t {
 };
 
 /**
- * Creation parameters for `image::create`.
+ * Creation parameters for `factory::image`.
  *
  * When `format` is `VK_FORMAT_UNDEFINED`, a default format for `usage` is chosen.
  */
@@ -40,24 +40,30 @@ struct image_create_info
   VkFormat format{ VK_FORMAT_UNDEFINED };
 };
 
-/**
- * Untyped VMA image for offscreen targets (not swapchain images).
- *
- * Move-only; destroys via VMA when owned. Create views with `image_view`.
- *
- * @see image_view, image_create_info
- */
-class image
-{
-public:
+class image;
+
+namespace factory {
+
   /**
    * Creates a device-local image described by `info`.
    *
    * @param ctx Context whose VMA allocator owns the allocation.
    * @param info Extent, usage, and optional format override.
    */
-  [[nodiscard]] static auto create(context &ctx, image_create_info info) -> sender<image>;
+  [[nodiscard]] auto image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>;
 
+}// namespace factory
+
+/**
+ * Untyped VMA image for offscreen targets (not swapchain images).
+ *
+ * Move-only; destroys via VMA when owned. Create views with `image_view`.
+ *
+ * @see image_view, factory::image, image_create_info
+ */
+class image
+{
+public:
   ~image();
 
   image(image const &) = delete;
@@ -76,6 +82,8 @@ public:
   [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
 
 private:
+  friend auto factory::image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>;
+
   image(context *ctx,
     VkImage image,
     VmaAllocation allocation,

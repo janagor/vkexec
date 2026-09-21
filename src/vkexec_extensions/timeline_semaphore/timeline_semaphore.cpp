@@ -17,7 +17,7 @@
 
 namespace vkexec {
 
-auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>
+auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<::vkexec::timeline_semaphore>
 {
   if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "timeline_semaphore requires a VkDevice"); }
   if (!feat::available<feat::timeline_semaphore>(ctx)) {
@@ -36,12 +36,12 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
   VkSemaphore semaphore{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateSemaphore(ctx.device(), &info, nullptr, &semaphore);
   if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSemaphore (timeline) failed"); }
-  return timeline_semaphore{ &ctx, semaphore };
+  return ::vkexec::timeline_semaphore{ &ctx, semaphore };
 }
 
-auto timeline_semaphore::create(context &ctx, std::uint64_t initial_value) -> sender<timeline_semaphore>
+auto factory::timeline_semaphore(::vkexec::context &ctx, std::uint64_t initial_value) -> sender<::vkexec::timeline_semaphore>
 {
-  return make_sender<timeline_semaphore>([&ctx, initial_value]() -> result<timeline_semaphore> {
+  return make_sender<::vkexec::timeline_semaphore>([&ctx, initial_value]() -> result<::vkexec::timeline_semaphore> {
     return detail::make_timeline_semaphore(ctx, initial_value);
   });
 }

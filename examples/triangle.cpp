@@ -25,7 +25,7 @@ static auto run() -> int
   auto win = vkexec::examples::glfw_presenter::create(
     { .width = k_window_width, .height = k_window_height, .title = "vkexec triangle", .validation_layers = true });
 
-  auto pipeline = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
+  auto pipeline = vkexec::examples::sync_wait_value(vkexec::factory::graphics_pipeline(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
   std::cout << std::format("vkexec triangle (stdexec frame pipeline) - close the window to exit\n");

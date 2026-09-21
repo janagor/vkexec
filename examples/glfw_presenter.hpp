@@ -65,7 +65,7 @@ public:
     }
 
     GLFWwindow *const native_window = created.window_;
-    created.presenter_ = std::make_unique<presenter>(sync_wait_value(presenter::create({
+    created.presenter_ = std::make_unique<presenter>(sync_wait_value(factory::presenter({
       .width = cfg.width,
       .height = cfg.height,
       .validation_layers = cfg.validation_layers,

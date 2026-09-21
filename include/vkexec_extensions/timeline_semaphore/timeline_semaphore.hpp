@@ -25,25 +25,30 @@ namespace detail {
 
 }// namespace detail
 
-/**
- * RAII timeline semaphore (`VK_SEMAPHORE_TYPE_TIMELINE`).
- *
- * Requires timeline semaphore support on the device (see `feat::timeline_semaphore`).
- * Destroyed on the context device when this object is destroyed or moved-from.
- *
- * @see frame_ring, feat::timeline_semaphore
- */
-class timeline_semaphore
-{
-public:
+namespace factory {
+
   /**
    * Creates a timeline semaphore with the given initial counter value.
    *
    * @param ctx Context that owns the device.
    * @param initial_value Starting timeline value (often 0).
    */
-  [[nodiscard]] static auto create(context &ctx, std::uint64_t initial_value = 0) -> sender<timeline_semaphore>;
+  [[nodiscard]] auto timeline_semaphore(::vkexec::context &ctx, std::uint64_t initial_value = 0)
+    -> sender<::vkexec::timeline_semaphore>;
 
+}// namespace factory
+
+/**
+ * RAII timeline semaphore (`VK_SEMAPHORE_TYPE_TIMELINE`).
+ *
+ * Requires timeline semaphore support on the device (see `feat::timeline_semaphore`).
+ * Destroyed on the context device when this object is destroyed or moved-from.
+ *
+ * @see frame_ring, feat::timeline_semaphore, factory::timeline_semaphore
+ */
+class timeline_semaphore
+{
+public:
   ~timeline_semaphore();
 
   timeline_semaphore(timeline_semaphore const &) = delete;

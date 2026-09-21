@@ -61,16 +61,16 @@ namespace {
 
 }// namespace
 
-auto presenter::create(config cfg) -> sender<presenter>
+auto factory::presenter(presenter_config cfg) -> sender<::vkexec::presenter>
 {
-  return make_sender<presenter>([cfg = std::move(cfg)]() mutable -> result<presenter> {
-    presenter created;
+  return make_sender<::vkexec::presenter>([cfg = std::move(cfg)]() mutable -> result<::vkexec::presenter> {
+    ::vkexec::presenter created;
     if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
     return created;
   });
 }
 
-auto presenter::headless(config cfg) -> sender<presenter>
+auto factory::headless_presenter(presenter_config cfg) -> sender<::vkexec::presenter>
 {
   auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
@@ -88,10 +88,10 @@ auto presenter::headless(config cfg) -> sender<presenter>
     }
     return surface;
   };
-  return create(std::move(cfg));
+  return factory::presenter(std::move(cfg));
 }
 
-auto presenter::headless() -> sender<presenter> { return headless(config{}); }
+auto factory::headless_presenter() -> sender<::vkexec::presenter> { return factory::headless_presenter(presenter_config{}); }
 
 presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
@@ -126,7 +126,7 @@ auto presenter::init(config cfg) -> status
   }
   if (!cfg_.create_surface) { return fail(errc::invalid_argument, "presenter requires a surface factory"); }
 
-  ctx_ = std::unique_ptr<context>(new context(context::instance_only_tag{},
+  ctx_ = std::unique_ptr<::vkexec::context>(new context(context::instance_only_tag{},
     scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
     cfg_.surface_instance_extensions));
   auto created_surface = cfg_.create_surface(ctx_->instance());
@@ -176,7 +176,7 @@ auto presenter::wait_idle() -> void
 auto presenter::create_swapchain() -> status
 {
   if (!swapchain_.has_value()) {
-    auto outcome = try_sync_wait(swapchain::create(*ctx_,
+    auto outcome = try_sync_wait(factory::swapchain(*ctx_,
       swapchain_create_info{
         .surface = surface_,
         .width = cfg_.width,

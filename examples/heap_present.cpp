@@ -78,13 +78,13 @@ auto make_requirements() -> vkexec::vulkan_requirements
 
 auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 {
-  auto img = vkexec::examples::sync_wait_value(vkexec::image::create(ctx,
+  auto img = vkexec::examples::sync_wait_value(vkexec::factory::image(ctx,
     vkexec::image_create_info{
       .width = k_width,
       .height = k_height,
       .usage = vkexec::image_usage::color_storage,
     }));
-  auto view = vkexec::examples::sync_wait_value(vkexec::image_view::create(ctx, img));
+  auto view = vkexec::examples::sync_wait_value(vkexec::factory::image_view(ctx, img));
 
   auto cmd_result = ctx.allocate_command_buffer();
   if (!cmd_result) { return vkexec::fail(std::move(cmd_result.error())); }
@@ -164,7 +164,7 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
 {
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(vkexec::descriptor_heap,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::graphics_pipeline(vkexec::descriptor_heap,
     ctx,
     vkexec::shaders::k_triangle_vert,
     vkexec::shaders::k_triangle_frag,
@@ -175,14 +175,14 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
       .color_formats = { k_heap_graphics_format },
     }));
 
-  auto img = vkexec::examples::sync_wait_value(vkexec::image::create(ctx,
+  auto img = vkexec::examples::sync_wait_value(vkexec::factory::image(ctx,
     vkexec::image_create_info{
       .width = k_width,
       .height = k_height,
       .usage = vkexec::image_usage::color_storage,
       .format = k_heap_graphics_format,
     }));
-  auto view = vkexec::examples::sync_wait_value(vkexec::image_view::create(ctx, img));
+  auto view = vkexec::examples::sync_wait_value(vkexec::factory::image_view(ctx, img));
 
   auto cmd_result = ctx.allocate_command_buffer();
   if (!cmd_result) { return false; }
@@ -270,14 +270,14 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
   if (!layout_result) { return false; }
   auto const &layout = vkexec::expected_get(layout_result);
 
-  auto storage = vkexec::examples::sync_wait_value(vkexec::gpu_buffer::create(ctx,
+  auto storage = vkexec::examples::sync_wait_value(vkexec::factory::gpu_buffer(ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
   auto heap = vkexec::examples::sync_wait_value(
-    vkexec::descriptor_heap_buffer::create(ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+    vkexec::factory::descriptor_heap_buffer(ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { return false; }
@@ -288,7 +288,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     return false;
   }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
     ctx,
     k_heap_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -313,7 +313,7 @@ auto present_frames(vkexec::presenter &win, vkexec::graphics_pipeline &pipeline)
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::presenter::headless(vkexec::presenter::config{
+  auto win = vkexec::examples::sync_wait_value(vkexec::factory::headless_presenter(vkexec::presenter::config{
     .width = k_width,
     .height = k_height,
     .validation_layers = false,
@@ -343,7 +343,7 @@ static auto run() -> int
     std::cout << std::format("heap_present: skipped bindless heap compute (extension PFNs unavailable)\n");
   }
 
-  auto pipeline = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
+  auto pipeline = vkexec::examples::sync_wait_value(vkexec::factory::graphics_pipeline(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
   present_frames(win, pipeline);

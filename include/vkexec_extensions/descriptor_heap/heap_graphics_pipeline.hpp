@@ -83,17 +83,10 @@ struct heap_graphics_layout_desc
 auto destroy_graphics_resources(descriptor_heap_t strategy, context const &ctx, pipeline_resources &resources) noexcept
   -> void;
 
-/**
- * Thin owning wrapper over heap graphics `pipeline_resources`.
- *
- * Bind returns a `compute_bind` with null layout/set (same bag shape as heap
- * compute) for use with `record_draw(context, ...)`.
- *
- * @see create_graphics_resources, heap_graphics_layout_desc
- */
-class descriptor_graphics_pipeline
-{
-public:
+class descriptor_graphics_pipeline;
+
+namespace factory {
+
   /**
    * Creates a heap graphics pipeline from vertex/fragment SPIR-V.
    *
@@ -102,10 +95,10 @@ public:
    * @param fragment_spirv Fragment SPIR-V words.
    * @param desc Formats, blend, and raster state.
    */
-  [[nodiscard]] static auto create(context &ctx,
+  [[nodiscard]] auto descriptor_graphics_pipeline(::vkexec::context &ctx,
     std::span<std::uint32_t const> vertex_spirv,
     std::span<std::uint32_t const> fragment_spirv,
-    heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>;
+    heap_graphics_layout_desc const &desc) -> sender<::vkexec::descriptor_graphics_pipeline>;
 
   /**
    * Compiles GLSL then creates a heap graphics pipeline.
@@ -113,13 +106,26 @@ public:
    * @param vertex_name Debug name for the vertex shader compiler.
    * @param fragment_name Debug name for the fragment shader compiler.
    */
-  [[nodiscard]] static auto create(context &ctx,
+  [[nodiscard]] auto descriptor_graphics_pipeline(::vkexec::context &ctx,
     std::string_view vertex_glsl,
     std::string_view fragment_glsl,
     heap_graphics_layout_desc const &desc,
     std::string_view vertex_name = "heap.vert",
-    std::string_view fragment_name = "heap.frag") -> sender<descriptor_graphics_pipeline>;
+    std::string_view fragment_name = "heap.frag") -> sender<::vkexec::descriptor_graphics_pipeline>;
 
+}// namespace factory
+
+/**
+ * Thin owning wrapper over heap graphics `pipeline_resources`.
+ *
+ * Bind returns a `compute_bind` with null layout/set (same bag shape as heap
+ * compute) for use with `record_draw(context, ...)`.
+ *
+ * @see create_graphics_resources, heap_graphics_layout_desc, factory::descriptor_graphics_pipeline
+ */
+class descriptor_graphics_pipeline
+{
+public:
   //! Owning factory used after `create_graphics_resources(descriptor_heap, ...)`.
   [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources)
     -> descriptor_graphics_pipeline
@@ -161,14 +167,14 @@ private:
   std::unique_ptr<pipeline_resources> resources_;
 };
 
-//! Owning factory customization used by `graphics_pipeline::create(descriptor_heap, ...)`.
+//! Owning factory customization used by `factory::graphics_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>;
 
-//! Owning GLSL factory customization used by `graphics_pipeline::create(descriptor_heap, ...)`.
+//! Owning GLSL factory customization used by `factory::graphics_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,

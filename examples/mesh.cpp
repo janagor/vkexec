@@ -54,14 +54,14 @@ static auto run() -> int
     { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true });
   auto mesh_data = vkexec::examples::sync_wait_value(vkexec::examples::load_gltf_mesh(k_gltf_path));
   auto drawn =
-    vkexec::examples::sync_wait_value(vkexec::mesh::create(win.ctx(), mesh_data.vertices, mesh_data.indices));
+    vkexec::examples::sync_wait_value(vkexec::factory::mesh(win.ctx(), mesh_data.vertices, mesh_data.indices));
 
   vkexec::graphics_pipeline_config const cfg{
     .depth_test = true,
     .use_mesh_vertices = true,
   };
   auto pipeline = vkexec::examples::sync_wait_value(
-    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), cfg, k_mesh_vert, k_mesh_frag));
+    vkexec::factory::graphics_pipeline(win.ctx(), win.render_pass(), cfg, k_mesh_vert, k_mesh_frag));
 
   std::cout << std::format("vkexec indexed mesh (gltf: {}) - close the window to exit\n", k_gltf_path);
   while (!win.should_close()) {

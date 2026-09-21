@@ -39,51 +39,13 @@ namespace vkexec {
  * `feat::configure<feat::buffer_device_address>`). For simple host-visible SSBOs
  * without staging, prefer `buffer<T>`.
  *
- * @see gpu_buffer, storage_binding, upload_to_device, download_to_host
+ * @see factory::tensor, gpu_buffer, storage_binding, upload_to_device, download_to_host
  */
 template<typename T>
   requires std::is_trivially_copyable_v<T>
 class tensor
 {
 public:
-  /**
-   * Allocates `count` elements filled with `fill` on the host mirror.
-   *
-   * @param ctx Context whose VMA allocator owns the GPU buffers.
-   * @param count Element count (must be > 0).
-   * @param fill Initial value for every host element.
-   */
-  [[nodiscard]] static auto create(context &ctx, std::size_t count, T fill = T{}) -> sender<tensor>
-  {
-    return make_sender<tensor>([&ctx, count, fill]() -> result<tensor> {
-      if (count == 0) { return fail(errc::invalid_argument, "vkexec::tensor count must be > 0"); }
-      return make_allocated(ctx, std::vector<T>(count, fill));
-    });
-  }
-
-  /**
-   * Allocates a tensor and copies `values` into the host mirror.
-   *
-   * @param ctx Context whose VMA allocator owns the GPU buffers.
-   * @param values Source elements (must be non-empty).
-   */
-  [[nodiscard]] static auto create(context &ctx, std::span<T const> values) -> sender<tensor>
-  {
-    return make_sender<tensor>([&ctx, values]() -> result<tensor> {
-      if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor span must be non-empty"); }
-      return make_allocated(ctx, std::vector<T>(values.begin(), values.end()));
-    });
-  }
-
-  //! Convenience overload that copies from a `std::vector`.
-  [[nodiscard]] static auto create(context &ctx, std::vector<T> values) -> sender<tensor>
-  {
-    return make_sender<tensor>([&ctx, values = std::move(values)]() mutable -> result<tensor> {
-      if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
-      return make_allocated(ctx, std::move(values));
-    });
-  }
-
   tensor() = default;
   ~tensor() = default;
 
@@ -151,33 +113,15 @@ public:
   [[nodiscard]] auto download(context &ctx) -> status
   { return download_to_host(ctx, staging(), device(), std::as_writable_bytes(span())); }
 
+  //! Allocates staging + device storage and wraps `host` (used by `factory::tensor`).
+  [[nodiscard]] static auto make_allocated(context &ctx, std::vector<T> host) -> result<tensor>;
+
 private:
   struct gpu_storage
   {
     gpu_buffer staging;
     gpu_buffer device;
   };
-
-  [[nodiscard]] static auto make_allocated(context &ctx, std::vector<T> host) -> result<tensor>
-  {
-    auto const bytes = static_cast<VkDeviceSize>(host.size() * sizeof(T));
-    auto staging_buf = try_sync_wait_value(gpu_buffer::create(ctx, bytes, gpu_buffer_memory::staging));
-    if (!staging_buf) { return fail(staging_buf.error()); }
-    auto device_buf = try_sync_wait_value(gpu_buffer::create(ctx,
-      gpu_buffer_create_info{
-        .size = bytes,
-        .memory = gpu_buffer_memory::device_local,
-        .shader_device_address = true,
-      }));
-    if (!device_buf) { return fail(device_buf.error()); }
-
-    auto staging_map = staging_buf->mapped();
-    if (staging_map.size() < bytes) { return fail(errc::unsupported, "vkexec::tensor staging map is too small"); }
-    std::memcpy(staging_map.data(), host.data(), static_cast<std::size_t>(bytes));
-
-    auto gpu = std::make_unique<gpu_storage>(gpu_storage{ std::move(*staging_buf), std::move(*device_buf) });
-    return tensor{ std::move(host), std::move(gpu) };
-  }
 
   explicit tensor(std::vector<T> host, std::unique_ptr<gpu_storage> gpu) noexcept
     : host_(std::move(host)), gpu_(std::move(gpu))
@@ -186,6 +130,77 @@ private:
   std::vector<T> host_;
   std::unique_ptr<gpu_storage> gpu_;
 };
+
+template<typename T>
+  requires std::is_trivially_copyable_v<T>
+[[nodiscard]] inline auto tensor<T>::make_allocated(context &ctx, std::vector<T> host) -> result<tensor>
+{
+  auto const bytes = static_cast<VkDeviceSize>(host.size() * sizeof(T));
+  auto staging_buf = try_sync_wait_value(factory::gpu_buffer(ctx, bytes, gpu_buffer_memory::staging));
+  if (!staging_buf) { return fail(staging_buf.error()); }
+  auto device_buf = try_sync_wait_value(factory::gpu_buffer(ctx,
+    gpu_buffer_create_info{
+      .size = bytes,
+      .memory = gpu_buffer_memory::device_local,
+      .shader_device_address = true,
+    }));
+  if (!device_buf) { return fail(device_buf.error()); }
+
+  auto staging_map = staging_buf->mapped();
+  if (staging_map.size() < bytes) { return fail(errc::unsupported, "vkexec::tensor staging map is too small"); }
+  std::memcpy(staging_map.data(), host.data(), static_cast<std::size_t>(bytes));
+
+  auto gpu = std::make_unique<gpu_storage>(gpu_storage{ std::move(*staging_buf), std::move(*device_buf) });
+  return tensor{ std::move(host), std::move(gpu) };
+}
+
+namespace factory {
+
+  /**
+   * Allocates `count` elements filled with `fill` on the host mirror.
+   *
+   * @param ctx Context whose VMA allocator owns the GPU buffers.
+   * @param count Element count (must be > 0).
+   * @param fill Initial value for every host element.
+   */
+  template<typename T>
+    requires std::is_trivially_copyable_v<T>
+  [[nodiscard]] auto tensor(::vkexec::context &ctx, std::size_t count, T fill = T{}) -> sender<::vkexec::tensor<T>>
+  {
+    return make_sender<::vkexec::tensor<T>>([&ctx, count, fill]() -> result<::vkexec::tensor<T>> {
+      if (count == 0) { return fail(errc::invalid_argument, "vkexec::tensor count must be > 0"); }
+      return ::vkexec::tensor<T>::make_allocated(ctx, std::vector<T>(count, fill));
+    });
+  }
+
+  /**
+   * Allocates a tensor and copies `values` into the host mirror.
+   *
+   * @param ctx Context whose VMA allocator owns the GPU buffers.
+   * @param values Source elements (must be non-empty).
+   */
+  template<typename T>
+    requires std::is_trivially_copyable_v<T>
+  [[nodiscard]] auto tensor(::vkexec::context &ctx, std::span<T const> values) -> sender<::vkexec::tensor<T>>
+  {
+    return make_sender<::vkexec::tensor<T>>([&ctx, values]() -> result<::vkexec::tensor<T>> {
+      if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor span must be non-empty"); }
+      return ::vkexec::tensor<T>::make_allocated(ctx, std::vector<T>(values.begin(), values.end()));
+    });
+  }
+
+  //! Convenience overload that copies from a `std::vector`.
+  template<typename T>
+    requires std::is_trivially_copyable_v<T>
+  [[nodiscard]] auto tensor(::vkexec::context &ctx, std::vector<T> values) -> sender<::vkexec::tensor<T>>
+  {
+    return make_sender<::vkexec::tensor<T>>([&ctx, values = std::move(values)]() mutable -> result<::vkexec::tensor<T>> {
+      if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
+      return ::vkexec::tensor<T>::make_allocated(ctx, std::move(values));
+    });
+  }
+
+}// namespace factory
 
 }// namespace vkexec
 

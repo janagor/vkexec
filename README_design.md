@@ -113,7 +113,7 @@ live under `src/**/detail/`, are supplied through the non-exported
 
 Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
 select heap behavior once with `descriptor_heap`, then use `create_compute_resources`,
-`compute_pipeline::create`, `create_graphics_resources`, `graphics_pipeline::create`,
+`factory::compute_pipeline`, `create_graphics_resources`, `factory::graphics_pipeline`,
 `record_pass`, `record_draw`, and `compute_pass`. Literal heap mechanism APIs such as
 `descriptor_heap_buffer`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, and
 descriptor writers keep their names.

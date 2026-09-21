@@ -34,9 +34,9 @@ namespace {
 
 }// namespace
 
-auto frame_ring::create(context &ctx, create_info info) -> sender<frame_ring>
+auto factory::frame_ring(::vkexec::context &ctx, frame_ring_create_info info) -> sender<::vkexec::frame_ring>
 {
-  return make_sender<frame_ring>([&ctx, info]() -> result<frame_ring> {
+  return make_sender<::vkexec::frame_ring>([&ctx, info]() -> result<::vkexec::frame_ring> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }
     if (info.slot_count == 0) { return fail(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
     if (!feat::available<feat::timeline_semaphore>(ctx)) {
@@ -44,7 +44,7 @@ auto frame_ring::create(context &ctx, create_info info) -> sender<frame_ring>
     }
 
     VKEXEC_TRY_ASSIGN(timeline_sem, detail::make_timeline_semaphore(ctx, 0));
-    frame_ring ring{ &ctx, std::move(timeline_sem) };
+    ::vkexec::frame_ring ring{ &ctx, std::move(timeline_sem) };
     ring.acquire_.resize(info.slot_count, VK_NULL_HANDLE);
     ring.slot_timeline_value_.assign(info.slot_count, 0);
 

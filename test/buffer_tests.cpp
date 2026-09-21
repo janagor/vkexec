@@ -26,10 +26,10 @@ constexpr std::uint32_t k_int_fill = 7U;
 
 }// namespace
 
-TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][buffer][gpu]")
+TEST_CASE("factory::buffer sender completes with a filled buffer", "[vkexec][buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_fill));
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_fill));
   REQUIRE(values.size() == k_count);
   REQUIRE(values.vk_buffer() != VK_NULL_HANDLE);
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -38,31 +38,31 @@ TEST_CASE("buffer::allocate sender completes with a filled buffer", "[vkexec][bu
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-TEST_CASE("buffer::create is an alias for allocate", "[vkexec][buffer][gpu]")
+TEST_CASE("factory::buffer works for integral element types", "[vkexec][buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::buffer<std::uint32_t>::create(*ctx, k_count, k_int_fill));
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::buffer<std::uint32_t>(*ctx, k_count, k_int_fill));
   REQUIRE(values.size() == k_count);
 }
 
-TEST_CASE("sync_wait_value completes buffer::allocate", "[vkexec][buffer][gpu]")
+TEST_CASE("sync_wait_value completes factory::buffer", "[vkexec][buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_fill));
+  auto values = vkexec::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_fill));
   REQUIRE(values.size() == k_count);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   REQUIRE(values.data()[0] == k_fill);
 }
 
-TEST_CASE("try_sync_wait_value completes buffer::allocate", "[vkexec][buffer][gpu]")
+TEST_CASE("try_sync_wait_value completes factory::buffer", "[vkexec][buffer][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::try_sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_count, k_fill));
+  auto values = vkexec::try_sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_fill));
   REQUIRE(values.has_value());
   REQUIRE(values->size() == k_count);
 }
 
-TEST_CASE("buffer::allocate completes with set_stopped when stop is already requested", "[vkexec][buffer]")
+TEST_CASE("factory::buffer completes with set_stopped when stop is already requested", "[vkexec][buffer]")
 {
   // Null context: only the stop-token path runs; allocation never touches Vulkan.
   vkexec::context *const no_ctx = nullptr;
@@ -79,7 +79,7 @@ TEST_CASE("buffer allocate advertises completion scheduler", "[vkexec][buffer][s
 {
   auto ctx = vkexec::test::require_context();
 
-  auto const sender = vkexec::buffer<float>::allocate(*ctx, k_count);
+  auto const sender = vkexec::factory::buffer<float>(*ctx, k_count);
   auto const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(sched == ctx->get_scheduler());
 }

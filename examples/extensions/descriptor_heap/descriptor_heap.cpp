@@ -53,7 +53,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
 
 auto run() -> int
 {
-  auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .requirements = make_requirements() }));
+  auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::context({ .requirements = make_requirements() }));
 
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
     std::cout << std::format("descriptor_heap: skipped (extension PFNs unavailable)\n");
@@ -64,14 +64,14 @@ auto run() -> int
   if (!layout_result) { vkexec::examples::abort_with_error(layout_result.error()); }
   auto const &layout = vkexec::expected_get(layout_result);
 
-  auto storage = vkexec::examples::sync_wait_value(vkexec::gpu_buffer::create(*ctx,
+  auto storage = vkexec::examples::sync_wait_value(vkexec::factory::gpu_buffer(*ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
   auto heap = vkexec::examples::sync_wait_value(
-    vkexec::descriptor_heap_buffer::create(*ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+    vkexec::factory::descriptor_heap_buffer(*ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { vkexec::examples::fail_check("storage buffer device address unavailable"); }
@@ -82,7 +82,7 @@ auto run() -> int
     vkexec::examples::abort_with_error(written.error());
   }
 
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(vkexec::descriptor_heap,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },

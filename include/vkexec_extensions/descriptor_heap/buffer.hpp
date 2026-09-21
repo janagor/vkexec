@@ -15,6 +15,21 @@
 
 namespace vkexec {
 
+class descriptor_heap_buffer;
+
+namespace factory {
+
+  /**
+   * Creates a host-visible, host-coherent descriptor heap buffer of `size` bytes.
+   *
+   * @param ctx Context whose VMA allocator owns the allocation.
+   * @param size Byte size (must accommodate descriptors + reserved range).
+   */
+  [[nodiscard]] auto descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size)
+    -> sender<::vkexec::descriptor_heap_buffer>;
+
+}// namespace factory
+
 /**
  * Host-visible, host-coherent bindless descriptor heap buffer
  * (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
@@ -24,19 +39,11 @@ namespace vkexec {
  * `device_address()` when binding the heap on the GPU. `flush()` is a no-op when
  * the allocation is coherent (belt-and-suspenders for non-coherent fallbacks).
  *
- * @see query_descriptor_heap_layout, cmd_bind_resource_heap
+ * @see query_descriptor_heap_layout, cmd_bind_resource_heap, factory::descriptor_heap_buffer
  */
 class descriptor_heap_buffer
 {
 public:
-  /**
-   * Creates a host-visible, host-coherent descriptor heap buffer of `size` bytes.
-   *
-   * @param ctx Context whose VMA allocator owns the allocation.
-   * @param size Byte size (must accommodate descriptors + reserved range).
-   */
-  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size) -> sender<descriptor_heap_buffer>;
-
   ~descriptor_heap_buffer();
 
   descriptor_heap_buffer(descriptor_heap_buffer const &) = delete;
@@ -63,6 +70,9 @@ public:
   [[nodiscard]] auto flush() const -> status;
 
 private:
+  friend auto factory::descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size)
+    -> sender<::vkexec::descriptor_heap_buffer>;
+
   descriptor_heap_buffer(context *ctx,
     VkBuffer buffer,
     VmaAllocation allocation,

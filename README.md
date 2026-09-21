@@ -22,7 +22,7 @@ The same execution / resources split applies to optional extensions (descriptor 
 | `<vkexec/resources.hpp>` | Owning buffers, `tensor<T>`, images, samplers, `compute_pipeline` |
 | `<vkexec/vkexec.hpp>` | Full core umbrella (execution + resources) |
 
-`context::adopt` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
+`factory::adopt_context` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
 
 ### Hero — borrowable dispatch
 
@@ -52,10 +52,10 @@ void main() {
 
 int main() {
   try {
-    auto ctx = vkexec::sync_wait_value(vkexec::context::create());
+    auto ctx = vkexec::sync_wait_value(vkexec::factory::context());
     // Owning buffer helpers for host-visible storage (or use your own VkBuffers):
-    auto positions = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, 10000, 0.0f));
-    auto velocities = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, 10000, 1.5f));
+    auto positions = vkexec::sync_wait_value(vkexec::factory::buffer<float>(*ctx, 10000, 0.0f));
+    auto velocities = vkexec::sync_wait_value(vkexec::factory::buffer<float>(*ctx, 10000, 1.5f));
 
     using enum vkexec::buffer_access;
     auto resources = vkexec::expected_take(vkexec::create_compute_resources(*ctx, k_sim_glsl,
@@ -89,7 +89,7 @@ int main() {
 For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
 
 ```cpp
-auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
+auto pipe = vkexec::sync_wait_value(vkexec::factory::compute_pipeline(*ctx,
   k_sim_glsl,
   vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
   "sim.comp"));
@@ -109,8 +109,8 @@ Staging-backed `tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give
 vkexec::feat::configure<vkexec::feat::buffer_device_address>(req);
 // ... create context with req ...
 
-auto positions = vkexec::sync_wait_value(vkexec::tensor<float>::create(*ctx, 10000, 0.0f));
-auto velocities = vkexec::sync_wait_value(vkexec::tensor<float>::create(*ctx, 10000, 1.5f));
+auto positions = vkexec::sync_wait_value(vkexec::factory::tensor<float>(*ctx, 10000, 0.0f));
+auto velocities = vkexec::sync_wait_value(vkexec::factory::tensor<float>(*ctx, 10000, 1.5f));
 // ... create_compute_resources + bind_storage using positions.storage_binding(0), ...
 
 vkexec::sync_wait(
@@ -122,16 +122,16 @@ vkexec::sync_wait(
   | vkexec::sync_to_host(velocities));
 ```
 
-For descriptor-heap algorithms, select the strategy once with `descriptor_heap` and use `compute_pipeline::create`, `compute_pass`, or `dispatch_compute`. The longer `dispatch_compute` name avoids colliding with `struct dispatch`.
+For descriptor-heap algorithms, select the strategy once with `descriptor_heap` and use `factory::compute_pipeline`, `compute_pass`, or `dispatch_compute`. The longer `dispatch_compute` name avoids colliding with `struct dispatch`.
 
 ### Embedder path — adopt + raw `VkBuffer`s
 
-When you already own the device and buffers, skip owning factories. Pass borrowed handles into `context::adopt` and `storage_binding`:
+When you already own the device and buffers, skip owning factories. Pass borrowed handles into `factory::adopt_context` and `storage_binding`:
 
 ```cpp
 #include <vkexec/execution.hpp>
 
-auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
+auto ctx = vkexec::sync_wait_value(vkexec::factory::adopt_context({
   .instance = instance,
   .physical_device = phys,
   .device = device,
@@ -164,7 +164,7 @@ Public APIs are **senders** (stdexec). Completions follow stdexec semantics:
 - **`set_error(vkexec::error)`** — failure (same error type everywhere async)
 - **`set_stopped()`** — cancellation (not an error)
 
-Factory functions such as `context::create`, `buffer::allocate`, and `compute_pipeline::create` return `vkexec::sender<T>`; compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait_value`.
+Factory functions such as `factory::context`, `factory::buffer`, and `factory::compute_pipeline` return `vkexec::sender<T>`; compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait_value`.
 
 - **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
@@ -174,8 +174,8 @@ Factory functions such as `context::create`, `buffer::allocate`, and `compute_pi
 
 ```cpp
 try {
-  auto ctx = vkexec::sync_wait_value(vkexec::context::create({ .requirements = reqs }));
-  auto buf = vkexec::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, n, fill));
+  auto ctx = vkexec::sync_wait_value(vkexec::factory::context({ .requirements = reqs }));
+  auto buf = vkexec::sync_wait_value(vkexec::factory::buffer<float>(*ctx, n, fill));
 } catch (vkexec::error const &err) {
   std::cout << std::format("{}\n", err.message());
 }
@@ -184,7 +184,7 @@ try {
 **`-fno-exceptions` builds (`-DVKEXEC_ENABLE_EXCEPTIONS=OFF`):** `sync_wait` returns `vkexec::sync_wait_outcome<...>` with `values`, `error`, and `stopped` fields — no throwing, no `std::expected`.
 
 ```cpp
-auto outcome = vkexec::try_sync_wait_value(vkexec::context::create({ .requirements = reqs }));
+auto outcome = vkexec::try_sync_wait_value(vkexec::factory::context({ .requirements = reqs }));
 if (!outcome) {
   std::cout << std::format("{}\n", outcome.error().message());
   return;
@@ -197,10 +197,10 @@ For tests without exceptions, use `vkexec::try_sync_wait` (same `sync_wait_outco
 Embedders that do not use stdexec pipes can block on factory senders directly:
 
 ```cpp
-auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({ /* borrowed handles */ }));
-auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(*ctx, spirv, layout));
+auto ctx = vkexec::sync_wait_value(vkexec::factory::adopt_context({ /* borrowed handles */ }));
+auto pipe = vkexec::sync_wait_value(vkexec::factory::compute_pipeline(*ctx, spirv, layout));
 
-if (auto buf = vkexec::try_sync_wait_value(vkexec::gpu_buffer::create(*ctx, info)); buf) {
+if (auto buf = vkexec::try_sync_wait_value(vkexec::factory::gpu_buffer(*ctx, info)); buf) {
   // use *buf
 }
 ```
@@ -211,19 +211,19 @@ Common entry points:
 
 | API | Returns |
 |-----|---------|
-| `context::create` / `context::adopt` | sender -> `set_value(std::unique_ptr<context>)` |
+| `factory::context` / `factory::adopt_context` | sender -> `set_value(std::unique_ptr<context>)` |
 | `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
 | `create_compute_resources(descriptor_heap, …)` / `bind_compute` / `destroy_compute_resources` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
 | `create_graphics_resources(descriptor_heap, …)` / `bind_compute` / `destroy_graphics_resources(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
-| `buffer<T>::allocate` / `create` | sender -> `set_value(buffer<T>)` |
-| `compute_pipeline::create` | sender -> `set_value(compute_pipeline)` |
+| `factory::buffer<T>` | sender -> `set_value(buffer<T>)` |
+| `factory::compute_pipeline` | sender -> `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender -> `set_value(bound_compute_pipeline)` |
-| `presenter::create` / `presenter::headless` | sender -> `set_value(presenter)` (owning Vulkan present helper) |
+| `factory::presenter` / `factory::headless_presenter` | sender -> `set_value(presenter)` (owning Vulkan present helper) |
 | `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
 | `create_mesh_buffers` / `destroy_mesh_buffers` | Borrowable vertex/index handle bag |
-| `graphics_pipeline::create` | sender -> `set_value(graphics_pipeline)` (thin owning wrapper) |
-| `mesh::create` | sender -> `set_value(mesh)` (thin owning wrapper) |
-| `gpu_buffer::create`, `image::create`, … | sender -> `set_value(...)` |
+| `factory::graphics_pipeline` | sender -> `set_value(graphics_pipeline)` (thin owning wrapper) |
+| `factory::mesh` | sender -> `set_value(mesh)` (thin owning wrapper) |
+| `factory::gpu_buffer`, `factory::image`, … | sender -> `set_value(...)` |
 | `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
 | `sync_wait` / `try_sync_wait` (exceptions OFF) | `sync_wait_outcome<tuple<...>>` |
@@ -235,7 +235,7 @@ Keep hand-written shaders. vkexec creates an owning pipeline and records dispatc
 ```cpp
 struct ProjectPush { float view[16]; float projection[16]; std::uint64_t gaussian_addr; std::uint32_t splat_count; };
 
-auto pipe = vkexec::sync_wait_value(vkexec::compute_pipeline::create(ctx, glsl, vkexec::layout_desc{
+auto pipe = vkexec::sync_wait_value(vkexec::factory::compute_pipeline(ctx, glsl, vkexec::layout_desc{
   .bindings = { vkexec::buffer_access::readonly, vkexec::buffer_access::writeonly },
   .push_constant_size = sizeof(ProjectPush),
   .specialization = { splat_count },
@@ -252,12 +252,12 @@ vkexec::upload_push_constants(cmd, pipe, push);
 
 ### Device requirements and adopt
 
-`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Use `context::create` when probing optional capabilities (sender completes with `set_error` / `errc::unsupported` on mismatch).
+`vulkan_requirements` is caller-driven: you declare API floors, extensions, and `VkPhysicalDevice*Features` structs; vkexec merges them with a thin library baseline and selects a matching device. Use `factory::context` when probing optional capabilities (sender completes with `set_error` / `errc::unsupported` on mismatch).
 
 Embedders that already own a Vulkan device (for example a Filament-like driver) can wrap it without transferring ownership:
 
 ```cpp
-auto ctx = vkexec::sync_wait_value(vkexec::context::adopt({
+auto ctx = vkexec::sync_wait_value(vkexec::factory::adopt_context({
   .instance = instance,
   .physical_device = phys,
   .device = device,
@@ -295,7 +295,7 @@ req.api_version_minor = 3;
 vkexec::feat::configure_vulkan_13(req);  // timeline + BDA + dynamic rendering
 // or: vkexec::feat::configure<vkexec::feat::timeline_semaphore>(req);
 
-auto ctx = vkexec::sync_wait_value(vkexec::context::create({ .requirements = req }));
+auto ctx = vkexec::sync_wait_value(vkexec::factory::context({ .requirements = req }));
 if (vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx)) { /* ... */ }
 ```
 
@@ -323,7 +323,7 @@ req.api_version_major = 1;
 req.api_version_minor = 4;
 vkexec::feat::configure_vulkan_12(req);
 vkexec::ext::configure<vkexec::ext::descriptor_heap>(req);
-auto ctx = vkexec::sync_wait_value(vkexec::context::create({ .requirements = req }));
+auto ctx = vkexec::sync_wait_value(vkexec::factory::context({ .requirements = req }));
 
 if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
   // extension PFNs and helpers are usable
@@ -338,7 +338,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 
 **Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), tagged `create_compute_resources` / `create_graphics_resources`, `bind_compute`, tagged graphics destroy, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_pass`, `record_draw` / `record_draw_indirect`, `cmd_begin_rendering`, etc.
 
-**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, tagged `compute_pipeline::create` / `graphics_pipeline::create`, `compute_pass`, and rendering helpers built on top of the free functions.
+**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, tagged `factory::compute_pipeline` / `factory::graphics_pipeline`, `compute_pass`, and rendering helpers built on top of the free functions.
 
 **Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
@@ -347,7 +347,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 #include <vkexec_extensions/timeline_semaphore.hpp>
 
 vkexec::feat::configure<vkexec::feat::timeline_semaphore>(req);
-auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
+auto sem = vkexec::sync_wait_value(vkexec::factory::timeline_semaphore(*ctx, 0));
 // optional: acquire_present_frame(ring, chain, slot) / submit_and_present(...)
 ```
 
@@ -358,13 +358,13 @@ auto sem = vkexec::sync_wait_value(vkexec::timeline_semaphore::create(*ctx, 0));
 
 auto layout = vkexec::query_descriptor_heap_layout(ctx);
 auto heap = vkexec::sync_wait_value(
-  vkexec::descriptor_heap_buffer::create(ctx, vkexec::descriptor_heap_byte_size(layout, slot_count)));
+  vkexec::factory::descriptor_heap_buffer(ctx, vkexec::descriptor_heap_byte_size(layout, slot_count)));
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
 // also: write_sampled_image_descriptor / write_sampler_descriptor into resource / sampler heaps
 
 auto resources = vkexec::expected_take(vkexec::create_compute_resources(vkexec::descriptor_heap, ctx, glsl,
   vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size }));
-// or owning: compute_pipeline::create(descriptor_heap, ...)
+// or owning: factory::compute_pipeline(descriptor_heap, ...)
 
 using schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>>;
 auto table = vkexec::make_resource_table(schema{}, vkexec::buffer_resource(buffer, buffer_size));
@@ -448,7 +448,7 @@ std::uint32_t extension_count = 0;
 auto extensions = glfwGetRequiredInstanceExtensions(&extension_count);
 std::vector<char const*> surface_extensions(extensions, extensions + extension_count);
 
-auto present = vkexec::sync_wait_value(vkexec::presenter::create({
+auto present = vkexec::sync_wait_value(vkexec::factory::presenter({
   .width = 800,
   .height = 600,
   .surface_instance_extensions = std::move(surface_extensions),
@@ -460,7 +460,7 @@ auto present = vkexec::sync_wait_value(vkexec::presenter::create({
   },
 }));
 
-auto pipeline = vkexec::sync_wait_value(vkexec::graphics_pipeline::create(
+auto pipeline = vkexec::sync_wait_value(vkexec::factory::graphics_pipeline(
   present.ctx(), present.render_pass(), vertex_shader, fragment_shader));
 
 while (!glfwWindowShouldClose(native_window)) {

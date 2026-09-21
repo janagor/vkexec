@@ -37,7 +37,7 @@ template<class Sender> [[nodiscard]] auto sync_wait_sender(Sender &&sender)
 { return try_sync_wait(std::forward<Sender>(sender)); }
 
 [[nodiscard]] inline auto require_context(scheduler_options const &opts = {}) -> std::unique_ptr<context>
-{ return sync_wait_value(context::create(opts)); }
+{ return sync_wait_value(factory::context(opts)); }
 
 }// namespace vkexec::test
 

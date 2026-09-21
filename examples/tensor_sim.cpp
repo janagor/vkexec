@@ -66,10 +66,10 @@ static auto run() -> int
   requirements.api_version_minor = 2;
   vkexec::feat::configure<vkexec::feat::buffer_device_address>(requirements);
   auto ctx = vkexec::examples::sync_wait_value(
-    vkexec::context::create({ .validation_layers = true, .requirements = std::move(requirements) }));
-  auto positions = vkexec::examples::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_element_count, 0.0F));
+    vkexec::factory::context({ .validation_layers = true, .requirements = std::move(requirements) }));
+  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::tensor<float>(*ctx, k_element_count, 0.0F));
   auto velocities =
-    vkexec::examples::sync_wait_value(vkexec::tensor<float>::create(*ctx, k_element_count, k_initial_velocity));
+    vkexec::examples::sync_wait_value(vkexec::factory::tensor<float>(*ctx, k_element_count, k_initial_velocity));
 
   using enum vkexec::buffer_access;
   auto resources_result = vkexec::create_compute_resources(*ctx,

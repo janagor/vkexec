@@ -9,6 +9,7 @@
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
+#include <vkexec/factory.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>

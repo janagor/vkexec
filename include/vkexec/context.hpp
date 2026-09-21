@@ -38,7 +38,7 @@ class window;
  * Library baseline requirements are merged with `requirements` at create time;
  * user requirements never remove library floors.
  *
- * @see context::create, vulkan_requirements
+ * @see factory::context, vulkan_requirements
  */
 struct scheduler_options
 {
@@ -55,7 +55,7 @@ struct scheduler_options
  * for the provided device; optional graphics/present queues may be null when
  * presentation is unused.
  *
- * @see context::adopt
+ * @see factory::adopt_context
  */
 struct context_adopt_info
 {
@@ -74,28 +74,9 @@ struct context_adopt_info
   std::uint32_t present_queue_family{ 0 };
 };
 
-/**
- * Owns (or adopts) the Vulkan instance/device, queues, VMA allocator, and host
- * agents used by vkexec senders.
- *
- * Create with `context::create()` for a compute-only device, or `context::adopt()`
- * to wrap embedder-owned handles. Most GPU work is scheduled via
- * `get_scheduler()` and completed with `sync_wait`.
- *
- * Thread safety: command-pool, descriptor-pool, and queue submits must be
- * serialized with `lock_host()` (or use the provided sender adaptors).
- *
- * ~~~~~~~~~~~{.cpp}
- * auto ctx = vkexec::sync_wait_value(vkexec::context::create());
- * auto sched = ctx->get_scheduler();
- * ~~~~~~~~~~~
- *
- * @see scheduler, sync_wait, vulkan_requirements
- */
-class context
-{
-public:
-  ~context();
+class context;
+
+namespace factory {
 
   /**
    * Creates a compute-only context (no window / swapchain).
@@ -106,7 +87,7 @@ public:
    * @param opts Validation and extra Vulkan requirements.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
-  [[nodiscard]] static auto create(scheduler_options const &opts = {}) -> sender<std::unique_ptr<context>>;
+  [[nodiscard]] auto context(scheduler_options const &opts = {}) -> sender<std::unique_ptr<::vkexec::context>>;
 
   /**
    * Adopts embedder-owned Vulkan handles without taking destruction ownership.
@@ -114,7 +95,32 @@ public:
    * @param info Borrowed instance, device, allocator, and queues.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
-  [[nodiscard]] static auto adopt(context_adopt_info const &info) -> sender<std::unique_ptr<context>>;
+  [[nodiscard]] auto adopt_context(context_adopt_info const &info) -> sender<std::unique_ptr<::vkexec::context>>;
+
+}// namespace factory
+
+/**
+ * Owns (or adopts) the Vulkan instance/device, queues, VMA allocator, and host
+ * agents used by vkexec senders.
+ *
+ * Create with `factory::context()` for a compute-only device, or
+ * `factory::adopt_context()` to wrap embedder-owned handles. Most GPU work is
+ * scheduled via `get_scheduler()` and completed with `sync_wait`.
+ *
+ * Thread safety: command-pool, descriptor-pool, and queue submits must be
+ * serialized with `lock_host()` (or use the provided sender adaptors).
+ *
+ * ~~~~~~~~~~~{.cpp}
+ * auto ctx = vkexec::sync_wait_value(vkexec::factory::context());
+ * auto sched = ctx->get_scheduler();
+ * ~~~~~~~~~~~
+ *
+ * @see factory::context, factory::adopt_context, scheduler, sync_wait, vulkan_requirements
+ */
+class context
+{
+public:
+  ~context();
 
   context(context const &) = delete;
   auto operator=(context const &) -> context & = delete;
@@ -271,6 +277,8 @@ public:
 private:
   friend class presenter;
   template<typename T> friend class buffer;
+  friend auto factory::context(scheduler_options const &opts) -> sender<std::unique_ptr<::vkexec::context>>;
+  friend auto factory::adopt_context(context_adopt_info const &info) -> sender<std::unique_ptr<::vkexec::context>>;
 
   struct uninitialized_tag
   {

@@ -41,9 +41,9 @@ namespace {
 
 }// namespace
 
-auto image::create(context &ctx, image_create_info info) -> sender<image>
+auto factory::image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>
 {
-  return make_sender<image>([&ctx, info]() -> result<image> {
+  return make_sender<::vkexec::image>([&ctx, info]() -> result<::vkexec::image> {
     if (info.width == 0 || info.height == 0) {
       return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
     }
@@ -77,7 +77,7 @@ auto image::create(context &ctx, image_create_info info) -> sender<image>
       vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
     if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateImage failed"); }
 
-    return image{
+    return ::vkexec::image{
       &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage
     };
   });

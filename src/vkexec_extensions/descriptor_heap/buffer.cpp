@@ -19,9 +19,9 @@ namespace {
 
 }// namespace
 
-auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> sender<descriptor_heap_buffer>
+auto factory::descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size) -> sender<::vkexec::descriptor_heap_buffer>
 {
-  return make_sender<descriptor_heap_buffer>([&ctx, size]() -> result<descriptor_heap_buffer> {
+  return make_sender<::vkexec::descriptor_heap_buffer>([&ctx, size]() -> result<::vkexec::descriptor_heap_buffer> {
     if (size == 0) { return fail(errc::invalid_argument, "descriptor_heap_buffer size must be > 0"); }
     if (ctx.allocator() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "descriptor_heap_buffer requires a VMA allocator");
@@ -64,7 +64,7 @@ auto descriptor_heap_buffer::create(context &ctx, VkDeviceSize size) -> sender<d
     // NOLINTNEXTLINE(hicpp-signed-bitwise)
     bool const host_coherent = (memory_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
 
-    return descriptor_heap_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, size, host_coherent };
+    return ::vkexec::descriptor_heap_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, size, host_coherent };
   });
 }
 

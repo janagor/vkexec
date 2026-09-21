@@ -39,47 +39,56 @@ struct frame
 };
 
 /**
- * Backend-neutral owner of a Vulkan presentation context and frame resources.
+ * Presentation context creation options.
  *
- * Drawing (pipelines, meshes, etc.) belongs in the application, not here.
- * Use `begin_frame` / `end_frame`, or the `draw(...)` stdexec adaptors.
- *
- * @see graphics_pipeline, draw, swapchain
+ * `surface_instance_extensions` and `create_surface` are supplied by the
+ * application's windowing system. The returned surface is owned by the presenter.
  */
-class presenter
+struct presenter_config
 {
-public:
-  /**
-   * Presentation context creation options.
-   *
-   * `surface_instance_extensions` and `create_surface` are supplied by the
-   * application's windowing system. The returned surface is owned by the presenter.
-   */
-  struct config
-  {
-    std::uint32_t width{ k_default_presenter_width };
-    std::uint32_t height{ k_default_presenter_height };
-    bool validation_layers{ false };
-    std::vector<char const *> surface_instance_extensions;
-    surface_factory create_surface;
-    vulkan_requirements requirements{};
-  };
+  std::uint32_t width{ k_default_presenter_width };
+  std::uint32_t height{ k_default_presenter_height };
+  bool validation_layers{ false };
+  std::vector<char const *> surface_instance_extensions;
+  surface_factory create_surface;
+  vulkan_requirements requirements{};
+};
+
+class presenter;
+
+namespace factory {
 
   /**
    * Creates a Vulkan context, invokes the surface factory, and creates presentation resources.
    *
    * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
    */
-  [[nodiscard]] static auto create(config cfg) -> sender<presenter>;
+  [[nodiscard]] auto presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
 
   /**
    * Creates a swapchain without GLFW or a display (`VK_EXT_headless_surface`).
    *
    * Intended for CI and tests.
    */
-  [[nodiscard]] static auto headless(config cfg) -> sender<presenter>;
+  [[nodiscard]] auto headless_presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
   //! Headless presenter with default config.
-  [[nodiscard]] static auto headless() -> sender<presenter>;
+  [[nodiscard]] auto headless_presenter() -> sender<::vkexec::presenter>;
+
+}// namespace factory
+
+/**
+ * Backend-neutral owner of a Vulkan presentation context and frame resources.
+ *
+ * Drawing (pipelines, meshes, etc.) belongs in the application, not here.
+ * Use `begin_frame` / `end_frame`, or the `draw(...)` stdexec adaptors.
+ *
+ * @see graphics_pipeline, draw, swapchain, factory::presenter, factory::headless_presenter
+ */
+class presenter
+{
+public:
+  //! @see presenter_config
+  using config = presenter_config;
 
   ~presenter();
 
@@ -110,7 +119,7 @@ public:
   [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
   { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 
-  //! Borrowed swapchain pointer (valid after `create` / `headless` completes).
+  //! Borrowed swapchain pointer (valid after `factory::presenter` / `factory::headless_presenter` completes).
   [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const *
   { return swapchain_ ? std::addressof(*swapchain_) : nullptr; }
 
@@ -133,6 +142,10 @@ public:
   [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
 private:
+  friend auto factory::presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
+  friend auto factory::headless_presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
+  friend auto factory::headless_presenter() -> sender<::vkexec::presenter>;
+
   struct frame_sync
   {
     VkSemaphore image_available{ VK_NULL_HANDLE };

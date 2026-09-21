@@ -10,25 +10,31 @@
 
 namespace vkexec {
 
-/**
- * RAII `VkImageView` for a `vkexec::image`.
- *
- * The view does not own the image; `img` must outlive this view. Destroyed on
- * the context device when this object is destroyed or moved-from.
- *
- * @see image
- */
-class image_view
-{
-public:
+class image_view;
+
+namespace factory {
+
   /**
    * Creates a 2D image view matching `img`'s format and aspect.
    *
    * @param ctx Context that owns the device.
    * @param img Image to view (must remain alive while the view is used).
    */
-  [[nodiscard]] static auto create(context &ctx, image const &img) -> sender<image_view>;
+  [[nodiscard]] auto image_view(::vkexec::context &ctx, ::vkexec::image const &img) -> sender<::vkexec::image_view>;
 
+}// namespace factory
+
+/**
+ * RAII `VkImageView` for a `vkexec::image`.
+ *
+ * The view does not own the image; `img` must outlive this view. Destroyed on
+ * the context device when this object is destroyed or moved-from.
+ *
+ * @see image, factory::image_view
+ */
+class image_view
+{
+public:
   ~image_view();
 
   image_view(image_view const &) = delete;
@@ -41,6 +47,8 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkImageView { return view_; }
 
 private:
+  friend auto factory::image_view(::vkexec::context &ctx, ::vkexec::image const &img) -> sender<::vkexec::image_view>;
+
   image_view(context *ctx, VkImageView view) noexcept;
   auto destroy() noexcept -> void;
 

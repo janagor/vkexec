@@ -63,8 +63,8 @@ struct sort_params
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto ctx = vkexec::examples::sync_wait_value(vkexec::context::create({ .validation_layers = true }));
-  auto data = vkexec::examples::sync_wait_value(vkexec::buffer<float>::allocate(*ctx, k_element_count, 0.0F));
+  auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::context({ .validation_layers = true }));
+  auto data = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_element_count, 0.0F));
 
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng{ k_rng_seed };
@@ -80,7 +80,7 @@ static auto run() -> int
   std::ranges::sort(expected);
 
   using enum vkexec::buffer_access;
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::compute_pipeline::create(*ctx,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::compute_pipeline(*ctx,
     k_sort_glsl,
     vkexec::layout_desc{
       .binding_kinds = {},

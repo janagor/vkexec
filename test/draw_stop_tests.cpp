@@ -31,7 +31,7 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_headless_presenter() -> vkexec::presenter
 {
-  auto outcome = vkexec::try_sync_wait_value(vkexec::presenter::headless({
+  auto outcome = vkexec::try_sync_wait_value(vkexec::factory::headless_presenter({
     .width = k_presenter_width,
     .height = k_presenter_height,
     .validation_layers = false,
@@ -45,7 +45,7 @@ constexpr int k_post_stop_frames = 4;
 
 [[nodiscard]] auto make_triangle_pipeline(vkexec::presenter &win) -> vkexec::graphics_pipeline
 {
-  return vkexec::test::sync_wait_value(vkexec::graphics_pipeline::create(
+  return vkexec::test::sync_wait_value(vkexec::factory::graphics_pipeline(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 }
 

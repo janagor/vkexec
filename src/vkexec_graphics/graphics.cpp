@@ -171,7 +171,7 @@ namespace {
     graphics_pipeline_config cfg,
     std::span<std::uint32_t const> vs_spv,
     std::span<std::uint32_t const> fs_spv,
-    std::span<storage_binding const> buffers) -> result<graphics_pipeline>
+    std::span<storage_binding const> buffers) -> result<::vkexec::graphics_pipeline>
   {
     auto const binding_count = static_cast<std::uint32_t>(buffers.size());
     VKEXEC_TRY_ASSIGN(owned, create_graphics_resources(ctx, render_pass, cfg, vs_spv, fs_spv, binding_count));
@@ -379,30 +379,30 @@ auto graphics_pipeline::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto graphics_pipeline::create(context &ctx,
+auto factory::graphics_pipeline(::vkexec::context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
+  std::span<storage_binding const> buffers) -> sender<::vkexec::graphics_pipeline>
 {
-  return make_sender<graphics_pipeline>(
+  return make_sender<::vkexec::graphics_pipeline>(
     [&ctx,
       render_pass,
       cfg,
       vertex_spirv = std::vector(vertex_spirv.begin(), vertex_spirv.end()),
       fragment_spirv = std::vector(fragment_spirv.begin(), fragment_spirv.end()),
-      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<graphics_pipeline> {
+      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<::vkexec::graphics_pipeline> {
       return make_graphics_pipeline(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, owned);
     });
 }
 
-auto graphics_pipeline::create(context &ctx,
+auto factory::graphics_pipeline(::vkexec::context &ctx,
   VkRenderPass render_pass,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
-{ return create(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
+  std::span<storage_binding const> buffers) -> sender<::vkexec::graphics_pipeline>
+{ return factory::graphics_pipeline(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
 { vkexec::record_draw(cmd, bind(), extent, vertex_count); }

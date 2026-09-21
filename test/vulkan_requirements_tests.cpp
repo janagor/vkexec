@@ -38,7 +38,7 @@ TEST_CASE("context can require Vulkan 1.4 features and extension feature structs
     .require_extension_feature(features_heap)
     .enable_extension_feature_if_present(features_present_timing);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
   REQUIRE(ctx->device() != VK_NULL_HANDLE);
   REQUIRE(VK_API_VERSION_MAJOR(ctx->api_version()) == 1);
   REQUIRE(VK_API_VERSION_MINOR(ctx->api_version()) == 4);
@@ -59,7 +59,7 @@ TEST_CASE("context can require bufferDeviceAddress and dynamicRendering", "[vkex
   requirements.api_version_minor = 3;
   requirements.require_extension_feature(features_12).require_extension_feature(features_13);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::context::create({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
   REQUIRE(ctx->device() != VK_NULL_HANDLE);
   REQUIRE(VK_API_VERSION_MINOR(ctx->api_version()) >= 3);
   REQUIRE(ctx->procs().get_buffer_device_address != nullptr);

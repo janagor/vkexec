@@ -33,7 +33,7 @@ enum class gpu_buffer_memory : std::uint8_t {
 };
 
 /**
- * Creation parameters for `gpu_buffer::create`.
+ * Creation parameters for `factory::gpu_buffer`.
  *
  * @param size Byte size of the buffer (must be > 0).
  * @param memory Memory/usage preset.
@@ -47,17 +47,10 @@ struct gpu_buffer_create_info
   bool shader_device_address{ false };
 };
 
-/**
- * Untyped VMA buffer for hybrid / embedder paths.
- *
- * Distinct from typed `buffer<T>`, which is host-visible storage with element
- * fill. Move-only; destroys via VMA when owned.
- *
- * @see buffer, upload_to_device
- */
-class gpu_buffer
-{
-public:
+class gpu_buffer;
+
+namespace factory {
+
   /**
    * Creates a buffer described by `info`.
    *
@@ -65,11 +58,25 @@ public:
    * @param info Size, memory preset, and optional device address flag.
    * @return Sender that completes with ownership of the buffer.
    */
-  [[nodiscard]] static auto create(context &ctx, gpu_buffer_create_info info) -> sender<gpu_buffer>;
+  [[nodiscard]] auto gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) -> sender<::vkexec::gpu_buffer>;
 
   //! Creates a buffer of `size` bytes with the given memory preset.
-  [[nodiscard]] static auto create(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> sender<gpu_buffer>;
+  [[nodiscard]] auto gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
+    -> sender<::vkexec::gpu_buffer>;
 
+}// namespace factory
+
+/**
+ * Untyped VMA buffer for hybrid / embedder paths.
+ *
+ * Distinct from typed `buffer<T>`, which is host-visible storage with element
+ * fill. Move-only; destroys via VMA when owned.
+ *
+ * @see buffer, factory::gpu_buffer, upload_to_device
+ */
+class gpu_buffer
+{
+public:
   ~gpu_buffer();
 
   gpu_buffer(gpu_buffer const &) = delete;
@@ -100,6 +107,10 @@ public:
   [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
 private:
+  friend auto factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) -> sender<::vkexec::gpu_buffer>;
+  friend auto factory::gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
+    -> sender<::vkexec::gpu_buffer>;
+
   gpu_buffer(context *ctx,
     VkBuffer buffer,
     VmaAllocation allocation,

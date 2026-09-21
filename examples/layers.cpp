@@ -75,14 +75,14 @@ static auto run() -> int
   background_cfg.clear_g = k_clear_g;
   background_cfg.clear_b = k_clear_b;
 
-  auto background = vkexec::examples::sync_wait_value(vkexec::graphics_pipeline::create(
+  auto background = vkexec::examples::sync_wait_value(vkexec::factory::graphics_pipeline(
     win.ctx(), win.render_pass(), background_cfg, k_background_vert, k_gradient_frag));
 
   vkexec::graphics_pipeline_config foreground_cfg{};
   foreground_cfg.alpha_blend = true;
 
   auto foreground = vkexec::examples::sync_wait_value(
-    vkexec::graphics_pipeline::create(win.ctx(), win.render_pass(), foreground_cfg, k_foreground_vert, k_tinted_frag));
+    vkexec::factory::graphics_pipeline(win.ctx(), win.render_pass(), foreground_cfg, k_foreground_vert, k_tinted_frag));
 
   std::cout << std::format("vkexec layers (two graphics pipelines) - close the window to exit\n");
 
