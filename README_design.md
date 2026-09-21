@@ -65,13 +65,15 @@ IPO/LTO is on by default at top level. It is gated through
 [CPM](https://github.com/cpm-cmake/CPM.cmake) fetches sources at configure
 time. Each package is gated by `if(NOT TARGET ...)`, so a parent project can
 supply its own version. `SYSTEM YES` silences warnings from third-party
-headers. Default set: Catch2, Boost.System, glslang, stdexec, vk-bootstrap, VMA. GLFW is fetched only for examples.
+headers. Core dependencies are Catch2, Boost.System, stdexec, vk-bootstrap, and VMA.
+glslang is fetched only when `vkexec_BUILD_TOOLS=ON`; GLFW is fetched only for examples.
 `vkexec::vkexec` propagates both `Vulkan::Headers` and `Vulkan::Vulkan` to consumers.
 
 ## Libraries
 
 * `vkexec` — compute runtime (`context`, `buffer`, `compute_pipeline`, `compute_pass`)
 * `vkexec_graphics` — backend-neutral presenter, graphics pipelines, and `draw` senders
+* `vkexec_tools` (`vkexec::tools`) — optional GLSL-to-SPIR-V compilation and GLSL pipeline factories
 
 ## Descriptor strategies
 

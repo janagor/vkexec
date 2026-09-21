@@ -10,7 +10,6 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/spirv_compile.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -224,26 +223,6 @@ auto create_graphics_resources(descriptor_heap_t /*strategy*/,
   return resources;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto create_graphics_resources(descriptor_heap_t /*strategy*/,
-  context &ctx,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  heap_graphics_layout_desc const &desc,
-  std::string_view vertex_name,
-  std::string_view fragment_name) -> result<pipeline_resources>
-// NOLINTEND(bugprone-easily-swappable-parameters)
-{
-  if (vertex_glsl.empty() || fragment_glsl.empty()) {
-    return fail(errc::invalid_argument, "create_graphics_resources requires non-empty GLSL");
-  }
-  VKEXEC_TRY_ASSIGN(
-    vert_spirv, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
-  VKEXEC_TRY_ASSIGN(
-    frag_spirv, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
-  return create_graphics_resources(descriptor_heap, ctx, vert_spirv, frag_spirv, desc);
-}
-
 auto descriptor_graphics_pipeline::reset() noexcept -> void
 {
   if (ctx_ != nullptr && resources_ != nullptr) { destroy_graphics_resources(descriptor_heap, *ctx_, *resources_); }
@@ -263,42 +242,11 @@ auto descriptor_graphics_pipeline::create(context &ctx,
     });
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto descriptor_graphics_pipeline::create(context &ctx,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  heap_graphics_layout_desc const &desc,
-  std::string_view vertex_name,
-  std::string_view fragment_name) -> sender<descriptor_graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
-{
-  return make_sender<descriptor_graphics_pipeline>(
-    [&ctx,
-      vertex_glsl = std::string(vertex_glsl),
-      fragment_glsl = std::string(fragment_glsl),
-      desc,
-      vertex_name = std::string(vertex_name),
-      fragment_name = std::string(fragment_name)]() -> result<descriptor_graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned,
-        create_graphics_resources(descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
-      return make(ctx, std::make_unique<pipeline_resources>(owned));
-    });
-}
-
 auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>
 { return descriptor_graphics_pipeline::create(ctx, vertex_spirv, fragment_spirv, desc); }
-
-auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
-  context &ctx,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  heap_graphics_layout_desc const &desc,
-  std::string_view vertex_name,
-  std::string_view fragment_name) -> sender<descriptor_graphics_pipeline>
-{ return descriptor_graphics_pipeline::create(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
 
 }// namespace vkexec

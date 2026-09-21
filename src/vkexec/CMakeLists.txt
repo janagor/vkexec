@@ -7,7 +7,6 @@ add_library(
   host_agent.cpp
   bind_resources.cpp
   compute_pipeline.cpp
-  spirv_compile.cpp
   push.cpp
   gpu_buffer.cpp
   barrier.cpp
@@ -31,8 +30,7 @@ target_link_libraries(
          Vulkan::Vulkan
          STDEXEC::stdexec
          vk-bootstrap::vk-bootstrap
-         GPUOpen::VulkanMemoryAllocator
-  PRIVATE glslang::glslang glslang::SPIRV glslang::glslang-default-resource-limits)
+         GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(vkexec PRIVATE vkexec_private_headers)
 
 target_include_directories(

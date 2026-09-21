@@ -9,7 +9,6 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/spirv_compile.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <cstdint>
@@ -32,17 +31,6 @@ auto create_compute_resources(descriptor_heap_t /*strategy*/,
     ctx, spirv, info, "create_compute_resources requires non-empty SPIR-V");
 }
 
-auto create_compute_resources(descriptor_heap_t strategy,
-  context &ctx,
-  std::string_view glsl,
-  heap_layout_desc const &desc,
-  std::string_view name) -> result<pipeline_resources>
-{
-  if (glsl.empty()) { return fail(errc::invalid_argument, "create_compute_resources requires non-empty GLSL"); }
-  VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
-  return create_compute_resources(strategy, ctx, spirv, desc);
-}
-
 auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> spirv,
@@ -52,19 +40,6 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
     VKEXEC_TRY_ASSIGN(owned, create_compute_resources(strategy, ctx, spirv, desc));
     return compute_pipeline::make(ctx, std::make_unique<pipeline_resources>(owned));
   });
-}
-
-auto create_compute_pipeline(descriptor_heap_t strategy,
-  context &ctx,
-  std::string_view glsl,
-  heap_layout_desc const &desc,
-  std::string_view name) -> sender<compute_pipeline>
-{
-  return make_sender<compute_pipeline>(
-    [&ctx, strategy, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<compute_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned, create_compute_resources(strategy, ctx, glsl, desc, name));
-      return compute_pipeline::make(ctx, std::make_unique<pipeline_resources>(owned));
-    });
 }
 
 }// namespace vkexec

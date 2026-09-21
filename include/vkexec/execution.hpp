@@ -25,7 +25,6 @@
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/spirv_compile.hpp>
 #include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 #include <vkexec/sync_wait.hpp>

@@ -5,6 +5,7 @@ target_link_libraries(
   PRIVATE vkexec::vkexec_options
           vkexec::vkexec_warnings
           vkexec::vkexec
-          vkexec::ext_descriptor_heap)
+          vkexec::ext_descriptor_heap
+          vkexec::tools)
 
 vkexec_configure_linker(descriptor_heap)

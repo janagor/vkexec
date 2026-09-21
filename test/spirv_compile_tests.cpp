@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/spirv_compile.hpp>
+#include <vkexec_tools/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
 

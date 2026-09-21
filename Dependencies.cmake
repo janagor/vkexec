@@ -64,7 +64,7 @@ function(vkexec_setup_dependencies)
       "BOOST_INCLUDE_LIBRARIES system")
   endif()
 
-  if(NOT TARGET glslang::glslang)
+  if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
     cpmaddpackage(
       NAME
       glslang

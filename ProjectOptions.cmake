@@ -55,6 +55,7 @@ macro(vkexec_supports_sanitizers)
 endmacro()
 
 macro(vkexec_setup_options)
+  option(vkexec_BUILD_TOOLS "Build optional GLSL/SPIR-V tools (requires glslang)" ${PROJECT_IS_TOP_LEVEL})
   option(VKEXEC_ENABLE_EXCEPTIONS "Enable C++ exceptions for vkexec targets" ON)
   option(vkexec_ENABLE_HARDENING "Enable hardening" ON)
   option(vkexec_ENABLE_COVERAGE "Enable coverage reporting" OFF)

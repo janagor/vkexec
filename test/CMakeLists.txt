@@ -41,7 +41,6 @@ add_executable(
   descriptor_schema_tests.cpp
   pass_detail_tests.cpp
   dispatch_tests.cpp
-  spirv_compile_tests.cpp
   error_tests.cpp
   buffer_tests.cpp
   tensor_tests.cpp
@@ -50,7 +49,6 @@ add_executable(
   frame_ring_tests.cpp
   push_data_tests.cpp
   descriptor_heap_tests.cpp
-  descriptor_heap_pipeline_tests.cpp
   extension_tests.cpp
   feature_tests.cpp
   image_tests.cpp
@@ -59,9 +57,11 @@ add_executable(
   sampler_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
-  draw_stop_tests.cpp
   vulkan_requirements_tests.cpp
-  gpu_tests.cpp)
+  )
+if(vkexec_BUILD_TOOLS)
+  target_sources(tests PRIVATE spirv_compile_tests.cpp descriptor_heap_pipeline_tests.cpp draw_stop_tests.cpp gpu_tests.cpp)
+endif()
 target_link_libraries(
   tests
   PRIVATE vkexec::vkexec_warnings
@@ -73,6 +73,9 @@ target_link_libraries(
           vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics
           Catch2::Catch2WithMain)
+if(vkexec_BUILD_TOOLS)
+  target_link_libraries(tests PRIVATE vkexec::tools)
+endif()
 
 vkexec_configure_linker(tests)
 

@@ -65,6 +65,7 @@ add_subdirectory(src)
 # Public headers are owned by exported targets. Source-only detail headers are
 # deliberately absent from these sets and can never enter an install package.
 file(GLOB VKEXEC_CORE_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec/*.hpp")
+file(GLOB_RECURSE VKEXEC_TOOLS_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_tools/*.hpp")
 file(GLOB_RECURSE VKEXEC_FEATURE_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_features/*.hpp")
 file(GLOB_RECURSE VKEXEC_GRAPHICS_HEADERS CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/include/vkexec_graphics/*.hpp")
 file(GLOB_RECURSE VKEXEC_DESCRIPTOR_HEAP_HEADERS CONFIGURE_DEPENDS
@@ -83,6 +84,10 @@ list(APPEND VKEXEC_TIMELINE_HEADERS "${PROJECT_SOURCE_DIR}/include/vkexec_extens
 
 target_sources(vkexec PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
                             FILES ${VKEXEC_CORE_HEADERS})
+if(vkexec_BUILD_TOOLS)
+  target_sources(vkexec_tools PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
+                              FILES ${VKEXEC_TOOLS_HEADERS})
+endif()
 target_sources(vkexec_features PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
                                      FILES ${VKEXEC_FEATURE_HEADERS})
 target_sources(vkexec_graphics PUBLIC FILE_SET public_headers TYPE HEADERS BASE_DIRS "${PROJECT_SOURCE_DIR}/include"
@@ -138,6 +143,8 @@ vkexec_package_project(TARGETS vkexec_options vkexec_warnings)
 # archives and public headers so consumers can still stage a prefix; prefer
 # add_subdirectory / CPM for full target propagation until deps are packaged.
 include(GNUInstallDirs)
+install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
 install(
   TARGETS vkexec
           vkexec_features
@@ -149,6 +156,11 @@ install(
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+if(vkexec_BUILD_TOOLS)
+  install(TARGETS vkexec_tools FILE_SET public_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you
@@ -156,5 +168,6 @@ install(
 set(CPACK_PACKAGE_FILE_NAME
     "${CMAKE_PROJECT_NAME}-${CMAKE_PROJECT_VERSION}-${GIT_SHORT_SHA}-${CMAKE_SYSTEM_NAME}-${CMAKE_BUILD_TYPE}-${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}"
 )
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
 
 include(CPack)

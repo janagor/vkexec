@@ -9,7 +9,6 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -77,14 +76,6 @@ auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv
     ctx, spirv, info, "create_compute_resources requires non-empty SPIR-V");
 }
 
-auto create_compute_resources(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
-  -> result<pipeline_resources>
-{
-  if (glsl.empty()) { return fail(errc::invalid_argument, "create_compute_resources requires non-empty GLSL"); }
-  VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
-  return create_compute_resources(ctx, spirv, desc);
-}
-
 auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe) -> result<VkDescriptorSet>
 {
   VkDescriptorSetAllocateInfo dsai{};
@@ -129,17 +120,6 @@ auto compute_pipeline::create(context &ctx, std::span<std::uint32_t const> spirv
     VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, spirv, desc));
     return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(owned) };
   });
-}
-
-auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
-  -> sender<compute_pipeline>
-{
-  return make_sender<compute_pipeline>(
-    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<compute_pipeline> {
-      // Capture by value: the sender may outlive the caller's string_views.
-      VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, glsl, desc, name));
-      return compute_pipeline{ &ctx, std::make_unique<pipeline_resources>(owned) };
-    });
 }
 
 auto compute_pipeline::allocate_set_sender() const -> sender<VkDescriptorSet>

@@ -12,7 +12,6 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/spirv_compile.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -256,22 +255,6 @@ auto create_graphics_resources(context &ctx,
   return owned;
 }
 
-auto create_graphics_resources(context &ctx,
-  VkRenderPass render_pass,
-  graphics_pipeline_config cfg,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  std::uint32_t storage_binding_count) -> result<graphics_pipeline_resources>
-{
-  if (vertex_glsl.empty() || fragment_glsl.empty()) {
-    return fail(errc::invalid_argument, "create_graphics_resources requires non-empty GLSL");
-  }
-  VKEXEC_TRY_ASSIGN(vs_spv, compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
-  VKEXEC_TRY_ASSIGN(
-    fs_spv, compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
-  return create_graphics_resources(ctx, render_pass, cfg, vs_spv, fs_spv, storage_binding_count);
-}
-
 auto allocate_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe) -> result<VkDescriptorSet>
 {
   if (pipe.descriptor_pool == VK_NULL_HANDLE || pipe.set_layout == VK_NULL_HANDLE) {
@@ -415,46 +398,12 @@ auto graphics_pipeline::create(context &ctx,
     });
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto graphics_pipeline::create(context &ctx,
-  VkRenderPass render_pass,
-  graphics_pipeline_config cfg,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
-{
-  return make_sender<graphics_pipeline>(
-    [&ctx,
-      render_pass,
-      cfg,
-      vertex_glsl = std::string(vertex_glsl),
-      fragment_glsl = std::string(fragment_glsl),
-      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned_resources,
-        create_graphics_resources(
-          ctx, render_pass, cfg, vertex_glsl, fragment_glsl, static_cast<std::uint32_t>(owned.size())));
-      VKEXEC_TRY_ASSIGN(set, install_storage_set(ctx, owned_resources, owned));
-      return graphics_pipeline::make(
-        ctx, std::make_unique<graphics_pipeline_resources>(owned_resources), set, std::move(owned));
-    });
-}
-
 auto graphics_pipeline::create(context &ctx,
   VkRenderPass render_pass,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
 { return create(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
-
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-auto graphics_pipeline::create(context &ctx,
-  VkRenderPass render_pass,
-  std::string_view vertex_glsl,
-  std::string_view fragment_glsl,
-  std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
-{ return create(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
 { vkexec::record_draw(cmd, bind(), extent, vertex_count); }
