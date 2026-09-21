@@ -136,8 +136,38 @@ endif()
 
 include(cmake/PackageProject.cmake)
 
-# Interface option/warning targets remain package-exportable.
-vkexec_package_project(TARGETS vkexec_options vkexec_warnings)
+set(VKEXEC_PACKAGE_TARGETS
+    vkexec
+    vkexec_features
+    vkexec_ext_descriptor_heap
+    vkexec_ext_dynamic_rendering
+    vkexec_ext_timeline_semaphore
+    vkexec_graphics
+    vkexec_options
+    vkexec_warnings
+    boost_system
+    boost_assert
+    boost_config
+    boost_throw_exception
+    boost_variant2
+    boost_winapi
+    boost_mp11
+    boost_predef
+    stdexec
+    vk-bootstrap
+    vk-bootstrap-compiler-warnings
+    VulkanMemoryAllocator)
+if(vkexec_BUILD_TOOLS)
+  list(APPEND VKEXEC_PACKAGE_TARGETS vkexec_tools)
+endif()
+set(VKEXEC_PUBLIC_LIBRARY_TARGETS vkexec vkexec_features vkexec_ext_descriptor_heap
+    vkexec_ext_dynamic_rendering vkexec_ext_timeline_semaphore vkexec_graphics)
+if(vkexec_BUILD_TOOLS)
+  list(APPEND VKEXEC_PUBLIC_LIBRARY_TARGETS vkexec_tools)
+endif()
+vkexec_package_project(
+  TARGETS ${VKEXEC_PACKAGE_TARGETS}
+  PUBLIC_DEPENDENCIES Vulkan Threads)
 
 # Static libraries pull CPM targets that are not themselves exported. Install the
 # archives and public headers so consumers can still stage a prefix; prefer
@@ -145,22 +175,20 @@ vkexec_package_project(TARGETS vkexec_options vkexec_warnings)
 include(GNUInstallDirs)
 install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
-install(
-  TARGETS vkexec
-          vkexec_features
-          vkexec_ext_descriptor_heap
-          vkexec_ext_dynamic_rendering
-          vkexec_ext_timeline_semaphore
-          vkexec_graphics
-  FILE_SET public_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-if(vkexec_BUILD_TOOLS)
-  install(TARGETS vkexec_tools FILE_SET public_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-endif()
+file(GLOB_RECURSE VKEXEC_BOOST_INCLUDE_DIRS LIST_DIRECTORIES true "${Boost_SOURCE_DIR}/libs/*/include")
+foreach(_boost_include_dir IN LISTS VKEXEC_BOOST_INCLUDE_DIRS)
+  if(IS_DIRECTORY "${_boost_include_dir}/boost")
+    install(DIRECTORY "${_boost_include_dir}/boost" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  endif()
+endforeach()
+install(FILES "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrap.h"
+              "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapDispatch.h"
+              "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapFeatureChain.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+install(TARGETS ${VKEXEC_PUBLIC_LIBRARY_TARGETS}
+        FILE_SET public_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" COMPONENT dev)
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you

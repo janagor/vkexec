@@ -128,13 +128,21 @@ function(vkexec_package_project)
   list(APPEND _PackageProject_PRIVATE_DEPENDENCIES ${_PRIVATE_DEPENDENCIES_CONFIG})
 
   # Installation of package (compatible with vcpkg, etc)
-  install(
-    TARGETS ${_PackageProject_TARGETS}
-    EXPORT ${_PackageProject_EXPORT}
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT shlib
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT bin
-    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${_PackageProject_NAME}" COMPONENT dev)
+  foreach(_target IN LISTS _PackageProject_TARGETS)
+    get_target_property(_header_sets ${_target} HEADER_SETS)
+    set(_file_set_args)
+    foreach(_header_set IN LISTS _header_sets)
+      list(APPEND _file_set_args FILE_SET ${_header_set} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" COMPONENT dev)
+    endforeach()
+    install(
+      TARGETS ${_target}
+      EXPORT ${_PackageProject_EXPORT}
+      LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT shlib
+      ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
+      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT bin
+      PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${_PackageProject_NAME}" COMPONENT dev
+      ${_file_set_args})
+  endforeach()
 
   # install the usage file
   set(_targets_str "")

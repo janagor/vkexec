@@ -23,15 +23,10 @@ add_library(vkexec::vkexec ALIAS vkexec)
 
 target_link_libraries(
   vkexec
-  PUBLIC vkexec_options
-         vkexec_warnings
-         Boost::system
-         Vulkan::Headers
-         Vulkan::Vulkan
-         STDEXEC::stdexec
-         vk-bootstrap::vk-bootstrap
-         GPUOpen::VulkanMemoryAllocator)
-target_link_libraries(vkexec PRIVATE vkexec_private_headers)
+  PUBLIC
+         "$<BUILD_INTERFACE:Boost::system;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
+         "$<INSTALL_INTERFACE:Boost::system;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
+  PRIVATE vkexec_warnings)
 
 target_include_directories(
   vkexec ${WARNING_GUARD}
@@ -40,6 +35,7 @@ target_include_directories(
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_compile_features(vkexec PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
+target_compile_definitions(vkexec PUBLIC VKEXEC_ENABLE_EXCEPTIONS=$<BOOL:${VKEXEC_ENABLE_EXCEPTIONS}>)
 
 vkexec_configure_linker(vkexec)
 
