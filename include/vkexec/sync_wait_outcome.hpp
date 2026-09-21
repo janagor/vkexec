@@ -20,7 +20,7 @@ namespace vkexec {
 template<class... Values> struct sync_wait_outcome
 {
   std::optional<std::tuple<Values...>> values{};
-  std::optional<error> error;
+  std::optional<vkexec::error> error;
   bool stopped{ false };
 
   //! True when the sender completed with `set_value`.
