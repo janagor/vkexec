@@ -2,8 +2,9 @@
 
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error_helpers.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
@@ -11,8 +12,13 @@
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 
+#include <vulkan/vulkan_core.h>
+
+#include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -36,27 +42,33 @@ auto compute_pipeline::create(context &ctx, std::string_view glsl, layout_desc c
     });
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto create_graphics_resources(context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   std::uint32_t storage_binding_count) -> result<graphics_pipeline_resources>
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
     return fail(errc::invalid_argument, "create_graphics_resources requires non-empty GLSL");
   }
-  VKEXEC_TRY_ASSIGN(vs, compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
-  VKEXEC_TRY_ASSIGN(fs, compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
-  return create_graphics_resources(ctx, render_pass, cfg, vs, fs, storage_binding_count);
+  VKEXEC_TRY_ASSIGN(
+    vert_spirv, compile_glsl_to_spirv(vertex_glsl, "vkexec.vert", shader_kind::vertex, ctx.api_version()));
+  VKEXEC_TRY_ASSIGN(
+    frag_spirv, compile_glsl_to_spirv(fragment_glsl, "vkexec.frag", shader_kind::fragment, ctx.api_version()));
+  return create_graphics_resources(ctx, render_pass, cfg, vert_spirv, frag_spirv, storage_binding_count);
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto graphics_pipeline::create(context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   std::span<storage_binding const> buffers) -> sender<graphics_pipeline>
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return make_sender<graphics_pipeline>(
     [&ctx,
@@ -65,20 +77,20 @@ auto graphics_pipeline::create(context &ctx,
       vertex_glsl = std::string(vertex_glsl),
       fragment_glsl = std::string(fragment_glsl),
       owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(resources,
+      VKEXEC_TRY_ASSIGN(gfx_resources,
         create_graphics_resources(
           ctx, render_pass, cfg, vertex_glsl, fragment_glsl, static_cast<std::uint32_t>(owned.size())));
       VkDescriptorSet set = VK_NULL_HANDLE;
       if (!owned.empty()) {
-        auto bound = bind_graphics_storage(ctx, resources, owned);
+        auto bound = bind_graphics_storage(ctx, gfx_resources, owned);
         if (!bound) {
-          destroy_graphics_resources(ctx, resources);
+          destroy_graphics_resources(ctx, gfx_resources);
           return fail(bound);
         }
         set = bound->set;
       }
       return graphics_pipeline::make(
-        ctx, std::make_unique<graphics_pipeline_resources>(resources), set, std::move(owned));
+        ctx, std::make_unique<graphics_pipeline_resources>(gfx_resources), set, std::move(owned));
     });
 }
 
@@ -113,6 +125,7 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
     });
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto create_graphics_resources(descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,
@@ -120,21 +133,26 @@ auto create_graphics_resources(descriptor_heap_t strategy,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) -> result<pipeline_resources>
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
     return fail(errc::invalid_argument, "create_graphics_resources requires non-empty GLSL");
   }
-  VKEXEC_TRY_ASSIGN(vs, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
-  VKEXEC_TRY_ASSIGN(fs, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
-  return create_graphics_resources(strategy, ctx, vs, fs, desc);
+  VKEXEC_TRY_ASSIGN(
+    vert_spirv, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
+  VKEXEC_TRY_ASSIGN(
+    frag_spirv, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
+  return create_graphics_resources(strategy, ctx, vert_spirv, frag_spirv, desc);
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto descriptor_graphics_pipeline::create(context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) -> sender<descriptor_graphics_pipeline>
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return make_sender<descriptor_graphics_pipeline>(
     [&ctx,
@@ -149,13 +167,15 @@ auto descriptor_graphics_pipeline::create(context &ctx,
     });
 }
 
-auto create_graphics_pipeline(descriptor_heap_t,
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) -> sender<descriptor_graphics_pipeline>
+// NOLINTEND(bugprone-easily-swappable-parameters)
 { return descriptor_graphics_pipeline::create(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
 
 }// namespace vkexec
