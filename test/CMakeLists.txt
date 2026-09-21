@@ -17,8 +17,8 @@ if(PROJECT_IS_TOP_LEVEL OR TEST_INSTALLED_VERSION)
 
   find_package(vkexec CONFIG REQUIRED) # for vkexec, project_options, ...
 
-  if(NOT TARGET vkexec_options)
-    message(FATAL_ERROR "Required config package not found!")
+  if(NOT TARGET vkexec::vkexec)
+    message(FATAL_ERROR "Required vkexec package target not found!")
     return() # be strictly paranoid for Template Janitor github action! CK
   endif()
 endif()
@@ -32,6 +32,13 @@ add_test(NAME cmake.sanitizers.apple_excludes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_apple_excludes_leak.cmake)
 add_test(NAME cmake.sanitizers.non_apple_includes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_non_apple_includes_leak.cmake)
+add_test(
+  NAME vkexec.install_consumer
+  COMMAND "${CMAKE_COMMAND}"
+          "-DVKEXEC_SOURCE_DIR=${CMAKE_SOURCE_DIR}"
+          "-DVKEXEC_BINARY_DIR=${CMAKE_BINARY_DIR}"
+          "-DCONSUMER_SOURCE_DIR=${CMAKE_SOURCE_DIR}/test/install_consumer"
+          -P "${CMAKE_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
 
 add_executable(
   tests
