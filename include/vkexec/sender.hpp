@@ -2,7 +2,7 @@
 #define VKEXEC_SENDER_HPP
 
 //! \file
-//! Eager factory senders that run a `result`-returning callable in `start()`.
+//! Synchronous factory senders that run a `result`-returning callable in `start()`.
 
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -18,7 +18,7 @@ namespace vkexec {
 namespace ex = stdexec;
 
 /**
- * Sender that invokes `factory` in `start()` and completes with its `result<Value>`.
+ * Sender that invokes `factory` synchronously in `start()` and completes with its `result<Value>`.
  *
  * Honours stop tokens with `set_stopped`. Used by most `Type::create` APIs.
  *
