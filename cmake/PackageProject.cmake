@@ -147,7 +147,13 @@ function(vkexec_package_project)
   # install the usage file
   set(_targets_str "")
   foreach(_target ${_PackageProject_TARGETS})
-    set(_targets_str "${_targets_str} ${_PackageProject_NAMESPACE}${_target}")
+    get_target_property(_export_name ${_target} EXPORT_NAME)
+    if(_export_name)
+      set(_exported_target "${_PackageProject_NAMESPACE}${_export_name}")
+    else()
+      set(_exported_target "${_PackageProject_NAMESPACE}${_target}")
+    endif()
+    set(_targets_str "${_targets_str} ${_exported_target}")
   endforeach()
   set(USAGE_FILE_CONTENT
       "The package ${_PackageProject_NAME} provides CMake targets:

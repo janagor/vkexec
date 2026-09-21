@@ -24,9 +24,7 @@ target_include_directories(vkexec_ext_descriptor_heap PUBLIC $<BUILD_INTERFACE:$
                                                        PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_link_libraries(vkexec_ext_descriptor_heap PUBLIC vkexec::vkexec vkexec::features
-                                                    PRIVATE vkexec_warnings
-                                                    "$<BUILD_INTERFACE:Vulkan::Vulkan>"
-                                                    "$<INSTALL_INTERFACE:Vulkan::Vulkan>")
+                                                    PRIVATE vkexec_warnings Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -43,9 +41,7 @@ target_include_directories(vkexec_ext_dynamic_rendering PUBLIC $<BUILD_INTERFACE
                                                          PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_link_libraries(vkexec_ext_dynamic_rendering PUBLIC vkexec::vkexec vkexec::features
-                                                      PRIVATE vkexec_warnings
-                                                      "$<BUILD_INTERFACE:Vulkan::Vulkan>"
-                                                      "$<INSTALL_INTERFACE:Vulkan::Vulkan>")
+                                                      PRIVATE vkexec_warnings Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_dynamic_rendering PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 
@@ -66,9 +62,7 @@ target_link_libraries(
   PUBLIC vkexec::vkexec
          vkexec::features
          vkexec::vkexec_graphics
-  PRIVATE vkexec_warnings
-          "$<BUILD_INTERFACE:Vulkan::Vulkan>"
-          "$<INSTALL_INTERFACE:Vulkan::Vulkan>")
+  PRIVATE vkexec_warnings Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_timeline_semaphore PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 

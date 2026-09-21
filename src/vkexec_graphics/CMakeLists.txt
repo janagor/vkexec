@@ -10,9 +10,7 @@ add_library(vkexec::vkexec_graphics ALIAS vkexec_graphics)
 target_link_libraries(
   vkexec_graphics
   PUBLIC vkexec::vkexec
-  PRIVATE vkexec_warnings
-          "$<BUILD_INTERFACE:vk-bootstrap::vk-bootstrap>"
-          "$<INSTALL_INTERFACE:vk-bootstrap::vk-bootstrap>")
+  PRIVATE vkexec_warnings vk-bootstrap::vk-bootstrap)
 
 target_include_directories(
   vkexec_graphics ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>

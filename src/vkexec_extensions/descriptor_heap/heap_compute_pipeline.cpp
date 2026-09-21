@@ -5,7 +5,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/compute_create.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
@@ -14,7 +13,6 @@
 #include <cstdint>
 #include <memory>
 #include <span>
-#include <string>
 
 namespace vkexec {
 auto create_compute_resources(descriptor_heap_t /*strategy*/,

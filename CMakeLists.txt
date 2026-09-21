@@ -158,12 +158,11 @@ set(VKEXEC_PACKAGE_TARGETS
     vk-bootstrap-compiler-warnings
     VulkanMemoryAllocator)
 if(vkexec_BUILD_TOOLS)
-  list(APPEND VKEXEC_PACKAGE_TARGETS vkexec_tools)
-endif()
-set(VKEXEC_PUBLIC_LIBRARY_TARGETS vkexec vkexec_features vkexec_ext_descriptor_heap
-    vkexec_ext_dynamic_rendering vkexec_ext_timeline_semaphore vkexec_graphics)
-if(vkexec_BUILD_TOOLS)
-  list(APPEND VKEXEC_PUBLIC_LIBRARY_TARGETS vkexec_tools)
+  list(APPEND VKEXEC_PACKAGE_TARGETS
+      vkexec_tools
+      glslang
+      SPIRV
+      glslang-default-resource-limits)
 endif()
 vkexec_package_project(
   TARGETS ${VKEXEC_PACKAGE_TARGETS}
@@ -187,8 +186,6 @@ install(FILES "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrap.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-install(TARGETS ${VKEXEC_PUBLIC_LIBRARY_TARGETS}
-        FILE_SET public_headers DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" COMPONENT dev)
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you
