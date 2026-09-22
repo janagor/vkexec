@@ -112,8 +112,10 @@ namespace factory {
 }// namespace factory
 
 /**
- * Owns (or adopts) the Vulkan instance/device, queues, VMA allocator, and host
- * agents used by vkexec senders.
+ * Owns the command pool and host/completion agents. Depending on construction,
+ * it either owns or adopts the Vulkan instance/device/queues and owns or adopts
+ * the VMA allocator; query the exact mode with `owns_instance()`,
+ * `owns_device()`, and `owns_allocator()`.
  *
  * Create with `factory::make_context()` for a compute-only device, or
  * `factory::adopt_context()` to wrap embedder-owned handles. Most GPU work is
@@ -168,6 +170,12 @@ public:
   [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool;
   //! VMA allocator used for buffers and images.
   [[nodiscard]] auto allocator() const noexcept -> VmaAllocator;
+  //! True when this context destroys the Vulkan instance in its destructor.
+  [[nodiscard]] auto owns_instance() const noexcept -> bool;
+  //! True when this context destroys the Vulkan device in its destructor.
+  [[nodiscard]] auto owns_device() const noexcept -> bool;
+  //! True when this context destroys the VMA allocator in its destructor.
+  [[nodiscard]] auto owns_allocator() const noexcept -> bool;
   //! True when graphics/present queues were configured for swapchain use.
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool;
   //! Effective Vulkan requirements after merging library baselines.
@@ -293,6 +301,7 @@ private:
   friend struct factory::make_context_t;
   friend struct factory::adopt_context_t;
 
+  //! Empty tags for staged construction; only friends can name them.
   struct uninitialized_tag
   {
   };
@@ -300,11 +309,26 @@ private:
   {
   };
 
-  explicit context(uninitialized_tag tag) noexcept;
-  explicit context(instance_only_tag tag,
+  /**
+   * Passkey so friends can `std::make_unique` without exposing public ctors.
+   * (`make_unique` is not a friend, so private ctors are inaccessible to it.)
+   */
+  class factory_access
+  {
+    factory_access() = default;
+    friend struct factory::make_context_t;
+    friend struct factory::adopt_context_t;
+    friend class presenter;
+  };
+
+public:
+  explicit context(factory_access /*access*/, uninitialized_tag tag) noexcept;
+  explicit context(factory_access /*access*/,
+    instance_only_tag tag,
     scheduler_options const &opts,
     std::vector<char const *> const &instance_extensions);
 
+private:
   auto init_headless(scheduler_options const &opts) -> status;
   auto init_adopted(context_adopt_info const &info) -> status;
   auto init_common_resources() -> status;

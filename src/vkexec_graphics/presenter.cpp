@@ -127,7 +127,9 @@ auto presenter::init(config cfg) -> status
   }
   if (!cfg_.create_surface) { return fail(errc::invalid_argument, "presenter requires a surface factory"); }
 
-  ctx_ = std::unique_ptr<::vkexec::context>(new context(context::instance_only_tag{},
+  // std::make_unique cannot access context's private passkey constructor.
+  // NOLINTNEXTLINE(modernize-make-unique)
+  ctx_ = std::unique_ptr<::vkexec::context>(new context(context::factory_access{}, context::instance_only_tag{},
     scheduler_options{ .validation_layers = cfg_.validation_layers, .requirements = cfg_.requirements },
     cfg_.surface_instance_extensions));
   auto created_surface = cfg_.create_surface(ctx_->instance());

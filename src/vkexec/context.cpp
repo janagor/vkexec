@@ -194,7 +194,9 @@ namespace {
 
 }// namespace
 
-context::context([[maybe_unused]] uninitialized_tag tag) noexcept : impl_(std::make_unique<impl>()) {}
+context::context(factory_access /*access*/, [[maybe_unused]] uninitialized_tag tag) noexcept
+  : impl_(std::make_unique<impl>())
+{}
 
 auto factory::make_context_t::operator()(scheduler_options const &opts) const
   -> sender<std::unique_ptr<::vkexec::context>>
@@ -202,7 +204,10 @@ auto factory::make_context_t::operator()(scheduler_options const &opts) const
   // Factory may allocate; sender::start() catches and maps to set_error.
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks,bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
-    auto ctx = std::unique_ptr<::vkexec::context>(new ::vkexec::context(::vkexec::context::uninitialized_tag{}));
+    // std::make_unique cannot access context's private passkey constructor.
+    // NOLINTNEXTLINE(modernize-make-unique)
+    auto ctx = std::unique_ptr<::vkexec::context>(
+      new ::vkexec::context(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_headless(opts));
     return ctx;
   });
@@ -214,7 +219,10 @@ auto factory::adopt_context_t::operator()(context_adopt_info const &info) const
   // Factory may allocate; sender::start() catches and maps to set_error.
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks,bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {
-    auto ctx = std::unique_ptr<::vkexec::context>(new ::vkexec::context(::vkexec::context::uninitialized_tag{}));
+    // std::make_unique cannot access context's private passkey constructor.
+    // NOLINTNEXTLINE(modernize-make-unique)
+    auto ctx = std::unique_ptr<::vkexec::context>(
+      new ::vkexec::context(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_adopted(info));
     return ctx;
   });
@@ -233,6 +241,9 @@ auto context::graphics_queue_family() const noexcept -> std::uint32_t { return i
 auto context::present_queue_family() const noexcept -> std::uint32_t { return impl_->present_family; }
 auto context::command_pool() const noexcept -> VkCommandPool { return impl_->command_pool; }
 auto context::allocator() const noexcept -> VmaAllocator { return impl_->allocator; }
+auto context::owns_instance() const noexcept -> bool { return impl_->owns_instance; }
+auto context::owns_device() const noexcept -> bool { return impl_->owns_device; }
+auto context::owns_allocator() const noexcept -> bool { return impl_->owns_allocator; }
 auto context::presentation_enabled() const noexcept -> bool { return impl_->presentation_enabled; }
 auto context::requirements() const noexcept -> vulkan_requirements const & { return impl_->requirements; }
 auto context::api_version() const noexcept -> std::uint32_t { return impl_->api_version; }
@@ -325,7 +336,8 @@ auto context::init_adopted(context_adopt_info const &info) -> status
   return {};
 }
 
-context::context(instance_only_tag tag,
+context::context(factory_access /*access*/,
+  instance_only_tag tag,
   scheduler_options const &opts,
   std::vector<char const *> const &instance_extensions)
   : impl_(std::make_unique<impl>())

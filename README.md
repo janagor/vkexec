@@ -14,6 +14,17 @@
 
 The same execution / resources split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
 
+### Ownership
+
+Every public type that carries Vulkan or VMA handles is one of two typed lanes:
+
+- `vkexec::handles::` is a non-owning bag of raw handles. The caller must finish GPU work and call `vkexec::destroy(ctx, handles)` (or the equivalent destroy overload); individual fields must not be destroyed while the bag is live.
+- `vkexec::owned::` is move-only RAII. Its destructor destroys the handles it owns.
+
+Pass-graph and binding types such as `compute_bind`, `storage_binding`, `resource_ref`, and schedulers are ephemeral borrows. They never destroy what they name and must not outlive those objects. `context` always owns its command pool and host/completion agents; `owns_instance()`, `owns_device()`, and `owns_allocator()` report whether it also owns the corresponding Vulkan/VMA objects.
+
+The context outlives every `owned::` or `handles::` object created against it. Tear down in this order: finish GPU work, destroy owned objects or handle bags, destroy the context, then let the embedder destroy adopted instance/device/VMA objects.
+
 ### Public headers
 
 | Header | Role |
