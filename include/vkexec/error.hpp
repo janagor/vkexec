@@ -106,7 +106,8 @@ public:
   [[nodiscard]] auto message(int error_value) const -> std::string override;
 
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-  [[nodiscard]] auto message(int error_value, char *buffer, std::size_t len) const noexcept -> char const * override;
+  [[nodiscard]] auto message(int error_value, char * /*buffer*/, std::size_t /*len*/) const noexcept
+    -> char const * override;
 
   // VkResult: negative values are errors; non-negative includes success and status codes.
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
