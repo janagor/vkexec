@@ -16,7 +16,13 @@ namespace vkexec {
 
 auto bind_resources(pipeline_resources const &pipe, resource_table const &table, std::span<std::byte const> push)
   -> bind_resources_closure
-{ return bind_resources_closure{ .pipe = &pipe, .table = table, .push = { push.begin(), push.end() } }; }
+{
+  return bind_resources_closure{
+    .pipe = &pipe,
+    .table = table,
+    .push = std::vector<std::byte>(push.begin(), push.end()),
+  };
+}
 
 auto operator|(schedule_sender snd, bind_resources_closure closure) -> pass_graph_sender
 {

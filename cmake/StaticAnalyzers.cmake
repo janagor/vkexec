@@ -33,6 +33,8 @@ macro(vkexec_enable_cppcheck WARNINGS_AS_ERRORS CPPCHECK_OPTIONS)
           --suppress=knownConditionTrueFalse
           --suppress=constParameterReference
           --suppress=constVariableReference
+          # inconclusive; noisy for sender connect() and const/non-const overload pairs
+          --suppress=functionConst
           --inconclusive
           --check-level=exhaustive
           --suppress=${SUPPRESS_DIR})

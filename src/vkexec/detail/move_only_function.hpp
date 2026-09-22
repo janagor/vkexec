@@ -29,6 +29,7 @@ template<typename R, typename... Args> class move_only_function<R(Args...)>
 public:
   move_only_function() noexcept = default;
 
+  // cppcheck-suppress noExplicitConstructor
   // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
   move_only_function(std::nullptr_t) noexcept {}
 
