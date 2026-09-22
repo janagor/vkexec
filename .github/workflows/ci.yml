@@ -249,19 +249,32 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install molten-vk
+          MVK_PREFIX="$(brew --prefix molten-vk)"
           HOMEBREW_PREFIX="$(brew --prefix)"
-          ICD="$(find "${HOMEBREW_PREFIX}/opt/molten-vk" \
-            \( -path '*/icd.d/MoltenVK_icd.json' -o -name 'MoltenVK_icd.json' \) \
-            2>/dev/null | head -1)"
-          if [[ -z "${ICD}" || ! -f "${ICD}" ]]; then
+          # Homebrew installs the ICD under etc/vulkan/icd.d (keg and/or prefix).
+          for candidate in \
+            "${MVK_PREFIX}/etc/vulkan/icd.d/MoltenVK_icd.json" \
+            "${HOMEBREW_PREFIX}/etc/vulkan/icd.d/MoltenVK_icd.json"
+          do
+            if [[ -f "${candidate}" ]]; then
+              ICD="${candidate}"
+              break
+            fi
+          done
+          if [[ -z "${ICD:-}" ]]; then
+            ICD="$(find "${MVK_PREFIX}" "${HOMEBREW_PREFIX}/etc" "${HOMEBREW_PREFIX}/share" \
+              -name 'MoltenVK_icd.json' 2>/dev/null | head -1 || true)"
+          fi
+          if [[ -z "${ICD:-}" || ! -f "${ICD}" ]]; then
             echo "MoltenVK ICD not found after brew install molten-vk" >&2
-            find "${HOMEBREW_PREFIX}/opt/molten-vk" -name '*.json' 2>/dev/null || true
+            echo "MVK_PREFIX=${MVK_PREFIX}" >&2
+            ls -laR "${MVK_PREFIX}/etc" "${HOMEBREW_PREFIX}/etc/vulkan" 2>&1 || true
             exit 1
           fi
           echo "Using Vulkan ICD: ${ICD}"
           echo "VK_DRIVER_FILES=${ICD}" >> "$GITHUB_ENV"
           echo "VK_ICD_FILENAMES=${ICD}" >> "$GITHUB_ENV"
-          echo "DYLD_FALLBACK_LIBRARY_PATH=${HOMEBREW_PREFIX}/opt/molten-vk/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          echo "DYLD_FALLBACK_LIBRARY_PATH=${MVK_PREFIX}/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
 
       - name: Configure CMake
         run: |
