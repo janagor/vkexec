@@ -82,11 +82,19 @@ jobs:
         opencppcoverage: false
 
     - name: Setup Vulkan SDK
+      if: runner.os != 'Windows'
       uses: humbletim/setup-vulkan-sdk@v1.2.1
       with:
         vulkan-query-version: 1.4.350.0
         vulkan-components: Vulkan-Headers, Vulkan-Loader
         vulkan-use-cache: true
+
+    - name: Install Vulkan SDK
+      if: runner.os == 'Windows'
+      uses: humbletim/install-vulkan-sdk@v1.2
+      with:
+        version: 1.4.350.0
+        cache: true
 
       # make sure coverage is only enabled for Debug builds, since it sets -O0 to make sure coverage
       # has meaningful results

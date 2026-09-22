@@ -212,12 +212,22 @@ jobs:
           opencppcoverage: true
 
       - name: Setup Vulkan SDK
+        if: runner.os != 'Windows'
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.4.350.0
           # MoltenVK is not a component of this action; install it via Homebrew on macOS.
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
+
+      # Building Vulkan-Loader from source needs ml64.exe; VS 2026 runners don't
+      # expose MASM to setup-vulkan-sdk's vsdevenv shell. Use the prebuilt SDK.
+      - name: Install Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: humbletim/install-vulkan-sdk@v1.2
+        with:
+          version: 1.4.350.0
+          cache: true
 
       - name: Install Linux window-system and lavapipe
         if: runner.os == 'Linux'
