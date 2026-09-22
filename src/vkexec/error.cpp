@@ -108,7 +108,7 @@ auto make_error(errc code, std::string detail) -> error
 
 auto to_string(error const &err) -> std::string
 {
-  if (err.detail.empty()) { return std::string(err.message()); }
+  if (err.detail.empty()) { return err.message(); }
   return err.detail;
 }
 

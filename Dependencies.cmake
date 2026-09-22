@@ -20,10 +20,8 @@ function(vkexec_setup_dependencies)
       endif()
     endif()
     if(NOT TARGET Vulkan::Vulkan)
-      message(
-        FATAL_ERROR
-          "Vulkan loader not found (Vulkan::Vulkan). Install the Vulkan SDK "
-          "(set VULKAN_SDK) or a system package such as libvulkan-dev.")
+      message(FATAL_ERROR "Vulkan loader not found (Vulkan::Vulkan). Install the Vulkan SDK "
+                          "(set VULKAN_SDK) or a system package such as libvulkan-dev.")
     endif()
   endif()
 

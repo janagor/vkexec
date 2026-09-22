@@ -140,11 +140,12 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  vkexec::algorithm const algo = vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
-    *ctx,
-    k_heap_compute_glsl,
-    vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
-    "heap_dispatch.comp"));
+  vkexec::algorithm const algo =
+    vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
+      *ctx,
+      k_heap_compute_glsl,
+      vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
+      "heap_dispatch.comp"));
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(

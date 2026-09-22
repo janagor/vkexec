@@ -4,6 +4,7 @@
 //! \file
 //! Helpers that turn Vulkan / VkBootstrap failures into `error` and `unexpected`.
 
+#include <vkexec/config.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 
@@ -30,7 +31,8 @@ namespace vkexec {
 { return fail(make_vk_error(result, context)); }
 
 //! Dereferences a successful `vkb::Result` (caller must check success first).
-template<typename T> [[nodiscard, clang::suppress]] auto vkb_take(vkb::Result<T> const &result) -> T { return *result; }
+template<typename T>[[nodiscard VKEXEC_CLANG_SUPPRESS]] auto vkb_take(vkb::Result<T> const &result) -> T
+{ return *result; }
 
 /**
  * Converts a failed `vkb::Result` into a vkexec `error`.

@@ -32,8 +32,10 @@ auto create_compute_resources(context &ctx, std::string_view glsl, layout_desc c
   return create_compute_resources(ctx, spirv, desc);
 }
 
-auto factory::compute_pipeline(::vkexec::context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name)
-  -> sender<::vkexec::compute_pipeline>
+auto factory::compute_pipeline(::vkexec::context &ctx,
+  std::string_view glsl,
+  layout_desc const &desc,
+  std::string_view name) -> sender<::vkexec::compute_pipeline>
 {
   return make_sender<::vkexec::compute_pipeline>(
     [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<::vkexec::compute_pipeline> {
@@ -99,7 +101,9 @@ auto factory::graphics_pipeline(::vkexec::context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   std::span<storage_binding const> buffers) -> sender<::vkexec::graphics_pipeline>
-{ return factory::graphics_pipeline(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
+{
+  return factory::graphics_pipeline(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers);
+}
 
 auto create_compute_resources(descriptor_heap_t strategy,
   context &ctx,

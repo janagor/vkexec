@@ -76,8 +76,9 @@ namespace factory {
    * @param vertices Vertex data (copied into the vertex buffer).
    * @param indices Triangle indices (copied into the index buffer).
    */
-  [[nodiscard]] auto mesh(::vkexec::context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-    -> sender<::vkexec::mesh>;
+  [[nodiscard]] auto mesh(::vkexec::context &ctx,
+    std::span<mesh_vertex const> vertices,
+    std::span<std::uint32_t const> indices) -> sender<::vkexec::mesh>;
 
 }// namespace factory
 
@@ -119,8 +120,9 @@ public:
   [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
 
 private:
-  friend auto factory::mesh(::vkexec::context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-    -> sender<::vkexec::mesh>;
+  friend auto factory::mesh(::vkexec::context &ctx,
+    std::span<mesh_vertex const> vertices,
+    std::span<std::uint32_t const> indices) -> sender<::vkexec::mesh>;
 
   mesh(context *ctx, mesh_buffers buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
 

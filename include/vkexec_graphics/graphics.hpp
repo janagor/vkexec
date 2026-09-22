@@ -84,9 +84,7 @@ namespace factory {
     Desc const &desc,
     std::string_view vertex_name = "vkexec.vert",
     std::string_view fragment_name = "vkexec.frag")
-  {
-    return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
-  }
+  { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
 
 }// namespace factory
 

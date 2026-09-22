@@ -99,16 +99,14 @@ auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_
 auto descriptor_heap_byte_size(descriptor_heap_layout const &layout, std::size_t descriptor_count) -> VkDeviceSize
 {
   // Descriptors first, then an aligned reserved range required by the implementation.
-  auto const descriptor_region =
-    static_cast<VkDeviceSize>(layout.descriptor_stride) * static_cast<VkDeviceSize>(descriptor_count);
+  auto const descriptor_region = layout.descriptor_stride * descriptor_count;
   auto const reserved_offset = align_up(descriptor_region, layout.resource_heap_alignment);
   return reserved_offset + layout.min_resource_heap_reserved_range;
 }
 
 auto sampler_heap_byte_size(descriptor_heap_layout const &layout, std::size_t descriptor_count) -> VkDeviceSize
 {
-  auto const descriptor_region =
-    static_cast<VkDeviceSize>(layout.sampler_descriptor_size) * static_cast<VkDeviceSize>(descriptor_count);
+  auto const descriptor_region = layout.sampler_descriptor_size * descriptor_count;
   auto const reserved_offset = align_up(descriptor_region, layout.sampler_heap_alignment);
   return reserved_offset + layout.min_sampler_heap_reserved_range;
 }

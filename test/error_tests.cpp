@@ -44,7 +44,7 @@ TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]
   REQUIRE(vkexec::make_vk_error_code(VK_ERROR_DEVICE_LOST).message() == "device lost");
   REQUIRE(vkexec::make_vk_error_code(VK_ERROR_OUT_OF_DEVICE_MEMORY).message() == "out of device memory");
   REQUIRE(vkexec::make_vk_error_code(VK_ERROR_VALIDATION_FAILED_EXT).message() == "validation failed");
-  REQUIRE(vkexec::make_vk_error_code(static_cast<int>(999)).message() == "vulkan error");
+  REQUIRE(vkexec::make_vk_error_code(999).message() == "vulkan error");
 }
 
 TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vulkan]")

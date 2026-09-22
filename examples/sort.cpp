@@ -7,7 +7,6 @@
 #include <vkexec/pipeline.hpp>
 
 #include <stdexec/execution.hpp>
-#include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <array>
@@ -93,7 +92,7 @@ static auto run() -> int
     "sort.comp"));
 
   std::array<vkexec::storage_binding, 1> const buffers{ vkexec::storage_binding{
-    .buffer = data.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(data.size() * sizeof(float)) } };
+    .buffer = data.vk_buffer(), .byte_size = data.size() * sizeof(float) } };
   auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
   auto make_phase = [&](std::size_t phase) -> auto {

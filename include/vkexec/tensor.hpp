@@ -58,8 +58,7 @@ public:
   //! Number of `T` elements (0 when empty).
   [[nodiscard]] auto size() const noexcept -> std::size_t { return host_.size(); }
   //! Byte size of the storage buffers.
-  [[nodiscard]] auto byte_size() const noexcept -> VkDeviceSize
-  { return static_cast<VkDeviceSize>(size() * sizeof(T)); }
+  [[nodiscard]] auto byte_size() const noexcept -> VkDeviceSize { return size() * sizeof(T); }
   //! Device-local Vulkan buffer handle (null when empty).
   [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return gpu_ ? gpu_->device.handle() : VK_NULL_HANDLE; }
 
@@ -135,7 +134,7 @@ template<typename T>
   requires std::is_trivially_copyable_v<T>
 [[nodiscard]] inline auto tensor<T>::make_allocated(context &ctx, std::vector<T> host) -> result<tensor>
 {
-  auto const bytes = static_cast<VkDeviceSize>(host.size() * sizeof(T));
+  auto const bytes = host.size() * sizeof(T);
   auto staging_buf = try_sync_wait_value(factory::gpu_buffer(ctx, bytes, gpu_buffer_memory::staging));
   if (!staging_buf) { return fail(staging_buf.error()); }
   auto device_buf = try_sync_wait_value(factory::gpu_buffer(ctx,
@@ -194,10 +193,11 @@ namespace factory {
     requires std::is_trivially_copyable_v<T>
   [[nodiscard]] auto tensor(::vkexec::context &ctx, std::vector<T> values) -> sender<::vkexec::tensor<T>>
   {
-    return make_sender<::vkexec::tensor<T>>([&ctx, values = std::move(values)]() mutable -> result<::vkexec::tensor<T>> {
-      if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
-      return ::vkexec::tensor<T>::make_allocated(ctx, std::move(values));
-    });
+    return make_sender<::vkexec::tensor<T>>(
+      [&ctx, values = std::move(values)]() mutable -> result<::vkexec::tensor<T>> {
+        if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
+        return ::vkexec::tensor<T>::make_allocated(ctx, std::move(values));
+      });
   }
 
 }// namespace factory

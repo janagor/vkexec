@@ -33,8 +33,9 @@ namespace factory {
    * @param spirv SPIR-V words for the compute shader.
    * @param desc Descriptor and push-constant layout.
    */
-  [[nodiscard]] auto compute_pipeline(::vkexec::context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-    -> sender<::vkexec::compute_pipeline>;
+  [[nodiscard]] auto compute_pipeline(::vkexec::context &ctx,
+    std::span<std::uint32_t const> spirv,
+    layout_desc const &desc) -> sender<::vkexec::compute_pipeline>;
 
   /**
    * Compiles `glsl` to SPIR-V then creates a pipeline.
@@ -51,10 +52,8 @@ namespace factory {
 
   //! Creates a pipeline through an extension-owned descriptor strategy tag.
   template<class Strategy, class Desc>
-  [[nodiscard]] auto compute_pipeline(Strategy strategy,
-    ::vkexec::context &ctx,
-    std::span<std::uint32_t const> spirv,
-    Desc const &desc)
+  [[nodiscard]] auto
+    compute_pipeline(Strategy strategy, ::vkexec::context &ctx, std::span<std::uint32_t const> spirv, Desc const &desc)
   { return create_compute_pipeline(strategy, ctx, spirv, desc); }
 
   //! Compiles GLSL and creates a pipeline through an extension-owned descriptor strategy tag.

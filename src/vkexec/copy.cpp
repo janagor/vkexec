@@ -54,7 +54,7 @@ auto upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   staging_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   staging_barrier.buffer = staging.handle();
   staging_barrier.offset = 0;
-  staging_barrier.size = static_cast<VkDeviceSize>(bytes.size());
+  staging_barrier.size = bytes.size();
 
   VkBufferMemoryBarrier device_barrier{};
   device_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -64,7 +64,7 @@ auto upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   device_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   device_barrier.buffer = device.handle();
   device_barrier.offset = 0;
-  device_barrier.size = static_cast<VkDeviceSize>(bytes.size());
+  device_barrier.size = bytes.size();
 
   std::array<VkBufferMemoryBarrier, 2> barriers{ staging_barrier, device_barrier };
   vkCmdPipelineBarrier(cmd,
@@ -78,7 +78,7 @@ auto upload_to_device(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
     0,
     nullptr);
 
-  cmd_copy_buffer(cmd, staging.handle(), device.handle(), static_cast<VkDeviceSize>(bytes.size()));
+  cmd_copy_buffer(cmd, staging.handle(), device.handle(), bytes.size());
 
   barrier::transfer_to_compute(cmd);
 
@@ -125,7 +125,7 @@ auto download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   device_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   device_barrier.buffer = device.handle();
   device_barrier.offset = 0;
-  device_barrier.size = static_cast<VkDeviceSize>(out.size());
+  device_barrier.size = out.size();
 
   VkBufferMemoryBarrier staging_barrier{};
   staging_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -135,7 +135,7 @@ auto download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   staging_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   staging_barrier.buffer = staging.handle();
   staging_barrier.offset = 0;
-  staging_barrier.size = static_cast<VkDeviceSize>(out.size());
+  staging_barrier.size = out.size();
 
   std::array<VkBufferMemoryBarrier, 2> before{ device_barrier, staging_barrier };
   vkCmdPipelineBarrier(cmd,
@@ -149,7 +149,7 @@ auto download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
     0,
     nullptr);
 
-  cmd_copy_buffer(cmd, device.handle(), staging.handle(), static_cast<VkDeviceSize>(out.size()));
+  cmd_copy_buffer(cmd, device.handle(), staging.handle(), out.size());
 
   VkBufferMemoryBarrier host_barrier{};
   host_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -159,7 +159,7 @@ auto download_to_host(context &ctx, gpu_buffer &staging, gpu_buffer const &devic
   host_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   host_barrier.buffer = staging.handle();
   host_barrier.offset = 0;
-  host_barrier.size = static_cast<VkDeviceSize>(out.size());
+  host_barrier.size = out.size();
 
   vkCmdPipelineBarrier(
     cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0, 0, nullptr, 1, &host_barrier, 0, nullptr);

@@ -6,7 +6,6 @@
 #include <vkexec/pipeline.hpp>
 
 #include <stdexec/execution.hpp>
-#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <cmath>
@@ -75,12 +74,10 @@ static auto run() -> int
     "sim.comp"));
 
   std::array<vkexec::storage_binding, 2> const buffers{
-    vkexec::storage_binding{ .buffer = positions.vk_buffer(),
-      .byte_size = static_cast<VkDeviceSize>(positions.size() * sizeof(float)),
-      .binding = 0 },
-    vkexec::storage_binding{ .buffer = velocities.vk_buffer(),
-      .byte_size = static_cast<VkDeviceSize>(velocities.size() * sizeof(float)),
-      .binding = 1 },
+    vkexec::storage_binding{
+      .buffer = positions.vk_buffer(), .byte_size = positions.size() * sizeof(float), .binding = 0 },
+    vkexec::storage_binding{
+      .buffer = velocities.vk_buffer(), .byte_size = velocities.size() * sizeof(float), .binding = 1 },
   };
   auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 

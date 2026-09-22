@@ -7,7 +7,6 @@
 #include <vkexec/pipeline.hpp>
 
 #include <stdexec/execution.hpp>
-#include <vulkan/vulkan_core.h>
 
 #include <utility>
 
@@ -77,7 +76,7 @@ static auto run() -> int
     "pass.comp"));
 
   std::array<vkexec::storage_binding, 1> const buffers{ vkexec::storage_binding{
-    .buffer = values.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(values.size() * sizeof(float)) } };
+    .buffer = values.vk_buffer(), .byte_size = values.size() * sizeof(float) } };
   auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
   auto graph = ex::schedule(ctx->get_scheduler())

@@ -54,9 +54,9 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   REQUIRE(layout.sampler_descriptor_size > 0);
 
   auto const heap_bytes = vkexec::descriptor_heap_byte_size(layout, k_slot_count);
-  REQUIRE(heap_bytes >= static_cast<VkDeviceSize>(layout.descriptor_stride * k_slot_count));
+  REQUIRE(heap_bytes >= layout.descriptor_stride * k_slot_count);
   auto const sampler_bytes = vkexec::sampler_heap_byte_size(layout, k_slot_count);
-  REQUIRE(sampler_bytes >= static_cast<VkDeviceSize>(layout.sampler_descriptor_size * k_slot_count));
+  REQUIRE(sampler_bytes >= layout.sampler_descriptor_size * k_slot_count);
 
   auto storage = vkexec::test::sync_wait_value(vkexec::factory::gpu_buffer(*ctx,
     vkexec::gpu_buffer_create_info{
@@ -81,7 +81,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
-  auto const reserved_offset = static_cast<VkDeviceSize>(layout.descriptor_stride * k_slot_count);
+  auto const reserved_offset = layout.descriptor_stride * k_slot_count;
   auto const aligned_offset =
     (layout.resource_heap_alignment == 0)
       ? reserved_offset
@@ -240,7 +240,7 @@ TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descri
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
-  auto const reserved_offset = static_cast<VkDeviceSize>(layout.sampler_descriptor_size * k_slot_count);
+  auto const reserved_offset = layout.sampler_descriptor_size * k_slot_count;
   auto const aligned_offset =
     (layout.sampler_heap_alignment == 0)
       ? reserved_offset

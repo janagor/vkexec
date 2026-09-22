@@ -192,7 +192,7 @@ private:
     static_assert(std::is_trivially_copyable_v<T>);
     if (count == 0) { return fail(errc::invalid_argument, "vkexec::buffer count must be > 0"); }
 
-    auto const bytes = static_cast<VkDeviceSize>(count * sizeof(T));
+    auto const bytes = count * sizeof(T);
 
     VkBufferCreateInfo bci{};
     bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

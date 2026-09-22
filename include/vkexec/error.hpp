@@ -43,6 +43,12 @@ inline constexpr std::uint64_t k_vulkan_error_category_id = 0x4b71e90c6d2a83f5UL
  *
  * @see category, make_error_code
  */
+// Boost.System categories are never deleted through a base pointer; the base
+// dtor is intentionally non-virtual. Silence GCC -Wnon-virtual-dtor here.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
 class vkexec_error_category final : public sys::error_category
 {
 public:
@@ -106,6 +112,9 @@ public:
   // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
   [[nodiscard]] auto failed(int error_value) const noexcept -> bool override { return error_value < 0; }
 };
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 //! Returns the singleton `vkexec` error category.
 [[nodiscard]] auto category() noexcept -> sys::error_category const &;

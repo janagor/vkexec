@@ -84,12 +84,12 @@ auto factory::image(::vkexec::context &ctx, image_create_info info) -> sender<::
 }
 
 image::image(context *ctx,
-  VkImage image,
+  VkImage image_handle,
   VmaAllocation allocation,
   VkFormat format,
   VkExtent2D extent,
   image_usage usage) noexcept
-  : ctx_(ctx), image_(image), allocation_(allocation), format_(format), extent_(extent), usage_(usage)
+  : ctx_(ctx), image_(image_handle), allocation_(allocation), format_(format), extent_(extent), usage_(usage)
 {}
 
 image::~image() { destroy(); }

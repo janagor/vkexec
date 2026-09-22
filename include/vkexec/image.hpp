@@ -85,7 +85,7 @@ private:
   friend auto factory::image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>;
 
   image(context *ctx,
-    VkImage image,
+    VkImage image_handle,
     VmaAllocation allocation,
     VkFormat format,
     VkExtent2D extent,

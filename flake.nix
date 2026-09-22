@@ -88,6 +88,12 @@
           shellEnv
           // {
             packages = commonPackages ++ [ pkgs.mold ];
+            # Host environments (e.g. NixOS /usr/lib → GCC 15) inject
+            # NIX_CFLAGS_LINK=-L/usr/lib, which shadows this toolchain's libstdc++
+            # and breaks C++20 atomic wait/notify link symbols.
+            shellHook = ''
+              export NIX_CFLAGS_LINK="-L${pkgs.lib.getLib pkgs.gcc16Stdenv.cc.cc}/lib ''${NIX_CFLAGS_LINK:-}"
+            '';
           }
         );
       in

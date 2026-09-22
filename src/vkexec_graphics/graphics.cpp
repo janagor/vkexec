@@ -110,9 +110,10 @@ namespace {
     depth_stencil.stencilTestEnable = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState blend_attachment{};
-    blend_attachment.colorWriteMask = static_cast<VkColorComponentFlags>(
-      static_cast<std::uint32_t>(VK_COLOR_COMPONENT_R_BIT) | static_cast<std::uint32_t>(VK_COLOR_COMPONENT_G_BIT)
-      | static_cast<std::uint32_t>(VK_COLOR_COMPONENT_B_BIT) | static_cast<std::uint32_t>(VK_COLOR_COMPONENT_A_BIT));
+    // NOLINTBEGIN(hicpp-signed-bitwise)
+    blend_attachment.colorWriteMask =
+      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    // NOLINTEND(hicpp-signed-bitwise)
     if (cfg.alpha_blend) {
       blend_attachment.blendEnable = VK_TRUE;
       blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -402,7 +403,10 @@ auto factory::graphics_pipeline(::vkexec::context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   std::span<storage_binding const> buffers) -> sender<::vkexec::graphics_pipeline>
-{ return factory::graphics_pipeline(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
+{
+  return factory::graphics_pipeline(
+    ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers);
+}
 
 auto graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
 { vkexec::record_draw(cmd, bind(), extent, vertex_count); }

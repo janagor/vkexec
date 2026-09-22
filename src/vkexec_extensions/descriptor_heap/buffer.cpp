@@ -19,7 +19,8 @@ namespace {
 
 }// namespace
 
-auto factory::descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size) -> sender<::vkexec::descriptor_heap_buffer>
+auto factory::descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size)
+  -> sender<::vkexec::descriptor_heap_buffer>
 {
   return make_sender<::vkexec::descriptor_heap_buffer>([&ctx, size]() -> result<::vkexec::descriptor_heap_buffer> {
     if (size == 0) { return fail(errc::invalid_argument, "descriptor_heap_buffer size must be > 0"); }

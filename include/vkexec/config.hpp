@@ -4,6 +4,14 @@
 #include <cassert>
 #include <cstdlib>
 
+// Clang-only attribute used to silence false positives in checked-take helpers.
+// GCC treats unknown scoped attributes as errors under -Werror=attributes.
+#ifdef __clang__
+#define VKEXEC_CLANG_SUPPRESS , clang::suppress
+#else
+#define VKEXEC_CLANG_SUPPRESS
+#endif
+
 namespace vkexec::detail {
 
 /**

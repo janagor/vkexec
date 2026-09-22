@@ -53,8 +53,8 @@ namespace {
   auto depth_aspect_mask(VkFormat format) -> VkImageAspectFlags
   {
     if (format_has_stencil(format)) {
-      return static_cast<VkImageAspectFlags>(static_cast<std::uint32_t>(VK_IMAGE_ASPECT_DEPTH_BIT)
-                                             | static_cast<std::uint32_t>(VK_IMAGE_ASPECT_STENCIL_BIT));
+      // NOLINTNEXTLINE(hicpp-signed-bitwise)
+      return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
     }
     return VK_IMAGE_ASPECT_DEPTH_BIT;
   }
@@ -91,7 +91,8 @@ auto factory::headless_presenter(presenter_config cfg) -> sender<::vkexec::prese
   return factory::presenter(std::move(cfg));
 }
 
-auto factory::headless_presenter() -> sender<::vkexec::presenter> { return factory::headless_presenter(presenter_config{}); }
+auto factory::headless_presenter() -> sender<::vkexec::presenter>
+{ return factory::headless_presenter(presenter_config{}); }
 
 presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
@@ -248,13 +249,12 @@ auto presenter::create_render_pass() -> status
     .pPreserveAttachments = nullptr,
   };
 
-  auto const attachment_stages =
-    static_cast<VkPipelineStageFlags>(static_cast<std::uint32_t>(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
-                                      | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
-                                      | static_cast<std::uint32_t>(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT));
-  auto const attachment_access =
-    static_cast<VkAccessFlags>(static_cast<std::uint32_t>(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-                               | static_cast<std::uint32_t>(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT));
+  // NOLINTBEGIN(hicpp-signed-bitwise)
+  auto const attachment_stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                                 | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+                                 | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+  auto const attachment_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+  // NOLINTEND(hicpp-signed-bitwise)
 
   VkSubpassDependency const dependency{
     .srcSubpass = VK_SUBPASS_EXTERNAL,

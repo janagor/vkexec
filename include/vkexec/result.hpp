@@ -4,6 +4,7 @@
 //! \file
 //! Public expected-style `result` / `status` and early-return helpers.
 
+#include <vkexec/config.hpp>
 #include <vkexec/error.hpp>
 
 #include <optional>
@@ -142,14 +143,15 @@ template<typename T> [[nodiscard]] inline auto fail(result<T> const &value) -> u
 { return unexpected(value.error()); }
 
 //! Moves the success value out of `value` (caller must check success).
-template<typename T> [[nodiscard, clang::suppress]] auto expected_take(result<T> &value) -> T
+template<typename T>[[nodiscard VKEXEC_CLANG_SUPPRESS]] auto expected_take(result<T> &value) -> T
 { return std::move(*value); }
 
 //! Copies the success value out of `value` (caller must check success).
-template<typename T> [[nodiscard, clang::suppress]] auto expected_take(result<T> const &value) -> T { return *value; }
+template<typename T>[[nodiscard VKEXEC_CLANG_SUPPRESS]] auto expected_take(result<T> const &value) -> T
+{ return *value; }
 
 //! Returns a reference to the success value (caller must check success).
-template<typename T> [[nodiscard, clang::suppress]] auto expected_get(result<T> &value) -> T & { return *value; }
+template<typename T>[[nodiscard VKEXEC_CLANG_SUPPRESS]] auto expected_get(result<T> &value) -> T & { return *value; }
 
 //! Returns a const reference to the success value (caller must check success).
 template<typename T> [[nodiscard]] auto expected_get(result<T> const &value) -> T const & { return *value; }

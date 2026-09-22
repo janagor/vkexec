@@ -10,7 +10,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
-#include <cstdint>
 #include <span>
 
 namespace vkexec {
@@ -31,8 +30,8 @@ namespace {
     }
     case gpu_buffer_memory::staging:
       // Upload and readback both need copy endpoints on the staging buffer.
-      return static_cast<VkBufferUsageFlags>(static_cast<std::uint32_t>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
-                                             | static_cast<std::uint32_t>(VK_BUFFER_USAGE_TRANSFER_DST_BIT));
+      // NOLINTNEXTLINE(hicpp-signed-bitwise)
+      return VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
     return fail(errc::invalid_argument, "unknown gpu_buffer_memory");
   }
@@ -105,11 +104,14 @@ auto factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) ->
       }
     }
 
-    return ::vkexec::gpu_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address };
+    return ::vkexec::gpu_buffer{
+      &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address
+    };
   });
 }
 
-auto factory::gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory) -> sender<::vkexec::gpu_buffer>
+auto factory::gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
+  -> sender<::vkexec::gpu_buffer>
 { return factory::gpu_buffer(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
 gpu_buffer::gpu_buffer(context *ctx,

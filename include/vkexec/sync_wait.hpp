@@ -109,7 +109,15 @@ namespace detail {
 
     auto operation = ex::connect(std::forward<CvSender>(sender), sync_wait_receiver_t<CvSender>{ &state, &values });
     ex::start(operation);
+#if defined(__GNUC__) && !defined(__clang__)
+    // GCC -Wnull-dereference false positive on inlined stdexec::run_loop task dispatch.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
     state.loop.run();
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
     sync_wait_outcome<sync_wait_value_tuple_t<CvSender>> outcome{};
     if (state.wait_error) {

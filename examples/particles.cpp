@@ -161,14 +161,10 @@ static auto run() -> int
     "particle_update.comp"));
 
   std::array<vkexec::storage_binding, 4> const compute_buffers{
-    vkexec::storage_binding{
-      .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)), .binding = 0 },
-    vkexec::storage_binding{
-      .buffer = pos_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_y.size() * sizeof(float)), .binding = 1 },
-    vkexec::storage_binding{
-      .buffer = vel_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_x.size() * sizeof(float)), .binding = 2 },
-    vkexec::storage_binding{
-      .buffer = vel_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(vel_y.size() * sizeof(float)), .binding = 3 },
+    vkexec::storage_binding{ .buffer = pos_x.vk_buffer(), .byte_size = pos_x.size() * sizeof(float), .binding = 0 },
+    vkexec::storage_binding{ .buffer = pos_y.vk_buffer(), .byte_size = pos_y.size() * sizeof(float), .binding = 1 },
+    vkexec::storage_binding{ .buffer = vel_x.vk_buffer(), .byte_size = vel_x.size() * sizeof(float), .binding = 2 },
+    vkexec::storage_binding{ .buffer = vel_y.vk_buffer(), .byte_size = vel_y.size() * sizeof(float), .binding = 3 },
   };
   auto compute_bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(compute_pipe, compute_buffers));
 
@@ -180,18 +176,12 @@ static auto run() -> int
   graphics_cfg.clear_b = k_clear_b;
 
   std::array<vkexec::storage_binding, 6> const draw_buffers{
-    vkexec::storage_binding{
-      .buffer = pos_x.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_x.size() * sizeof(float)), .binding = 0 },
-    vkexec::storage_binding{
-      .buffer = pos_y.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(pos_y.size() * sizeof(float)), .binding = 1 },
-    vkexec::storage_binding{
-      .buffer = col_r.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_r.size() * sizeof(float)), .binding = 2 },
-    vkexec::storage_binding{
-      .buffer = col_g.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_g.size() * sizeof(float)), .binding = 3 },
-    vkexec::storage_binding{
-      .buffer = col_b.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_b.size() * sizeof(float)), .binding = 4 },
-    vkexec::storage_binding{
-      .buffer = col_a.vk_buffer(), .byte_size = static_cast<VkDeviceSize>(col_a.size() * sizeof(float)), .binding = 5 },
+    vkexec::storage_binding{ .buffer = pos_x.vk_buffer(), .byte_size = pos_x.size() * sizeof(float), .binding = 0 },
+    vkexec::storage_binding{ .buffer = pos_y.vk_buffer(), .byte_size = pos_y.size() * sizeof(float), .binding = 1 },
+    vkexec::storage_binding{ .buffer = col_r.vk_buffer(), .byte_size = col_r.size() * sizeof(float), .binding = 2 },
+    vkexec::storage_binding{ .buffer = col_g.vk_buffer(), .byte_size = col_g.size() * sizeof(float), .binding = 3 },
+    vkexec::storage_binding{ .buffer = col_b.vk_buffer(), .byte_size = col_b.size() * sizeof(float), .binding = 4 },
+    vkexec::storage_binding{ .buffer = col_a.vk_buffer(), .byte_size = col_a.size() * sizeof(float), .binding = 5 },
   };
 
   auto gfx = vkexec::examples::sync_wait_value(vkexec::factory::graphics_pipeline(

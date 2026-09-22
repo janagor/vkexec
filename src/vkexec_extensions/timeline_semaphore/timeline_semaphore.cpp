@@ -39,7 +39,8 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
   return ::vkexec::timeline_semaphore{ &ctx, semaphore };
 }
 
-auto factory::timeline_semaphore(::vkexec::context &ctx, std::uint64_t initial_value) -> sender<::vkexec::timeline_semaphore>
+auto factory::timeline_semaphore(::vkexec::context &ctx, std::uint64_t initial_value)
+  -> sender<::vkexec::timeline_semaphore>
 {
   return make_sender<::vkexec::timeline_semaphore>([&ctx, initial_value]() -> result<::vkexec::timeline_semaphore> {
     return detail::make_timeline_semaphore(ctx, initial_value);
