@@ -45,7 +45,9 @@ struct swapchain_create_info
   VkSwapchainCreateFlagsKHR flags{ 0 };
 };
 
+namespace owned {
 class swapchain;
+}// namespace owned
 
 namespace factory {
 
@@ -58,7 +60,7 @@ namespace factory {
      * @param ctx Context with presentation queues enabled.
      * @param info Surface, extent, and present preferences.
      */
-    [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const -> sender<swapchain>;
+    [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const -> sender<owned::swapchain>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -74,6 +76,8 @@ namespace factory {
  *
  * @see presenter, acquire_present_frame, swapchain_create_info, factory::make_swapchain
  */
+namespace owned {
+
 class swapchain
 {
 public:
@@ -152,6 +156,8 @@ private:
   std::vector<VkImage> images_;
   std::vector<VkImageView> views_;
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

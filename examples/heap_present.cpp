@@ -299,7 +299,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
   return !outcome.failed() && outcome.values.has_value() && !outcome.stopped;
 }
 
-auto present_frames(vkexec::presenter &win, vkexec::graphics_pipeline &pipeline) -> void
+auto present_frames(vkexec::owned::presenter &win, vkexec::owned::graphics_pipeline &pipeline) -> void
 {
   for (std::uint32_t frame = 0; frame < k_present_frames; ++frame) {
     vkexec::examples::sync_wait_graph(
@@ -312,7 +312,7 @@ auto present_frames(vkexec::presenter &win, vkexec::graphics_pipeline &pipeline)
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::factory::make_headless_presenter(vkexec::presenter::config{
+  auto win = vkexec::examples::sync_wait_value(vkexec::factory::make_headless_presenter(vkexec::owned::presenter::config{
     .width = k_width,
     .height = k_height,
     .validation_layers = false,

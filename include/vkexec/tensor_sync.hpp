@@ -2,7 +2,7 @@
 #define VKEXEC_TENSOR_SYNC_HPP
 
 //! \file
-//! Pass-graph pipeables that upload/download staging-backed `tensor<T>` storage.
+//! Pass-graph pipeables that upload/download staging-backed `owned::tensor<T>` storage.
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/copy.hpp>
@@ -31,7 +31,7 @@ namespace vkexec {
  */
 template<typename T> struct sync_to_device_closure
 {
-  tensor<T> *target{ nullptr };
+  owned::tensor<T> *target{ nullptr };
 };
 
 /**
@@ -44,15 +44,15 @@ template<typename T> struct sync_to_device_closure
  */
 template<typename T> struct sync_to_host_closure
 {
-  tensor<T> *target{ nullptr };
+  owned::tensor<T> *target{ nullptr };
 };
 
 //! Builds a `sync_to_device` pipeable for `values`.
-template<typename T> [[nodiscard]] auto sync_to_device(tensor<T> &values) noexcept -> sync_to_device_closure<T>
+template<typename T> [[nodiscard]] auto sync_to_device(owned::tensor<T> &values) noexcept -> sync_to_device_closure<T>
 { return sync_to_device_closure<T>{ .target = &values }; }
 
 //! Builds a `sync_to_host` pipeable for `values`.
-template<typename T> [[nodiscard]] auto sync_to_host(tensor<T> &values) noexcept -> sync_to_host_closure<T>
+template<typename T> [[nodiscard]] auto sync_to_host(owned::tensor<T> &values) noexcept -> sync_to_host_closure<T>
 { return sync_to_host_closure<T>{ .target = &values }; }
 
 namespace detail {
@@ -113,7 +113,7 @@ namespace detail {
 
   template<typename T> [[nodiscard]] auto make_sync_to_host_step(sync_to_host_closure<T> closure) -> pass_step
   {
-    tensor<T> *const target = closure.target;
+    owned::tensor<T> *const target = closure.target;
     return pass_step{
       .record = [target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
         if (target == nullptr || target->size() == 0) {

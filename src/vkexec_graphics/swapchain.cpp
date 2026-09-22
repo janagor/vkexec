@@ -20,16 +20,16 @@
 namespace vkexec {
 
 auto factory::make_swapchain_t::operator()(::vkexec::context &ctx, swapchain_create_info info) const
-  -> sender<::vkexec::swapchain>
+  -> sender<::vkexec::owned::swapchain>
 {
-  return make_sender<::vkexec::swapchain>([&ctx, info]() -> result<::vkexec::swapchain> {
+  return make_sender<::vkexec::owned::swapchain>([&ctx, info]() -> result<::vkexec::owned::swapchain> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
     if (info.surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"); }
     if (ctx.present_queue() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "swapchain requires a present queue");
     }
 
-    ::vkexec::swapchain created;
+    ::vkexec::owned::swapchain created;
     created.ctx_ = &ctx;
     created.surface_ = info.surface;
     created.preferred_format_ = info.preferred_format;
@@ -43,9 +43,9 @@ auto factory::make_swapchain_t::operator()(::vkexec::context &ctx, swapchain_cre
   });
 }
 
-swapchain::~swapchain() { destroy(); }
+owned::swapchain::~swapchain() { destroy(); }
 
-swapchain::swapchain(swapchain &&other) noexcept
+owned::swapchain::swapchain(swapchain &&other) noexcept
   : ctx_(other.ctx_), surface_(other.surface_), preferred_format_(other.preferred_format_),
     preferred_color_space_(other.preferred_color_space_), present_mode_(other.present_mode_),
     create_flags_(other.create_flags_), swapchain_(other.swapchain_), format_(other.format_), extent_(other.extent_),
@@ -56,7 +56,7 @@ swapchain::swapchain(swapchain &&other) noexcept
   other.swapchain_ = {};
 }
 
-auto swapchain::operator=(swapchain &&other) noexcept -> swapchain &
+auto owned::swapchain::operator=(swapchain &&other) noexcept -> swapchain &
 {
   if (this == &other) { return *this; }
   destroy();
@@ -77,14 +77,14 @@ auto swapchain::operator=(swapchain &&other) noexcept -> swapchain &
   return *this;
 }
 
-auto swapchain::recreate(std::uint32_t width, std::uint32_t height) -> status
+auto owned::swapchain::recreate(std::uint32_t width, std::uint32_t height) -> status
 { return create_or_recreate(width, height); }
 
-auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t timeout)
+auto owned::swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t timeout)
   -> result<std::optional<std::uint32_t>>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "swapchain::acquire_next_image on empty swapchain");
+    return fail(errc::invalid_argument, "owned::swapchain::acquire_next_image on empty swapchain");
   }
 
   std::uint32_t image_index = 0;
@@ -95,12 +95,12 @@ auto swapchain::acquire_next_image(VkSemaphore image_available, std::uint64_t ti
   return image_index;
 }
 
-auto swapchain::present(std::uint32_t image_index,
+auto owned::swapchain::present(std::uint32_t image_index,
   std::span<VkSemaphore const> wait_semaphores,
   present_options options) -> result<bool>
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE) {
-    return fail(errc::invalid_argument, "swapchain::present on empty swapchain");
+    return fail(errc::invalid_argument, "owned::swapchain::present on empty swapchain");
   }
 
   VkPresentInfoKHR present_info{};
@@ -118,7 +118,7 @@ auto swapchain::present(std::uint32_t image_index,
   return true;
 }
 
-auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) -> status
+auto owned::swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) -> status
 {
   if (width == 0 || height == 0) { return fail(errc::invalid_argument, "swapchain extent must be > 0"); }
 
@@ -151,7 +151,7 @@ auto swapchain::create_or_recreate(std::uint32_t width, std::uint32_t height) ->
   return {};
 }
 
-auto swapchain::destroy_views() noexcept -> void
+auto owned::swapchain::destroy_views() noexcept -> void
 {
   if (ctx_ == nullptr || swapchain_.swapchain == VK_NULL_HANDLE || views_.empty()) {
     views_.clear();
@@ -161,7 +161,7 @@ auto swapchain::destroy_views() noexcept -> void
   views_.clear();
 }
 
-auto swapchain::destroy() noexcept -> void
+auto owned::swapchain::destroy() noexcept -> void
 {
   destroy_views();
   images_.clear();

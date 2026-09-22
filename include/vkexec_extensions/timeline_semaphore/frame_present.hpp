@@ -2,7 +2,7 @@
 #define VKEXEC_EXTENSIONS_TIMELINE_SEMAPHORE_FRAME_PRESENT_HPP
 
 //! \file
-//! Acquire / submit / present helpers using `frame_ring` + `swapchain`.
+//! Acquire / submit / present helpers using `owned::frame_ring` + `swapchain`.
 
 #include <vkexec/context.hpp>
 #include <vkexec/queue_submit.hpp>
@@ -54,8 +54,8 @@ struct present_acquire_result
  * @param acquire_wait_stage Pipeline stage for the acquire wait.
  * @return `ready` with frame data, `needs_recreate`, or an error.
  */
-[[nodiscard]] auto acquire_present_frame(frame_ring &ring,
-  swapchain &chain,
+[[nodiscard]] auto acquire_present_frame(owned::frame_ring &ring,
+  owned::swapchain &chain,
   std::size_t slot,
   VkPipelineStageFlags acquire_wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
   -> result<present_acquire_result>;
@@ -72,8 +72,8 @@ struct present_acquire_result
  * @return `false` when the swapchain must be recreated; `true` on success.
  */
 [[nodiscard]] auto submit_and_present(context &ctx,
-  frame_ring &ring,
-  swapchain &chain,
+  owned::frame_ring &ring,
+  owned::swapchain &chain,
   acquired_present_frame const &frame,
   std::span<VkCommandBuffer const> command_buffers,
   present_options options = {}) -> result<bool>;

@@ -61,16 +61,16 @@ namespace {
 
 }// namespace
 
-auto factory::make_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::presenter>
+auto factory::make_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::owned::presenter>
 {
-  return make_sender<::vkexec::presenter>([cfg = std::move(cfg)]() mutable -> result<::vkexec::presenter> {
-    ::vkexec::presenter created;
+  return make_sender<::vkexec::owned::presenter>([cfg = std::move(cfg)]() mutable -> result<::vkexec::owned::presenter> {
+    ::vkexec::owned::presenter created;
     if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
     return created;
   });
 }
 
-auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::presenter>
+auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::owned::presenter>
 {
   auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
@@ -91,10 +91,10 @@ auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const 
   return factory::make_presenter(std::move(cfg));
 }
 
-auto factory::make_headless_presenter_t::operator()() const -> sender<::vkexec::presenter>
+auto factory::make_headless_presenter_t::operator()() const -> sender<::vkexec::owned::presenter>
 { return factory::make_headless_presenter(presenter_config{}); }
 
-presenter::presenter(presenter &&other) noexcept
+owned::presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
     swapchain_(std::move(other.swapchain_)), depth_format_(other.depth_format_),
     framebuffers_(std::move(other.framebuffers_)), depth_image_(other.depth_image_),
@@ -111,7 +111,7 @@ presenter::presenter(presenter &&other) noexcept
   other.render_pass_ = VK_NULL_HANDLE;
 }
 
-auto presenter::operator=(presenter &&other) noexcept -> presenter &
+auto owned::presenter::operator=(presenter &&other) noexcept -> presenter &
 {
   if (this == &other) { return *this; }
   this->~presenter();
@@ -119,7 +119,7 @@ auto presenter::operator=(presenter &&other) noexcept -> presenter &
   return *this;
 }
 
-auto presenter::init(config cfg) -> status
+auto owned::presenter::init(config cfg) -> status
 {
   cfg_ = std::move(cfg);
   if (cfg_.width == 0 || cfg_.height == 0) {
@@ -146,7 +146,7 @@ auto presenter::init(config cfg) -> status
   return {};
 }
 
-presenter::~presenter()
+owned::presenter::~presenter()
 {
   if (ctx_ && ctx_->device() != VK_NULL_HANDLE) {
     vkDeviceWaitIdle(ctx_->device());
@@ -171,12 +171,12 @@ presenter::~presenter()
   ctx_.reset();
 }
 
-auto presenter::wait_idle() -> void
+auto owned::presenter::wait_idle() -> void
 {
   if (ctx_ && ctx_->device() != VK_NULL_HANDLE) { vkDeviceWaitIdle(ctx_->device()); }
 }
 
-auto presenter::create_swapchain() -> status
+auto owned::presenter::create_swapchain() -> status
 {
   if (!swapchain_.has_value()) {
     auto outcome = try_sync_wait(factory::make_swapchain(*ctx_,
@@ -194,7 +194,7 @@ auto presenter::create_swapchain() -> status
   return create_swapchain_sync();
 }
 
-auto presenter::create_render_pass() -> status
+auto owned::presenter::create_render_pass() -> status
 {
   if (depth_format_ == VK_FORMAT_UNDEFINED) {
     auto format = pick_depth_format(ctx_->physical_device());
@@ -286,7 +286,7 @@ auto presenter::create_render_pass() -> status
   return {};
 }
 
-auto presenter::create_depth_resources() -> status
+auto owned::presenter::create_depth_resources() -> status
 {
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   VkImageCreateInfo image_info{};
@@ -328,7 +328,7 @@ auto presenter::create_depth_resources() -> status
   return {};
 }
 
-auto presenter::destroy_depth_resources() noexcept -> void
+auto owned::presenter::destroy_depth_resources() noexcept -> void
 {
   if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) { return; }
   if (depth_view_ != VK_NULL_HANDLE) {
@@ -342,7 +342,7 @@ auto presenter::destroy_depth_resources() noexcept -> void
   }
 }
 
-auto presenter::create_framebuffers() -> status
+auto owned::presenter::create_framebuffers() -> status
 {
   if (!swapchain_) { return fail(errc::invalid_argument, "create_framebuffers requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
@@ -368,7 +368,7 @@ auto presenter::create_framebuffers() -> status
   return {};
 }
 
-auto presenter::create_frame_resources() -> status
+auto owned::presenter::create_frame_resources() -> status
 {
   frames_.resize(static_cast<std::size_t>(k_frames));
   command_buffers_.resize(static_cast<std::size_t>(k_frames));
@@ -397,7 +397,7 @@ auto presenter::create_frame_resources() -> status
   return {};
 }
 
-auto presenter::create_swapchain_sync() -> status
+auto owned::presenter::create_swapchain_sync() -> status
 {
   if (!swapchain_) { return fail(errc::invalid_argument, "create_swapchain_sync requires a swapchain"); }
   swapchain const &active_swapchain = *swapchain_;
@@ -418,7 +418,7 @@ auto presenter::create_swapchain_sync() -> status
   return {};
 }
 
-auto presenter::destroy_swapchain_sync() noexcept -> void
+auto owned::presenter::destroy_swapchain_sync() noexcept -> void
 {
   if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) {
     render_finished_.clear();
@@ -432,7 +432,7 @@ auto presenter::destroy_swapchain_sync() noexcept -> void
   images_in_flight_.clear();
 }
 
-auto presenter::cleanup_swapchain() -> void
+auto owned::presenter::cleanup_swapchain() -> void
 {
   destroy_swapchain_sync();
   for (VkFramebuffer framebuffer : framebuffers_) {
@@ -444,7 +444,7 @@ auto presenter::cleanup_swapchain() -> void
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto presenter::resize(std::uint32_t width, std::uint32_t height) -> status
+auto owned::presenter::resize(std::uint32_t width, std::uint32_t height) -> status
 {
   if (frame_open_) { return fail(errc::invalid_argument, "resize called while a frame is open"); }
   if (width == 0 || height == 0) {
@@ -457,7 +457,7 @@ auto presenter::resize(std::uint32_t width, std::uint32_t height) -> status
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto presenter::recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status
+auto owned::presenter::recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status
 {
   cfg_.width = width;
   cfg_.height = height;
@@ -481,7 +481,7 @@ auto presenter::recreate_swapchain(std::uint32_t width, std::uint32_t height) ->
   return {};
 }
 
-auto presenter::begin_frame() -> result<std::optional<frame>>
+auto owned::presenter::begin_frame() -> result<std::optional<frame>>
 {
   if (frame_open_) { return fail(errc::invalid_argument, "begin_frame called while a frame is already open"); }
   if (suspended_ || resize_required_) { return std::optional<frame>{}; }
@@ -531,7 +531,7 @@ auto presenter::begin_frame() -> result<std::optional<frame>>
   };
 }
 
-auto presenter::end_frame(frame const &drawn, present_options options) -> result<VkFence>
+auto owned::presenter::end_frame(frame const &drawn, present_options options) -> result<VkFence>
 {
   if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
   if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }

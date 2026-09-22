@@ -44,7 +44,9 @@ struct frame_ring_create_info
   std::size_t image_count{ 0 };
 };
 
+namespace owned {
 class frame_ring;
+}// namespace owned
 
 namespace factory {
 
@@ -57,7 +59,7 @@ namespace factory {
      * @param ctx Context that owns the device (timeline + binary semaphores).
      * @param info Slot count and initial image count.
      */
-    [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const -> sender<frame_ring>;
+    [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const -> sender<owned::frame_ring>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -82,6 +84,8 @@ namespace factory {
  *
  * @see timeline_semaphore, frame_present, factory::make_frame_ring
  */
+namespace owned {
+
 class frame_ring
 {
 public:
@@ -179,6 +183,8 @@ private:
   std::vector<std::uint64_t> slot_timeline_value_;
   std::vector<std::uint64_t> image_timeline_value_;
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

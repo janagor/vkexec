@@ -5,7 +5,7 @@
 //! Resources umbrella: owning RAII Vulkan helpers for greenfield apps.
 //!
 //! Prefer `<vkexec/execution.hpp>` for borrow-first dispatch. This header covers
-//! typed buffers, tensors, images, samplers, and owning `compute_pipeline`.
+//! `owned::` typed buffers, tensors, images, samplers, and pipelines.
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>

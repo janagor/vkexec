@@ -15,8 +15,8 @@
 
 namespace vkexec {
 
-auto acquire_present_frame(frame_ring &ring,
-  swapchain &chain,
+auto acquire_present_frame(owned::frame_ring &ring,
+  owned::swapchain &chain,
   std::size_t slot,
   VkPipelineStageFlags acquire_wait_stage) -> result<present_acquire_result>
 {
@@ -47,8 +47,8 @@ auto acquire_present_frame(frame_ring &ring,
 }
 
 auto submit_and_present(context &ctx,
-  frame_ring &ring,
-  swapchain &chain,
+  owned::frame_ring &ring,
+  owned::swapchain &chain,
   acquired_present_frame const &frame,
   std::span<VkCommandBuffer const> command_buffers,
   present_options options) -> result<bool>

@@ -39,7 +39,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
   return requirements;
 }
 
-auto record_swapchain_clear(vkexec::swapchain const &chain,
+auto record_swapchain_clear(vkexec::owned::swapchain const &chain,
   VkCommandBuffer cmd,
   vkexec::frame const &frame,
   float phase) -> vkexec::status
@@ -116,7 +116,7 @@ auto run() -> int
     if (!frame_result->has_value()) { continue; }
 
     vkexec::frame const frame = **frame_result;
-    vkexec::swapchain const *const chain = win.borrowed_swapchain();
+    vkexec::owned::swapchain const *const chain = win.borrowed_swapchain();
     if (chain == nullptr) { vkexec::examples::fail_check("window has no swapchain"); }
 
     if (auto recorded = record_swapchain_clear(*chain, frame.command_buffer, frame, phase); !recorded) {

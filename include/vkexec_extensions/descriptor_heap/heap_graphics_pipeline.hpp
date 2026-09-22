@@ -83,7 +83,9 @@ struct heap_graphics_layout_desc
 auto destroy(descriptor_heap_t strategy, context const &ctx, handles::graphics_pipeline &resources) noexcept
   -> void;
 
+namespace owned {
 class descriptor_graphics_pipeline;
+}// namespace owned
 
 namespace factory {
 
@@ -101,7 +103,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx,
       std::span<std::uint32_t const> vertex_spirv,
       std::span<std::uint32_t const> fragment_spirv,
-      heap_graphics_layout_desc const &desc) const -> sender<descriptor_graphics_pipeline>;
+      heap_graphics_layout_desc const &desc) const -> sender<owned::descriptor_graphics_pipeline>;
 
     /**
      * Compiles GLSL then creates a heap graphics pipeline.
@@ -114,7 +116,7 @@ namespace factory {
       std::string_view fragment_glsl,
       heap_graphics_layout_desc const &desc,
       std::string_view vertex_name = "heap.vert",
-      std::string_view fragment_name = "heap.frag") const -> sender<descriptor_graphics_pipeline>;
+      std::string_view fragment_name = "heap.frag") const -> sender<owned::descriptor_graphics_pipeline>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -130,6 +132,8 @@ namespace factory {
  *
  * @see create, heap_graphics_layout_desc, factory::make_descriptor_graphics_pipeline
  */
+namespace owned {
+
 class descriptor_graphics_pipeline
 {
 public:
@@ -175,12 +179,14 @@ private:
   std::unique_ptr<handles::graphics_pipeline> resources_;
 };
 
+}// namespace owned
+
 //! Owning factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>;
+  heap_graphics_layout_desc const &desc) -> sender<owned::descriptor_graphics_pipeline>;
 
 //! Owning GLSL factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
@@ -189,7 +195,7 @@ private:
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name = "heap.vert",
-  std::string_view fragment_name = "heap.frag") -> sender<descriptor_graphics_pipeline>;
+  std::string_view fragment_name = "heap.frag") -> sender<owned::descriptor_graphics_pipeline>;
 
 }// namespace vkexec
 

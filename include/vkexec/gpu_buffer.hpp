@@ -47,7 +47,9 @@ struct gpu_buffer_create_info
   bool shader_device_address{ false };
 };
 
+namespace owned {
 class gpu_buffer;
+}// namespace owned
 
 namespace factory {
 
@@ -62,9 +64,9 @@ namespace factory {
      * @return Sender that completes with ownership of the buffer.
      */
     //! Creates a buffer of `size` bytes with the given memory preset.
-    [[nodiscard]] auto operator()(context &ctx, gpu_buffer_create_info info) const -> sender<gpu_buffer>;
+    [[nodiscard]] auto operator()(context &ctx, gpu_buffer_create_info info) const -> sender<owned::gpu_buffer>;
     [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) const
-      -> sender<gpu_buffer>;
+      -> sender<owned::gpu_buffer>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -80,6 +82,8 @@ namespace factory {
  *
  * @see buffer, factory::make_gpu_buffer, upload_to_device
  */
+namespace owned {
+
 class gpu_buffer
 {
 public:
@@ -133,6 +137,8 @@ private:
   gpu_buffer_memory memory_{ gpu_buffer_memory::host_visible };
   bool shader_device_address_{ false };
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

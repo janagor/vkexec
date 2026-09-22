@@ -41,6 +41,8 @@ namespace vkexec {
  *
  * @see factory::make_tensor, gpu_buffer, storage_binding, upload_to_device, download_to_host
  */
+namespace owned {
+
 template<typename T>
   requires std::is_trivially_copyable_v<T>
 class tensor
@@ -73,14 +75,14 @@ public:
   [[nodiscard]] auto span() const noexcept -> std::span<T const> { return { data(), size() }; }
 
   //! Host-visible staging buffer used for transfers.
-  [[nodiscard]] auto staging() noexcept -> gpu_buffer & { return gpu_->staging; }
+  [[nodiscard]] auto staging() noexcept -> owned::gpu_buffer & { return gpu_->staging; }
   //! Const staging buffer.
-  [[nodiscard]] auto staging() const noexcept -> gpu_buffer const & { return gpu_->staging; }
+  [[nodiscard]] auto staging() const noexcept -> owned::gpu_buffer const & { return gpu_->staging; }
 
   //! Device-local storage buffer bound by shaders.
-  [[nodiscard]] auto device() noexcept -> gpu_buffer & { return gpu_->device; }
+  [[nodiscard]] auto device() noexcept -> owned::gpu_buffer & { return gpu_->device; }
   //! Const device-local storage buffer.
-  [[nodiscard]] auto device() const noexcept -> gpu_buffer const & { return gpu_->device; }
+  [[nodiscard]] auto device() const noexcept -> owned::gpu_buffer const & { return gpu_->device; }
 
   /**
    * Builds a classic storage descriptor binding for the device buffer.
@@ -118,8 +120,8 @@ public:
 private:
   struct gpu_storage
   {
-    gpu_buffer staging;
-    gpu_buffer device;
+    owned::gpu_buffer staging;
+    owned::gpu_buffer device;
   };
 
   explicit tensor(std::vector<T> host, std::unique_ptr<gpu_storage> gpu) noexcept
@@ -153,6 +155,8 @@ template<typename T>
   return tensor{ std::move(host), std::move(gpu) };
 }
 
+}// namespace owned
+
 namespace factory {
 
   struct make_tensor_t
@@ -167,11 +171,11 @@ namespace factory {
      */
     template<typename T>
       requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] auto operator()(context &ctx, std::size_t count, T fill) const -> sender<tensor<T>>
+    [[nodiscard]] auto operator()(context &ctx, std::size_t count, T fill) const -> sender<owned::tensor<T>>
     {
-      return make_sender<tensor<T>>([&ctx, count, fill]() -> result<tensor<T>> {
+      return make_sender<owned::tensor<T>>([&ctx, count, fill]() -> result<owned::tensor<T>> {
         if (count == 0) { return fail(errc::invalid_argument, "vkexec::tensor count must be > 0"); }
-        return tensor<T>::make_allocated(ctx, std::vector<T>(count, fill));
+        return owned::tensor<T>::make_allocated(ctx, std::vector<T>(count, fill));
       });
     }
 
@@ -183,22 +187,22 @@ namespace factory {
      */
     template<typename T>
       requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] auto operator()(context &ctx, std::span<T const> values) const -> sender<tensor<T>>
+    [[nodiscard]] auto operator()(context &ctx, std::span<T const> values) const -> sender<owned::tensor<T>>
     {
-      return make_sender<tensor<T>>([&ctx, values]() -> result<tensor<T>> {
+      return make_sender<owned::tensor<T>>([&ctx, values]() -> result<owned::tensor<T>> {
         if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor span must be non-empty"); }
-        return tensor<T>::make_allocated(ctx, std::vector<T>(values.begin(), values.end()));
+        return owned::tensor<T>::make_allocated(ctx, std::vector<T>(values.begin(), values.end()));
       });
     }
 
     //! Convenience overload that copies from a `std::vector`.
     template<typename T>
       requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] auto operator()(context &ctx, std::vector<T> values) const -> sender<tensor<T>>
+    [[nodiscard]] auto operator()(context &ctx, std::vector<T> values) const -> sender<owned::tensor<T>>
     {
-      return make_sender<tensor<T>>([&ctx, values = std::move(values)]() mutable -> result<tensor<T>> {
+      return make_sender<owned::tensor<T>>([&ctx, values = std::move(values)]() mutable -> result<owned::tensor<T>> {
         if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
-        return tensor<T>::make_allocated(ctx, std::move(values));
+        return owned::tensor<T>::make_allocated(ctx, std::move(values));
       });
     }
   };

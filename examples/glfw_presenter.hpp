@@ -65,7 +65,7 @@ public:
     }
 
     GLFWwindow *const native_window = created.window_;
-    created.presenter_ = std::make_unique<presenter>(sync_wait_value(factory::make_presenter({
+    created.presenter_ = std::make_unique<owned::presenter>(sync_wait_value(factory::make_presenter({
       .width = cfg.width,
       .height = cfg.height,
       .validation_layers = cfg.validation_layers,
@@ -125,11 +125,11 @@ public:
     resized_ = false;
   }
 
-  [[nodiscard]] auto target() noexcept -> presenter & { return *presenter_; }
-  [[nodiscard]] auto target() const noexcept -> presenter const & { return *presenter_; }
+  [[nodiscard]] auto target() noexcept -> owned::presenter & { return *presenter_; }
+  [[nodiscard]] auto target() const noexcept -> owned::presenter const & { return *presenter_; }
   [[nodiscard]] auto ctx() noexcept -> context & { return target().ctx(); }
   [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return target().render_pass(); }
-  [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const * { return target().borrowed_swapchain(); }
+  [[nodiscard]] auto borrowed_swapchain() const noexcept -> owned::swapchain const * { return target().borrowed_swapchain(); }
   [[nodiscard]] auto begin_frame() -> result<std::optional<frame>> { return target().begin_frame(); }
   [[nodiscard]] auto end_frame(frame const &drawn) -> result<VkFence> { return target().end_frame(drawn); }
   auto wait_idle() -> void { target().wait_idle(); }
@@ -148,7 +148,7 @@ private:
   }
 
   GLFWwindow *window_{ nullptr };
-  std::unique_ptr<presenter> presenter_;
+  std::unique_ptr<owned::presenter> presenter_;
   bool resized_{ false };
 };
 

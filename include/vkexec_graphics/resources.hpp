@@ -2,7 +2,8 @@
 #define VKEXEC_GRAPHICS_RESOURCES_HPP
 
 //! \file
-//! Resources umbrella: owning presenter, graphics pipeline, and mesh helpers.
+//! Resources umbrella: `owned::presenter`, `owned::graphics_pipeline`, and
+//! `owned::mesh` helpers.
 //!
 //! Prefer `<vkexec_graphics/execution.hpp>` for borrow-first draw recording.
 

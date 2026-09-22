@@ -13,7 +13,7 @@
 namespace vkexec {
 
 //! Backend-neutral owning compute algorithm.
-using algorithm = compute_pipeline;
+using algorithm = owned::compute_pipeline;
 
 template<typename Params>
 [[nodiscard]] auto

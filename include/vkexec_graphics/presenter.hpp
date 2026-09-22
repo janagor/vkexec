@@ -54,7 +54,9 @@ struct presenter_config
   vulkan_requirements requirements{};
 };
 
+namespace owned {
 class presenter;
+}// namespace owned
 
 namespace factory {
 
@@ -66,7 +68,7 @@ namespace factory {
      *
      * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
      */
-    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<presenter>;
+    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<owned::presenter>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -79,9 +81,9 @@ namespace factory {
    */
   struct make_headless_presenter_t
   {
-    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<presenter>;
+    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<owned::presenter>;
     //! Headless presenter with default config.
-    [[nodiscard]] auto operator()() const -> sender<presenter>;
+    [[nodiscard]] auto operator()() const -> sender<owned::presenter>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -97,6 +99,8 @@ namespace factory {
  *
  * @see graphics_pipeline, draw, swapchain, factory::make_presenter, factory::make_headless_presenter
  */
+namespace owned {
+
 class presenter
 {
 public:
@@ -203,6 +207,8 @@ private:
   bool suspended_{ false };
   bool frame_open_{ false };
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

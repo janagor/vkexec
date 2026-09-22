@@ -29,6 +29,11 @@
 
 namespace vkexec {
 
+namespace owned {
+template<typename T> class buffer;
+class presenter;
+}// namespace owned
+
 class scheduler;
 class window;
 
@@ -295,8 +300,8 @@ public:
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:
-  friend class presenter;
-  template<typename T> friend class buffer;
+  friend class owned::presenter;
+  template<typename T> friend class owned::buffer;
   // MSVC misparses trailing-return friend decls named like the enclosing class.
   friend struct factory::make_context_t;
   friend struct factory::adopt_context_t;
@@ -318,7 +323,7 @@ private:
     factory_access() = default;
     friend struct factory::make_context_t;
     friend struct factory::adopt_context_t;
-    friend class presenter;
+    friend class owned::presenter;
   };
 
 public:

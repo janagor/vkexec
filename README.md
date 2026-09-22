@@ -10,7 +10,7 @@
 
 **Execution** — schedule work on a device; record with `compute_bind` / `handles::compute_pipeline`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
-**Resources** — owning `buffer`, typed `tensor<T>`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
+**Resources** — owning `owned::buffer`, typed `owned::tensor<T>`, `owned::compute_pipeline`, images, and samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
 
 The same execution / resources split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
 
@@ -30,7 +30,7 @@ The context outlives every `owned::` or `handles::` object created against it. T
 | Header | Role |
 |--------|------|
 | `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `handles::compute_pipeline`, free functions |
-| `<vkexec/resources.hpp>` | Owning buffers, `tensor<T>`, images, samplers, `compute_pipeline` |
+| `<vkexec/resources.hpp>` | `owned::` buffers, tensors, images, samplers, and pipelines |
 | `<vkexec/vkexec.hpp>` | Full core umbrella (execution + resources) |
 
 `factory::adopt_context` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
@@ -97,7 +97,7 @@ int main() {
 
 ### Greenfield owning factories
 
-For apps that want move-only RAII instead of bare `handles::compute_pipeline` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
+For apps that want move-only RAII instead of bare `handles::compute_pipeline`, use `owned::compute_pipeline` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
 
 ```cpp
 auto pipe = vkexec::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx,
@@ -226,14 +226,14 @@ Common entry points:
 | `create` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
 | `create(descriptor_heap, …)` / `bind_compute` / `destroy` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
 | `create(descriptor_heap, …)` / `bind_compute` / `destroy(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
-| `factory::make_buffer` | sender -> `set_value(buffer<T>)` |
-| `factory::make_compute_pipeline` | sender -> `set_value(compute_pipeline)` |
+| `factory::make_buffer` | sender -> `set_value(owned::buffer<T>)` |
+| `factory::make_compute_pipeline` | sender -> `set_value(owned::compute_pipeline)` |
 | `bind_storage_sender` | sender -> `set_value(bound_compute_pipeline)` |
-| `factory::make_presenter` / `factory::make_headless_presenter` | sender -> `set_value(presenter)` (owning Vulkan present helper) |
+| `factory::make_presenter` / `factory::make_headless_presenter` | sender -> `set_value(owned::presenter)` (owning Vulkan present helper) |
 | `create` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
 | `create` / `destroy` | Borrowable vertex/index handle bag |
-| `factory::make_graphics_pipeline` | sender -> `set_value(graphics_pipeline)` (thin owning wrapper) |
-| `factory::make_mesh` | sender -> `set_value(mesh)` (thin owning wrapper) |
+| `factory::make_graphics_pipeline` | sender -> `set_value(owned::graphics_pipeline)` (thin owning wrapper) |
+| `factory::make_mesh` | sender -> `set_value(owned::mesh)` (thin owning wrapper) |
 | `factory::make_gpu_buffer`, `factory::make_image`, … | sender -> `set_value(...)` |
 | `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
@@ -349,7 +349,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 
 **Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), tagged `create` / `create`, `bind_compute`, tagged graphics destroy, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_pass`, `record_draw` / `record_draw_indirect`, `cmd_begin_rendering`, etc.
 
-**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, tagged `factory::make_compute_pipeline` / `factory::make_graphics_pipeline`, `compute_pass`, and rendering helpers built on top of the free functions.
+**Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `owned::timeline_semaphore`, `owned::frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, tagged `factory::make_compute_pipeline` / `factory::make_graphics_pipeline`, `compute_pass`, and rendering helpers built on top of the free functions.
 
 **Timeline sync:** enable with `feat::configure<feat::timeline_semaphore>` (or `configure_vulkan_12`), link `vkexec::ext_timeline_semaphore`, then create semaphores, a present frame ring, or timeline-based acquire/present:
 
@@ -460,10 +460,10 @@ cmake --build out/build/unixlike-clang-release -j12
 | Header | Role |
 |--------|------|
 | `<vkexec_graphics/execution.hpp>` | `handles::graphics_pipeline`, `handles::mesh`, bind/record/draw free functions, swapchain (borrow surface) |
-| `<vkexec_graphics/resources.hpp>` | Owning `presenter`, `graphics_pipeline`, `mesh` |
+| `<vkexec_graphics/resources.hpp>` | Owning `owned::presenter`, `owned::graphics_pipeline`, `owned::mesh` |
 | `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (execution + resources) |
 
-`presenter` owns its Vulkan context, surface, swapchain, and frame resources without owning a native window or event loop. `swapchain` borrows an embedder-owned context and surface. Pipeline create/bind/record is borrowable; `graphics_pipeline` / `mesh` are thin RAII wrappers.
+`owned::presenter` owns its Vulkan context, surface, swapchain, and frame resources without owning a native window or event loop. `owned::swapchain` borrows an embedder-owned context and surface. Pipeline create/bind/record is borrowable; `owned::graphics_pipeline` / `owned::mesh` are thin RAII wrappers.
 
 ### User-owned window and surface factory
 
@@ -510,7 +510,7 @@ Same triangle present path without an owning `graphics_pipeline`. Prefer `#inclu
 ```cpp
 #include <vkexec_graphics/execution.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
-// `present` is a vkexec::presenter created from the application's WSI callback.
+// `present` is an owned::presenter created from the application's WSI callback.
 
 auto resources = vkexec::expected_take(vkexec::create(
   present.ctx(), present.render_pass(), {}, vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
@@ -548,7 +548,7 @@ vkexec::free_graphics_set(ctx, resources, bound.set);
 vkexec::destroy(ctx, resources);
 ```
 
-Mesh draws take a `mesh_draw` / `handles::mesh` handle bag the same way — owning `mesh` is optional.
+Mesh draws take a `mesh_draw` / `handles::mesh` handle bag the same way — owning `owned::mesh` is optional.
 
 
 ## More Details

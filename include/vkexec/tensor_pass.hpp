@@ -19,7 +19,7 @@ namespace vkexec {
 template<typename... T> struct tensor_pass_closure
 {
   prebuilt_compute_pass_closure compute;
-  std::tuple<tensor<T> *...> tensors;
+  std::tuple<owned::tensor<T> *...> tensors{};
 };
 
 namespace detail {
@@ -40,7 +40,7 @@ namespace detail {
 struct tensor_pass_t
 {
   template<typename... T>
-  [[nodiscard]] auto operator()(prebuilt_compute_pass_closure const &compute, tensor<T> &...values) const
+  [[nodiscard]] auto operator()(prebuilt_compute_pass_closure const &compute, owned::tensor<T> &...values) const
     -> tensor_pass_closure<T...>
   {
     static_assert(sizeof...(T) > 0, "tensor_pass requires at least one tensor");
@@ -48,7 +48,7 @@ struct tensor_pass_t
   }
 
   template<typename Params, typename... T>
-  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, dispatch groups, tensor<T> &...values) const
+  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, dispatch groups, owned::tensor<T> &...values) const
     -> tensor_pass_closure<T...>
   { return (*this)(compute_pass(bind, params, groups), values...); }
 
@@ -57,7 +57,7 @@ struct tensor_pass_t
     VkDescriptorSet set,
     Params const &params,
     std::uint32_t work_count,
-    tensor<T> &...values) const -> tensor_pass_closure<T...>
+    owned::tensor<T> &...values) const -> tensor_pass_closure<T...>
   { return (*this)(compute_pass(pipe, set, params, work_count), values...); }
 };
 

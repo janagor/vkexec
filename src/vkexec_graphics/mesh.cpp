@@ -106,7 +106,7 @@ auto create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::
   return owned;
 }
 
-auto mesh::reset() noexcept -> void
+auto owned::mesh::reset() noexcept -> void
 {
   if (ctx_ != nullptr) { destroy(*ctx_, buffers_); }
   ctx_ = nullptr;
@@ -114,11 +114,11 @@ auto mesh::reset() noexcept -> void
 
 auto factory::make_mesh_t::operator()(::vkexec::context &ctx,
   std::span<mesh_vertex const> vertices,
-  std::span<std::uint32_t const> indices) const -> sender<::vkexec::mesh>
+  std::span<std::uint32_t const> indices) const -> sender<::vkexec::owned::mesh>
 {
-  return make_sender<::vkexec::mesh>([&ctx, vertices, indices]() -> result<::vkexec::mesh> {
+  return make_sender<::vkexec::owned::mesh>([&ctx, vertices, indices]() -> result<::vkexec::owned::mesh> {
     VKEXEC_TRY_ASSIGN(owned, create(ctx, vertices, indices));
-    return ::vkexec::mesh{ &ctx, owned };
+    return ::vkexec::owned::mesh{ &ctx, owned };
   });
 }
 

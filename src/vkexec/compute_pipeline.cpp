@@ -106,7 +106,7 @@ auto free_compute_set(context const &ctx, handles::compute_pipeline const &pipe,
   vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
 }
 
-auto compute_pipeline::reset() noexcept -> void
+auto owned::compute_pipeline::reset() noexcept -> void
 {
   if (ctx_ != nullptr && resources_ != nullptr) { destroy(*ctx_, *resources_); }
   resources_.reset();
@@ -115,30 +115,30 @@ auto compute_pipeline::reset() noexcept -> void
 
 auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
   std::span<std::uint32_t const> spirv,
-  layout_desc const &desc) const -> sender<::vkexec::compute_pipeline>
+  layout_desc const &desc) const -> sender<::vkexec::owned::compute_pipeline>
 {
-  return make_sender<::vkexec::compute_pipeline>([&ctx, spirv, desc]() -> result<::vkexec::compute_pipeline> {
+  return make_sender<::vkexec::owned::compute_pipeline>([&ctx, spirv, desc]() -> result<::vkexec::owned::compute_pipeline> {
     VKEXEC_TRY_ASSIGN(owned, create(ctx, spirv, desc));
-    return ::vkexec::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
+    return ::vkexec::owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
   });
 }
 
-auto compute_pipeline::allocate_set_sender() const -> sender<VkDescriptorSet>
+auto owned::compute_pipeline::allocate_set_sender() const -> sender<VkDescriptorSet>
 {
   return make_sender<VkDescriptorSet>([this]() -> result<VkDescriptorSet> { return allocate_set(); });
 }
 
-auto compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
+auto owned::compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
   -> void_sender
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
   return make_void_sender([this, set, owned = std::move(owned)]() -> status { return update_set(set, owned); });
 }
 
-auto compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
+auto owned::compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
 { return vkexec::allocate_compute_set(*ctx_, *resources_); }
 
-auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status
+auto owned::compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status
 {
   if (buffers.size() != resources_->binding_count) {
     return fail(errc::invalid_argument, "update_set buffer count must match layout_desc.bindings");
@@ -147,7 +147,7 @@ auto compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_binding
   return {};
 }
 
-auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding const> buffers)
+auto bind_storage_sender(owned::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
   -> sender<bound_compute_pipeline>
 {
   std::vector<storage_binding> owned(buffers.begin(), buffers.end());
@@ -159,7 +159,7 @@ auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding
     });
 }
 
-auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
+auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
   -> prebuilt_compute_pass_closure
 { return compute_pass(pipe.bind(set), pipe.groups_for(work_count)); }
 

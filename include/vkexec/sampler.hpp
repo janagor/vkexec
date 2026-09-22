@@ -21,7 +21,9 @@ struct sampler_create_info
   float max_anisotropy{ 1.0F };
 };
 
+namespace owned {
 class sampler;
+}// namespace owned
 
 namespace factory {
 
@@ -34,7 +36,7 @@ namespace factory {
      * @param ctx Context that owns the device.
      * @param info Filter and addressing parameters.
      */
-    [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const -> sender<sampler>;
+    [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const -> sender<owned::sampler>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -47,6 +49,8 @@ namespace factory {
  *
  * @see factory::make_sampler, sampler_create_info
  */
+namespace owned {
+
 class sampler
 {
 public:
@@ -70,6 +74,8 @@ private:
   context *ctx_{ nullptr };
   VkSampler sampler_{ VK_NULL_HANDLE };
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

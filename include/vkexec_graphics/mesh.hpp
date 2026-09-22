@@ -69,7 +69,9 @@ auto destroy(context const &ctx, handles::mesh &buffers) noexcept -> void;
   };
 }
 
+namespace owned {
 class mesh;
+}// namespace owned
 
 namespace factory {
 
@@ -85,7 +87,7 @@ namespace factory {
      */
     [[nodiscard]] auto operator()(context &ctx,
       std::span<mesh_vertex const> vertices,
-      std::span<std::uint32_t const> indices) const -> sender<mesh>;
+      std::span<std::uint32_t const> indices) const -> sender<owned::mesh>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -98,6 +100,8 @@ namespace factory {
  *
  * @see create, graphics_pipeline, draw, factory::make_mesh
  */
+namespace owned {
+
 class mesh
 {
 public:
@@ -140,6 +144,8 @@ private:
   context *ctx_{ nullptr };
   handles::mesh buffers_{};
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

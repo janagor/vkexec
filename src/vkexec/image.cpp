@@ -41,9 +41,9 @@ namespace {
 
 }// namespace
 
-auto factory::make_image_t::operator()(::vkexec::context &ctx, image_create_info info) const -> sender<::vkexec::image>
+auto factory::make_image_t::operator()(::vkexec::context &ctx, image_create_info info) const -> sender<::vkexec::owned::image>
 {
-  return make_sender<::vkexec::image>([&ctx, info]() -> result<::vkexec::image> {
+  return make_sender<::vkexec::owned::image>([&ctx, info]() -> result<::vkexec::owned::image> {
     if (info.width == 0 || info.height == 0) {
       return fail(errc::invalid_argument, "vkexec::image extent must be > 0");
     }
@@ -77,13 +77,13 @@ auto factory::make_image_t::operator()(::vkexec::context &ctx, image_create_info
       vmaCreateImage(ctx.allocator(), &image_info, &alloc_info, &image_handle, &allocation, nullptr);
     if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateImage failed"); }
 
-    return ::vkexec::image{
+    return ::vkexec::owned::image{
       &ctx, image_handle, allocation, vk_format, VkExtent2D{ .width = info.width, .height = info.height }, info.usage
     };
   });
 }
 
-image::image(context *ctx,
+owned::image::image(context *ctx,
   VkImage image_handle,
   VmaAllocation allocation,
   VkFormat format,
@@ -92,9 +92,9 @@ image::image(context *ctx,
   : ctx_(ctx), image_(image_handle), allocation_(allocation), format_(format), extent_(extent), usage_(usage)
 {}
 
-image::~image() { destroy(); }
+owned::image::~image() { destroy(); }
 
-image::image(image &&other) noexcept
+owned::image::image(image &&other) noexcept
   : ctx_(other.ctx_), image_(other.image_), allocation_(other.allocation_), format_(other.format_),
     extent_(other.extent_), usage_(other.usage_)
 {
@@ -103,7 +103,7 @@ image::image(image &&other) noexcept
   other.allocation_ = VK_NULL_HANDLE;
 }
 
-auto image::operator=(image &&other) noexcept -> image &
+auto owned::image::operator=(image &&other) noexcept -> image &
 {
   if (this == &other) { return *this; }
   destroy();
@@ -119,7 +119,7 @@ auto image::operator=(image &&other) noexcept -> image &
   return *this;
 }
 
-auto image::destroy() noexcept -> void
+auto owned::image::destroy() noexcept -> void
 {
   if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && image_ != VK_NULL_HANDLE) {
     vmaDestroyImage(ctx_->allocator(), image_, allocation_);

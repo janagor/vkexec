@@ -17,7 +17,7 @@
 
 namespace vkexec {
 
-auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<::vkexec::timeline_semaphore>
+auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<::vkexec::owned::timeline_semaphore>
 {
   if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "timeline_semaphore requires a VkDevice"); }
   if (!feat::available<feat::timeline_semaphore>(ctx)) {
@@ -36,30 +36,30 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
   VkSemaphore semaphore{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateSemaphore(ctx.device(), &info, nullptr, &semaphore);
   if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSemaphore (timeline) failed"); }
-  return ::vkexec::timeline_semaphore{ &ctx, semaphore };
+  return ::vkexec::owned::timeline_semaphore{ &ctx, semaphore };
 }
 
 auto factory::make_timeline_semaphore_t::operator()(::vkexec::context &ctx, std::uint64_t initial_value) const
-  -> sender<::vkexec::timeline_semaphore>
+  -> sender<::vkexec::owned::timeline_semaphore>
 {
-  return make_sender<::vkexec::timeline_semaphore>([&ctx, initial_value]() -> result<::vkexec::timeline_semaphore> {
+  return make_sender<::vkexec::owned::timeline_semaphore>([&ctx, initial_value]() -> result<::vkexec::owned::timeline_semaphore> {
     return detail::make_timeline_semaphore(ctx, initial_value);
   });
 }
 
-timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept : ctx_(ctx), semaphore_(semaphore)
+owned::timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept : ctx_(ctx), semaphore_(semaphore)
 {}
 
-timeline_semaphore::~timeline_semaphore() { destroy(); }
+owned::timeline_semaphore::~timeline_semaphore() { destroy(); }
 
-timeline_semaphore::timeline_semaphore(timeline_semaphore &&other) noexcept
+owned::timeline_semaphore::timeline_semaphore(timeline_semaphore &&other) noexcept
   : ctx_(other.ctx_), semaphore_(other.semaphore_)
 {
   other.ctx_ = nullptr;
   other.semaphore_ = VK_NULL_HANDLE;
 }
 
-auto timeline_semaphore::operator=(timeline_semaphore &&other) noexcept -> timeline_semaphore &
+auto owned::timeline_semaphore::operator=(timeline_semaphore &&other) noexcept -> timeline_semaphore &
 {
   if (this == &other) { return *this; }
   destroy();
@@ -70,10 +70,10 @@ auto timeline_semaphore::operator=(timeline_semaphore &&other) noexcept -> timel
   return *this;
 }
 
-auto timeline_semaphore::wait(std::uint64_t value) const -> status
+auto owned::timeline_semaphore::wait(std::uint64_t value) const -> status
 {
   if (value == 0 || semaphore_ == VK_NULL_HANDLE) { return {}; }
-  if (ctx_ == nullptr) { return fail(errc::invalid_argument, "timeline_semaphore::wait requires a live context"); }
+  if (ctx_ == nullptr) { return fail(errc::invalid_argument, "owned::timeline_semaphore::wait requires a live context"); }
 
   std::array<VkSemaphore, 1> const semaphores{ semaphore_ };
   std::array<std::uint64_t, 1> const values{ value };
@@ -89,7 +89,7 @@ auto timeline_semaphore::wait(std::uint64_t value) const -> status
   return {};
 }
 
-auto timeline_semaphore::destroy() noexcept -> void
+auto owned::timeline_semaphore::destroy() noexcept -> void
 {
   if (ctx_ != nullptr && ctx_->device() != VK_NULL_HANDLE && semaphore_ != VK_NULL_HANDLE) {
     vkDestroySemaphore(ctx_->device(), semaphore_, nullptr);

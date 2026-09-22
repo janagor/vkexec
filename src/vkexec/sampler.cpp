@@ -11,9 +11,9 @@
 namespace vkexec {
 
 auto factory::make_sampler_t::operator()(::vkexec::context &ctx, sampler_create_info info) const
-  -> sender<::vkexec::sampler>
+  -> sender<::vkexec::owned::sampler>
 {
-  return make_sender<::vkexec::sampler>([&ctx, info]() -> result<::vkexec::sampler> {
+  return make_sender<::vkexec::owned::sampler>([&ctx, info]() -> result<::vkexec::owned::sampler> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "sampler requires a VkDevice"); }
 
     VkSamplerCreateInfo create_info{};
@@ -37,21 +37,21 @@ auto factory::make_sampler_t::operator()(::vkexec::context &ctx, sampler_create_
     VkSampler sampler_handle{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateSampler(ctx.device(), &create_info, nullptr, &sampler_handle);
     if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSampler failed"); }
-    return ::vkexec::sampler{ &ctx, sampler_handle };
+    return ::vkexec::owned::sampler{ &ctx, sampler_handle };
   });
 }
 
-sampler::sampler(context *ctx, VkSampler handle) noexcept : ctx_(ctx), sampler_(handle) {}
+owned::sampler::sampler(context *ctx, VkSampler handle) noexcept : ctx_(ctx), sampler_(handle) {}
 
-sampler::~sampler() { destroy(); }
+owned::sampler::~sampler() { destroy(); }
 
-sampler::sampler(sampler &&other) noexcept : ctx_(other.ctx_), sampler_(other.sampler_)
+owned::sampler::sampler(sampler &&other) noexcept : ctx_(other.ctx_), sampler_(other.sampler_)
 {
   other.ctx_ = nullptr;
   other.sampler_ = VK_NULL_HANDLE;
 }
 
-auto sampler::operator=(sampler &&other) noexcept -> sampler &
+auto owned::sampler::operator=(sampler &&other) noexcept -> sampler &
 {
   if (this == &other) { return *this; }
   destroy();
@@ -62,7 +62,7 @@ auto sampler::operator=(sampler &&other) noexcept -> sampler &
   return *this;
 }
 
-auto sampler::destroy() noexcept -> void
+auto owned::sampler::destroy() noexcept -> void
 {
   if (ctx_ != nullptr && ctx_->device() != VK_NULL_HANDLE && sampler_ != VK_NULL_HANDLE) {
     vkDestroySampler(ctx_->device(), sampler_, nullptr);

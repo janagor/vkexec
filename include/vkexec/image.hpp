@@ -40,7 +40,9 @@ struct image_create_info
   VkFormat format{ VK_FORMAT_UNDEFINED };
 };
 
+namespace owned {
 class image;
+}// namespace owned
 
 namespace factory {
 
@@ -53,7 +55,7 @@ namespace factory {
      * @param ctx Context whose VMA allocator owns the allocation.
      * @param info Extent, usage, and optional format override.
      */
-    [[nodiscard]] auto operator()(context &ctx, image_create_info info) const -> sender<image>;
+    [[nodiscard]] auto operator()(context &ctx, image_create_info info) const -> sender<owned::image>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -68,6 +70,8 @@ namespace factory {
  *
  * @see image_view, factory::make_image, image_create_info
  */
+namespace owned {
+
 class image
 {
 public:
@@ -107,6 +111,8 @@ private:
   VkExtent2D extent_{};
   image_usage usage_{ image_usage::color_storage };
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

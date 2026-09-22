@@ -10,7 +10,9 @@
 
 namespace vkexec {
 
+namespace owned {
 class image_view;
+}// namespace owned
 
 namespace factory {
 
@@ -23,7 +25,7 @@ namespace factory {
      * @param ctx Context that owns the device.
      * @param img Image to view (must remain alive while the view is used).
      */
-    [[nodiscard]] auto operator()(context &ctx, image const &img) const -> sender<image_view>;
+    [[nodiscard]] auto operator()(context &ctx, owned::image const &img) const -> sender<owned::image_view>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -32,13 +34,15 @@ namespace factory {
 }// namespace factory
 
 /**
- * RAII `VkImageView` for a `vkexec::image`.
+ * RAII `VkImageView` for an `owned::image`.
  *
  * The view does not own the image; `img` must outlive this view. Destroyed on
  * the context device when this object is destroyed or moved-from.
  *
  * @see image, factory::make_image_view
  */
+namespace owned {
+
 class image_view
 {
 public:
@@ -62,6 +66,8 @@ private:
   context *ctx_{ nullptr };
   VkImageView view_{ VK_NULL_HANDLE };
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

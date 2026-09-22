@@ -22,8 +22,10 @@
 
 namespace vkexec {
 
+namespace owned {
 class mesh;
 class graphics_pipeline;
+}// namespace owned
 
 namespace factory {
 
@@ -45,14 +47,14 @@ namespace factory {
       graphics_pipeline_config cfg,
       std::span<std::uint32_t const> vertex_spirv,
       std::span<std::uint32_t const> fragment_spirv,
-      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
 
     //! Creates a graphics pipeline from SPIR-V with default config.
     [[nodiscard]] auto operator()(context &ctx,
       VkRenderPass render_pass,
       std::span<std::uint32_t const> vertex_spirv,
       std::span<std::uint32_t const> fragment_spirv,
-      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
 
     //! Creates a graphics pipeline by compiling GLSL with an explicit config.
     [[nodiscard]] auto operator()(context &ctx,
@@ -60,14 +62,14 @@ namespace factory {
       graphics_pipeline_config cfg,
       std::string_view vertex_glsl,
       std::string_view fragment_glsl,
-      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
 
     //! Creates a graphics pipeline by compiling GLSL with default config.
     [[nodiscard]] auto operator()(context &ctx,
       VkRenderPass render_pass,
       std::string_view vertex_glsl,
       std::string_view fragment_glsl,
-      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
 
     //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
     template<class Strategy, class Desc>
@@ -104,6 +106,8 @@ namespace factory {
  *
  * @see presenter, mesh, draw, create, factory::make_graphics_pipeline
  */
+namespace owned {
+
 class graphics_pipeline
 {
 public:
@@ -189,6 +193,8 @@ private:
   VkDescriptorSet descriptor_set_{ VK_NULL_HANDLE };
   std::vector<storage_binding> buffers_;
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

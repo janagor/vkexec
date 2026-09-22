@@ -35,12 +35,12 @@ auto create(context &ctx, std::string_view glsl, layout_desc const &desc, std::s
 auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
   std::string_view glsl,
   layout_desc const &desc,
-  std::string_view name) const -> sender<::vkexec::compute_pipeline>
+  std::string_view name) const -> sender<::vkexec::owned::compute_pipeline>
 {
-  return make_sender<::vkexec::compute_pipeline>(
-    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<::vkexec::compute_pipeline> {
+  return make_sender<::vkexec::owned::compute_pipeline>(
+    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(ctx, glsl, desc, name));
-      return compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
+      return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
     });
 }
 
@@ -69,16 +69,16 @@ auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
-  std::span<storage_binding const> buffers) const -> sender<::vkexec::graphics_pipeline>
+  std::span<storage_binding const> buffers) const -> sender<::vkexec::owned::graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return make_sender<::vkexec::graphics_pipeline>(
+  return make_sender<::vkexec::owned::graphics_pipeline>(
     [&ctx,
       render_pass,
       cfg,
       vertex_glsl = std::string(vertex_glsl),
       fragment_glsl = std::string(fragment_glsl),
-      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<::vkexec::graphics_pipeline> {
+      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<::vkexec::owned::graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(gfx_resources,
         create(
           ctx, render_pass, cfg, vertex_glsl, fragment_glsl, static_cast<std::uint32_t>(owned.size())));
@@ -91,7 +91,7 @@ auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
         }
         set = bound->set;
       }
-      return graphics_pipeline::make(
+      return ::vkexec::owned::graphics_pipeline::make(
         ctx, std::make_unique<handles::graphics_pipeline>(gfx_resources), set, std::move(owned));
     });
 }
@@ -100,7 +100,7 @@ auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
   VkRenderPass render_pass,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
-  std::span<storage_binding const> buffers) const -> sender<::vkexec::graphics_pipeline>
+  std::span<storage_binding const> buffers) const -> sender<::vkexec::owned::graphics_pipeline>
 {
   return factory::make_graphics_pipeline(
     ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers);
@@ -121,12 +121,12 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view glsl,
   heap_layout_desc const &desc,
-  std::string_view name) -> sender<::vkexec::compute_pipeline>
+  std::string_view name) -> sender<::vkexec::owned::compute_pipeline>
 {
-  return make_sender<::vkexec::compute_pipeline>(
-    [&ctx, strategy, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<::vkexec::compute_pipeline> {
+  return make_sender<::vkexec::owned::compute_pipeline>(
+    [&ctx, strategy, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(strategy, ctx, glsl, desc, name));
-      return compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
+      return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
     });
 }
 
@@ -156,19 +156,19 @@ auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context 
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
-  std::string_view fragment_name) const -> sender<::vkexec::descriptor_graphics_pipeline>
+  std::string_view fragment_name) const -> sender<::vkexec::owned::descriptor_graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
-  return make_sender<::vkexec::descriptor_graphics_pipeline>(
+  return make_sender<::vkexec::owned::descriptor_graphics_pipeline>(
     [&ctx,
       vertex_glsl = std::string(vertex_glsl),
       fragment_glsl = std::string(fragment_glsl),
       desc,
       vertex_name = std::string(vertex_name),
-      fragment_name = std::string(fragment_name)]() -> result<::vkexec::descriptor_graphics_pipeline> {
+      fragment_name = std::string(fragment_name)]() -> result<::vkexec::owned::descriptor_graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(owned,
         create(descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
-      return ::vkexec::descriptor_graphics_pipeline::make(ctx, std::make_unique<handles::graphics_pipeline>(owned));
+      return ::vkexec::owned::descriptor_graphics_pipeline::make(ctx, std::make_unique<handles::graphics_pipeline>(owned));
     });
 }
 
@@ -179,7 +179,7 @@ auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
-  std::string_view fragment_name) -> sender<::vkexec::descriptor_graphics_pipeline>
+  std::string_view fragment_name) -> sender<::vkexec::owned::descriptor_graphics_pipeline>
 // NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return factory::make_descriptor_graphics_pipeline(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);

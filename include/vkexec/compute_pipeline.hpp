@@ -22,7 +22,9 @@
 
 namespace vkexec {
 
+namespace owned {
 class compute_pipeline;
+}// namespace owned
 
 namespace factory {
 
@@ -37,7 +39,7 @@ namespace factory {
      * @param desc Descriptor and push-constant layout.
      */
     [[nodiscard]] auto operator()(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc) const
-      -> sender<compute_pipeline>;
+      -> sender<owned::compute_pipeline>;
 
     /**
      * Compiles `glsl` to SPIR-V then creates a pipeline.
@@ -50,7 +52,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx,
       std::string_view glsl,
       layout_desc const &desc,
-      std::string_view name = "vkexec.comp") const -> sender<compute_pipeline>;
+      std::string_view name = "vkexec.comp") const -> sender<owned::compute_pipeline>;
 
     //! Creates a pipeline through an extension-owned descriptor strategy tag.
     template<class Strategy, class Desc>
@@ -82,6 +84,8 @@ namespace factory {
  *
  * @see factory::make_compute_pipeline, layout_desc, compute_pass, handles::compute_pipeline
  */
+namespace owned {
+
 class compute_pipeline
 {
 public:
@@ -146,6 +150,8 @@ private:
   std::unique_ptr<handles::compute_pipeline> resources_;
 };
 
+}// namespace owned
+
 /**
  * Non-owning pair of a `compute_pipeline` and a bound descriptor set for dispatch.
  *
@@ -155,7 +161,7 @@ private:
  */
 struct bound_compute_pipeline
 {
-  compute_pipeline const *pipe{ nullptr };
+  owned::compute_pipeline const *pipe{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
@@ -165,7 +171,7 @@ struct bound_compute_pipeline
  * @param pipe Pipeline whose layout matches `buffers`.
  * @param buffers Storage bindings to write into the set.
  */
-[[nodiscard]] auto bind_storage_sender(compute_pipeline const &pipe, std::span<storage_binding const> buffers)
+[[nodiscard]] auto bind_storage_sender(owned::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
   -> sender<bound_compute_pipeline>;
 
 /**
@@ -177,17 +183,17 @@ struct bound_compute_pipeline
  * @param work_count Invocation count along X (converted via `groups_for`).
  */
 template<typename Params>
-auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count)
+auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count)
   -> prebuilt_compute_pass_closure
 { return compute_pass(pipe.bind(set), params, pipe.groups_for(work_count)); }
 
 //! Builds a prebuilt compute pass without push constants.
-auto compute_pass(compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
+auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
   -> prebuilt_compute_pass_closure;
 
 //! Uploads push constants using `pipe.resources().pipeline_layout`.
 template<typename T>
-auto upload_push_constants(VkCommandBuffer cmd, compute_pipeline const &pipe, T const &params) -> void
+auto upload_push_constants(VkCommandBuffer cmd, owned::compute_pipeline const &pipe, T const &params) -> void
 { upload_push_constants(cmd, pipe.resources().pipeline_layout, params); }
 
 }// namespace vkexec

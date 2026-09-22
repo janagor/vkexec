@@ -66,9 +66,9 @@ namespace {
 }// namespace
 
 auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, gpu_buffer_create_info info) const
-  -> sender<::vkexec::gpu_buffer>
+  -> sender<::vkexec::owned::gpu_buffer>
 {
-  return make_sender<::vkexec::gpu_buffer>([&ctx, info]() -> result<::vkexec::gpu_buffer> {
+  return make_sender<::vkexec::owned::gpu_buffer>([&ctx, info]() -> result<::vkexec::owned::gpu_buffer> {
     if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
     if (ctx.allocator() == VK_NULL_HANDLE) {
       return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
@@ -105,17 +105,17 @@ auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, gpu_buffer_c
       }
     }
 
-    return ::vkexec::gpu_buffer{
+    return ::vkexec::owned::gpu_buffer{
       &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address
     };
   });
 }
 
 auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory) const
-  -> sender<::vkexec::gpu_buffer>
+  -> sender<::vkexec::owned::gpu_buffer>
 { return factory::make_gpu_buffer(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
-gpu_buffer::gpu_buffer(context *ctx,
+owned::gpu_buffer::gpu_buffer(context *ctx,
   VkBuffer buffer,
   VmaAllocation allocation,
   void *mapped,
@@ -126,9 +126,9 @@ gpu_buffer::gpu_buffer(context *ctx,
     shader_device_address_(shader_device_address)
 {}
 
-gpu_buffer::~gpu_buffer() { destroy(); }
+owned::gpu_buffer::~gpu_buffer() { destroy(); }
 
-gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
+owned::gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
   : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
     size_(other.size_), memory_(other.memory_), shader_device_address_(other.shader_device_address_)
 {
@@ -140,7 +140,7 @@ gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
   other.shader_device_address_ = false;
 }
 
-auto gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
+auto owned::gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
 {
   if (this == &other) { return *this; }
   destroy();
@@ -160,13 +160,13 @@ auto gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
   return *this;
 }
 
-auto gpu_buffer::mapped() const noexcept -> std::span<std::byte>
+auto owned::gpu_buffer::mapped() const noexcept -> std::span<std::byte>
 {
   if (mapped_ == nullptr) { return {}; }
   return { static_cast<std::byte *>(mapped_), static_cast<std::size_t>(size_) };
 }
 
-auto gpu_buffer::device_address() const -> result<VkDeviceAddress>
+auto owned::gpu_buffer::device_address() const -> result<VkDeviceAddress>
 {
   if (!shader_device_address_) {
     return fail(errc::invalid_argument, "vkexec::gpu_buffer was not created with shader_device_address");
@@ -180,7 +180,7 @@ auto gpu_buffer::device_address() const -> result<VkDeviceAddress>
   return ctx_->procs().get_buffer_device_address(ctx_->device(), &info);
 }
 
-auto gpu_buffer::destroy() noexcept -> void
+auto owned::gpu_buffer::destroy() noexcept -> void
 {
   if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
     vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);

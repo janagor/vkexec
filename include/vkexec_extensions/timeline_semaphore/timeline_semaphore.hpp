@@ -15,13 +15,15 @@
 
 namespace vkexec {
 
+namespace owned {
 class timeline_semaphore;
+}// namespace owned
 
 namespace detail {
 
   //! Creates a timeline semaphore with `initial_value` on `ctx`'s device.
   [[nodiscard]] auto make_timeline_semaphore(context &ctx, std::uint64_t initial_value = 0)
-    -> result<timeline_semaphore>;
+    -> result<owned::timeline_semaphore>;
 
 }// namespace detail
 
@@ -36,7 +38,8 @@ namespace factory {
      * @param ctx Context that owns the device.
      * @param initial_value Starting timeline value (often 0).
      */
-    [[nodiscard]] auto operator()(context &ctx, std::uint64_t initial_value = 0) const -> sender<timeline_semaphore>;
+    [[nodiscard]] auto operator()(context &ctx, std::uint64_t initial_value = 0) const
+      -> sender<owned::timeline_semaphore>;
   };
 
   //NOLINTNEXTLINE(readability-identifier-naming)
@@ -52,6 +55,8 @@ namespace factory {
  *
  * @see frame_ring, feat::timeline_semaphore, factory::make_timeline_semaphore
  */
+namespace owned {
+
 class timeline_semaphore
 {
 public:
@@ -84,6 +89,8 @@ private:
   context *ctx_{ nullptr };
   VkSemaphore semaphore_{ VK_NULL_HANDLE };
 };
+
+}// namespace owned
 
 }// namespace vkexec
 

@@ -33,7 +33,9 @@ namespace vkexec {
 
 namespace ex = stdexec;
 
+namespace owned {
 template<typename T> class buffer;
+}// namespace owned
 
 /**
  * Sender that allocates a host-visible storage buffer and completes with ownership of it.
@@ -47,7 +49,7 @@ template<typename T> struct buffer_allocate_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(buffer<T>), ex::set_error_t(error), ex::set_stopped_t()>;
+    ex::completion_signatures<ex::set_value_t(owned::buffer<T>), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
   std::size_t count{ 0 };
@@ -73,7 +75,7 @@ template<typename T> struct buffer_allocate_sender
         }
       }
 
-      if (result<buffer<T>> allocated = buffer<T>::make_allocated(*ctx, count, fill); allocated) {
+      if (result<owned::buffer<T>> allocated = owned::buffer<T>::make_allocated(*ctx, count, fill); allocated) {
         ex::set_value(std::move(rcvr), expected_take(allocated));
       } else {
         ex::set_error(std::move(rcvr), std::move(allocated.error()));
@@ -112,6 +114,8 @@ template<typename T> struct buffer_allocate_sender
  *
  * @see factory::make_buffer, buffer_allocate_sender, gpu_buffer
  */
+namespace owned {
+
 template<typename T> class buffer
 {
 public:
@@ -239,6 +243,8 @@ private:
   std::size_t count_{ 0 };
   std::string name_;
 };
+
+}// namespace owned
 
 namespace factory {
 

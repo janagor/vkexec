@@ -31,10 +31,10 @@ namespace ex = stdexec;
 
 namespace detail {
 
-  [[nodiscard]] inline auto try_begin_frame(presenter &win) -> result<std::optional<frame>>
+  [[nodiscard]] inline auto try_begin_frame(owned::presenter &win) -> result<std::optional<frame>>
   { return win.begin_frame(); }
 
-  [[nodiscard]] inline auto try_end_frame(presenter &win, frame const &drawn) -> result<VkFence>
+  [[nodiscard]] inline auto try_end_frame(owned::presenter &win, frame const &drawn) -> result<VkFence>
   { return win.end_frame(drawn); }
 
   template<class Receiver> auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
@@ -49,7 +49,7 @@ namespace detail {
   }
 
   template<class WindowOp, class Receiver>
-  auto start_draw_async(context *ctx, presenter *win, WindowOp &&record_and_end, Receiver receiver) -> void
+  auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver receiver) -> void
   {
     Receiver rcvr = std::move(receiver);
     auto const token = ex::get_stop_token(ex::get_env(rcvr));
@@ -86,28 +86,28 @@ namespace detail {
 
 struct draw_closure
 {
-  presenter *win{ nullptr };
-  graphics_pipeline *pipeline{ nullptr };
+  owned::presenter *win{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 };
 
 struct draw_mesh_closure
 {
-  presenter *win{ nullptr };
-  graphics_pipeline *pipeline{ nullptr };
-  mesh const *drawn{ nullptr };
+  owned::presenter *win{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
+  owned::mesh const *drawn{ nullptr };
 };
 
 //! One layer in a multi-pipeline frame (`draw_layers`).
 struct draw_layer
 {
-  graphics_pipeline *pipeline{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 };
 
 struct draw_layers_closure
 {
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 };
 
@@ -120,16 +120,16 @@ struct draw_layers_closure
  * @param pipeline Graphics pipeline compatible with `win.render_pass()`.
  * @param vertex_count Vertex count for a non-indexed draw.
  */
-inline auto draw(presenter &win, graphics_pipeline &pipeline, std::uint32_t vertex_count) -> draw_closure
+inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, std::uint32_t vertex_count) -> draw_closure
 { return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count }; }
 
 //! Builds a mesh-draw closure for one presented frame.
-inline auto draw(presenter &win, graphics_pipeline &pipeline, mesh const &drawn) -> draw_mesh_closure
+inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, owned::mesh const &drawn) -> draw_mesh_closure
 { return draw_mesh_closure{ .win = &win, .pipeline = &pipeline, .drawn = &drawn }; }
 
 struct draw_bind_closure
 {
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
@@ -137,7 +137,7 @@ struct draw_bind_closure
 
 struct draw_mesh_bind_closure
 {
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
@@ -145,18 +145,18 @@ struct draw_mesh_bind_closure
 
 //! Present one frame using borrowable pipeline resources + descriptor set.
 inline auto
-  draw(presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, std::uint32_t vertex_count)
+  draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, std::uint32_t vertex_count)
     -> draw_bind_closure
 { return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count }; }
 
 //! Present one indexed mesh frame from borrowed handles.
-inline auto draw(presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, mesh_draw drawn)
+inline auto draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, mesh_draw drawn)
   -> draw_mesh_bind_closure
 { return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn }; }
 
 //! Present one indexed mesh frame from `handles::mesh`.
 inline auto
-  draw(presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, handles::mesh const &buffers)
+  draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, handles::mesh const &buffers)
     -> draw_mesh_bind_closure
 { return draw(win, resources, set, make_mesh_draw(buffers)); }
 
@@ -165,7 +165,7 @@ inline auto
  *
  * @param layers Pipelines and vertex counts drawn in order within one pass.
  */
-inline auto draw_layers(presenter &win, std::initializer_list<draw_layer> layers) -> draw_layers_closure
+inline auto draw_layers(owned::presenter &win, std::initializer_list<draw_layer> layers) -> draw_layers_closure
 { return draw_layers_closure{ .win = &win, .layers = std::vector<draw_layer>(layers) }; }
 
 /**
@@ -183,16 +183,16 @@ struct draw_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
-  graphics_pipeline *pipeline{ nullptr };
+  owned::presenter *win{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
-    presenter *win{};
-    graphics_pipeline *pipeline{};
+    owned::presenter *win{};
+    owned::graphics_pipeline *pipeline{};
     std::uint32_t vertex_count{};
     Receiver receiver;
 
@@ -246,8 +246,8 @@ struct draw_async_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
-  graphics_pipeline *pipeline{ nullptr };
+  owned::presenter *win{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
@@ -259,8 +259,8 @@ struct draw_async_sender
   template<class Receiver> struct op_state
   {
     context *ctx{};
-    presenter *win{};
-    graphics_pipeline *pipeline{};
+    owned::presenter *win{};
+    owned::graphics_pipeline *pipeline{};
     std::uint32_t vertex_count{};
     Receiver receiver;
 
@@ -316,14 +316,14 @@ struct draw_layers_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
-    presenter *win{};
+    owned::presenter *win{};
     std::vector<draw_layer> layers;
     Receiver receiver;
 
@@ -387,7 +387,7 @@ struct draw_layers_async_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
@@ -398,7 +398,7 @@ struct draw_layers_async_sender
   template<class Receiver> struct op_state
   {
     context *ctx{};
-    presenter *win{};
+    owned::presenter *win{};
     std::vector<draw_layer> layers;
     Receiver receiver;
 
@@ -478,17 +478,17 @@ struct draw_mesh_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
-  graphics_pipeline *pipeline{ nullptr };
-  mesh const *drawn{ nullptr };
+  owned::presenter *win{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
+  owned::mesh const *drawn{ nullptr };
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
-    presenter *win;
-    graphics_pipeline *pipeline;
-    mesh const *drawn;
+    owned::presenter *win;
+    owned::graphics_pipeline *pipeline;
+    owned::mesh const *drawn;
     Receiver receiver;
 
     auto start() noexcept -> void
@@ -537,9 +537,9 @@ struct draw_mesh_async_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
-  graphics_pipeline *pipeline{ nullptr };
-  mesh const *drawn{ nullptr };
+  owned::presenter *win{ nullptr };
+  owned::graphics_pipeline *pipeline{ nullptr };
+  owned::mesh const *drawn{ nullptr };
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
@@ -550,9 +550,9 @@ struct draw_mesh_async_sender
   template<class Receiver> struct op_state
   {
     context *ctx{};
-    presenter *win{};
-    graphics_pipeline *pipeline{};
-    mesh const *drawn{};
+    owned::presenter *win{};
+    owned::graphics_pipeline *pipeline{};
+    owned::mesh const *drawn{};
     Receiver receiver;
 
     auto start() noexcept -> void
@@ -627,7 +627,7 @@ struct draw_bind_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
@@ -636,7 +636,7 @@ struct draw_bind_sender
 
   template<class Receiver> struct op_state
   {
-    presenter *win{ nullptr };
+    owned::presenter *win{ nullptr };
     handles::graphics_pipeline const *resources{ nullptr };
     VkDescriptorSet set{ VK_NULL_HANDLE };
     std::uint32_t vertex_count{ 0 };
@@ -693,7 +693,7 @@ struct draw_bind_async_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
@@ -707,7 +707,7 @@ struct draw_bind_async_sender
   template<class Receiver> struct op_state
   {
     context *ctx{};
-    presenter *win{};
+    owned::presenter *win{};
     handles::graphics_pipeline const *resources{};
     VkDescriptorSet set{};
     std::uint32_t vertex_count{};
@@ -767,7 +767,7 @@ struct draw_mesh_bind_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
@@ -776,7 +776,7 @@ struct draw_mesh_bind_sender
 
   template<class Receiver> struct op_state
   {
-    presenter *win{ nullptr };
+    owned::presenter *win{ nullptr };
     handles::graphics_pipeline const *resources{ nullptr };
     VkDescriptorSet set{ VK_NULL_HANDLE };
     mesh_draw drawn{};
@@ -833,7 +833,7 @@ struct draw_mesh_bind_async_sender
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
-  presenter *win{ nullptr };
+  owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
@@ -847,7 +847,7 @@ struct draw_mesh_bind_async_sender
   template<class Receiver> struct op_state
   {
     context *ctx{};
-    presenter *win{};
+    owned::presenter *win{};
     handles::graphics_pipeline const *resources{};
     VkDescriptorSet set{};
     mesh_draw drawn{};

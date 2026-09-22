@@ -17,10 +17,10 @@ namespace {
 
 }// namespace
 
-auto factory::make_image_view_t::operator()(::vkexec::context &ctx, ::vkexec::image const &img) const
-  -> sender<::vkexec::image_view>
+auto factory::make_image_view_t::operator()(::vkexec::context &ctx, ::vkexec::owned::image const &img) const
+  -> sender<::vkexec::owned::image_view>
 {
-  return make_sender<::vkexec::image_view>([&ctx, &img]() -> result<::vkexec::image_view> {
+  return make_sender<::vkexec::owned::image_view>([&ctx, &img]() -> result<::vkexec::owned::image_view> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
     if (img.handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
 
@@ -38,21 +38,21 @@ auto factory::make_image_view_t::operator()(::vkexec::context &ctx, ::vkexec::im
     VkImageView view{ VK_NULL_HANDLE };
     VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
     if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateImageView failed"); }
-    return ::vkexec::image_view{ &ctx, view };
+    return ::vkexec::owned::image_view{ &ctx, view };
   });
 }
 
-image_view::image_view(context *ctx, VkImageView view) noexcept : ctx_(ctx), view_(view) {}
+owned::image_view::image_view(context *ctx, VkImageView view) noexcept : ctx_(ctx), view_(view) {}
 
-image_view::~image_view() { destroy(); }
+owned::image_view::~image_view() { destroy(); }
 
-image_view::image_view(image_view &&other) noexcept : ctx_(other.ctx_), view_(other.view_)
+owned::image_view::image_view(image_view &&other) noexcept : ctx_(other.ctx_), view_(other.view_)
 {
   other.ctx_ = nullptr;
   other.view_ = VK_NULL_HANDLE;
 }
 
-auto image_view::operator=(image_view &&other) noexcept -> image_view &
+auto owned::image_view::operator=(image_view &&other) noexcept -> image_view &
 {
   if (this == &other) { return *this; }
   destroy();
@@ -63,7 +63,7 @@ auto image_view::operator=(image_view &&other) noexcept -> image_view &
   return *this;
 }
 
-auto image_view::destroy() noexcept -> void
+auto owned::image_view::destroy() noexcept -> void
 {
   if (ctx_ != nullptr && ctx_->device() != VK_NULL_HANDLE && view_ != VK_NULL_HANDLE) {
     vkDestroyImageView(ctx_->device(), view_, nullptr);

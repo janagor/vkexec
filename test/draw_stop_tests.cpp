@@ -29,7 +29,7 @@ constexpr std::uint32_t k_triangle_vertices = 3;
 constexpr int k_frame_slots = 2;
 constexpr int k_post_stop_frames = 4;
 
-[[nodiscard]] auto make_headless_presenter() -> vkexec::presenter
+[[nodiscard]] auto make_headless_presenter() -> vkexec::owned::presenter
 {
   auto outcome = vkexec::try_sync_wait_value(vkexec::factory::make_headless_presenter({
     .width = k_presenter_width,
@@ -43,7 +43,7 @@ constexpr int k_post_stop_frames = 4;
   return vkexec::expected_take(outcome);
 }
 
-[[nodiscard]] auto make_triangle_pipeline(vkexec::presenter &win) -> vkexec::graphics_pipeline
+[[nodiscard]] auto make_triangle_pipeline(vkexec::owned::presenter &win) -> vkexec::owned::graphics_pipeline
 {
   return vkexec::test::sync_wait_value(vkexec::factory::make_graphics_pipeline(
     win.ctx(), win.render_pass(), vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
@@ -51,8 +51,8 @@ constexpr int k_post_stop_frames = 4;
 
 struct headless_fixture
 {
-  vkexec::presenter win;
-  vkexec::graphics_pipeline pipeline;
+  vkexec::owned::presenter win;
+  vkexec::owned::graphics_pipeline pipeline;
 
   headless_fixture() : win(make_headless_presenter()), pipeline(make_triangle_pipeline(win)) {}
 

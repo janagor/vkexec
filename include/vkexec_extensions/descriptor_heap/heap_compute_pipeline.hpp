@@ -62,14 +62,14 @@ struct heap_layout_desc
 [[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> spirv,
-  heap_layout_desc const &desc) -> sender<compute_pipeline>;
+  heap_layout_desc const &desc) -> sender<owned::compute_pipeline>;
 
 //! Owning GLSL factory customization used by `factory::make_compute_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view glsl,
   heap_layout_desc const &desc,
-  std::string_view name = "heap.comp") -> sender<compute_pipeline>;
+  std::string_view name = "heap.comp") -> sender<owned::compute_pipeline>;
 
 }// namespace vkexec
 
