@@ -312,7 +312,15 @@ jobs:
             echo "VK_DRIVER_FILES=${VK_DRIVER_FILES:-}"
             echo "VK_ICD_FILENAMES=${VK_ICD_FILENAMES:-}"
           fi
-          ctest -C ${{matrix.build_type}} --output-on-failure
+          ctest -C ${{matrix.build_type}} --output-on-failure -V
+
+      - name: Dump Unix CTest log
+        if: always() && runner.os != 'Windows'
+        working-directory: ./build
+        run: |
+          if [[ -f Testing/Temporary/LastTest.log ]]; then
+            cat Testing/Temporary/LastTest.log
+          fi
 
       - name: Unix - Coverage
         if: runner.os != 'Windows' && matrix.build_type == 'Debug'
@@ -323,7 +331,16 @@ jobs:
       - name: Windows - Test
         if: runner.os == 'Windows'
         working-directory: ./build
-        run: ctest -C ${{matrix.build_type}}
+        run: ctest -C ${{matrix.build_type}} --output-on-failure -V
+
+      - name: Dump Windows CTest log
+        if: always() && runner.os == 'Windows'
+        working-directory: ./build
+        shell: pwsh
+        run: |
+          if (Test-Path Testing/Temporary/LastTest.log) {
+            Get-Content Testing/Temporary/LastTest.log
+          }
 
       - name: Windows - Coverage
         if: runner.os == 'Windows' && matrix.build_type == 'Debug'
