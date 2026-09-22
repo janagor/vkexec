@@ -26,7 +26,8 @@ function(vkexec_setup_dependencies)
       SYSTEM
       YES)
     add_library(Vulkan::Headers INTERFACE IMPORTED)
-    set_target_properties(Vulkan::Headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VulkanHeaders_SOURCE_DIR}/include")
+    set_target_properties(Vulkan::Headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                     "${VulkanHeaders_SOURCE_DIR}/include")
   endif()
 
   if(NOT TARGET Vulkan::Vulkan)
@@ -125,9 +126,8 @@ function(vkexec_setup_dependencies)
     endif()
     foreach(_vkexec_glslang_target IN ITEMS glslang SPIRV glslang-default-resource-limits)
       if(TARGET ${_vkexec_glslang_target})
-        target_include_directories(
-          ${_vkexec_glslang_target}
-          INTERFACE $<BUILD_INTERFACE:${_vkexec_glslang_compat_include}>)
+        target_include_directories(${_vkexec_glslang_target}
+                                   INTERFACE $<BUILD_INTERFACE:${_vkexec_glslang_compat_include}>)
       endif()
     endforeach()
   endif()
