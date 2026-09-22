@@ -36,7 +36,7 @@ add_test(
   NAME vkexec.install_consumer
   COMMAND
     "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${CMAKE_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${CMAKE_BINARY_DIR}"
-    "-DCONSUMER_SOURCE_DIR=${CMAKE_SOURCE_DIR}/test/install_consumer" -P
+    "-DCONSUMER_SOURCE_DIR=${CMAKE_SOURCE_DIR}/test/install_consumer" "-DVKEXEC_CONFIG=$<CONFIG>" -P
     "${CMAKE_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
 
 add_executable(
