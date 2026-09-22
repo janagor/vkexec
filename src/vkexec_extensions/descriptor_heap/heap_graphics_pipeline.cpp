@@ -231,10 +231,10 @@ auto descriptor_graphics_pipeline::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto factory::descriptor_graphics_pipeline(::vkexec::context &ctx,
+auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> sender<::vkexec::descriptor_graphics_pipeline>
+  heap_graphics_layout_desc const &desc) const -> sender<::vkexec::descriptor_graphics_pipeline>
 {
   return make_sender<::vkexec::descriptor_graphics_pipeline>(
     [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<::vkexec::descriptor_graphics_pipeline> {
@@ -248,6 +248,6 @@ auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   heap_graphics_layout_desc const &desc) -> sender<::vkexec::descriptor_graphics_pipeline>
-{ return factory::descriptor_graphics_pipeline(ctx, vertex_spirv, fragment_spirv, desc); }
+{ return factory::make_descriptor_graphics_pipeline(ctx, vertex_spirv, fragment_spirv, desc); }
 
 }// namespace vkexec

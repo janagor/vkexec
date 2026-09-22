@@ -53,7 +53,7 @@ private:
  * Library baselines from `vulkan_library` are merged in (never removed) when the
  * context is built. Raise `api_version_*` or append extensions/features as needed.
  *
- * @see factory::context, scheduler_options, vulkan_library
+ * @see factory::make_context, scheduler_options, vulkan_library
  */
 struct vulkan_requirements
 {
@@ -117,7 +117,7 @@ namespace vulkan_library {
   //! Instance extensions always requested for compute-only contexts.
   [[nodiscard]] auto required_instance_extensions() noexcept -> std::span<char const *const>;
 
-  //! Instance extensions for `factory::headless_presenter()` (`VK_EXT_headless_surface`).
+  //! Instance extensions for `factory::make_headless_presenter()` (`VK_EXT_headless_surface`).
   [[nodiscard]] auto required_headless_surface_instance_extensions() noexcept -> std::span<char const *const>;
 
   //! Device extensions always requested for compute-only contexts.

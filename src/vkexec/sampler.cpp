@@ -10,7 +10,8 @@
 
 namespace vkexec {
 
-auto factory::sampler(::vkexec::context &ctx, sampler_create_info info) -> sender<::vkexec::sampler>
+auto factory::make_sampler_t::operator()(::vkexec::context &ctx, sampler_create_info info) const
+  -> sender<::vkexec::sampler>
 {
   return make_sender<::vkexec::sampler>([&ctx, info]() -> result<::vkexec::sampler> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "sampler requires a VkDevice"); }

@@ -17,7 +17,8 @@ namespace {
 
 }// namespace
 
-auto factory::image_view(::vkexec::context &ctx, ::vkexec::image const &img) -> sender<::vkexec::image_view>
+auto factory::make_image_view_t::operator()(::vkexec::context &ctx, ::vkexec::image const &img) const
+  -> sender<::vkexec::image_view>
 {
   return make_sender<::vkexec::image_view>([&ctx, &img]() -> result<::vkexec::image_view> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }

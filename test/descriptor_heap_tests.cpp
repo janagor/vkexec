@@ -44,7 +44,7 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
@@ -58,13 +58,13 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   auto const sampler_bytes = vkexec::sampler_heap_byte_size(layout, k_slot_count);
   REQUIRE(sampler_bytes >= layout.sampler_descriptor_size * k_slot_count);
 
-  auto storage = vkexec::test::sync_wait_value(vkexec::factory::gpu_buffer(*ctx,
+  auto storage = vkexec::test::sync_wait_value(vkexec::factory::make_gpu_buffer(*ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::test::sync_wait_value(vkexec::factory::descriptor_heap_buffer(*ctx, heap_bytes));
+  auto heap = vkexec::test::sync_wait_value(vkexec::factory::make_descriptor_heap_buffer(*ctx, heap_bytes));
   std::vector<std::byte> slot(layout.buffer_descriptor_size);
   auto const storage_addr = storage.device_address();
   REQUIRE(storage_addr.has_value());
@@ -113,14 +113,14 @@ TEST_CASE("write_storage_image_descriptor fills a heap slot", "[vkexec][descript
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
   auto const &layout = vkexec::expected_get(layout_result);
   REQUIRE(layout.image_descriptor_size > 0);
 
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::image(*ctx,
+  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
     vkexec::image_create_info{
       .width = k_image_extent,
       .height = k_image_extent,
@@ -160,14 +160,14 @@ TEST_CASE("write_sampled_image_descriptor fills a heap slot", "[vkexec][descript
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
   auto const &layout = vkexec::expected_get(layout_result);
   REQUIRE(layout.image_descriptor_size > 0);
 
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::image(*ctx,
+  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
     vkexec::image_create_info{
       .width = k_image_extent,
       .height = k_image_extent,
@@ -208,7 +208,7 @@ TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descri
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
 
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
@@ -227,7 +227,7 @@ TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descri
   REQUIRE(vkexec::write_sampler_descriptor(*ctx, sampler_info, slot));
 
   auto const heap_bytes = vkexec::sampler_heap_byte_size(layout, k_slot_count);
-  auto heap = vkexec::test::sync_wait_value(vkexec::factory::descriptor_heap_buffer(*ctx, heap_bytes));
+  auto heap = vkexec::test::sync_wait_value(vkexec::factory::make_descriptor_heap_buffer(*ctx, heap_bytes));
   auto mapped = heap.mapped();
   REQUIRE(mapped.size() >= slot.size());
   std::ranges::copy(slot, mapped.begin());

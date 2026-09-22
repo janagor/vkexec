@@ -58,21 +58,32 @@ class presenter;
 
 namespace factory {
 
-  /**
-   * Creates a Vulkan context, invokes the surface factory, and creates presentation resources.
-   *
-   * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
-   */
-  [[nodiscard]] auto presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
+  struct make_presenter_t
+  {
+
+    /**
+     * Creates a Vulkan context, invokes the surface factory, and creates presentation resources.
+     *
+     * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
+     */
+    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<presenter>;
+  };
+
+  inline constexpr make_presenter_t make_presenter{};
 
   /**
    * Creates a swapchain without GLFW or a display (`VK_EXT_headless_surface`).
    *
    * Intended for CI and tests.
    */
-  [[nodiscard]] auto headless_presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
-  //! Headless presenter with default config.
-  [[nodiscard]] auto headless_presenter() -> sender<::vkexec::presenter>;
+  struct make_headless_presenter_t
+  {
+    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<presenter>;
+    //! Headless presenter with default config.
+    [[nodiscard]] auto operator()() const -> sender<presenter>;
+  };
+
+  inline constexpr make_headless_presenter_t make_headless_presenter{};
 
 }// namespace factory
 
@@ -82,7 +93,7 @@ namespace factory {
  * Drawing (pipelines, meshes, etc.) belongs in the application, not here.
  * Use `begin_frame` / `end_frame`, or the `draw(...)` stdexec adaptors.
  *
- * @see graphics_pipeline, draw, swapchain, factory::presenter, factory::headless_presenter
+ * @see graphics_pipeline, draw, swapchain, factory::make_presenter, factory::make_headless_presenter
  */
 class presenter
 {
@@ -119,7 +130,7 @@ public:
   [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
   { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
 
-  //! Borrowed swapchain pointer (valid after `factory::presenter` / `factory::headless_presenter` completes).
+  //! Borrowed swapchain pointer (valid after `factory::make_presenter` / `factory::make_headless_presenter` completes).
   [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const *
   { return swapchain_ ? std::addressof(*swapchain_) : nullptr; }
 
@@ -142,9 +153,8 @@ public:
   [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
 private:
-  friend sender<::vkexec::presenter> factory::presenter(presenter_config cfg);
-  friend sender<::vkexec::presenter> factory::headless_presenter(presenter_config cfg);
-  friend sender<::vkexec::presenter> factory::headless_presenter();
+  friend struct factory::make_presenter_t;
+  friend struct factory::make_headless_presenter_t;
 
   struct frame_sync
   {

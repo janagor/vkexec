@@ -30,7 +30,7 @@ struct present_options
 };
 
 /**
- * Creation parameters for `factory::swapchain`.
+ * Creation parameters for `factory::make_swapchain`.
  *
  * `surface` is borrowed and never destroyed by the swapchain.
  */
@@ -49,13 +49,19 @@ class swapchain;
 
 namespace factory {
 
-  /**
-   * Creates a swapchain for `info.surface` at the given extent.
-   *
-   * @param ctx Context with presentation queues enabled.
-   * @param info Surface, extent, and present preferences.
-   */
-  [[nodiscard]] auto swapchain(::vkexec::context &ctx, swapchain_create_info info) -> sender<::vkexec::swapchain>;
+  struct make_swapchain_t
+  {
+
+    /**
+     * Creates a swapchain for `info.surface` at the given extent.
+     *
+     * @param ctx Context with presentation queues enabled.
+     * @param info Surface, extent, and present preferences.
+     */
+    [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const -> sender<swapchain>;
+  };
+
+  inline constexpr make_swapchain_t make_swapchain{};
 
 }// namespace factory
 
@@ -65,7 +71,7 @@ namespace factory {
  * Suitable for embedders that own the native presenter / surface separately.
  * Prefer `presenter` when vkexec should own the complete presentation stack.
  *
- * @see presenter, acquire_present_frame, swapchain_create_info, factory::swapchain
+ * @see presenter, acquire_present_frame, swapchain_create_info, factory::make_swapchain
  */
 class swapchain
 {
@@ -124,7 +130,7 @@ public:
   [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
 private:
-  friend sender<::vkexec::swapchain> factory::swapchain(::vkexec::context &ctx, swapchain_create_info info);
+  friend struct factory::make_swapchain_t;
 
   swapchain() = default;
 

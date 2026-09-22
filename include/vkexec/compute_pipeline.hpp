@@ -26,44 +26,49 @@ class compute_pipeline;
 
 namespace factory {
 
-  /**
-   * Creates a pipeline from existing SPIR-V words.
-   *
-   * @param ctx Context whose device creates the Vulkan objects.
-   * @param spirv SPIR-V words for the compute shader.
-   * @param desc Descriptor and push-constant layout.
-   */
-  [[nodiscard]] auto compute_pipeline(::vkexec::context &ctx,
-    std::span<std::uint32_t const> spirv,
-    layout_desc const &desc) -> sender<::vkexec::compute_pipeline>;
+  struct make_compute_pipeline_t
+  {
 
-  /**
-   * Compiles `glsl` to SPIR-V then creates a pipeline.
-   *
-   * @param ctx Context whose device creates the Vulkan objects.
-   * @param glsl Compute shader GLSL source.
-   * @param desc Descriptor and push-constant layout.
-   * @param name Debug name for the compiler.
-   */
-  [[nodiscard]] auto compute_pipeline(::vkexec::context &ctx,
-    std::string_view glsl,
-    layout_desc const &desc,
-    std::string_view name = "vkexec.comp") -> sender<::vkexec::compute_pipeline>;
+    /**
+     * Creates a pipeline from existing SPIR-V words.
+     *
+     * @param ctx Context whose device creates the Vulkan objects.
+     * @param spirv SPIR-V words for the compute shader.
+     * @param desc Descriptor and push-constant layout.
+     */
+    [[nodiscard]] auto operator()(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc) const
+      -> sender<compute_pipeline>;
 
-  //! Creates a pipeline through an extension-owned descriptor strategy tag.
-  template<class Strategy, class Desc>
-  [[nodiscard]] auto
-    compute_pipeline(Strategy strategy, ::vkexec::context &ctx, std::span<std::uint32_t const> spirv, Desc const &desc)
-  { return create_compute_pipeline(strategy, ctx, spirv, desc); }
+    /**
+     * Compiles `glsl` to SPIR-V then creates a pipeline.
+     *
+     * @param ctx Context whose device creates the Vulkan objects.
+     * @param glsl Compute shader GLSL source.
+     * @param desc Descriptor and push-constant layout.
+     * @param name Debug name for the compiler.
+     */
+    [[nodiscard]] auto operator()(context &ctx,
+      std::string_view glsl,
+      layout_desc const &desc,
+      std::string_view name = "vkexec.comp") const -> sender<compute_pipeline>;
 
-  //! Compiles GLSL and creates a pipeline through an extension-owned descriptor strategy tag.
-  template<class Strategy, class Desc>
-  [[nodiscard]] auto compute_pipeline(Strategy strategy,
-    ::vkexec::context &ctx,
-    std::string_view glsl,
-    Desc const &desc,
-    std::string_view name = "vkexec.comp")
-  { return create_compute_pipeline(strategy, ctx, glsl, desc, name); }
+    //! Creates a pipeline through an extension-owned descriptor strategy tag.
+    template<class Strategy, class Desc>
+    [[nodiscard]] auto
+      operator()(Strategy strategy, context &ctx, std::span<std::uint32_t const> spirv, Desc const &desc) const
+    { return create_compute_pipeline(strategy, ctx, spirv, desc); }
+
+    //! Compiles GLSL and creates a pipeline through an extension-owned descriptor strategy tag.
+    template<class Strategy, class Desc>
+    [[nodiscard]] auto operator()(Strategy strategy,
+      context &ctx,
+      std::string_view glsl,
+      Desc const &desc,
+      std::string_view name = "vkexec.comp") const
+    { return create_compute_pipeline(strategy, ctx, glsl, desc, name); }
+  };
+
+  inline constexpr make_compute_pipeline_t make_compute_pipeline{};
 
 }// namespace factory
 
@@ -74,7 +79,7 @@ namespace factory {
  * `allocate_set` with `compute_pass` to dispatch. Destroy only after GPU work
  * that uses this pipeline has finished.
  *
- * @see factory::compute_pipeline, layout_desc, compute_pass, pipeline_resources
+ * @see factory::make_compute_pipeline, layout_desc, compute_pass, pipeline_resources
  */
 class compute_pipeline
 {

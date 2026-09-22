@@ -9,7 +9,7 @@
 
 namespace vkexec {
 
-//! Creation parameters for `factory::sampler` (defaults to linear clamp-to-edge).
+//! Creation parameters for `factory::make_sampler` (defaults to linear clamp-to-edge).
 struct sampler_create_info
 {
   VkFilter mag_filter{ VK_FILTER_LINEAR };
@@ -25,20 +25,26 @@ class sampler;
 
 namespace factory {
 
-  /**
-   * Creates a sampler from `info`.
-   *
-   * @param ctx Context that owns the device.
-   * @param info Filter and addressing parameters.
-   */
-  [[nodiscard]] auto sampler(::vkexec::context &ctx, sampler_create_info info = {}) -> sender<::vkexec::sampler>;
+  struct make_sampler_t
+  {
+
+    /**
+     * Creates a sampler from `info`.
+     *
+     * @param ctx Context that owns the device.
+     * @param info Filter and addressing parameters.
+     */
+    [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const -> sender<sampler>;
+  };
+
+  inline constexpr make_sampler_t make_sampler{};
 
 }// namespace factory
 
 /**
  * RAII `VkSampler` owned by a `context` device.
  *
- * @see factory::sampler, sampler_create_info
+ * @see factory::make_sampler, sampler_create_info
  */
 class sampler
 {
@@ -55,7 +61,7 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkSampler { return sampler_; }
 
 private:
-  friend sender<::vkexec::sampler> factory::sampler(::vkexec::context &ctx, sampler_create_info info);
+  friend struct factory::make_sampler_t;
 
   sampler(context *ctx, VkSampler handle) noexcept;
   auto destroy() noexcept -> void;

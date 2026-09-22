@@ -61,7 +61,7 @@ namespace {
 
 }// namespace
 
-auto factory::presenter(presenter_config cfg) -> sender<::vkexec::presenter>
+auto factory::make_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::presenter>
 {
   return make_sender<::vkexec::presenter>([cfg = std::move(cfg)]() mutable -> result<::vkexec::presenter> {
     ::vkexec::presenter created;
@@ -70,7 +70,7 @@ auto factory::presenter(presenter_config cfg) -> sender<::vkexec::presenter>
   });
 }
 
-auto factory::headless_presenter(presenter_config cfg) -> sender<::vkexec::presenter>
+auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::presenter>
 {
   auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
@@ -88,11 +88,11 @@ auto factory::headless_presenter(presenter_config cfg) -> sender<::vkexec::prese
     }
     return surface;
   };
-  return factory::presenter(std::move(cfg));
+  return factory::make_presenter(std::move(cfg));
 }
 
-auto factory::headless_presenter() -> sender<::vkexec::presenter>
-{ return factory::headless_presenter(presenter_config{}); }
+auto factory::make_headless_presenter_t::operator()() const -> sender<::vkexec::presenter>
+{ return factory::make_headless_presenter(presenter_config{}); }
 
 presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
@@ -177,7 +177,7 @@ auto presenter::wait_idle() -> void
 auto presenter::create_swapchain() -> status
 {
   if (!swapchain_.has_value()) {
-    auto outcome = try_sync_wait(factory::swapchain(*ctx_,
+    auto outcome = try_sync_wait(factory::make_swapchain(*ctx_,
       swapchain_create_info{
         .surface = surface_,
         .width = cfg_.width,

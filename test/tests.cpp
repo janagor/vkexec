@@ -8,7 +8,8 @@
 #include <memory>
 
 static_assert(std::same_as<decltype(vkexec::descriptor_sets), vkexec::descriptor_sets_t const>);
-static_assert(std::same_as<decltype(vkexec::factory::context()), vkexec::sender<std::unique_ptr<vkexec::context>>>);
+static_assert(
+  std::same_as<decltype(vkexec::factory::make_context()), vkexec::sender<std::unique_ptr<vkexec::context>>>);
 
 TEST_CASE("vkexec headers compile", "[vkexec]")
 {

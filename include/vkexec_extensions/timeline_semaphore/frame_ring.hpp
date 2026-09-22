@@ -37,7 +37,7 @@ struct frame_ring_submit_sync
 //! Default CPU frame-slot count for `frame_ring_create_info`.
 constexpr std::size_t k_default_frame_ring_slot_count = 2;
 
-//! Creation parameters for `factory::frame_ring`: CPU slots and initial swapchain image count.
+//! Creation parameters for `factory::make_frame_ring`: CPU slots and initial swapchain image count.
 struct frame_ring_create_info
 {
   std::size_t slot_count{ k_default_frame_ring_slot_count };
@@ -48,13 +48,19 @@ class frame_ring;
 
 namespace factory {
 
-  /**
-   * Creates a frame ring on `ctx`.
-   *
-   * @param ctx Context that owns the device (timeline + binary semaphores).
-   * @param info Slot count and initial image count.
-   */
-  [[nodiscard]] auto frame_ring(::vkexec::context &ctx, frame_ring_create_info info) -> sender<::vkexec::frame_ring>;
+  struct make_frame_ring_t
+  {
+
+    /**
+     * Creates a frame ring on `ctx`.
+     *
+     * @param ctx Context that owns the device (timeline + binary semaphores).
+     * @param info Slot count and initial image count.
+     */
+    [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const -> sender<frame_ring>;
+  };
+
+  inline constexpr make_frame_ring_t make_frame_ring{};
 
 }// namespace factory
 
@@ -66,14 +72,14 @@ namespace factory {
  * with `make_submit_sync`, then `mark_submitted`.
  *
  * ~~~~~~~~~~~{.cpp}
- * auto ring = vkexec::sync_wait_value(vkexec::factory::frame_ring(*ctx, {.slot_count = 2, .image_count = n}));
+ * auto ring = vkexec::sync_wait_value(vkexec::factory::make_frame_ring(*ctx, {.slot_count = 2, .image_count = n}));
  * auto value = ring.allocate_signal_value();
  * auto sync = *ring.make_submit_sync(slot, image, value);
  * // ... queue_submit with sync.waits / sync.signals ...
  * ring.mark_submitted(slot, image, value);
  * ~~~~~~~~~~~
  *
- * @see timeline_semaphore, frame_present, factory::frame_ring
+ * @see timeline_semaphore, frame_present, factory::make_frame_ring
  */
 class frame_ring
 {
@@ -154,7 +160,7 @@ public:
     -> result<frame_ring_submit_sync>;
 
 private:
-  friend sender<::vkexec::frame_ring> factory::frame_ring(::vkexec::context &ctx, frame_ring_create_info info);
+  friend struct factory::make_frame_ring_t;
 
   frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept;
 

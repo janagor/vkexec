@@ -19,7 +19,7 @@ TEST_CASE("feat::configure enables timeline_semaphore on Vulkan 1.2+", "[vkexec]
   requirements.api_version_minor = 2;
   vkexec::feat::configure<vkexec::feat::timeline_semaphore>(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   REQUIRE(vkexec::feat::available<vkexec::feat::timeline_semaphore>(*ctx));
   REQUIRE(vkexec::feat::name<vkexec::feat::timeline_semaphore>() == "timeline_semaphore");
 }
@@ -31,7 +31,7 @@ TEST_CASE("feat::configure enables dynamic_rendering on Vulkan 1.3+", "[vkexec][
   requirements.api_version_minor = 3;
   vkexec::feat::configure<vkexec::feat::dynamic_rendering>(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   REQUIRE(vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx));
   REQUIRE(vkexec::feat::name<vkexec::feat::dynamic_rendering>() == "dynamic_rendering");
 }
@@ -43,7 +43,7 @@ TEST_CASE("feat::configure_vulkan_13 enables registered 1.2 and 1.3 features", "
   requirements.api_version_minor = 3;
   vkexec::feat::configure_vulkan_13(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   REQUIRE(vkexec::feat::available<vkexec::feat::timeline_semaphore>(*ctx));
   REQUIRE(vkexec::feat::available<vkexec::feat::buffer_device_address>(*ctx));
   REQUIRE(vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx));

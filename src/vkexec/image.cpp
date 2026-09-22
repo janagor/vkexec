@@ -41,7 +41,7 @@ namespace {
 
 }// namespace
 
-auto factory::image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>
+auto factory::make_image_t::operator()(::vkexec::context &ctx, image_create_info info) const -> sender<::vkexec::image>
 {
   return make_sender<::vkexec::image>([&ctx, info]() -> result<::vkexec::image> {
     if (info.width == 0 || info.height == 0) {

@@ -58,13 +58,13 @@ struct heap_layout_desc
   heap_layout_desc const &desc,
   std::string_view name = "heap.comp") -> result<pipeline_resources>;
 
-//! Owning factory customization used by `factory::compute_pipeline(descriptor_heap, ...)`.
+//! Owning factory customization used by `factory::make_compute_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> spirv,
   heap_layout_desc const &desc) -> sender<compute_pipeline>;
 
-//! Owning GLSL factory customization used by `factory::compute_pipeline(descriptor_heap, ...)`.
+//! Owning GLSL factory customization used by `factory::make_compute_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view glsl,

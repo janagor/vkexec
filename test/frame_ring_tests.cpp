@@ -25,7 +25,7 @@ auto open_timeline_context() -> std::unique_ptr<vkexec::context>
   requirements.api_version_minor = 2;
   vkexec::feat::configure<vkexec::feat::timeline_semaphore>(requirements);
 
-  return vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  return vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
 }
 
 auto record_empty(vkexec::context &ctx) -> VkCommandBuffer
@@ -48,7 +48,7 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
   auto ctx = open_timeline_context();
 
   auto ring = vkexec::test::sync_wait_value(
-    vkexec::factory::frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 3 }));
+    vkexec::factory::make_frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 3 }));
   REQUIRE(ring.slot_count() == 2);
   REQUIRE(ring.image_count() == 3);
   auto const acquire0 = ring.acquire_semaphore(0);
@@ -71,7 +71,7 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
   auto ctx = open_timeline_context();
 
   auto ring = vkexec::test::sync_wait_value(
-    vkexec::factory::frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 2 }));
+    vkexec::factory::make_frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 2 }));
 
   // Prime the acquire semaphore so the wait is satisfied without a real swapchain acquire.
   {
@@ -110,7 +110,7 @@ TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][fra
   auto ctx = open_timeline_context();
 
   auto ring = vkexec::test::sync_wait_value(
-    vkexec::factory::frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 2 }));
+    vkexec::factory::make_frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 2 }));
   auto const old_finished = ring.render_finished_semaphore(0);
   REQUIRE(old_finished.has_value());
 
@@ -132,7 +132,7 @@ TEST_CASE("frame_ring reset preserves live timeline sequence", "[vkexec][frame_r
 {
   auto ctx = open_timeline_context();
   auto ring = vkexec::test::sync_wait_value(
-    vkexec::factory::frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 1, .image_count = 1 }));
+    vkexec::factory::make_frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 1, .image_count = 1 }));
 
   (void)ring.allocate_signal_value();
   (void)ring.allocate_signal_value();

@@ -39,14 +39,14 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   requirements.api_version_minor = 3;
   vkexec::feat::configure<vkexec::feat::dynamic_rendering>(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::image(*ctx,
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
     vkexec::image_create_info{
       .width = k_width,
       .height = k_height,
       .usage = vkexec::image_usage::color_storage,
     }));
-  auto view = vkexec::test::sync_wait_value(vkexec::factory::image_view(*ctx, img));
+  auto view = vkexec::test::sync_wait_value(vkexec::factory::make_image_view(*ctx, img));
 
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());

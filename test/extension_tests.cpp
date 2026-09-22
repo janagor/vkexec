@@ -17,7 +17,7 @@ TEST_CASE("ext::configure enables descriptor_heap when device supports it", "[vk
   requirements.api_version_minor = 4;
   vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   // configure() requests the extension optionally; skip when the device lacks it.
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
     SKIP("descriptor_heap not supported on this device");

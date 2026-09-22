@@ -28,7 +28,7 @@ enum class image_usage : std::uint8_t {
 };
 
 /**
- * Creation parameters for `factory::image`.
+ * Creation parameters for `factory::make_image`.
  *
  * When `format` is `VK_FORMAT_UNDEFINED`, a default format for `usage` is chosen.
  */
@@ -44,13 +44,19 @@ class image;
 
 namespace factory {
 
-  /**
-   * Creates a device-local image described by `info`.
-   *
-   * @param ctx Context whose VMA allocator owns the allocation.
-   * @param info Extent, usage, and optional format override.
-   */
-  [[nodiscard]] auto image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>;
+  struct make_image_t
+  {
+
+    /**
+     * Creates a device-local image described by `info`.
+     *
+     * @param ctx Context whose VMA allocator owns the allocation.
+     * @param info Extent, usage, and optional format override.
+     */
+    [[nodiscard]] auto operator()(context &ctx, image_create_info info) const -> sender<image>;
+  };
+
+  inline constexpr make_image_t make_image{};
 
 }// namespace factory
 
@@ -59,7 +65,7 @@ namespace factory {
  *
  * Move-only; destroys via VMA when owned. Create views with `image_view`.
  *
- * @see image_view, factory::image, image_create_info
+ * @see image_view, factory::make_image, image_create_info
  */
 class image
 {
@@ -82,7 +88,7 @@ public:
   [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
 
 private:
-  friend sender<::vkexec::image> factory::image(::vkexec::context &ctx, image_create_info info);
+  friend struct factory::make_image_t;
 
   image(context *ctx,
     VkImage image_handle,

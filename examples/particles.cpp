@@ -107,14 +107,14 @@ static auto run() -> int
     { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true });
   auto &ctx = win.ctx();
 
-  auto pos_x = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto pos_y = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto vel_x = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto vel_y = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto col_r = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto col_g = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto col_b = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
-  auto col_a = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(ctx, k_particle_count));
+  auto pos_x = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto pos_y = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto vel_x = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto vel_y = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto col_r = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto col_g = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto col_b = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto col_a = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
 
   {
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
@@ -148,7 +148,7 @@ static auto run() -> int
   }
 
   using enum vkexec::buffer_access;
-  auto compute_pipe = vkexec::examples::sync_wait_value(vkexec::factory::compute_pipeline(ctx,
+  auto compute_pipe = vkexec::examples::sync_wait_value(vkexec::factory::make_compute_pipeline(ctx,
     k_particle_update_glsl,
     vkexec::layout_desc{
       .binding_kinds = {},
@@ -184,7 +184,7 @@ static auto run() -> int
     vkexec::storage_binding{ .buffer = col_a.vk_buffer(), .byte_size = col_a.size() * sizeof(float), .binding = 5 },
   };
 
-  auto gfx = vkexec::examples::sync_wait_value(vkexec::factory::graphics_pipeline(
+  auto gfx = vkexec::examples::sync_wait_value(vkexec::factory::make_graphics_pipeline(
     ctx, win.render_pass(), graphics_cfg, k_particle_vert, k_particle_frag, draw_buffers));
 
   auto last = std::chrono::steady_clock::now();

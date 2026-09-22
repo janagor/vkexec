@@ -30,8 +30,8 @@ TEST_CASE("timeline_semaphore create and wait for initial value", "[vkexec][time
   requirements.api_version_minor = 2;
   vkexec::feat::configure<vkexec::feat::timeline_semaphore>(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto timeline = vkexec::test::sync_wait_value(vkexec::factory::timeline_semaphore(*ctx, 3));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto timeline = vkexec::test::sync_wait_value(vkexec::factory::make_timeline_semaphore(*ctx, 3));
   REQUIRE(timeline.handle() != VK_NULL_HANDLE);
   REQUIRE(timeline.wait(3));
   REQUIRE(timeline.wait(0));
@@ -44,8 +44,8 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
   requirements.api_version_minor = 2;
   vkexec::feat::configure<vkexec::feat::timeline_semaphore>(requirements);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto timeline = vkexec::test::sync_wait_value(vkexec::factory::timeline_semaphore(*ctx, 0));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto timeline = vkexec::test::sync_wait_value(vkexec::factory::make_timeline_semaphore(*ctx, 0));
 
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());

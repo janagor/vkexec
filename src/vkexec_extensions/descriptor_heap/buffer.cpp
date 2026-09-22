@@ -19,7 +19,7 @@ namespace {
 
 }// namespace
 
-auto factory::descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size)
+auto factory::make_descriptor_heap_buffer_t::operator()(::vkexec::context &ctx, VkDeviceSize size) const
   -> sender<::vkexec::descriptor_heap_buffer>
 {
   return make_sender<::vkexec::descriptor_heap_buffer>([&ctx, size]() -> result<::vkexec::descriptor_heap_buffer> {

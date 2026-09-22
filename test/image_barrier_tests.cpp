@@ -24,7 +24,7 @@ constexpr std::uint32_t k_height = 32;
 TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::image(*ctx,
+  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
     vkexec::image_create_info{
       .width = k_width,
       .height = k_height,

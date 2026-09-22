@@ -56,11 +56,11 @@ struct sim_params
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::context({ .validation_layers = true }));
+  auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context({ .validation_layers = true }));
   // Host-visible buffers are still convenient owning helpers; dispatch uses borrowable handles only.
-  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_element_count, 0.0F));
+  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, 0.0F));
   auto velocities =
-    vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_element_count, k_initial_velocity));
+    vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, k_initial_velocity));
 
   using enum vkexec::buffer_access;
   auto resources_result = vkexec::create_compute_resources(*ctx,

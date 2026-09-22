@@ -38,7 +38,7 @@ class window;
  * Library baseline requirements are merged with `requirements` at create time;
  * user requirements never remove library floors.
  *
- * @see factory::context, vulkan_requirements
+ * @see factory::make_context, vulkan_requirements
  */
 struct scheduler_options
 {
@@ -78,6 +78,13 @@ class context;
 
 namespace factory {
 
+  struct make_context_t
+  {
+    [[nodiscard]] auto operator()(scheduler_options const &opts = {}) const -> sender<std::unique_ptr<context>>;
+  };
+
+  inline constexpr make_context_t make_context{};
+
   /**
    * Creates a compute-only context (no window / swapchain).
    *
@@ -87,15 +94,18 @@ namespace factory {
    * @param opts Validation and extra Vulkan requirements.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
-  [[nodiscard]] auto context(scheduler_options const &opts = {}) -> sender<std::unique_ptr<::vkexec::context>>;
-
   /**
    * Adopts embedder-owned Vulkan handles without taking destruction ownership.
    *
    * @param info Borrowed instance, device, allocator, and queues.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
-  [[nodiscard]] auto adopt_context(context_adopt_info const &info) -> sender<std::unique_ptr<::vkexec::context>>;
+  struct adopt_context_t
+  {
+    [[nodiscard]] auto operator()(context_adopt_info const &info) const -> sender<std::unique_ptr<context>>;
+  };
+
+  inline constexpr adopt_context_t adopt_context{};
 
 }// namespace factory
 
@@ -103,7 +113,7 @@ namespace factory {
  * Owns (or adopts) the Vulkan instance/device, queues, VMA allocator, and host
  * agents used by vkexec senders.
  *
- * Create with `factory::context()` for a compute-only device, or
+ * Create with `factory::make_context()` for a compute-only device, or
  * `factory::adopt_context()` to wrap embedder-owned handles. Most GPU work is
  * scheduled via `get_scheduler()` and completed with `sync_wait`.
  *
@@ -111,11 +121,11 @@ namespace factory {
  * serialized with `lock_host()` (or use the provided sender adaptors).
  *
  * ~~~~~~~~~~~{.cpp}
- * auto ctx = vkexec::sync_wait_value(vkexec::factory::context());
+ * auto ctx = vkexec::sync_wait_value(vkexec::factory::make_context());
  * auto sched = ctx->get_scheduler();
  * ~~~~~~~~~~~
  *
- * @see factory::context, factory::adopt_context, scheduler, sync_wait, vulkan_requirements
+ * @see factory::make_context, factory::adopt_context, scheduler, sync_wait, vulkan_requirements
  */
 class context
 {
@@ -278,8 +288,8 @@ private:
   friend class presenter;
   template<typename T> friend class buffer;
   // MSVC misparses trailing-return friend decls named like the enclosing class.
-  friend sender<std::unique_ptr<::vkexec::context>> factory::context(scheduler_options const &opts);
-  friend sender<std::unique_ptr<::vkexec::context>> factory::adopt_context(context_adopt_info const &info);
+  friend struct factory::make_context_t;
+  friend struct factory::adopt_context_t;
 
   struct uninitialized_tag
   {

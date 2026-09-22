@@ -124,10 +124,10 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto positions = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, 0.0F));
-  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_initial_velocity));
-  auto pipe =
-    vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(*ctx, k_sim_glsl, make_sim_layout(), "sim.comp"));
+  auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, 0.0F));
+  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial_velocity));
+  auto pipe = vkexec::test::sync_wait_value(
+    vkexec::factory::make_compute_pipeline(*ctx, k_sim_glsl, make_sim_layout(), "sim.comp"));
 
   auto set_result = pipe.allocate_set();
   REQUIRE(set_result.has_value());
@@ -161,8 +161,8 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto positions = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, 0.0F));
-  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_initial_velocity));
+  auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, 0.0F));
+  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial_velocity));
 
   auto resources_result = vkexec::create_compute_resources(*ctx,
     k_sim_glsl,
@@ -199,10 +199,10 @@ void main() {}
 )";
 
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::image(
+  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(
     *ctx, vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
-  auto view = vkexec::test::sync_wait_value(vkexec::factory::image_view(*ctx, img));
-  auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::sampler(*ctx));
+  auto view = vkexec::test::sync_wait_value(vkexec::factory::make_image_view(*ctx, img));
+  auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   auto resources_result = vkexec::create_compute_resources(
     *ctx, k_empty_compute_glsl, vkexec::layout_desc_from_schema(image_schema{}), "table_images.comp");
   REQUIRE(resources_result.has_value());
@@ -230,11 +230,11 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_initial));
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial));
   auto add_pipe = vkexec::test::sync_wait_value(
-    vkexec::factory::compute_pipeline(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
+    vkexec::factory::make_compute_pipeline(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
   auto scale_pipe = vkexec::test::sync_wait_value(
-    vkexec::factory::compute_pipeline(*ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp"));
+    vkexec::factory::make_compute_pipeline(*ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp"));
 
   auto set_result = add_pipe.allocate_set();
   REQUIRE(set_result.has_value());
@@ -273,11 +273,11 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_count, k_initial));
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial));
   auto add_pipe = vkexec::test::sync_wait_value(
-    vkexec::factory::compute_pipeline(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
+    vkexec::factory::make_compute_pipeline(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
   auto scale_pipe = vkexec::test::sync_wait_value(
-    vkexec::factory::compute_pipeline(*ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp"));
+    vkexec::factory::make_compute_pipeline(*ctx, k_scale_glsl, make_one_buffer_layout(), "scale.comp"));
 
   auto set_result = add_pipe.allocate_set();
   REQUIRE(set_result.has_value());

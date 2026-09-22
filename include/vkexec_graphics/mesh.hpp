@@ -69,23 +69,29 @@ class mesh;
 
 namespace factory {
 
-  /**
-   * Creates a mesh from `vertices` and `indices`.
-   *
-   * @param ctx Context whose VMA allocator owns the buffers.
-   * @param vertices Vertex data (copied into the vertex buffer).
-   * @param indices Triangle indices (copied into the index buffer).
-   */
-  [[nodiscard]] auto mesh(::vkexec::context &ctx,
-    std::span<mesh_vertex const> vertices,
-    std::span<std::uint32_t const> indices) -> sender<::vkexec::mesh>;
+  struct make_mesh_t
+  {
+
+    /**
+     * Creates a mesh from `vertices` and `indices`.
+     *
+     * @param ctx Context whose VMA allocator owns the buffers.
+     * @param vertices Vertex data (copied into the vertex buffer).
+     * @param indices Triangle indices (copied into the index buffer).
+     */
+    [[nodiscard]] auto operator()(context &ctx,
+      std::span<mesh_vertex const> vertices,
+      std::span<std::uint32_t const> indices) const -> sender<mesh>;
+  };
+
+  inline constexpr make_mesh_t make_mesh{};
 
 }// namespace factory
 
 /**
  * Host-visible indexed triangle mesh (owning wrapper over `mesh_buffers`).
  *
- * @see create_mesh_buffers, graphics_pipeline, draw, factory::mesh
+ * @see create_mesh_buffers, graphics_pipeline, draw, factory::make_mesh
  */
 class mesh
 {
@@ -120,9 +126,7 @@ public:
   [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
 
 private:
-  friend sender<::vkexec::mesh> factory::mesh(::vkexec::context &ctx,
-    std::span<mesh_vertex const> vertices,
-    std::span<std::uint32_t const> indices);
+  friend struct factory::make_mesh_t;
 
   mesh(context *ctx, mesh_buffers buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
 

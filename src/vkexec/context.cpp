@@ -196,7 +196,8 @@ namespace {
 
 context::context([[maybe_unused]] uninitialized_tag tag) noexcept : impl_(std::make_unique<impl>()) {}
 
-auto factory::context(scheduler_options const &opts) -> sender<std::unique_ptr<::vkexec::context>>
+auto factory::make_context_t::operator()(scheduler_options const &opts) const
+  -> sender<std::unique_ptr<::vkexec::context>>
 {
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
@@ -206,7 +207,8 @@ auto factory::context(scheduler_options const &opts) -> sender<std::unique_ptr<:
   });
 }
 
-auto factory::adopt_context(context_adopt_info const &info) -> sender<std::unique_ptr<::vkexec::context>>
+auto factory::adopt_context_t::operator()(context_adopt_info const &info) const
+  -> sender<std::unique_ptr<::vkexec::context>>
 {
   // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {

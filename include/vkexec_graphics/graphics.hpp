@@ -27,64 +27,70 @@ class graphics_pipeline;
 
 namespace factory {
 
-  /**
-   * Creates a graphics pipeline from SPIR-V with an explicit config.
-   *
-   * @param ctx Context that owns the device.
-   * @param render_pass Compatible render pass (typically from `presenter`).
-   * @param cfg Topology, blending, clears, depth, mesh vertex layout.
-   * @param vertex_spirv Vertex shader SPIR-V.
-   * @param fragment_spirv Fragment shader SPIR-V.
-   * @param buffers Optional storage buffers bound as descriptors.
-   */
-  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
-    VkRenderPass render_pass,
-    graphics_pipeline_config cfg,
-    std::span<std::uint32_t const> vertex_spirv,
-    std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
+  struct make_graphics_pipeline_t
+  {
 
-  //! Creates a graphics pipeline from SPIR-V with default config.
-  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
-    VkRenderPass render_pass,
-    std::span<std::uint32_t const> vertex_spirv,
-    std::span<std::uint32_t const> fragment_spirv,
-    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
+    /**
+     * Creates a graphics pipeline from SPIR-V with an explicit config.
+     *
+     * @param ctx Context that owns the device.
+     * @param render_pass Compatible render pass (typically from `presenter`).
+     * @param cfg Topology, blending, clears, depth, mesh vertex layout.
+     * @param vertex_spirv Vertex shader SPIR-V.
+     * @param fragment_spirv Fragment shader SPIR-V.
+     * @param buffers Optional storage buffers bound as descriptors.
+     */
+    [[nodiscard]] auto operator()(context &ctx,
+      VkRenderPass render_pass,
+      graphics_pipeline_config cfg,
+      std::span<std::uint32_t const> vertex_spirv,
+      std::span<std::uint32_t const> fragment_spirv,
+      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
 
-  //! Creates a graphics pipeline by compiling GLSL with an explicit config.
-  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
-    VkRenderPass render_pass,
-    graphics_pipeline_config cfg,
-    std::string_view vertex_glsl,
-    std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
+    //! Creates a graphics pipeline from SPIR-V with default config.
+    [[nodiscard]] auto operator()(context &ctx,
+      VkRenderPass render_pass,
+      std::span<std::uint32_t const> vertex_spirv,
+      std::span<std::uint32_t const> fragment_spirv,
+      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
 
-  //! Creates a graphics pipeline by compiling GLSL with default config.
-  [[nodiscard]] auto graphics_pipeline(::vkexec::context &ctx,
-    VkRenderPass render_pass,
-    std::string_view vertex_glsl,
-    std::string_view fragment_glsl,
-    std::span<storage_binding const> buffers = {}) -> sender<::vkexec::graphics_pipeline>;
+    //! Creates a graphics pipeline by compiling GLSL with an explicit config.
+    [[nodiscard]] auto operator()(context &ctx,
+      VkRenderPass render_pass,
+      graphics_pipeline_config cfg,
+      std::string_view vertex_glsl,
+      std::string_view fragment_glsl,
+      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
 
-  //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
-  template<class Strategy, class Desc>
-  [[nodiscard]] auto graphics_pipeline(Strategy strategy,
-    ::vkexec::context &ctx,
-    std::span<std::uint32_t const> vertex_spirv,
-    std::span<std::uint32_t const> fragment_spirv,
-    Desc const &desc)
-  { return create_graphics_pipeline(strategy, ctx, vertex_spirv, fragment_spirv, desc); }
+    //! Creates a graphics pipeline by compiling GLSL with default config.
+    [[nodiscard]] auto operator()(context &ctx,
+      VkRenderPass render_pass,
+      std::string_view vertex_glsl,
+      std::string_view fragment_glsl,
+      std::span<storage_binding const> buffers = {}) const -> sender<graphics_pipeline>;
 
-  //! Compiles GLSL and creates a graphics pipeline through an extension-owned strategy tag.
-  template<class Strategy, class Desc>
-  [[nodiscard]] auto graphics_pipeline(Strategy strategy,
-    ::vkexec::context &ctx,
-    std::string_view vertex_glsl,
-    std::string_view fragment_glsl,
-    Desc const &desc,
-    std::string_view vertex_name = "vkexec.vert",
-    std::string_view fragment_name = "vkexec.frag")
-  { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
+    //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
+    template<class Strategy, class Desc>
+    [[nodiscard]] auto operator()(Strategy strategy,
+      context &ctx,
+      std::span<std::uint32_t const> vertex_spirv,
+      std::span<std::uint32_t const> fragment_spirv,
+      Desc const &desc) const
+    { return create_graphics_pipeline(strategy, ctx, vertex_spirv, fragment_spirv, desc); }
+
+    //! Compiles GLSL and creates a graphics pipeline through an extension-owned strategy tag.
+    template<class Strategy, class Desc>
+    [[nodiscard]] auto operator()(Strategy strategy,
+      context &ctx,
+      std::string_view vertex_glsl,
+      std::string_view fragment_glsl,
+      Desc const &desc,
+      std::string_view vertex_name = "vkexec.vert",
+      std::string_view fragment_name = "vkexec.frag") const
+    { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
+  };
+
+  inline constexpr make_graphics_pipeline_t make_graphics_pipeline{};
 
 }// namespace factory
 
@@ -95,7 +101,7 @@ namespace factory {
  * descriptor set for storage buffers passed at create time. Compatible with a
  * `presenter` render pass. Use `draw` / `record_draw` inside a begun frame.
  *
- * @see presenter, mesh, draw, create_graphics_resources, factory::graphics_pipeline
+ * @see presenter, mesh, draw, create_graphics_resources, factory::make_graphics_pipeline
  */
 class graphics_pipeline
 {

@@ -19,7 +19,8 @@
 
 namespace vkexec {
 
-auto factory::swapchain(::vkexec::context &ctx, swapchain_create_info info) -> sender<::vkexec::swapchain>
+auto factory::make_swapchain_t::operator()(::vkexec::context &ctx, swapchain_create_info info) const
+  -> sender<::vkexec::swapchain>
 {
   return make_sender<::vkexec::swapchain>([&ctx, info]() -> result<::vkexec::swapchain> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }

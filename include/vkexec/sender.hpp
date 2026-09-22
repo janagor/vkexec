@@ -19,19 +19,18 @@ namespace ex = stdexec;
 
 namespace detail {
 
-template<class Receiver>
-auto set_factory_exception(Receiver &&receiver) noexcept -> void
-{
-  // start() is noexcept; map unexpected throws to set_error without allocating.
-  ex::set_error(std::forward<Receiver>(receiver), error{ .code = make_error_code(errc::io_error) });
-}
+  template<class Receiver> auto set_factory_exception(Receiver &&receiver) noexcept -> void
+  {
+    // start() is noexcept; map unexpected throws to set_error without allocating.
+    ex::set_error(std::forward<Receiver>(receiver), error{ .code = make_error_code(errc::io_error), .detail = {} });
+  }
 
 }// namespace detail
 
 /**
  * Sender that invokes `factory` synchronously in `start()` and completes with its `result<Value>`.
  *
- * Honours stop tokens with `set_stopped`. Used by most `Type::create` APIs.
+ * Honours stop tokens with `set_stopped`. Used by most `factory::make_*` CPOs.
  *
  * @see make_sender
  */

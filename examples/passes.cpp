@@ -59,11 +59,11 @@ constexpr std::uint32_t k_op_mul = 1;
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::context({ .validation_layers = true }));
-  auto values = vkexec::examples::sync_wait_value(vkexec::factory::buffer<float>(*ctx, k_element_count, k_initial));
+  auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context({ .validation_layers = true }));
+  auto values = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, k_initial));
 
   using enum vkexec::buffer_access;
-  auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::compute_pipeline(*ctx,
+  auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx,
     k_pass_glsl,
     vkexec::layout_desc{
       .binding_kinds = {},

@@ -34,7 +34,8 @@ namespace {
 
 }// namespace
 
-auto factory::frame_ring(::vkexec::context &ctx, frame_ring_create_info info) -> sender<::vkexec::frame_ring>
+auto factory::make_frame_ring_t::operator()(::vkexec::context &ctx, frame_ring_create_info info) const
+  -> sender<::vkexec::frame_ring>
 {
   return make_sender<::vkexec::frame_ring>([&ctx, info]() -> result<::vkexec::frame_ring> {
     if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }

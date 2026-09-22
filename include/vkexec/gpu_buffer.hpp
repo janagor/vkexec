@@ -33,7 +33,7 @@ enum class gpu_buffer_memory : std::uint8_t {
 };
 
 /**
- * Creation parameters for `factory::gpu_buffer`.
+ * Creation parameters for `factory::make_gpu_buffer`.
  *
  * @param size Byte size of the buffer (must be > 0).
  * @param memory Memory/usage preset.
@@ -51,18 +51,23 @@ class gpu_buffer;
 
 namespace factory {
 
-  /**
-   * Creates a buffer described by `info`.
-   *
-   * @param ctx Context whose VMA allocator owns the allocation.
-   * @param info Size, memory preset, and optional device address flag.
-   * @return Sender that completes with ownership of the buffer.
-   */
-  [[nodiscard]] auto gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) -> sender<::vkexec::gpu_buffer>;
+  struct make_gpu_buffer_t
+  {
 
-  //! Creates a buffer of `size` bytes with the given memory preset.
-  [[nodiscard]] auto gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
-    -> sender<::vkexec::gpu_buffer>;
+    /**
+     * Creates a buffer described by `info`.
+     *
+     * @param ctx Context whose VMA allocator owns the allocation.
+     * @param info Size, memory preset, and optional device address flag.
+     * @return Sender that completes with ownership of the buffer.
+     */
+    //! Creates a buffer of `size` bytes with the given memory preset.
+    [[nodiscard]] auto operator()(context &ctx, gpu_buffer_create_info info) const -> sender<gpu_buffer>;
+    [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) const
+      -> sender<gpu_buffer>;
+  };
+
+  inline constexpr make_gpu_buffer_t make_gpu_buffer{};
 
 }// namespace factory
 
@@ -72,7 +77,7 @@ namespace factory {
  * Distinct from typed `buffer<T>`, which is host-visible storage with element
  * fill. Move-only; destroys via VMA when owned.
  *
- * @see buffer, factory::gpu_buffer, upload_to_device
+ * @see buffer, factory::make_gpu_buffer, upload_to_device
  */
 class gpu_buffer
 {
@@ -107,10 +112,7 @@ public:
   [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
 private:
-  friend sender<::vkexec::gpu_buffer> factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info);
-  friend sender<::vkexec::gpu_buffer> factory::gpu_buffer(::vkexec::context &ctx,
-    VkDeviceSize size,
-    gpu_buffer_memory memory);
+  friend struct factory::make_gpu_buffer_t;
 
   gpu_buffer(context *ctx,
     VkBuffer buffer,

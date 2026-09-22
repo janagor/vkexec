@@ -41,7 +41,7 @@ template<typename T> class buffer;
  * Completes with `set_stopped` when the stop token is already requested, otherwise
  * `set_value(buffer<T>)` or `set_error`.
  *
- * @see factory::buffer
+ * @see factory::make_buffer
  */
 template<typename T> struct buffer_allocate_sender
 {
@@ -108,9 +108,9 @@ template<typename T> struct buffer_allocate_sender
  * Elements are trivially copyable `T`. Creation fills every element with the
  * provided value. Persistently mapped for host access via `data()`.
  *
- * Prefer `factory::buffer` over constructing directly.
+ * Prefer `factory::make_buffer` over constructing directly.
  *
- * @see factory::buffer, buffer_allocate_sender, gpu_buffer
+ * @see factory::make_buffer, buffer_allocate_sender, gpu_buffer
  */
 template<typename T> class buffer
 {
@@ -247,9 +247,14 @@ namespace factory {
    * @param count Element count (must be > 0).
    * @param fill Initial value written to every element.
    */
-  template<typename T>
-  [[nodiscard]] auto buffer(::vkexec::context &ctx, std::size_t count, T fill = T{}) -> buffer_allocate_sender<T>
-  { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
+  struct make_buffer_t
+  {
+    template<typename T>
+    [[nodiscard]] auto operator()(context &ctx, std::size_t count, T fill) const -> buffer_allocate_sender<T>
+    { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
+  };
+
+  inline constexpr make_buffer_t make_buffer{};
 
 }// namespace factory
 

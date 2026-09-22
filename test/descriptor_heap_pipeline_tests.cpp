@@ -69,8 +69,8 @@ TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec]
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -93,8 +93,8 @@ TEST_CASE("descriptor-heap compute_pipeline accepts specialization constants", "
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_spec_glsl,
     vkexec::heap_layout_desc{ .specialization = { k_work_count }, .local_size = vkexec::k_default_local_size },
@@ -114,8 +114,8 @@ TEST_CASE("compute_pass records push data for descriptor-heap pipelines", "[vkex
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -139,9 +139,9 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   vkexec::algorithm const algo =
-    vkexec::test::sync_wait_value(vkexec::factory::compute_pipeline(vkexec::descriptor_heap,
+    vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
       *ctx,
       k_heap_compute_glsl,
       vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -169,18 +169,18 @@ TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vke
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
   auto const &layout = vkexec::expected_get(layout_result);
-  auto storage = vkexec::test::sync_wait_value(vkexec::factory::gpu_buffer(*ctx,
+  auto storage = vkexec::test::sync_wait_value(vkexec::factory::make_gpu_buffer(*ctx,
     vkexec::gpu_buffer_create_info{
       .size = k_storage_bytes,
       .memory = vkexec::gpu_buffer_memory::device_local,
       .shader_device_address = true,
     }));
   auto heap = vkexec::test::sync_wait_value(
-    vkexec::factory::descriptor_heap_buffer(*ctx, vkexec::descriptor_heap_byte_size(layout, 1)));
+    vkexec::factory::make_descriptor_heap_buffer(*ctx, vkexec::descriptor_heap_byte_size(layout, 1)));
   auto const table = vkexec::bindings(
     vkexec::resource_binding{ .slot = 0, .resource = vkexec::buffer_resource(storage.handle(), storage.size()) });
   std::array<std::uint32_t, 1> const indices{ 0 };
@@ -230,7 +230,7 @@ TEST_CASE("create_graphics_resources builds null-layout DR pipeline", "[vkexec][
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto resources_result = vkexec::create_graphics_resources(vkexec::descriptor_heap,
     *ctx,
     vkexec::shaders::k_triangle_vert,
@@ -269,8 +269,8 @@ TEST_CASE("graphics_pipeline tag factory owns null-layout DR pipeline", "[vkexec
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
   requirements.require_extension_feature(features_heap);
 
-  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::context({ .requirements = std::move(requirements) }));
-  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::graphics_pipeline(vkexec::descriptor_heap,
+  auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_graphics_pipeline(vkexec::descriptor_heap,
     *ctx,
     vkexec::shaders::k_triangle_vert,
     vkexec::shaders::k_triangle_frag,

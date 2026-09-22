@@ -87,31 +87,37 @@ class descriptor_graphics_pipeline;
 
 namespace factory {
 
-  /**
-   * Creates a heap graphics pipeline from vertex/fragment SPIR-V.
-   *
-   * @param ctx Context whose device creates the Vulkan objects.
-   * @param vertex_spirv Vertex SPIR-V words.
-   * @param fragment_spirv Fragment SPIR-V words.
-   * @param desc Formats, blend, and raster state.
-   */
-  [[nodiscard]] auto descriptor_graphics_pipeline(::vkexec::context &ctx,
-    std::span<std::uint32_t const> vertex_spirv,
-    std::span<std::uint32_t const> fragment_spirv,
-    heap_graphics_layout_desc const &desc) -> sender<::vkexec::descriptor_graphics_pipeline>;
+  struct make_descriptor_graphics_pipeline_t
+  {
 
-  /**
-   * Compiles GLSL then creates a heap graphics pipeline.
-   *
-   * @param vertex_name Debug name for the vertex shader compiler.
-   * @param fragment_name Debug name for the fragment shader compiler.
-   */
-  [[nodiscard]] auto descriptor_graphics_pipeline(::vkexec::context &ctx,
-    std::string_view vertex_glsl,
-    std::string_view fragment_glsl,
-    heap_graphics_layout_desc const &desc,
-    std::string_view vertex_name = "heap.vert",
-    std::string_view fragment_name = "heap.frag") -> sender<::vkexec::descriptor_graphics_pipeline>;
+    /**
+     * Creates a heap graphics pipeline from vertex/fragment SPIR-V.
+     *
+     * @param ctx Context whose device creates the Vulkan objects.
+     * @param vertex_spirv Vertex SPIR-V words.
+     * @param fragment_spirv Fragment SPIR-V words.
+     * @param desc Formats, blend, and raster state.
+     */
+    [[nodiscard]] auto operator()(context &ctx,
+      std::span<std::uint32_t const> vertex_spirv,
+      std::span<std::uint32_t const> fragment_spirv,
+      heap_graphics_layout_desc const &desc) const -> sender<descriptor_graphics_pipeline>;
+
+    /**
+     * Compiles GLSL then creates a heap graphics pipeline.
+     *
+     * @param vertex_name Debug name for the vertex shader compiler.
+     * @param fragment_name Debug name for the fragment shader compiler.
+     */
+    [[nodiscard]] auto operator()(context &ctx,
+      std::string_view vertex_glsl,
+      std::string_view fragment_glsl,
+      heap_graphics_layout_desc const &desc,
+      std::string_view vertex_name = "heap.vert",
+      std::string_view fragment_name = "heap.frag") const -> sender<descriptor_graphics_pipeline>;
+  };
+
+  inline constexpr make_descriptor_graphics_pipeline_t make_descriptor_graphics_pipeline{};
 
 }// namespace factory
 
@@ -121,7 +127,7 @@ namespace factory {
  * Bind returns a `compute_bind` with null layout/set (same bag shape as heap
  * compute) for use with `record_draw(context, ...)`.
  *
- * @see create_graphics_resources, heap_graphics_layout_desc, factory::descriptor_graphics_pipeline
+ * @see create_graphics_resources, heap_graphics_layout_desc, factory::make_descriptor_graphics_pipeline
  */
 class descriptor_graphics_pipeline
 {
@@ -167,14 +173,14 @@ private:
   std::unique_ptr<pipeline_resources> resources_;
 };
 
-//! Owning factory customization used by `factory::graphics_pipeline(descriptor_heap, ...)`.
+//! Owning factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   heap_graphics_layout_desc const &desc) -> sender<descriptor_graphics_pipeline>;
 
-//! Owning GLSL factory customization used by `factory::graphics_pipeline(descriptor_heap, ...)`.
+//! Owning GLSL factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.
 [[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,

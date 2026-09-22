@@ -14,13 +14,19 @@ class image_view;
 
 namespace factory {
 
-  /**
-   * Creates a 2D image view matching `img`'s format and aspect.
-   *
-   * @param ctx Context that owns the device.
-   * @param img Image to view (must remain alive while the view is used).
-   */
-  [[nodiscard]] auto image_view(::vkexec::context &ctx, ::vkexec::image const &img) -> sender<::vkexec::image_view>;
+  struct make_image_view_t
+  {
+
+    /**
+     * Creates a 2D image view matching `img`'s format and aspect.
+     *
+     * @param ctx Context that owns the device.
+     * @param img Image to view (must remain alive while the view is used).
+     */
+    [[nodiscard]] auto operator()(context &ctx, image const &img) const -> sender<image_view>;
+  };
+
+  inline constexpr make_image_view_t make_image_view{};
 
 }// namespace factory
 
@@ -30,7 +36,7 @@ namespace factory {
  * The view does not own the image; `img` must outlive this view. Destroyed on
  * the context device when this object is destroyed or moved-from.
  *
- * @see image, factory::image_view
+ * @see image, factory::make_image_view
  */
 class image_view
 {
@@ -47,7 +53,7 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkImageView { return view_; }
 
 private:
-  friend sender<::vkexec::image_view> factory::image_view(::vkexec::context &ctx, ::vkexec::image const &img);
+  friend struct factory::make_image_view_t;
 
   image_view(context *ctx, VkImageView view) noexcept;
   auto destroy() noexcept -> void;

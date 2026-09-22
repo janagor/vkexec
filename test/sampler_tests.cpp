@@ -11,6 +11,6 @@
 TEST_CASE("sampler creates a linear clamp sampler", "[vkexec][sampler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto samp = vkexec::test::sync_wait_value(vkexec::factory::sampler(*ctx));
+  auto samp = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   REQUIRE(samp.handle() != VK_NULL_HANDLE);
 }

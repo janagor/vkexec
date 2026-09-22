@@ -65,7 +65,8 @@ namespace {
 
 }// namespace
 
-auto factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) -> sender<::vkexec::gpu_buffer>
+auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, gpu_buffer_create_info info) const
+  -> sender<::vkexec::gpu_buffer>
 {
   return make_sender<::vkexec::gpu_buffer>([&ctx, info]() -> result<::vkexec::gpu_buffer> {
     if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
@@ -110,9 +111,9 @@ auto factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) ->
   });
 }
 
-auto factory::gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
+auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory) const
   -> sender<::vkexec::gpu_buffer>
-{ return factory::gpu_buffer(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
+{ return factory::make_gpu_buffer(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
 gpu_buffer::gpu_buffer(context *ctx,
   VkBuffer buffer,
