@@ -26,6 +26,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, image const &img) const -> sender<image_view>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_image_view_t make_image_view{};
 
 }// namespace factory

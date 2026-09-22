@@ -34,6 +34,7 @@ struct schema_bind_t
   { return bind_resources(pipe, make_resource_table(schema, std::forward<Resources>(resources)...), params); }
 };
 
+//NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr schema_bind_t schema_bind{};
 
 struct schema_pass_closure
@@ -70,6 +71,7 @@ struct schema_pass_t
   }
 };
 
+//NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr schema_pass_t schema_pass{};
 
 [[nodiscard]] inline auto operator|(schedule_sender snd, schema_pass_closure closure) -> pass_graph_sender
@@ -92,11 +94,12 @@ template<class Pred> struct schema_pass_sender
 template<vkexec_predecessor Pred>
   requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender>
            && !std::same_as<std::remove_cvref_t<Pred>, pass_graph_sender>)
-[[nodiscard]] auto operator|(Pred &&pred, schema_pass_closure closure) -> schema_pass_sender<std::remove_cvref_t<Pred>>
+[[nodiscard]] auto operator|(Pred &&pred, schema_pass_closure const &closure)
+  -> schema_pass_sender<std::remove_cvref_t<Pred>>
 {
   return schema_pass_sender<std::remove_cvref_t<Pred>>{
     .pred = std::forward<Pred>(pred),
-    .closure = std::move(closure),
+    .closure = closure,
   };
 }
 
@@ -105,6 +108,7 @@ template<class Pred, class Env>
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
+  // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape)
   return ex::let_value(
     std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
       return detail::append_schema_pass(pass_graph_sender{ .ctx = ctx, .steps = {} }, std::move(closure));

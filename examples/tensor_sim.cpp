@@ -1,7 +1,6 @@
 #include "sync_wait_helpers.hpp"
 
 #include <vkexec/context.hpp>
-#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/tensor.hpp>

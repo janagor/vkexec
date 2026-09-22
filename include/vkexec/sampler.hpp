@@ -37,6 +37,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const -> sender<sampler>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_sampler_t make_sampler{};
 
 }// namespace factory

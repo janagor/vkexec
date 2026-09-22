@@ -68,6 +68,7 @@ namespace factory {
     { return create_compute_pipeline(strategy, ctx, glsl, desc, name); }
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_compute_pipeline_t make_compute_pipeline{};
 
 }// namespace factory

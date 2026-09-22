@@ -84,6 +84,7 @@ namespace factory {
       std::span<std::uint32_t const> indices) const -> sender<mesh>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_mesh_t make_mesh{};
 
 }// namespace factory

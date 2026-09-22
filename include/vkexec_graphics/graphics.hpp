@@ -90,6 +90,7 @@ namespace factory {
     { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_graphics_pipeline_t make_graphics_pipeline{};
 
 }// namespace factory

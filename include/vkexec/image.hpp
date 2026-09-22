@@ -56,6 +56,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, image_create_info info) const -> sender<image>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_image_t make_image{};
 
 }// namespace factory

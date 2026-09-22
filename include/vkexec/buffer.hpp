@@ -256,6 +256,7 @@ namespace factory {
     { return buffer_allocate_sender<T>{ .ctx = &ctx, .count = count, .fill = std::move(fill) }; }
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_buffer_t make_buffer{};
 
 }// namespace factory

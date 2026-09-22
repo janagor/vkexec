@@ -69,6 +69,7 @@ namespace factory {
     [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<presenter>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_presenter_t make_presenter{};
 
   /**
@@ -83,6 +84,7 @@ namespace factory {
     [[nodiscard]] auto operator()() const -> sender<presenter>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_headless_presenter_t make_headless_presenter{};
 
 }// namespace factory

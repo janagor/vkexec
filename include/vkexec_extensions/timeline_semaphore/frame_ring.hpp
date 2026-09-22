@@ -60,6 +60,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const -> sender<frame_ring>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_frame_ring_t make_frame_ring{};
 
 }// namespace factory

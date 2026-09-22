@@ -67,6 +67,7 @@ namespace factory {
       -> sender<gpu_buffer>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_gpu_buffer_t make_gpu_buffer{};
 
 }// namespace factory

@@ -173,9 +173,8 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   auto resources = vkexec::expected_take(resources_result);
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
-  auto predecessor = ex::then(ex::schedule(ctx->get_scheduler()), [] {});
   auto graph =
-    std::move(predecessor)
+    ex::schedule(ctx->get_scheduler())
     | vkexec::schema_pass(sim_schema{}, resources, params, static_cast<std::uint32_t>(k_count), positions, velocities);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));

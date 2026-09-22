@@ -83,6 +83,7 @@ namespace factory {
     [[nodiscard]] auto operator()(scheduler_options const &opts = {}) const -> sender<std::unique_ptr<context>>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_context_t make_context{};
 
   /**
@@ -105,6 +106,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context_adopt_info const &info) const -> sender<std::unique_ptr<context>>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr adopt_context_t adopt_context{};
 
 }// namespace factory

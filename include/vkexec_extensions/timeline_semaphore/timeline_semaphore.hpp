@@ -39,6 +39,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, std::uint64_t initial_value = 0) const -> sender<timeline_semaphore>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_timeline_semaphore_t make_timeline_semaphore{};
 
 }// namespace factory
@@ -75,7 +76,7 @@ public:
   [[nodiscard]] auto wait(std::uint64_t value) const -> status;
 
 private:
-  friend result<timeline_semaphore> detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value);
+  friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>;
 
   timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;
   auto destroy() noexcept -> void;

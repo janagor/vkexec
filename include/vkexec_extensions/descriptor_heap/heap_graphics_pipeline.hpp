@@ -117,6 +117,7 @@ namespace factory {
       std::string_view fragment_name = "heap.frag") const -> sender<descriptor_graphics_pipeline>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_descriptor_graphics_pipeline_t make_descriptor_graphics_pipeline{};
 
 }// namespace factory

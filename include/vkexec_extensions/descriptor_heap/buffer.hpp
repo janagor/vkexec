@@ -31,6 +31,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size) const -> sender<descriptor_heap_buffer>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_descriptor_heap_buffer_t make_descriptor_heap_buffer{};
 
 }// namespace factory

@@ -28,10 +28,10 @@ namespace detail {
   [[nodiscard]] auto append_tensor_pass(pass_graph_sender graph, tensor_pass_closure<T...> closure) -> pass_graph_sender
   {
     std::apply(
-      [&graph](auto *...values) { ((graph = std::move(graph) | sync_to_device(*values)), ...); }, closure.tensors);
+      [&graph](auto *...values) -> void { ((graph = std::move(graph) | sync_to_device(*values)), ...); }, closure.tensors);
     graph = std::move(graph) | std::move(closure.compute);
     std::apply(
-      [&graph](auto *...values) { ((graph = std::move(graph) | sync_to_host(*values)), ...); }, closure.tensors);
+      [&graph](auto *...values) -> void { ((graph = std::move(graph) | sync_to_host(*values)), ...); }, closure.tensors);
     return graph;
   }
 
@@ -40,11 +40,11 @@ namespace detail {
 struct tensor_pass_t
 {
   template<typename... T>
-  [[nodiscard]] auto operator()(prebuilt_compute_pass_closure compute, tensor<T> &...values) const
+  [[nodiscard]] auto operator()(prebuilt_compute_pass_closure const &compute, tensor<T> &...values) const
     -> tensor_pass_closure<T...>
   {
     static_assert(sizeof...(T) > 0, "tensor_pass requires at least one tensor");
-    return tensor_pass_closure<T...>{ .compute = std::move(compute), .tensors = { &values... } };
+    return tensor_pass_closure<T...>{ .compute = compute, .tensors = { &values... } };
   }
 
   template<typename Params, typename... T>
@@ -61,6 +61,7 @@ struct tensor_pass_t
   { return (*this)(compute_pass(pipe, set, params, work_count), values...); }
 };
 
+//NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr tensor_pass_t tensor_pass{};
 
 template<typename... T>
@@ -101,6 +102,7 @@ template<class Pred, typename... T, class Env>
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
+  // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape)
   return ex::let_value(
     std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
       return detail::append_tensor_pass(pass_graph_sender{ .ctx = ctx, .steps = {} }, std::move(closure));

@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/bind_resources.hpp>
 #include <vkexec/descriptor_schema.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>

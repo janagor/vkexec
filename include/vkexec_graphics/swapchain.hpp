@@ -61,6 +61,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const -> sender<swapchain>;
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_swapchain_t make_swapchain{};
 
 }// namespace factory

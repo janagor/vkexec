@@ -3,7 +3,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
-#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/tensor.hpp>
@@ -17,6 +16,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -153,9 +153,8 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
   auto bound = vkexec::expected_take(bound_result);
 
   scale_params const params{ .scale = 2.0F };
-  auto predecessor = ex::then(ex::schedule(ctx->get_scheduler()), [] {});
   auto completed = vkexec::test::sync_wait_sender(
-    std::move(predecessor)
+    ex::schedule(ctx->get_scheduler())
     | vkexec::tensor_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_count), values));
   REQUIRE(vkexec::test::sync_wait_completed(completed));
   REQUIRE(values.span().front() == k_fill * params.scale);

@@ -203,6 +203,7 @@ namespace factory {
     }
   };
 
+  //NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_tensor_t make_tensor{};
 
 }// namespace factory
