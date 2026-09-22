@@ -25,7 +25,6 @@ namespace vkexec {
  * @param src_offset Byte offset in `src`.
  * @param dst_offset Byte offset in `dst`.
  */
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 inline auto cmd_copy_buffer(VkCommandBuffer cmd,
   VkBuffer src,
   VkBuffer dst,
@@ -39,7 +38,6 @@ inline auto cmd_copy_buffer(VkCommandBuffer cmd,
   region.size = size;
   vkCmdCopyBuffer(cmd, src, dst, 1, &region);
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 /**
  * Writes `bytes` into host-visible `staging`, copies to `device`, and blocks until complete.

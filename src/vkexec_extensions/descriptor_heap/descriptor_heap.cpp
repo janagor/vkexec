@@ -21,14 +21,12 @@ namespace {
     return (value + alignment - 1) / alignment * alignment;
   }
 
-  // NOLINTBEGIN(bugprone-easily-swappable-parameters)
   [[nodiscard]] auto write_image_descriptor(context const &ctx,
     VkDescriptorType type,
     VkImageViewCreateInfo const &view_info,
     VkImageLayout layout,
     std::span<std::byte> destination,
     char const *empty_message) -> status
-  // NOLINTEND(bugprone-easily-swappable-parameters)
   {
     auto const &procs = descriptor_heap_procs_for(ctx);
     if (procs.write_resource_descriptors == nullptr) {
@@ -111,12 +109,10 @@ auto sampler_heap_byte_size(descriptor_heap_layout const &layout, std::size_t de
   return reserved_offset + layout.min_sampler_heap_reserved_range;
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto write_storage_buffer_descriptor(context const &ctx,
   VkDeviceAddress buffer_address,
   VkDeviceSize buffer_size,
   std::span<std::byte> destination) -> status
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   auto const &procs = descriptor_heap_procs_for(ctx);
   if (procs.write_resource_descriptors == nullptr) {
@@ -144,12 +140,10 @@ auto write_storage_buffer_descriptor(context const &ctx,
   return {};
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto write_storage_image_descriptor(context const &ctx,
   VkImageViewCreateInfo const &view_info,
   VkImageLayout layout,
   std::span<std::byte> destination) -> status
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return write_image_descriptor(ctx,
     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -159,12 +153,10 @@ auto write_storage_image_descriptor(context const &ctx,
     "write_storage_image_descriptor destination is empty");
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto write_sampled_image_descriptor(context const &ctx,
   VkImageViewCreateInfo const &view_info,
   VkImageLayout layout,
   std::span<std::byte> destination) -> status
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return write_image_descriptor(ctx,
     VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
@@ -174,11 +166,9 @@ auto write_sampled_image_descriptor(context const &ctx,
     "write_sampled_image_descriptor destination is empty");
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto write_sampler_descriptor(context const &ctx,
   VkSamplerCreateInfo const &sampler_info,
   std::span<std::byte> destination) -> status
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   auto const &procs = descriptor_heap_procs_for(ctx);
   if (procs.write_sampler_descriptors == nullptr) {
@@ -195,14 +185,12 @@ auto write_sampler_descriptor(context const &ctx,
   return {};
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto cmd_bind_resource_heap(context const &ctx,
   VkCommandBuffer cmd,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
   VkDeviceSize reserved_range_size) -> status
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   auto const &procs = descriptor_heap_procs_for(ctx);
   if (procs.cmd_bind_resource_heap == nullptr) {
@@ -219,14 +207,12 @@ auto cmd_bind_resource_heap(context const &ctx,
   return {};
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto cmd_bind_sampler_heap(context const &ctx,
   VkCommandBuffer cmd,
   VkDeviceAddress heap_address,
   VkDeviceSize heap_size,
   VkDeviceSize reserved_range_offset,
   VkDeviceSize reserved_range_size) -> status
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   auto const &procs = descriptor_heap_procs_for(ctx);
   if (procs.cmd_bind_sampler_heap == nullptr) {

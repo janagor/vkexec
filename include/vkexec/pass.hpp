@@ -45,13 +45,11 @@ struct dispatch
  *
  * Y and Z remain 1. A zero `local_x` is treated as 1.
  */
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 [[nodiscard]] constexpr auto dispatch_groups_for(std::uint32_t work_count, std::uint32_t local_x) noexcept -> dispatch
 {
   std::uint32_t const group_size = local_x == 0U ? 1U : local_x;
   return dispatch{ .x = (work_count + group_size - 1U) / group_size };
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 //! Arguments for `vkCmdDispatchIndirect`.
 struct indirect_dispatch

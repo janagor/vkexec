@@ -44,14 +44,12 @@ auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
     });
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto create(context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   std::uint32_t storage_binding_count) -> result<handles::graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
     return fail(errc::invalid_argument, "create requires non-empty GLSL");
@@ -63,14 +61,12 @@ auto create(context &ctx,
   return create(ctx, render_pass, cfg, vert_spirv, frag_spirv, storage_binding_count);
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   std::span<storage_binding const> buffers) const -> sender<::vkexec::owned::graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return make_sender<::vkexec::owned::graphics_pipeline>(
     [&ctx,
@@ -130,7 +126,6 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
     });
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto create(descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,
@@ -138,7 +133,6 @@ auto create(descriptor_heap_t strategy,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) -> result<handles::graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   if (vertex_glsl.empty() || fragment_glsl.empty()) {
     return fail(errc::invalid_argument, "create requires non-empty GLSL");
@@ -150,14 +144,12 @@ auto create(descriptor_heap_t strategy,
   return create(strategy, ctx, vert_spirv, frag_spirv, desc);
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) const -> sender<::vkexec::owned::descriptor_graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return make_sender<::vkexec::owned::descriptor_graphics_pipeline>(
     [&ctx,
@@ -172,7 +164,6 @@ auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context 
     });
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,
@@ -180,7 +171,6 @@ auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name,
   std::string_view fragment_name) -> sender<::vkexec::owned::descriptor_graphics_pipeline>
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   return factory::make_descriptor_graphics_pipeline(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
 }

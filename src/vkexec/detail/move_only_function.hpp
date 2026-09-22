@@ -107,7 +107,6 @@ private:
   }
 
   template<typename F>
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   static void relocate(void *dst, void *src)
   {
     auto *from = static_cast<F *>(src);

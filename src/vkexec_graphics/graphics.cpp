@@ -29,14 +29,12 @@ namespace {
 
   constexpr std::uint32_t k_graphics_descriptor_sets_per_pool = 64;
 
-  // NOLINTBEGIN(bugprone-easily-swappable-parameters)
   auto build_graphics_pipeline(VkDevice device,
     VkRenderPass render_pass,
     graphics_pipeline_config const &cfg,
     VkPipelineLayout layout,
     VkShaderModule vert_module,
     VkShaderModule frag_module) -> result<VkPipeline>
-  // NOLINTEND(bugprone-easily-swappable-parameters)
   {
     VkPipelineCreateFlags2CreateInfo flags_info{};
     flags_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CREATE_FLAGS_2_CREATE_INFO;

@@ -88,7 +88,6 @@ namespace {
 
 }// namespace
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 auto compile_glsl_to_spirv(std::string_view glsl_source,
   std::string_view name,
   shader_kind kind,

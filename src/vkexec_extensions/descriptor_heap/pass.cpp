@@ -61,7 +61,6 @@ namespace {
 
 }// namespace
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto record_draw([[maybe_unused]] context const &ctx,
   VkCommandBuffer cmd,
   compute_bind bind,
@@ -82,7 +81,6 @@ auto record_draw_indirect([[maybe_unused]] context const &ctx,
   bind_heap_graphics_draw_state(cmd, bind, extent);
   vkCmdDrawIndirect(cmd, buffer, offset, 1, sizeof(VkDrawIndirectCommand));
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 namespace detail {
 

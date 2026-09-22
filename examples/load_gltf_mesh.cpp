@@ -344,7 +344,6 @@ namespace {
     return positions;
   }
 
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   auto read_vec3_normals(tg3_model const &model, std::int32_t accessor_index, std::size_t expected_count)
     -> vkexec::result<std::vector<vec3>>
   {
@@ -413,7 +412,6 @@ namespace {
     return TG3_INDEX_NONE;
   }
 
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   auto append_primitive(tg3_model const &model,
     tg3_primitive const &primitive,
     mat4 const &world,
@@ -468,7 +466,6 @@ namespace {
     return {};
   }
 
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   auto append_mesh(tg3_model const &model,
     std::int32_t mesh_index,
     mat4 const &world,
@@ -488,7 +485,6 @@ namespace {
     return {};
   }
 
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   auto traverse_nodes(tg3_model const &model,
     std::int32_t node_index,
     mat4 const &parent,

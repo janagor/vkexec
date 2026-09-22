@@ -138,7 +138,6 @@ private:
   glfw_presenter() = default;
 
   // GLFW fixes the callback signature.
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   static auto on_framebuffer_resize(GLFWwindow *window, int width, int height) -> void
   {
     (void)width;

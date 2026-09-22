@@ -156,12 +156,10 @@ auto owned::frame_ring::mark_submitted(std::size_t slot, std::size_t image_index
   return {};
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 auto owned::frame_ring::make_submit_sync(std::size_t slot,
   std::size_t image_index,
   std::uint64_t signal_value,
   VkPipelineStageFlags acquire_wait_stage) const -> result<frame_ring_submit_sync>
-// NOLINTEND(bugprone-easily-swappable-parameters)
 {
   VKEXEC_TRY(check_slot(slot));
   VKEXEC_TRY(check_image(image_index));

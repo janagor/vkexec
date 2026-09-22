@@ -443,7 +443,6 @@ auto owned::presenter::cleanup_swapchain() -> void
   swapchain_.reset();
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 auto owned::presenter::resize(std::uint32_t width, std::uint32_t height) -> status
 {
   if (frame_open_) { return fail(errc::invalid_argument, "resize called while a frame is open"); }
@@ -456,7 +455,6 @@ auto owned::presenter::resize(std::uint32_t width, std::uint32_t height) -> stat
   return recreate_swapchain(width, height);
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 auto owned::presenter::recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status
 {
   cfg_.width = width;

@@ -58,13 +58,11 @@ namespace {
     }
   }
 
-  // NOLINTBEGIN(bugprone-easily-swappable-parameters)
   auto create_heap_graphics_vk_pipeline(VkDevice device,
     VkShaderModule vert_module,
     VkShaderModule frag_module,
     VkPipelineLayout layout,
     heap_graphics_layout_desc const &desc) -> result<VkPipeline>
-  // NOLINTEND(bugprone-easily-swappable-parameters)
   {
     static constexpr std::size_t k_graphics_stage_count = 2;
     // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)

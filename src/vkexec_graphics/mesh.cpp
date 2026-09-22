@@ -25,7 +25,6 @@ namespace {
     void *mapped{ nullptr };
   };
 
-  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
   auto create_host_buffer(context const &ctx, VkDeviceSize bytes, VkBufferUsageFlags usage) -> result<mapped_buffer>
   {
     VkBufferCreateInfo buffer_info{};
