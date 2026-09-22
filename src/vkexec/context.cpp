@@ -204,10 +204,10 @@ auto factory::make_context_t::operator()(scheduler_options const &opts) const
   // Factory may allocate; sender::start() catches and maps to set_error.
   // NOLINTNEXTLINE(bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
-    // std::make_unique cannot access context's private passkey constructor.
-    // NOLINTNEXTLINE(modernize-make-unique)
-    auto ctx = std::unique_ptr<::vkexec::context>(
-      new ::vkexec::context(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{}));
+    auto ctx = std::make_unique<::vkexec::context>(
+      ::vkexec::context::factory_access{},
+      ::vkexec::context::uninitialized_tag{});
+
     VKEXEC_TRY(ctx->init_headless(opts));
     return ctx;
   });
@@ -219,10 +219,10 @@ auto factory::adopt_context_t::operator()(context_adopt_info const &info) const
   // Factory may allocate; sender::start() catches and maps to set_error.
   // NOLINTNEXTLINE(bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {
-    // std::make_unique cannot access context's private passkey constructor.
-    // NOLINTNEXTLINE(modernize-make-unique)
-    auto ctx = std::unique_ptr<::vkexec::context>(
-      new ::vkexec::context(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{}));
+    auto ctx = std::make_unique<::vkexec::context>(
+      ::vkexec::context::factory_access{},
+      ::vkexec::context::uninitialized_tag{});
+
     VKEXEC_TRY(ctx->init_adopted(info));
     return ctx;
   });
