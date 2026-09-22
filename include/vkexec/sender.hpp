@@ -10,6 +10,7 @@
 #include <stdexec/execution.hpp>
 
 #include <functional>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -60,14 +61,17 @@ template<class Value> struct sender
         }
       }
 
+      std::optional<result<value_type>> produced;
       try {
-        if (result<value_type> produced = factory(); produced) {
-          ex::set_value(std::move(rcvr), expected_take(produced));
-        } else {
-          ex::set_error(std::move(rcvr), std::move(produced.error()));
-        }
+        produced.emplace(factory());
       } catch (...) {
         detail::set_factory_exception(std::move(rcvr));
+        return;
+      }
+      if (*produced) {
+        ex::set_value(std::move(rcvr), expected_take(*produced));
+      } else {
+        ex::set_error(std::move(rcvr), std::move(produced->error()));
       }
     }
   };
@@ -114,14 +118,17 @@ struct void_sender
         }
       }
 
+      status done;
       try {
-        if (status done = factory(); done) {
-          ex::set_value(std::move(rcvr));
-        } else {
-          ex::set_error(std::move(rcvr), std::move(done.error()));
-        }
+        done = factory();
       } catch (...) {
         detail::set_factory_exception(std::move(rcvr));
+        return;
+      }
+      if (done) {
+        ex::set_value(std::move(rcvr));
+      } else {
+        ex::set_error(std::move(rcvr), std::move(done.error()));
       }
     }
   };
