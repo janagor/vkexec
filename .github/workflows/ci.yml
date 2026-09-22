@@ -221,6 +221,12 @@ jobs:
       - name: Install Linux window-system deps
         if: runner.os == 'Linux'
         run: |
+          # setup-cpp may add apt.llvm.org; a full `apt-get update` fails when that
+          # toolchain snapshot is missing ("no longer has a Release file"). These
+          # packages live in Ubuntu archives only.
+          sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \
+            \( -iname '*llvm*' -o -iname '*toolchain*' \) \
+            -exec mv {} {}.disabled \;
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
