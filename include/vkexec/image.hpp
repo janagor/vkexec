@@ -41,7 +41,7 @@ struct image_create_info
 };
 
 namespace owned {
-class image;
+  class image;
 }// namespace owned
 
 namespace factory {
@@ -58,7 +58,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, image_create_info info) const -> sender<owned::image>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_image_t make_image{};
 
 }// namespace factory
@@ -72,45 +72,45 @@ namespace factory {
  */
 namespace owned {
 
-class image
-{
-public:
-  ~image();
+  class image
+  {
+  public:
+    ~image();
 
-  image(image const &) = delete;
-  auto operator=(image const &) -> image & = delete;
+    image(image const &) = delete;
+    auto operator=(image const &) -> image & = delete;
 
-  image(image &&other) noexcept;
-  auto operator=(image &&other) noexcept -> image &;
+    image(image &&other) noexcept;
+    auto operator=(image &&other) noexcept -> image &;
 
-  //! Vulkan image handle (null after move).
-  [[nodiscard]] auto handle() const noexcept -> VkImage { return image_; }
-  //! Image format chosen at creation.
-  [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
-  //! Image extent in pixels.
-  [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
-  //! Usage preset used at creation.
-  [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
+    //! Vulkan image handle (null after move).
+    [[nodiscard]] auto handle() const noexcept -> VkImage { return image_; }
+    //! Image format chosen at creation.
+    [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
+    //! Image extent in pixels.
+    [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
+    //! Usage preset used at creation.
+    [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
 
-private:
-  friend struct factory::make_image_t;
+  private:
+    friend struct factory::make_image_t;
 
-  image(context *ctx,
-    VkImage image_handle,
-    VmaAllocation allocation,
-    VkFormat format,
-    VkExtent2D extent,
-    image_usage usage) noexcept;
+    image(context *ctx,
+      VkImage image_handle,
+      VmaAllocation allocation,
+      VkFormat format,
+      VkExtent2D extent,
+      image_usage usage) noexcept;
 
-  auto destroy() noexcept -> void;
+    auto destroy() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  VkImage image_{ VK_NULL_HANDLE };
-  VmaAllocation allocation_{ VK_NULL_HANDLE };
-  VkFormat format_{ VK_FORMAT_UNDEFINED };
-  VkExtent2D extent_{};
-  image_usage usage_{ image_usage::color_storage };
-};
+    context *ctx_{ nullptr };
+    VkImage image_{ VK_NULL_HANDLE };
+    VmaAllocation allocation_{ VK_NULL_HANDLE };
+    VkFormat format_{ VK_FORMAT_UNDEFINED };
+    VkExtent2D extent_{};
+    image_usage usage_{ image_usage::color_storage };
+  };
 
 }// namespace owned
 

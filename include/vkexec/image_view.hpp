@@ -11,7 +11,7 @@
 namespace vkexec {
 
 namespace owned {
-class image_view;
+  class image_view;
 }// namespace owned
 
 namespace factory {
@@ -28,7 +28,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, owned::image const &img) const -> sender<owned::image_view>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_image_view_t make_image_view{};
 
 }// namespace factory
@@ -43,29 +43,29 @@ namespace factory {
  */
 namespace owned {
 
-class image_view
-{
-public:
-  ~image_view();
+  class image_view
+  {
+  public:
+    ~image_view();
 
-  image_view(image_view const &) = delete;
-  auto operator=(image_view const &) -> image_view & = delete;
+    image_view(image_view const &) = delete;
+    auto operator=(image_view const &) -> image_view & = delete;
 
-  image_view(image_view &&other) noexcept;
-  auto operator=(image_view &&other) noexcept -> image_view &;
+    image_view(image_view &&other) noexcept;
+    auto operator=(image_view &&other) noexcept -> image_view &;
 
-  //! Vulkan image view handle (null after move).
-  [[nodiscard]] auto handle() const noexcept -> VkImageView { return view_; }
+    //! Vulkan image view handle (null after move).
+    [[nodiscard]] auto handle() const noexcept -> VkImageView { return view_; }
 
-private:
-  friend struct factory::make_image_view_t;
+  private:
+    friend struct factory::make_image_view_t;
 
-  image_view(context *ctx, VkImageView view) noexcept;
-  auto destroy() noexcept -> void;
+    image_view(context *ctx, VkImageView view) noexcept;
+    auto destroy() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  VkImageView view_{ VK_NULL_HANDLE };
-};
+    context *ctx_{ nullptr };
+    VkImageView view_{ VK_NULL_HANDLE };
+  };
 
 }// namespace owned
 

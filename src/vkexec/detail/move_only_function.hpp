@@ -106,8 +106,7 @@ private:
     }
   }
 
-  template<typename F>
-  static void relocate(void *dst, void *src)
+  template<typename F> static void relocate(void *dst, void *src)
   {
     auto *from = static_cast<F *>(src);
     new (dst) F(std::move(*from));

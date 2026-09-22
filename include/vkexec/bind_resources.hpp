@@ -34,8 +34,9 @@ struct bind_resources_closure
 template<class Params>
   requires std::is_trivially_copyable_v<Params>
            && (!std::same_as<std::remove_cvref_t<Params>, std::span<std::byte const>>)
-[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe, resource_table const &table, Params const &params)
-  -> bind_resources_closure
+[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe,
+  resource_table const &table,
+  Params const &params) -> bind_resources_closure
 { return bind_resources(pipe, table, std::as_bytes(std::span{ &params, 1 })); }
 
 [[nodiscard]] auto operator|(schedule_sender snd, bind_resources_closure closure) -> pass_graph_sender;

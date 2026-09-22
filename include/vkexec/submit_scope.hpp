@@ -74,8 +74,9 @@ namespace detail {
    * @param pipe Pipeline whose layout and pool are used.
    * @param buffers Storage bindings matching the pipeline layout.
    */
-  auto allocate_compute_set(context const &ctx, handles::compute_pipeline &pipe, std::span<storage_binding const> buffers)
-    -> result<VkDescriptorSet>;
+  auto allocate_compute_set(context const &ctx,
+    handles::compute_pipeline &pipe,
+    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>;
 
   /**
    * Reuses a tracked set for `pipe` when bindings match; otherwise allocates a new one.

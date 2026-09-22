@@ -34,10 +34,11 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
   std::span<std::uint32_t const> spirv,
   heap_layout_desc const &desc) -> sender<owned::compute_pipeline>
 {
-  return make_sender<::vkexec::owned::compute_pipeline>([&ctx, strategy, spirv, desc]() -> result<::vkexec::owned::compute_pipeline> {
-    VKEXEC_TRY_ASSIGN(owned, create(strategy, ctx, spirv, desc));
-    return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
-  });
+  return make_sender<::vkexec::owned::compute_pipeline>(
+    [&ctx, strategy, spirv, desc]() -> result<::vkexec::owned::compute_pipeline> {
+      VKEXEC_TRY_ASSIGN(owned, create(strategy, ctx, spirv, desc));
+      return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
+    });
 }
 
 }// namespace vkexec

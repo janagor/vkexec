@@ -48,7 +48,7 @@ struct gpu_buffer_create_info
 };
 
 namespace owned {
-class gpu_buffer;
+  class gpu_buffer;
 }// namespace owned
 
 namespace factory {
@@ -69,7 +69,7 @@ namespace factory {
       -> sender<owned::gpu_buffer>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_gpu_buffer_t make_gpu_buffer{};
 
 }// namespace factory
@@ -84,59 +84,59 @@ namespace factory {
  */
 namespace owned {
 
-class gpu_buffer
-{
-public:
-  ~gpu_buffer();
+  class gpu_buffer
+  {
+  public:
+    ~gpu_buffer();
 
-  gpu_buffer(gpu_buffer const &) = delete;
-  auto operator=(gpu_buffer const &) -> gpu_buffer & = delete;
+    gpu_buffer(gpu_buffer const &) = delete;
+    auto operator=(gpu_buffer const &) -> gpu_buffer & = delete;
 
-  gpu_buffer(gpu_buffer &&other) noexcept;
-  auto operator=(gpu_buffer &&other) noexcept -> gpu_buffer &;
+    gpu_buffer(gpu_buffer &&other) noexcept;
+    auto operator=(gpu_buffer &&other) noexcept -> gpu_buffer &;
 
-  //! Vulkan buffer handle (null after move).
-  [[nodiscard]] auto handle() const noexcept -> VkBuffer { return buffer_; }
-  //! Allocated size in bytes.
-  [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
-  //! Memory preset used at creation.
-  [[nodiscard]] auto memory() const noexcept -> gpu_buffer_memory { return memory_; }
+    //! Vulkan buffer handle (null after move).
+    [[nodiscard]] auto handle() const noexcept -> VkBuffer { return buffer_; }
+    //! Allocated size in bytes.
+    [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
+    //! Memory preset used at creation.
+    [[nodiscard]] auto memory() const noexcept -> gpu_buffer_memory { return memory_; }
 
-  /**
-   * Returns the persistently mapped host span when the buffer is host-visible.
-   *
-   * Empty when the buffer is device-local or unmapped.
-   */
-  [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
+    /**
+     * Returns the persistently mapped host span when the buffer is host-visible.
+     *
+     * Empty when the buffer is device-local or unmapped.
+     */
+    [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
 
-  /**
-   * Returns the buffer device address when created with `shader_device_address`.
-   *
-   * @return Failure if device address was not requested or the proc is missing.
-   */
-  [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
+    /**
+     * Returns the buffer device address when created with `shader_device_address`.
+     *
+     * @return Failure if device address was not requested or the proc is missing.
+     */
+    [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
-private:
-  friend struct factory::make_gpu_buffer_t;
+  private:
+    friend struct factory::make_gpu_buffer_t;
 
-  gpu_buffer(context *ctx,
-    VkBuffer buffer,
-    VmaAllocation allocation,
-    void *mapped,
-    VkDeviceSize size,
-    gpu_buffer_memory memory,
-    bool shader_device_address) noexcept;
+    gpu_buffer(context *ctx,
+      VkBuffer buffer,
+      VmaAllocation allocation,
+      void *mapped,
+      VkDeviceSize size,
+      gpu_buffer_memory memory,
+      bool shader_device_address) noexcept;
 
-  auto destroy() noexcept -> void;
+    auto destroy() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  VkBuffer buffer_{ VK_NULL_HANDLE };
-  VmaAllocation allocation_{ VK_NULL_HANDLE };
-  void *mapped_{ nullptr };
-  VkDeviceSize size_{ 0 };
-  gpu_buffer_memory memory_{ gpu_buffer_memory::host_visible };
-  bool shader_device_address_{ false };
-};
+    context *ctx_{ nullptr };
+    VkBuffer buffer_{ VK_NULL_HANDLE };
+    VmaAllocation allocation_{ VK_NULL_HANDLE };
+    void *mapped_{ nullptr };
+    VkDeviceSize size_{ 0 };
+    gpu_buffer_memory memory_{ gpu_buffer_memory::host_visible };
+    bool shader_device_address_{ false };
+  };
 
 }// namespace owned
 

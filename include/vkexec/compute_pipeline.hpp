@@ -23,7 +23,7 @@
 namespace vkexec {
 
 namespace owned {
-class compute_pipeline;
+  class compute_pipeline;
 }// namespace owned
 
 namespace factory {
@@ -70,7 +70,7 @@ namespace factory {
     { return create_compute_pipeline(strategy, ctx, glsl, desc, name); }
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_compute_pipeline_t make_compute_pipeline{};
 
 }// namespace factory
@@ -86,69 +86,70 @@ namespace factory {
  */
 namespace owned {
 
-class compute_pipeline
-{
-public:
-  //! Adopts an owned pipeline resource bag.
-  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<handles::compute_pipeline> resources) -> compute_pipeline
-  { return compute_pipeline{ &ctx, std::move(resources) }; }
-
-  compute_pipeline(compute_pipeline const &) = delete;
-  auto operator=(compute_pipeline const &) -> compute_pipeline & = delete;
-
-  compute_pipeline(compute_pipeline &&other) noexcept
-    : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
-  {}
-
-  auto operator=(compute_pipeline &&other) noexcept -> compute_pipeline &
+  class compute_pipeline
   {
-    if (this != &other) {
-      reset();
-      ctx_ = std::exchange(other.ctx_, nullptr);
-      resources_ = std::move(other.resources_);
+  public:
+    //! Adopts an owned pipeline resource bag.
+    [[nodiscard]] static auto make(context &ctx, std::unique_ptr<handles::compute_pipeline> resources)
+      -> compute_pipeline
+    { return compute_pipeline{ &ctx, std::move(resources) }; }
+
+    compute_pipeline(compute_pipeline const &) = delete;
+    auto operator=(compute_pipeline const &) -> compute_pipeline & = delete;
+
+    compute_pipeline(compute_pipeline &&other) noexcept
+      : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
+    {}
+
+    auto operator=(compute_pipeline &&other) noexcept -> compute_pipeline &
+    {
+      if (this != &other) {
+        reset();
+        ctx_ = std::exchange(other.ctx_, nullptr);
+        resources_ = std::move(other.resources_);
+      }
+      return *this;
     }
-    return *this;
-  }
 
-  ~compute_pipeline() { reset(); }
+    ~compute_pipeline() { reset(); }
 
-  //! Mutable owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() noexcept -> handles::compute_pipeline & { return *resources_; }
-  //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> handles::compute_pipeline const & { return *resources_; }
+    //! Mutable owned Vulkan resources for this pipeline.
+    [[nodiscard]] auto resources() noexcept -> handles::compute_pipeline & { return *resources_; }
+    //! Const owned Vulkan resources for this pipeline.
+    [[nodiscard]] auto resources() const noexcept -> handles::compute_pipeline const & { return *resources_; }
 
-  //! Builds a `compute_bind` for recording with optional descriptor set.
-  [[nodiscard]] auto bind(VkDescriptorSet set = VK_NULL_HANDLE) const -> compute_bind
-  { return bind_compute(*resources_, set); }
+    //! Builds a `compute_bind` for recording with optional descriptor set.
+    [[nodiscard]] auto bind(VkDescriptorSet set = VK_NULL_HANDLE) const -> compute_bind
+    { return bind_compute(*resources_, set); }
 
-  //! Returns the specialized local workgroup size as a `dispatch`.
-  [[nodiscard]] auto local_size() const noexcept -> dispatch { return vkexec::local_size(*resources_); }
+    //! Returns the specialized local workgroup size as a `dispatch`.
+    [[nodiscard]] auto local_size() const noexcept -> dispatch { return vkexec::local_size(*resources_); }
 
-  //! Returns workgroup counts covering `work_count` invocations along X.
-  [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
-  { return vkexec::groups_for(*resources_, work_count); }
+    //! Returns workgroup counts covering `work_count` invocations along X.
+    [[nodiscard]] auto groups_for(std::uint32_t work_count) const noexcept -> dispatch
+    { return vkexec::groups_for(*resources_, work_count); }
 
-  //! Sender that allocates an empty descriptor set from this pipeline's pool.
-  [[nodiscard]] auto allocate_set_sender() const -> sender<VkDescriptorSet>;
-  //! Sender that writes `buffers` into `set`.
-  [[nodiscard]] auto update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
-    -> void_sender;
+    //! Sender that allocates an empty descriptor set from this pipeline's pool.
+    [[nodiscard]] auto allocate_set_sender() const -> sender<VkDescriptorSet>;
+    //! Sender that writes `buffers` into `set`.
+    [[nodiscard]] auto update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
+      -> void_sender;
 
-  //! Allocates an empty descriptor set from this pipeline's pool.
-  [[nodiscard]] auto allocate_set() const -> result<VkDescriptorSet>;
-  //! Writes `buffers` into `set` on the context device.
-  [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status;
+    //! Allocates an empty descriptor set from this pipeline's pool.
+    [[nodiscard]] auto allocate_set() const -> result<VkDescriptorSet>;
+    //! Writes `buffers` into `set` on the context device.
+    [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status;
 
-private:
-  compute_pipeline(context *ctx, std::unique_ptr<handles::compute_pipeline> resources) noexcept
-    : ctx_(ctx), resources_(std::move(resources))
-  {}
+  private:
+    compute_pipeline(context *ctx, std::unique_ptr<handles::compute_pipeline> resources) noexcept
+      : ctx_(ctx), resources_(std::move(resources))
+    {}
 
-  auto reset() noexcept -> void;
+    auto reset() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  std::unique_ptr<handles::compute_pipeline> resources_;
-};
+    context *ctx_{ nullptr };
+    std::unique_ptr<handles::compute_pipeline> resources_;
+  };
 
 }// namespace owned
 
@@ -183,8 +184,10 @@ struct bound_compute_pipeline
  * @param work_count Invocation count along X (converted via `groups_for`).
  */
 template<typename Params>
-auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count)
-  -> prebuilt_compute_pass_closure
+auto compute_pass(owned::compute_pipeline const &pipe,
+  VkDescriptorSet set,
+  Params const &params,
+  std::uint32_t work_count) -> prebuilt_compute_pass_closure
 { return compute_pass(pipe.bind(set), params, pipe.groups_for(work_count)); }
 
 //! Builds a prebuilt compute pass without push constants.

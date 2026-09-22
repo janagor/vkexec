@@ -32,7 +32,9 @@ set(parent_cache "${VKEXEC_BINARY_DIR}/CMakeCache.txt")
 
 # Multi-config generators place archives under $<CONFIG>/; cmake --install must
 # select the same configuration that ctest/-C and the parent build used.
-if(NOT DEFINED VKEXEC_CONFIG OR "${VKEXEC_CONFIG}" STREQUAL "" OR "${VKEXEC_CONFIG}" STREQUAL "$<CONFIG>")
+if(NOT DEFINED VKEXEC_CONFIG
+   OR "${VKEXEC_CONFIG}" STREQUAL ""
+   OR "${VKEXEC_CONFIG}" STREQUAL "$<CONFIG>")
   vkexec_read_cache_entry("${parent_cache}" "CMAKE_BUILD_TYPE" _build_type)
   vkexec_read_cache_entry("${parent_cache}" "CMAKE_DEFAULT_BUILD_TYPE" _default_build_type)
   if(_build_type)
@@ -46,9 +48,8 @@ endif()
 
 file(REMOVE_RECURSE "${prefix}" "${build}")
 
-execute_process(
-  COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${prefix}" --config "${VKEXEC_CONFIG}"
-  COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${prefix}" --config
+                        "${VKEXEC_CONFIG}" COMMAND_ERROR_IS_FATAL ANY)
 
 set(consumer_configure_args
     "-S"

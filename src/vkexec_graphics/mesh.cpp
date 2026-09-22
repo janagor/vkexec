@@ -79,10 +79,8 @@ auto destroy(context const &ctx, handles::mesh &buffers) noexcept -> void
 auto create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
   -> result<handles::mesh>
 {
-  VKEXEC_TRY_ASSIGN(
-    vertices_count, count_as_uint32(vertices.size(), "create vertex count must be in (0, UINT32_MAX]"));
-  VKEXEC_TRY_ASSIGN(
-    indices_count, count_as_uint32(indices.size(), "create index count must be in (0, UINT32_MAX]"));
+  VKEXEC_TRY_ASSIGN(vertices_count, count_as_uint32(vertices.size(), "create vertex count must be in (0, UINT32_MAX]"));
+  VKEXEC_TRY_ASSIGN(indices_count, count_as_uint32(indices.size(), "create index count must be in (0, UINT32_MAX]"));
 
   handles::mesh owned{};
   owned.vertex_count = vertices_count;

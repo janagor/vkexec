@@ -312,14 +312,15 @@ auto present_frames(vkexec::owned::presenter &win, vkexec::owned::graphics_pipel
 // NOLINTNEXTLINE(bugprone-exception-escape)
 static auto run() -> int
 {
-  auto win = vkexec::examples::sync_wait_value(vkexec::factory::make_headless_presenter(vkexec::owned::presenter::config{
-    .width = k_width,
-    .height = k_height,
-    .validation_layers = false,
-    .surface_instance_extensions = {},
-    .create_surface = {},
-    .requirements = make_requirements(),
-  }));
+  auto win =
+    vkexec::examples::sync_wait_value(vkexec::factory::make_headless_presenter(vkexec::owned::presenter::config{
+      .width = k_width,
+      .height = k_height,
+      .validation_layers = false,
+      .surface_instance_extensions = {},
+      .create_surface = {},
+      .requirements = make_requirements(),
+    }));
 
   std::cout << std::format("heap_present: window ready\n");
   if (auto rendered = run_dynamic_rendering(win.ctx()); !rendered) {

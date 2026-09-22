@@ -23,8 +23,8 @@
 namespace vkexec {
 
 namespace owned {
-class mesh;
-class graphics_pipeline;
+  class mesh;
+  class graphics_pipeline;
 }// namespace owned
 
 namespace factory {
@@ -92,7 +92,7 @@ namespace factory {
     { return create_graphics_pipeline(strategy, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name); }
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_graphics_pipeline_t make_graphics_pipeline{};
 
 }// namespace factory
@@ -108,91 +108,91 @@ namespace factory {
  */
 namespace owned {
 
-class graphics_pipeline
-{
-public:
-  //! Owning factory used after `create` + optional set install.
-  [[nodiscard]] static auto make(context &ctx,
-    std::unique_ptr<handles::graphics_pipeline> resources,
-    VkDescriptorSet set = VK_NULL_HANDLE,
-    std::vector<storage_binding> buffers = {}) -> graphics_pipeline
+  class graphics_pipeline
   {
-    graphics_pipeline pipe{ &ctx, std::move(resources) };
-    pipe.descriptor_set_ = set;
-    pipe.buffers_ = std::move(buffers);
-    return pipe;
-  }
+  public:
+    //! Owning factory used after `create` + optional set install.
+    [[nodiscard]] static auto make(context &ctx,
+      std::unique_ptr<handles::graphics_pipeline> resources,
+      VkDescriptorSet set = VK_NULL_HANDLE,
+      std::vector<storage_binding> buffers = {}) -> graphics_pipeline
+    {
+      graphics_pipeline pipe{ &ctx, std::move(resources) };
+      pipe.descriptor_set_ = set;
+      pipe.buffers_ = std::move(buffers);
+      return pipe;
+    }
 
-  ~graphics_pipeline() { reset(); }
+    ~graphics_pipeline() { reset(); }
 
-  graphics_pipeline(graphics_pipeline const &) = delete;
-  auto operator=(graphics_pipeline const &) -> graphics_pipeline & = delete;
+    graphics_pipeline(graphics_pipeline const &) = delete;
+    auto operator=(graphics_pipeline const &) -> graphics_pipeline & = delete;
 
-  graphics_pipeline(graphics_pipeline &&other) noexcept
-    : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_)),
-      descriptor_set_(std::exchange(other.descriptor_set_, VK_NULL_HANDLE)), buffers_(std::move(other.buffers_))
-  {}
+    graphics_pipeline(graphics_pipeline &&other) noexcept
+      : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_)),
+        descriptor_set_(std::exchange(other.descriptor_set_, VK_NULL_HANDLE)), buffers_(std::move(other.buffers_))
+    {}
 
-  auto operator=(graphics_pipeline &&other) noexcept -> graphics_pipeline &
-  {
-    if (this == &other) { return *this; }
-    reset();
-    ctx_ = std::exchange(other.ctx_, nullptr);
-    resources_ = std::move(other.resources_);
-    descriptor_set_ = std::exchange(other.descriptor_set_, VK_NULL_HANDLE);
-    buffers_ = std::move(other.buffers_);
-    return *this;
-  }
+    auto operator=(graphics_pipeline &&other) noexcept -> graphics_pipeline &
+    {
+      if (this == &other) { return *this; }
+      reset();
+      ctx_ = std::exchange(other.ctx_, nullptr);
+      resources_ = std::move(other.resources_);
+      descriptor_set_ = std::exchange(other.descriptor_set_, VK_NULL_HANDLE);
+      buffers_ = std::move(other.buffers_);
+      return *this;
+    }
 
-  //! Mutable owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() noexcept -> handles::graphics_pipeline & { return *resources_; }
-  //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> handles::graphics_pipeline const & { return *resources_; }
+    //! Mutable owned Vulkan resources for this pipeline.
+    [[nodiscard]] auto resources() noexcept -> handles::graphics_pipeline & { return *resources_; }
+    //! Const owned Vulkan resources for this pipeline.
+    [[nodiscard]] auto resources() const noexcept -> handles::graphics_pipeline const & { return *resources_; }
 
-  //! Vulkan pipeline handle.
-  [[nodiscard]] auto pipeline() const noexcept -> VkPipeline { return resources_->pipeline; }
-  //! Config used at creation.
-  [[nodiscard]] auto config() const noexcept -> graphics_pipeline_config const & { return resources_->cfg; }
+    //! Vulkan pipeline handle.
+    [[nodiscard]] auto pipeline() const noexcept -> VkPipeline { return resources_->pipeline; }
+    //! Config used at creation.
+    [[nodiscard]] auto config() const noexcept -> graphics_pipeline_config const & { return resources_->cfg; }
 
-  //! Builds a `graphics_bind` for recording with the retained descriptor set.
-  [[nodiscard]] auto bind() const -> graphics_bind { return bind_graphics(*resources_, descriptor_set_); }
+    //! Builds a `graphics_bind` for recording with the retained descriptor set.
+    [[nodiscard]] auto bind() const -> graphics_bind { return bind_graphics(*resources_, descriptor_set_); }
 
-  /**
-   * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
-   */
-  auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void;
+    /**
+     * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
+     */
+    auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void;
 
-  //! Records a mesh draw (vertex/index binds + indexed draw) into an open render pass.
-  auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void;
+    //! Records a mesh draw (vertex/index binds + indexed draw) into an open render pass.
+    auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void;
 
-  /**
-   * Begins a render pass, records a non-indexed draw, and ends the pass.
-   */
-  auto draw(VkCommandBuffer cmd,
-    VkRenderPass render_pass,
-    VkFramebuffer framebuffer,
-    VkExtent2D extent,
-    std::uint32_t vertex_count) const -> status;
+    /**
+     * Begins a render pass, records a non-indexed draw, and ends the pass.
+     */
+    auto draw(VkCommandBuffer cmd,
+      VkRenderPass render_pass,
+      VkFramebuffer framebuffer,
+      VkExtent2D extent,
+      std::uint32_t vertex_count) const -> status;
 
-  //! Begins a render pass, records a mesh draw, and ends the pass.
-  auto draw(VkCommandBuffer cmd,
-    VkRenderPass render_pass,
-    VkFramebuffer framebuffer,
-    VkExtent2D extent,
-    mesh const &drawn) const -> status;
+    //! Begins a render pass, records a mesh draw, and ends the pass.
+    auto draw(VkCommandBuffer cmd,
+      VkRenderPass render_pass,
+      VkFramebuffer framebuffer,
+      VkExtent2D extent,
+      mesh const &drawn) const -> status;
 
-private:
-  graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept
-    : ctx_(ctx), resources_(std::move(resources))
-  {}
+  private:
+    graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept
+      : ctx_(ctx), resources_(std::move(resources))
+    {}
 
-  auto reset() noexcept -> void;
+    auto reset() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  std::unique_ptr<handles::graphics_pipeline> resources_;
-  VkDescriptorSet descriptor_set_{ VK_NULL_HANDLE };
-  std::vector<storage_binding> buffers_;
-};
+    context *ctx_{ nullptr };
+    std::unique_ptr<handles::graphics_pipeline> resources_;
+    VkDescriptorSet descriptor_set_{ VK_NULL_HANDLE };
+    std::vector<storage_binding> buffers_;
+  };
 
 }// namespace owned
 

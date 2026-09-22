@@ -81,17 +81,17 @@ struct layout_desc
  */
 namespace handles {
 
-struct compute_pipeline
-{
-  VkShaderModule shader{ VK_NULL_HANDLE };
-  VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
-  VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
-  VkPipeline pipeline{ VK_NULL_HANDLE };
-  VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
-  std::uint32_t binding_count{ 0 };
-  std::size_t push_bytes{ 0 };
-  std::array<std::uint32_t, 3> local_size{ k_default_local_size };
-};
+  struct compute_pipeline
+  {
+    VkShaderModule shader{ VK_NULL_HANDLE };
+    VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
+    VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
+    VkPipeline pipeline{ VK_NULL_HANDLE };
+    VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
+    std::uint32_t binding_count{ 0 };
+    std::size_t push_bytes{ 0 };
+    std::array<std::uint32_t, 3> local_size{ k_default_local_size };
+  };
 
 }// namespace handles
 
@@ -110,10 +110,9 @@ class context;
  *
  * Caller owns the returned handles and must call `destroy`.
  */
-[[nodiscard]] auto create(context &ctx,
-  std::string_view glsl,
-  layout_desc const &desc,
-  std::string_view name = "vkexec.comp") -> result<handles::compute_pipeline>;
+[[nodiscard]] auto
+  create(context &ctx, std::string_view glsl, layout_desc const &desc, std::string_view name = "vkexec.comp")
+    -> result<handles::compute_pipeline>;
 
 //! Destroys handles in `resources` and resets them to null.
 auto destroy(context const &ctx, handles::compute_pipeline &resources) noexcept -> void;
@@ -133,7 +132,8 @@ struct bound_compute
 //!
 //! Return the set with `free_compute_set` when finished, or free all sets by
 //! destroying the pool via `destroy`.
-[[nodiscard]] auto allocate_compute_set(context const &ctx, handles::compute_pipeline const &pipe) -> result<VkDescriptorSet>;
+[[nodiscard]] auto allocate_compute_set(context const &ctx, handles::compute_pipeline const &pipe)
+  -> result<VkDescriptorSet>;
 
 /**
  * Allocates a set and writes `buffers` into it.
@@ -144,8 +144,9 @@ struct bound_compute
  * after GPU work that uses it has finished if you will allocate again; otherwise
  * destroy the resources when done.
  */
-[[nodiscard]] auto bind_storage(context &ctx, handles::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
-  -> result<bound_compute>;
+[[nodiscard]] auto bind_storage(context &ctx,
+  handles::compute_pipeline const &pipe,
+  std::span<storage_binding const> buffers) -> result<bound_compute>;
 
 /**
  * Returns `set` to `pipe.descriptor_pool`.

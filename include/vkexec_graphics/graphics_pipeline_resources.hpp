@@ -68,16 +68,16 @@ struct graphics_pipeline_config
  */
 namespace handles {
 
-struct graphics_pipeline
-{
-  graphics_pipeline_config cfg{};
-  VkShaderModule shader{ VK_NULL_HANDLE };
-  VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
-  VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
-  VkPipeline pipeline{ VK_NULL_HANDLE };
-  VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
-  std::uint32_t binding_count{ 0 };
-};
+  struct graphics_pipeline
+  {
+    graphics_pipeline_config cfg{};
+    VkShaderModule shader{ VK_NULL_HANDLE };
+    VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
+    VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
+    VkPipeline pipeline{ VK_NULL_HANDLE };
+    VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
+    std::uint32_t binding_count{ 0 };
+  };
 
 }// namespace handles
 

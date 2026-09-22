@@ -106,8 +106,9 @@ namespace detail {
              });
   }
 
-  auto allocate_compute_set(context const &ctx, handles::compute_pipeline &pipe, std::span<storage_binding const> buffers)
-    -> result<VkDescriptorSet>
+  auto allocate_compute_set(context const &ctx,
+    handles::compute_pipeline &pipe,
+    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
   {
     std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};

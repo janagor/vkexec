@@ -63,11 +63,12 @@ namespace {
 
 auto factory::make_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::owned::presenter>
 {
-  return make_sender<::vkexec::owned::presenter>([cfg = std::move(cfg)]() mutable -> result<::vkexec::owned::presenter> {
-    ::vkexec::owned::presenter created;
-    if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
-    return created;
-  });
+  return make_sender<::vkexec::owned::presenter>(
+    [cfg = std::move(cfg)]() mutable -> result<::vkexec::owned::presenter> {
+      ::vkexec::owned::presenter created;
+      if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
+      return created;
+    });
 }
 
 auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::owned::presenter>
@@ -127,8 +128,7 @@ auto owned::presenter::init(config cfg) -> status
   }
   if (!cfg_.create_surface) { return fail(errc::invalid_argument, "presenter requires a surface factory"); }
 
-  ctx_ = std::make_unique<::vkexec::context>(
-    context::factory_access{},
+  ctx_ = std::make_unique<::vkexec::context>(context::factory_access{},
     context::instance_only_tag{},
     scheduler_options{
       .validation_layers = cfg_.validation_layers,

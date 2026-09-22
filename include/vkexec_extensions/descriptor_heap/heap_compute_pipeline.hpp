@@ -42,10 +42,9 @@ struct heap_layout_desc
  * `descriptor_pool`. Do not call classic `bind_storage` on these bags. Caller owns
  * the handles and must call `destroy`.
  */
-[[nodiscard]] auto create(descriptor_heap_t strategy,
-  context &ctx,
-  std::span<std::uint32_t const> spirv,
-  heap_layout_desc const &desc) -> result<handles::compute_pipeline>;
+[[nodiscard]] auto
+  create(descriptor_heap_t strategy, context &ctx, std::span<std::uint32_t const> spirv, heap_layout_desc const &desc)
+    -> result<handles::compute_pipeline>;
 
 /**
  * Compiles `glsl` then creates bindless heap compute Vulkan objects.

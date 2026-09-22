@@ -46,7 +46,7 @@ struct swapchain_create_info
 };
 
 namespace owned {
-class swapchain;
+  class swapchain;
 }// namespace owned
 
 namespace factory {
@@ -63,7 +63,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const -> sender<owned::swapchain>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_swapchain_t make_swapchain{};
 
 }// namespace factory
@@ -78,84 +78,84 @@ namespace factory {
  */
 namespace owned {
 
-class swapchain
-{
-public:
-  ~swapchain();
+  class swapchain
+  {
+  public:
+    ~swapchain();
 
-  swapchain(swapchain const &) = delete;
-  auto operator=(swapchain const &) -> swapchain & = delete;
+    swapchain(swapchain const &) = delete;
+    auto operator=(swapchain const &) -> swapchain & = delete;
 
-  swapchain(swapchain &&other) noexcept;
-  auto operator=(swapchain &&other) noexcept -> swapchain &;
+    swapchain(swapchain &&other) noexcept;
+    auto operator=(swapchain &&other) noexcept -> swapchain &;
 
-  /**
-   * Recreates the swapchain for a new extent.
-   *
-   * Destroys old image views and swapchain images.
-   *
-   * @param width New width in pixels.
-   * @param height New height in pixels.
-   */
-  auto recreate(std::uint32_t width, std::uint32_t height) -> status;
+    /**
+     * Recreates the swapchain for a new extent.
+     *
+     * Destroys old image views and swapchain images.
+     *
+     * @param width New width in pixels.
+     * @param height New height in pixels.
+     */
+    auto recreate(std::uint32_t width, std::uint32_t height) -> status;
 
-  /**
-   * Acquires the next image.
-   *
-   * @param image_available Binary semaphore signalled when the image is ready.
-   * @param timeout Acquire timeout in nanoseconds.
-   * @return Image index, disengaged optional when recreate is required, or an error.
-   */
-  [[nodiscard]] auto acquire_next_image(VkSemaphore image_available, std::uint64_t timeout = UINT64_MAX)
-    -> result<std::optional<std::uint32_t>>;
+    /**
+     * Acquires the next image.
+     *
+     * @param image_available Binary semaphore signalled when the image is ready.
+     * @param timeout Acquire timeout in nanoseconds.
+     * @return Image index, disengaged optional when recreate is required, or an error.
+     */
+    [[nodiscard]] auto acquire_next_image(VkSemaphore image_available, std::uint64_t timeout = UINT64_MAX)
+      -> result<std::optional<std::uint32_t>>;
 
-  /**
-   * Presents `image_index`.
-   *
-   * @param image_index Swapchain image index from acquire.
-   * @param wait_semaphores Semaphores to wait on before present.
-   * @param options Optional `VkPresentInfoKHR::pNext` chain.
-   * @return `false` when the swapchain must be recreated; `true` on success.
-   */
-  [[nodiscard]] auto present(std::uint32_t image_index,
-    std::span<VkSemaphore const> wait_semaphores,
-    present_options options = {}) -> result<bool>;
+    /**
+     * Presents `image_index`.
+     *
+     * @param image_index Swapchain image index from acquire.
+     * @param wait_semaphores Semaphores to wait on before present.
+     * @param options Optional `VkPresentInfoKHR::pNext` chain.
+     * @return `false` when the swapchain must be recreated; `true` on success.
+     */
+    [[nodiscard]] auto present(std::uint32_t image_index,
+      std::span<VkSemaphore const> wait_semaphores,
+      present_options options = {}) -> result<bool>;
 
-  //! Vulkan swapchain handle.
-  [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR { return swapchain_.swapchain; }
-  //! Chosen surface format.
-  [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
-  //! Current swapchain extent.
-  [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
-  //! Swapchain images (owned by the swapchain).
-  [[nodiscard]] auto images() const noexcept -> std::span<VkImage const> { return images_; }
-  //! Image views for `images()` (owned by this object).
-  [[nodiscard]] auto image_views() const noexcept -> std::span<VkImageView const> { return views_; }
-  //! Borrowed surface handle.
-  [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
+    //! Vulkan swapchain handle.
+    [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR { return swapchain_.swapchain; }
+    //! Chosen surface format.
+    [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
+    //! Current swapchain extent.
+    [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
+    //! Swapchain images (owned by the swapchain).
+    [[nodiscard]] auto images() const noexcept -> std::span<VkImage const> { return images_; }
+    //! Image views for `images()` (owned by this object).
+    [[nodiscard]] auto image_views() const noexcept -> std::span<VkImageView const> { return views_; }
+    //! Borrowed surface handle.
+    [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
-private:
-  friend struct factory::make_swapchain_t;
+  private:
+    friend struct factory::make_swapchain_t;
 
-  swapchain() = default;
+    swapchain() = default;
 
-  auto create_or_recreate(std::uint32_t width, std::uint32_t height) -> status;
-  auto destroy_views() noexcept -> void;
-  auto destroy() noexcept -> void;
+    auto create_or_recreate(std::uint32_t width, std::uint32_t height) -> status;
+    auto destroy_views() noexcept -> void;
+    auto destroy() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  VkSurfaceKHR surface_{ VK_NULL_HANDLE };
-  VkFormat preferred_format_{ VK_FORMAT_B8G8R8A8_SRGB };
-  VkColorSpaceKHR preferred_color_space_{ VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
-  VkPresentModeKHR present_mode_{ VK_PRESENT_MODE_FIFO_KHR };
-  VkSwapchainCreateFlagsKHR create_flags_{ 0 };
+    context *ctx_{ nullptr };
+    VkSurfaceKHR surface_{ VK_NULL_HANDLE };
+    VkFormat preferred_format_{ VK_FORMAT_B8G8R8A8_SRGB };
+    VkColorSpaceKHR preferred_color_space_{ VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+    VkPresentModeKHR present_mode_{ VK_PRESENT_MODE_FIFO_KHR };
+    VkSwapchainCreateFlagsKHR create_flags_{ 0 };
 
-  vkb::Swapchain swapchain_{};
-  VkFormat format_{ VK_FORMAT_B8G8R8A8_SRGB };
-  VkExtent2D extent_{};
-  std::vector<VkImage> images_;
-  std::vector<VkImageView> views_;
-};
+    vkb::Swapchain swapchain_{};
+    VkFormat format_{ VK_FORMAT_B8G8R8A8_SRGB };
+    VkExtent2D extent_{};
+    std::vector<VkImage> images_;
+    std::vector<VkImageView> views_;
+  };
 
 }// namespace owned
 

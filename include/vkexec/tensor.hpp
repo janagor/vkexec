@@ -43,117 +43,117 @@ namespace vkexec {
  */
 namespace owned {
 
-template<typename T>
-  requires std::is_trivially_copyable_v<T>
-class tensor
-{
-public:
-  tensor() = default;
-  ~tensor() = default;
-
-  tensor(tensor const &) = delete;
-  auto operator=(tensor const &) -> tensor & = delete;
-
-  tensor(tensor &&) noexcept = default;
-  auto operator=(tensor &&) noexcept -> tensor & = default;
-
-  //! Number of `T` elements (0 when empty).
-  [[nodiscard]] auto size() const noexcept -> std::size_t { return host_.size(); }
-  //! Byte size of the storage buffers.
-  [[nodiscard]] auto byte_size() const noexcept -> VkDeviceSize { return size() * sizeof(T); }
-  //! Device-local Vulkan buffer handle (null when empty).
-  [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return gpu_ ? gpu_->device.handle() : VK_NULL_HANDLE; }
-
-  //! Host mirror pointer (null when empty).
-  [[nodiscard]] auto data() noexcept -> T * { return host_.empty() ? nullptr : host_.data(); }
-  //! Const host mirror pointer (null when empty).
-  [[nodiscard]] auto data() const noexcept -> T const * { return host_.empty() ? nullptr : host_.data(); }
-
-  //! Host span over the CPU mirror.
-  [[nodiscard]] auto span() noexcept -> std::span<T> { return { data(), size() }; }
-  //! Const host span over the CPU mirror.
-  [[nodiscard]] auto span() const noexcept -> std::span<T const> { return { data(), size() }; }
-
-  //! Host-visible staging buffer used for transfers.
-  [[nodiscard]] auto staging() noexcept -> owned::gpu_buffer & { return gpu_->staging; }
-  //! Const staging buffer.
-  [[nodiscard]] auto staging() const noexcept -> owned::gpu_buffer const & { return gpu_->staging; }
-
-  //! Device-local storage buffer bound by shaders.
-  [[nodiscard]] auto device() noexcept -> owned::gpu_buffer & { return gpu_->device; }
-  //! Const device-local storage buffer.
-  [[nodiscard]] auto device() const noexcept -> owned::gpu_buffer const & { return gpu_->device; }
-
-  /**
-   * Builds a classic storage descriptor binding for the device buffer.
-   *
-   * @param binding Descriptor binding index written into the set.
-   */
-  [[nodiscard]] auto storage_binding(std::uint32_t binding) const noexcept -> vkexec::storage_binding
+  template<typename T>
+    requires std::is_trivially_copyable_v<T>
+  class tensor
   {
-    return vkexec::storage_binding{
-      .buffer = vk_buffer(),
-      .byte_size = byte_size(),
-      .binding = binding,
+  public:
+    tensor() = default;
+    ~tensor() = default;
+
+    tensor(tensor const &) = delete;
+    auto operator=(tensor const &) -> tensor & = delete;
+
+    tensor(tensor &&) noexcept = default;
+    auto operator=(tensor &&) noexcept -> tensor & = default;
+
+    //! Number of `T` elements (0 when empty).
+    [[nodiscard]] auto size() const noexcept -> std::size_t { return host_.size(); }
+    //! Byte size of the storage buffers.
+    [[nodiscard]] auto byte_size() const noexcept -> VkDeviceSize { return size() * sizeof(T); }
+    //! Device-local Vulkan buffer handle (null when empty).
+    [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return gpu_ ? gpu_->device.handle() : VK_NULL_HANDLE; }
+
+    //! Host mirror pointer (null when empty).
+    [[nodiscard]] auto data() noexcept -> T * { return host_.empty() ? nullptr : host_.data(); }
+    //! Const host mirror pointer (null when empty).
+    [[nodiscard]] auto data() const noexcept -> T const * { return host_.empty() ? nullptr : host_.data(); }
+
+    //! Host span over the CPU mirror.
+    [[nodiscard]] auto span() noexcept -> std::span<T> { return { data(), size() }; }
+    //! Const host span over the CPU mirror.
+    [[nodiscard]] auto span() const noexcept -> std::span<T const> { return { data(), size() }; }
+
+    //! Host-visible staging buffer used for transfers.
+    [[nodiscard]] auto staging() noexcept -> owned::gpu_buffer & { return gpu_->staging; }
+    //! Const staging buffer.
+    [[nodiscard]] auto staging() const noexcept -> owned::gpu_buffer const & { return gpu_->staging; }
+
+    //! Device-local storage buffer bound by shaders.
+    [[nodiscard]] auto device() noexcept -> owned::gpu_buffer & { return gpu_->device; }
+    //! Const device-local storage buffer.
+    [[nodiscard]] auto device() const noexcept -> owned::gpu_buffer const & { return gpu_->device; }
+
+    /**
+     * Builds a classic storage descriptor binding for the device buffer.
+     *
+     * @param binding Descriptor binding index written into the set.
+     */
+    [[nodiscard]] auto storage_binding(std::uint32_t binding) const noexcept -> vkexec::storage_binding
+    {
+      return vkexec::storage_binding{
+        .buffer = vk_buffer(),
+        .byte_size = byte_size(),
+        .binding = binding,
+      };
+    }
+
+    /**
+     * Copies the host mirror through staging into the device buffer (blocking).
+     *
+     * Prefer pass-graph `sync_to_device` when composing sender graphs.
+     */
+    [[nodiscard]] auto upload(context &ctx) -> status
+    { return upload_to_device(ctx, staging(), device(), std::as_bytes(span())); }
+
+    /**
+     * Copies the device buffer through staging into the host mirror (blocking).
+     *
+     * Prefer pass-graph `sync_to_host` when composing sender graphs.
+     */
+    [[nodiscard]] auto download(context &ctx) -> status
+    { return download_to_host(ctx, staging(), device(), std::as_writable_bytes(span())); }
+
+    //! Allocates staging + device storage and wraps `host` (used by `factory::make_tensor`).
+    [[nodiscard]] static auto make_allocated(context &ctx, std::vector<T> host) -> result<tensor>;
+
+  private:
+    struct gpu_storage
+    {
+      owned::gpu_buffer staging;
+      owned::gpu_buffer device;
     };
-  }
 
-  /**
-   * Copies the host mirror through staging into the device buffer (blocking).
-   *
-   * Prefer pass-graph `sync_to_device` when composing sender graphs.
-   */
-  [[nodiscard]] auto upload(context &ctx) -> status
-  { return upload_to_device(ctx, staging(), device(), std::as_bytes(span())); }
+    explicit tensor(std::vector<T> host, std::unique_ptr<gpu_storage> gpu) noexcept
+      : host_(std::move(host)), gpu_(std::move(gpu))
+    {}
 
-  /**
-   * Copies the device buffer through staging into the host mirror (blocking).
-   *
-   * Prefer pass-graph `sync_to_host` when composing sender graphs.
-   */
-  [[nodiscard]] auto download(context &ctx) -> status
-  { return download_to_host(ctx, staging(), device(), std::as_writable_bytes(span())); }
-
-  //! Allocates staging + device storage and wraps `host` (used by `factory::make_tensor`).
-  [[nodiscard]] static auto make_allocated(context &ctx, std::vector<T> host) -> result<tensor>;
-
-private:
-  struct gpu_storage
-  {
-    owned::gpu_buffer staging;
-    owned::gpu_buffer device;
+    std::vector<T> host_;
+    std::unique_ptr<gpu_storage> gpu_;
   };
 
-  explicit tensor(std::vector<T> host, std::unique_ptr<gpu_storage> gpu) noexcept
-    : host_(std::move(host)), gpu_(std::move(gpu))
-  {}
+  template<typename T>
+    requires std::is_trivially_copyable_v<T>
+  [[nodiscard]] inline auto tensor<T>::make_allocated(context &ctx, std::vector<T> host) -> result<tensor>
+  {
+    auto const bytes = host.size() * sizeof(T);
+    auto staging_buf = try_sync_wait_value(factory::make_gpu_buffer(ctx, bytes, gpu_buffer_memory::staging));
+    if (!staging_buf) { return fail(staging_buf.error()); }
+    auto device_buf = try_sync_wait_value(factory::make_gpu_buffer(ctx,
+      gpu_buffer_create_info{
+        .size = bytes,
+        .memory = gpu_buffer_memory::device_local,
+        .shader_device_address = true,
+      }));
+    if (!device_buf) { return fail(device_buf.error()); }
 
-  std::vector<T> host_;
-  std::unique_ptr<gpu_storage> gpu_;
-};
+    auto staging_map = staging_buf->mapped();
+    if (staging_map.size() < bytes) { return fail(errc::unsupported, "vkexec::tensor staging map is too small"); }
+    std::memcpy(staging_map.data(), host.data(), static_cast<std::size_t>(bytes));
 
-template<typename T>
-  requires std::is_trivially_copyable_v<T>
-[[nodiscard]] inline auto tensor<T>::make_allocated(context &ctx, std::vector<T> host) -> result<tensor>
-{
-  auto const bytes = host.size() * sizeof(T);
-  auto staging_buf = try_sync_wait_value(factory::make_gpu_buffer(ctx, bytes, gpu_buffer_memory::staging));
-  if (!staging_buf) { return fail(staging_buf.error()); }
-  auto device_buf = try_sync_wait_value(factory::make_gpu_buffer(ctx,
-    gpu_buffer_create_info{
-      .size = bytes,
-      .memory = gpu_buffer_memory::device_local,
-      .shader_device_address = true,
-    }));
-  if (!device_buf) { return fail(device_buf.error()); }
-
-  auto staging_map = staging_buf->mapped();
-  if (staging_map.size() < bytes) { return fail(errc::unsupported, "vkexec::tensor staging map is too small"); }
-  std::memcpy(staging_map.data(), host.data(), static_cast<std::size_t>(bytes));
-
-  auto gpu = std::make_unique<gpu_storage>(gpu_storage{ std::move(*staging_buf), std::move(*device_buf) });
-  return tensor{ std::move(host), std::move(gpu) };
-}
+    auto gpu = std::make_unique<gpu_storage>(gpu_storage{ std::move(*staging_buf), std::move(*device_buf) });
+    return tensor{ std::move(host), std::move(gpu) };
+  }
 
 }// namespace owned
 
@@ -207,7 +207,7 @@ namespace factory {
     }
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_tensor_t make_tensor{};
 
 }// namespace factory

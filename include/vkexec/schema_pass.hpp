@@ -34,7 +34,7 @@ struct schema_bind_t
   { return bind_resources(pipe, make_resource_table(schema, std::forward<Resources>(resources)...), params); }
 };
 
-//NOLINTNEXTLINE(readability-identifier-naming)
+// NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr schema_bind_t schema_bind{};
 
 struct schema_pass_closure
@@ -71,7 +71,7 @@ struct schema_pass_t
   }
 };
 
-//NOLINTNEXTLINE(readability-identifier-naming)
+// NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr schema_pass_t schema_pass{};
 
 [[nodiscard]] inline auto operator|(schedule_sender snd, schema_pass_closure closure) -> pass_graph_sender

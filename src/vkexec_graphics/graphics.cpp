@@ -283,8 +283,7 @@ auto bind_graphics_storage(context &ctx,
   return bound_graphics{ .pipe = &pipe, .set = set };
 }
 
-auto free_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe, VkDescriptorSet set) noexcept
-  -> void
+auto free_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe, VkDescriptorSet set) noexcept -> void
 {
   if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
   vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
@@ -406,7 +405,8 @@ auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
     ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers);
 }
 
-auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void
+auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const
+  -> void
 { vkexec::record_draw(cmd, bind(), extent, vertex_count); }
 
 auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void

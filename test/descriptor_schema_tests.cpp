@@ -26,9 +26,10 @@ concept makes_resource_table = requires(Schema schema, Resources... resources) {
 };
 
 template<class Schema, class... Resources>
-concept makes_schema_bind = requires(Schema schema, vkexec::handles::compute_pipeline const &pipe, Resources... resources) {
-  { vkexec::schema_bind(schema, pipe, std::move(resources)...) } -> std::same_as<vkexec::bind_resources_closure>;
-};
+concept makes_schema_bind =
+  requires(Schema schema, vkexec::handles::compute_pipeline const &pipe, Resources... resources) {
+    { vkexec::schema_bind(schema, pipe, std::move(resources)...) } -> std::same_as<vkexec::bind_resources_closure>;
+  };
 
 static_assert(sim_schema::binding_count == 2);
 static_assert(vkexec::detail::descriptor_schema_slots_unique<positions, velocities>());

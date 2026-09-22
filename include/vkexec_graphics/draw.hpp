@@ -124,7 +124,8 @@ inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, std:
 { return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count }; }
 
 //! Builds a mesh-draw closure for one presented frame.
-inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, owned::mesh const &drawn) -> draw_mesh_closure
+inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, owned::mesh const &drawn)
+  -> draw_mesh_closure
 { return draw_mesh_closure{ .win = &win, .pipeline = &pipeline, .drawn = &drawn }; }
 
 struct draw_bind_closure
@@ -144,20 +145,23 @@ struct draw_mesh_bind_closure
 };
 
 //! Present one frame using borrowable pipeline resources + descriptor set.
-inline auto
-  draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, std::uint32_t vertex_count)
-    -> draw_bind_closure
+inline auto draw(owned::presenter &win,
+  handles::graphics_pipeline const &resources,
+  VkDescriptorSet set,
+  std::uint32_t vertex_count) -> draw_bind_closure
 { return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count }; }
 
 //! Present one indexed mesh frame from borrowed handles.
-inline auto draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, mesh_draw drawn)
-  -> draw_mesh_bind_closure
+inline auto
+  draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, mesh_draw drawn)
+    -> draw_mesh_bind_closure
 { return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn }; }
 
 //! Present one indexed mesh frame from `handles::mesh`.
-inline auto
-  draw(owned::presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, handles::mesh const &buffers)
-    -> draw_mesh_bind_closure
+inline auto draw(owned::presenter &win,
+  handles::graphics_pipeline const &resources,
+  VkDescriptorSet set,
+  handles::mesh const &buffers) -> draw_mesh_bind_closure
 { return draw(win, resources, set, make_mesh_draw(buffers)); }
 
 /**

@@ -19,8 +19,7 @@ namespace vkexec {
 auto upload_to_device(context &ctx,
   owned::gpu_buffer &staging,
   owned::gpu_buffer const &device,
-  std::span<std::byte const> bytes)
-  -> status
+  std::span<std::byte const> bytes) -> status
 {
   if (staging.memory() != gpu_buffer_memory::staging && staging.memory() != gpu_buffer_memory::host_visible) {
     return fail(errc::invalid_argument, "upload_to_device staging buffer must be host-visible");

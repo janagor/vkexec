@@ -201,8 +201,8 @@ void main() {}
     *ctx, vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
   auto view = vkexec::test::sync_wait_value(vkexec::factory::make_image_view(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
-  auto resources_result = vkexec::create(
-    *ctx, k_empty_compute_glsl, vkexec::layout_desc_from_schema(image_schema{}), "table_images.comp");
+  auto resources_result =
+    vkexec::create(*ctx, k_empty_compute_glsl, vkexec::layout_desc_from_schema(image_schema{}), "table_images.comp");
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
   auto const table = vkexec::make_resource_table(image_schema{},

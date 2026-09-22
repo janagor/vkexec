@@ -181,9 +181,7 @@ auto create([[maybe_unused]] descriptor_heap_t strategy,
   if (vertex_spirv.empty() || fragment_spirv.empty()) {
     return fail(errc::invalid_argument, "create requires non-empty SPIR-V");
   }
-  if (desc.color_formats.empty()) {
-    return fail(errc::invalid_argument, "create requires at least one color format");
-  }
+  if (desc.color_formats.empty()) { return fail(errc::invalid_argument, "create requires at least one color format"); }
 
   handles::graphics_pipeline resources{};
   VkDevice device = ctx.device();
@@ -238,7 +236,8 @@ auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context 
   return make_sender<::vkexec::owned::descriptor_graphics_pipeline>(
     [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<::vkexec::owned::descriptor_graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc));
-      return ::vkexec::owned::descriptor_graphics_pipeline::make(ctx, std::make_unique<handles::graphics_pipeline>(owned));
+      return ::vkexec::owned::descriptor_graphics_pipeline::make(
+        ctx, std::make_unique<handles::graphics_pipeline>(owned));
     });
 }
 

@@ -22,7 +22,7 @@ struct sampler_create_info
 };
 
 namespace owned {
-class sampler;
+  class sampler;
 }// namespace owned
 
 namespace factory {
@@ -39,7 +39,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const -> sender<owned::sampler>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_sampler_t make_sampler{};
 
 }// namespace factory
@@ -51,29 +51,29 @@ namespace factory {
  */
 namespace owned {
 
-class sampler
-{
-public:
-  ~sampler();
+  class sampler
+  {
+  public:
+    ~sampler();
 
-  sampler(sampler const &) = delete;
-  auto operator=(sampler const &) -> sampler & = delete;
+    sampler(sampler const &) = delete;
+    auto operator=(sampler const &) -> sampler & = delete;
 
-  sampler(sampler &&other) noexcept;
-  auto operator=(sampler &&other) noexcept -> sampler &;
+    sampler(sampler &&other) noexcept;
+    auto operator=(sampler &&other) noexcept -> sampler &;
 
-  //! Vulkan sampler handle (null after move).
-  [[nodiscard]] auto handle() const noexcept -> VkSampler { return sampler_; }
+    //! Vulkan sampler handle (null after move).
+    [[nodiscard]] auto handle() const noexcept -> VkSampler { return sampler_; }
 
-private:
-  friend struct factory::make_sampler_t;
+  private:
+    friend struct factory::make_sampler_t;
 
-  sampler(context *ctx, VkSampler handle) noexcept;
-  auto destroy() noexcept -> void;
+    sampler(context *ctx, VkSampler handle) noexcept;
+    auto destroy() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  VkSampler sampler_{ VK_NULL_HANDLE };
-};
+    context *ctx_{ nullptr };
+    VkSampler sampler_{ VK_NULL_HANDLE };
+  };
 
 }// namespace owned
 

@@ -16,7 +16,7 @@
 namespace vkexec {
 
 namespace owned {
-class timeline_semaphore;
+  class timeline_semaphore;
 }// namespace owned
 
 namespace detail {
@@ -42,7 +42,7 @@ namespace factory {
       -> sender<owned::timeline_semaphore>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_timeline_semaphore_t make_timeline_semaphore{};
 
 }// namespace factory
@@ -57,38 +57,39 @@ namespace factory {
  */
 namespace owned {
 
-class timeline_semaphore
-{
-public:
-  ~timeline_semaphore();
+  class timeline_semaphore
+  {
+  public:
+    ~timeline_semaphore();
 
-  timeline_semaphore(timeline_semaphore const &) = delete;
-  auto operator=(timeline_semaphore const &) -> timeline_semaphore & = delete;
+    timeline_semaphore(timeline_semaphore const &) = delete;
+    auto operator=(timeline_semaphore const &) -> timeline_semaphore & = delete;
 
-  timeline_semaphore(timeline_semaphore &&other) noexcept;
-  auto operator=(timeline_semaphore &&other) noexcept -> timeline_semaphore &;
+    timeline_semaphore(timeline_semaphore &&other) noexcept;
+    auto operator=(timeline_semaphore &&other) noexcept -> timeline_semaphore &;
 
-  //! Vulkan semaphore handle (null after move).
-  [[nodiscard]] auto handle() const noexcept -> VkSemaphore { return semaphore_; }
+    //! Vulkan semaphore handle (null after move).
+    [[nodiscard]] auto handle() const noexcept -> VkSemaphore { return semaphore_; }
 
-  /**
-   * Host-waits until the semaphore reaches at least `value`.
-   *
-   * No-op when `value == 0`.
-   *
-   * @param value Timeline value to wait for.
-   */
-  [[nodiscard]] auto wait(std::uint64_t value) const -> status;
+    /**
+     * Host-waits until the semaphore reaches at least `value`.
+     *
+     * No-op when `value == 0`.
+     *
+     * @param value Timeline value to wait for.
+     */
+    [[nodiscard]] auto wait(std::uint64_t value) const -> status;
 
-private:
-  friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>;
+  private:
+    friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value)
+      -> result<timeline_semaphore>;
 
-  timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;
-  auto destroy() noexcept -> void;
+    timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;
+    auto destroy() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  VkSemaphore semaphore_{ VK_NULL_HANDLE };
-};
+    context *ctx_{ nullptr };
+    VkSemaphore semaphore_{ VK_NULL_HANDLE };
+  };
 
 }// namespace owned
 

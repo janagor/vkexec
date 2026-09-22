@@ -55,7 +55,7 @@ struct presenter_config
 };
 
 namespace owned {
-class presenter;
+  class presenter;
 }// namespace owned
 
 namespace factory {
@@ -71,7 +71,7 @@ namespace factory {
     [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<owned::presenter>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_presenter_t make_presenter{};
 
   /**
@@ -86,7 +86,7 @@ namespace factory {
     [[nodiscard]] auto operator()() const -> sender<owned::presenter>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_headless_presenter_t make_headless_presenter{};
 
 }// namespace factory
@@ -101,112 +101,114 @@ namespace factory {
  */
 namespace owned {
 
-class presenter
-{
-public:
-  //! @see presenter_config
-  using config = presenter_config;
-
-  ~presenter();
-
-  presenter(presenter const &) = delete;
-  auto operator=(presenter const &) -> presenter & = delete;
-  presenter(presenter &&other) noexcept;
-  auto operator=(presenter &&other) noexcept -> presenter &;
-
-  //! Owned Vulkan context used for queues, device, and VMA.
-  [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
-  //! Const owned Vulkan context.
-  [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
-  //! Owned presentation surface.
-  [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
-  //! Waits for the device to become idle.
-  auto wait_idle() -> void;
-
-  //! Recreates presentation resources, or suspends acquisition for a zero extent.
-  auto resize(std::uint32_t width, std::uint32_t height) -> status;
-  //! True when presentation is suspended until the application supplies an extent.
-  [[nodiscard]] auto needs_resize() const noexcept -> bool { return resize_required_; }
-
-  //! Compatible render pass for swapchain framebuffers.
-  [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
-  //! Current swapchain extent (empty when no swapchain).
-  [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return swapchain_ ? swapchain_->extent() : VkExtent2D{}; }
-  //! Current swapchain color format.
-  [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
-  { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
-
-  //! Borrowed swapchain pointer (valid after `factory::make_presenter` / `factory::make_headless_presenter` completes).
-  [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const *
-  { return swapchain_ ? std::addressof(*swapchain_) : nullptr; }
-
-  /**
-   * Acquires the next swapchain image and begins a primary command buffer.
-   *
-   * Disengaged optional means presentation is suspended or requires `resize`.
-   */
-  [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
-
-  /**
-   * Submits the recorded command buffer and presents.
-   *
-   * The command buffer must already be ended. Returns the per-frame `in_flight`
-   * fence signalled by the submit (owned by the presenter).
-   *
-   * @param drawn Frame from a successful `begin_frame`.
-   * @param options Optional `VkPresentInfoKHR::pNext` chain.
-   */
-  [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
-
-private:
-  friend struct factory::make_presenter_t;
-  friend struct factory::make_headless_presenter_t;
-
-  struct frame_sync
+  class presenter
   {
-    VkSemaphore image_available{ VK_NULL_HANDLE };
-    VkFence in_flight{ VK_NULL_HANDLE };
+  public:
+    //! @see presenter_config
+    using config = presenter_config;
+
+    ~presenter();
+
+    presenter(presenter const &) = delete;
+    auto operator=(presenter const &) -> presenter & = delete;
+    presenter(presenter &&other) noexcept;
+    auto operator=(presenter &&other) noexcept -> presenter &;
+
+    //! Owned Vulkan context used for queues, device, and VMA.
+    [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
+    //! Const owned Vulkan context.
+    [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
+    //! Owned presentation surface.
+    [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
+    //! Waits for the device to become idle.
+    auto wait_idle() -> void;
+
+    //! Recreates presentation resources, or suspends acquisition for a zero extent.
+    auto resize(std::uint32_t width, std::uint32_t height) -> status;
+    //! True when presentation is suspended until the application supplies an extent.
+    [[nodiscard]] auto needs_resize() const noexcept -> bool { return resize_required_; }
+
+    //! Compatible render pass for swapchain framebuffers.
+    [[nodiscard]] auto render_pass() const noexcept -> VkRenderPass { return render_pass_; }
+    //! Current swapchain extent (empty when no swapchain).
+    [[nodiscard]] auto extent() const noexcept -> VkExtent2D
+    { return swapchain_ ? swapchain_->extent() : VkExtent2D{}; }
+    //! Current swapchain color format.
+    [[nodiscard]] auto swapchain_format() const noexcept -> VkFormat
+    { return swapchain_ ? swapchain_->format() : VK_FORMAT_UNDEFINED; }
+
+    //! Borrowed swapchain pointer (valid after `factory::make_presenter` / `factory::make_headless_presenter`
+    //! completes).
+    [[nodiscard]] auto borrowed_swapchain() const noexcept -> swapchain const *
+    { return swapchain_ ? std::addressof(*swapchain_) : nullptr; }
+
+    /**
+     * Acquires the next swapchain image and begins a primary command buffer.
+     *
+     * Disengaged optional means presentation is suspended or requires `resize`.
+     */
+    [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
+
+    /**
+     * Submits the recorded command buffer and presents.
+     *
+     * The command buffer must already be ended. Returns the per-frame `in_flight`
+     * fence signalled by the submit (owned by the presenter).
+     *
+     * @param drawn Frame from a successful `begin_frame`.
+     * @param options Optional `VkPresentInfoKHR::pNext` chain.
+     */
+    [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
+
+  private:
+    friend struct factory::make_presenter_t;
+    friend struct factory::make_headless_presenter_t;
+
+    struct frame_sync
+    {
+      VkSemaphore image_available{ VK_NULL_HANDLE };
+      VkFence in_flight{ VK_NULL_HANDLE };
+    };
+
+    presenter() = default;
+
+    auto init(config cfg) -> status;
+    auto create_swapchain() -> status;
+    auto create_render_pass() -> status;
+    auto create_depth_resources() -> status;
+    auto destroy_depth_resources() noexcept -> void;
+    auto create_framebuffers() -> status;
+    auto create_frame_resources() -> status;
+    auto create_swapchain_sync() -> status;
+    auto destroy_swapchain_sync() noexcept -> void;
+    auto cleanup_swapchain() -> void;
+    auto recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status;
+
+    config cfg_;
+    std::unique_ptr<context> ctx_;
+    VkSurfaceKHR surface_{ VK_NULL_HANDLE };
+
+    std::optional<swapchain> swapchain_;
+    VkFormat depth_format_{ VK_FORMAT_UNDEFINED };
+    std::vector<VkFramebuffer> framebuffers_;
+
+    VkImage depth_image_{ VK_NULL_HANDLE };
+    VmaAllocation depth_allocation_{ VK_NULL_HANDLE };
+    VkImageView depth_view_{ VK_NULL_HANDLE };
+
+    VkRenderPass render_pass_{ VK_NULL_HANDLE };
+
+    static constexpr int k_frames = 2;
+    std::vector<frame_sync> frames_;
+    std::vector<VkCommandBuffer> command_buffers_;
+    std::vector<VkSemaphore> render_finished_;
+    std::vector<VkFence> images_in_flight_;
+    std::uint32_t frame_index_{ 0 };
+    std::uint32_t current_image_index_{ 0 };
+    bool resize_required_{ false };
+    bool suspended_{ false };
+    bool frame_open_{ false };
   };
-
-  presenter() = default;
-
-  auto init(config cfg) -> status;
-  auto create_swapchain() -> status;
-  auto create_render_pass() -> status;
-  auto create_depth_resources() -> status;
-  auto destroy_depth_resources() noexcept -> void;
-  auto create_framebuffers() -> status;
-  auto create_frame_resources() -> status;
-  auto create_swapchain_sync() -> status;
-  auto destroy_swapchain_sync() noexcept -> void;
-  auto cleanup_swapchain() -> void;
-  auto recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status;
-
-  config cfg_;
-  std::unique_ptr<context> ctx_;
-  VkSurfaceKHR surface_{ VK_NULL_HANDLE };
-
-  std::optional<swapchain> swapchain_;
-  VkFormat depth_format_{ VK_FORMAT_UNDEFINED };
-  std::vector<VkFramebuffer> framebuffers_;
-
-  VkImage depth_image_{ VK_NULL_HANDLE };
-  VmaAllocation depth_allocation_{ VK_NULL_HANDLE };
-  VkImageView depth_view_{ VK_NULL_HANDLE };
-
-  VkRenderPass render_pass_{ VK_NULL_HANDLE };
-
-  static constexpr int k_frames = 2;
-  std::vector<frame_sync> frames_;
-  std::vector<VkCommandBuffer> command_buffers_;
-  std::vector<VkSemaphore> render_finished_;
-  std::vector<VkFence> images_in_flight_;
-  std::uint32_t frame_index_{ 0 };
-  std::uint32_t current_image_index_{ 0 };
-  bool resize_required_{ false };
-  bool suspended_{ false };
-  bool frame_open_{ false };
-};
 
 }// namespace owned
 

@@ -17,7 +17,8 @@
 
 namespace vkexec {
 
-auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<::vkexec::owned::timeline_semaphore>
+auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value)
+  -> result<::vkexec::owned::timeline_semaphore>
 {
   if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "timeline_semaphore requires a VkDevice"); }
   if (!feat::available<feat::timeline_semaphore>(ctx)) {
@@ -42,12 +43,14 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) 
 auto factory::make_timeline_semaphore_t::operator()(::vkexec::context &ctx, std::uint64_t initial_value) const
   -> sender<::vkexec::owned::timeline_semaphore>
 {
-  return make_sender<::vkexec::owned::timeline_semaphore>([&ctx, initial_value]() -> result<::vkexec::owned::timeline_semaphore> {
-    return detail::make_timeline_semaphore(ctx, initial_value);
-  });
+  return make_sender<::vkexec::owned::timeline_semaphore>(
+    [&ctx, initial_value]() -> result<::vkexec::owned::timeline_semaphore> {
+      return detail::make_timeline_semaphore(ctx, initial_value);
+    });
 }
 
-owned::timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept : ctx_(ctx), semaphore_(semaphore)
+owned::timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept
+  : ctx_(ctx), semaphore_(semaphore)
 {}
 
 owned::timeline_semaphore::~timeline_semaphore() { destroy(); }
@@ -73,7 +76,9 @@ auto owned::timeline_semaphore::operator=(timeline_semaphore &&other) noexcept -
 auto owned::timeline_semaphore::wait(std::uint64_t value) const -> status
 {
   if (value == 0 || semaphore_ == VK_NULL_HANDLE) { return {}; }
-  if (ctx_ == nullptr) { return fail(errc::invalid_argument, "owned::timeline_semaphore::wait requires a live context"); }
+  if (ctx_ == nullptr) {
+    return fail(errc::invalid_argument, "owned::timeline_semaphore::wait requires a live context");
+  }
 
   std::array<VkSemaphore, 1> const semaphores{ semaphore_ };
   std::array<std::uint64_t, 1> const values{ value };

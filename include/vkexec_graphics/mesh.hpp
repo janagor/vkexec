@@ -39,22 +39,21 @@ struct mesh_vertex
  */
 namespace handles {
 
-struct mesh
-{
-  VkBuffer vertex_buffer{ VK_NULL_HANDLE };
-  VmaAllocation vertex_allocation{ VK_NULL_HANDLE };
-  VkBuffer index_buffer{ VK_NULL_HANDLE };
-  VmaAllocation index_allocation{ VK_NULL_HANDLE };
-  std::uint32_t vertex_count{ 0 };
-  std::uint32_t index_count{ 0 };
-};
+  struct mesh
+  {
+    VkBuffer vertex_buffer{ VK_NULL_HANDLE };
+    VmaAllocation vertex_allocation{ VK_NULL_HANDLE };
+    VkBuffer index_buffer{ VK_NULL_HANDLE };
+    VmaAllocation index_allocation{ VK_NULL_HANDLE };
+    std::uint32_t vertex_count{ 0 };
+    std::uint32_t index_count{ 0 };
+  };
 
 }// namespace handles
 
 //! Creates host-visible VMA vertex/index buffers filled from the given spans.
-[[nodiscard]] auto create(context &ctx,
-  std::span<mesh_vertex const> vertices,
-  std::span<std::uint32_t const> indices) -> result<handles::mesh>;
+[[nodiscard]] auto create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+  -> result<handles::mesh>;
 
 //! Destroys VMA allocations in `buffers` and resets them to null.
 auto destroy(context const &ctx, handles::mesh &buffers) noexcept -> void;
@@ -70,7 +69,7 @@ auto destroy(context const &ctx, handles::mesh &buffers) noexcept -> void;
 }
 
 namespace owned {
-class mesh;
+  class mesh;
 }// namespace owned
 
 namespace factory {
@@ -90,7 +89,7 @@ namespace factory {
       std::span<std::uint32_t const> indices) const -> sender<owned::mesh>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_mesh_t make_mesh{};
 
 }// namespace factory
@@ -102,48 +101,48 @@ namespace factory {
  */
 namespace owned {
 
-class mesh
-{
-public:
-  ~mesh() { reset(); }
-
-  mesh(mesh const &) = delete;
-  auto operator=(mesh const &) -> mesh & = delete;
-
-  mesh(mesh &&other) noexcept
-    : ctx_(std::exchange(other.ctx_, nullptr)), buffers_(std::exchange(other.buffers_, handles::mesh{}))
-  {}
-
-  auto operator=(mesh &&other) noexcept -> mesh &
+  class mesh
   {
-    if (this == &other) { return *this; }
-    reset();
-    ctx_ = std::exchange(other.ctx_, nullptr);
-    buffers_ = std::exchange(other.buffers_, handles::mesh{});
-    return *this;
-  }
+  public:
+    ~mesh() { reset(); }
 
-  //! Borrowed mesh buffer handles.
-  [[nodiscard]] auto buffers() const noexcept -> handles::mesh const & { return buffers_; }
-  //! Number of vertices uploaded at creation.
-  [[nodiscard]] auto vertex_count() const noexcept -> std::uint32_t { return buffers_.vertex_count; }
-  //! Number of indices uploaded at creation.
-  [[nodiscard]] auto index_count() const noexcept -> std::uint32_t { return buffers_.index_count; }
-  //! Vulkan vertex buffer handle.
-  [[nodiscard]] auto vk_vertex_buffer() const noexcept -> VkBuffer { return buffers_.vertex_buffer; }
-  //! Vulkan index buffer handle.
-  [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
+    mesh(mesh const &) = delete;
+    auto operator=(mesh const &) -> mesh & = delete;
 
-private:
-  friend struct factory::make_mesh_t;
+    mesh(mesh &&other) noexcept
+      : ctx_(std::exchange(other.ctx_, nullptr)), buffers_(std::exchange(other.buffers_, handles::mesh{}))
+    {}
 
-  mesh(context *ctx, handles::mesh buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
+    auto operator=(mesh &&other) noexcept -> mesh &
+    {
+      if (this == &other) { return *this; }
+      reset();
+      ctx_ = std::exchange(other.ctx_, nullptr);
+      buffers_ = std::exchange(other.buffers_, handles::mesh{});
+      return *this;
+    }
 
-  auto reset() noexcept -> void;
+    //! Borrowed mesh buffer handles.
+    [[nodiscard]] auto buffers() const noexcept -> handles::mesh const & { return buffers_; }
+    //! Number of vertices uploaded at creation.
+    [[nodiscard]] auto vertex_count() const noexcept -> std::uint32_t { return buffers_.vertex_count; }
+    //! Number of indices uploaded at creation.
+    [[nodiscard]] auto index_count() const noexcept -> std::uint32_t { return buffers_.index_count; }
+    //! Vulkan vertex buffer handle.
+    [[nodiscard]] auto vk_vertex_buffer() const noexcept -> VkBuffer { return buffers_.vertex_buffer; }
+    //! Vulkan index buffer handle.
+    [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
 
-  context *ctx_{ nullptr };
-  handles::mesh buffers_{};
-};
+  private:
+    friend struct factory::make_mesh_t;
+
+    mesh(context *ctx, handles::mesh buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
+
+    auto reset() noexcept -> void;
+
+    context *ctx_{ nullptr };
+    handles::mesh buffers_{};
+  };
 
 }// namespace owned
 

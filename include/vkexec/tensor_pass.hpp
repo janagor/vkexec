@@ -27,11 +27,11 @@ namespace detail {
   template<typename... T>
   [[nodiscard]] auto append_tensor_pass(pass_graph_sender graph, tensor_pass_closure<T...> closure) -> pass_graph_sender
   {
-    std::apply(
-      [&graph](auto *...values) -> void { ((graph = std::move(graph) | sync_to_device(*values)), ...); }, closure.tensors);
+    std::apply([&graph](auto *...values) -> void { ((graph = std::move(graph) | sync_to_device(*values)), ...); },
+      closure.tensors);
     graph = std::move(graph) | std::move(closure.compute);
-    std::apply(
-      [&graph](auto *...values) -> void { ((graph = std::move(graph) | sync_to_host(*values)), ...); }, closure.tensors);
+    std::apply([&graph](auto *...values) -> void { ((graph = std::move(graph) | sync_to_host(*values)), ...); },
+      closure.tensors);
     return graph;
   }
 
@@ -48,7 +48,8 @@ struct tensor_pass_t
   }
 
   template<typename Params, typename... T>
-  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, dispatch groups, owned::tensor<T> &...values) const
+  [[nodiscard]] auto
+    operator()(compute_bind bind, Params const &params, dispatch groups, owned::tensor<T> &...values) const
     -> tensor_pass_closure<T...>
   { return (*this)(compute_pass(bind, params, groups), values...); }
 
@@ -61,7 +62,7 @@ struct tensor_pass_t
   { return (*this)(compute_pass(pipe, set, params, work_count), values...); }
 };
 
-//NOLINTNEXTLINE(readability-identifier-naming)
+// NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr tensor_pass_t tensor_pass{};
 
 template<typename... T>

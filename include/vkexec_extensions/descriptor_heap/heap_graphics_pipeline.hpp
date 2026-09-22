@@ -80,11 +80,10 @@ struct heap_graphics_layout_desc
   std::string_view fragment_name = "heap.frag") -> result<handles::graphics_pipeline>;
 
 //! Destroys a descriptor-heap graphics resource bag and resets it.
-auto destroy(descriptor_heap_t strategy, context const &ctx, handles::graphics_pipeline &resources) noexcept
-  -> void;
+auto destroy(descriptor_heap_t strategy, context const &ctx, handles::graphics_pipeline &resources) noexcept -> void;
 
 namespace owned {
-class descriptor_graphics_pipeline;
+  class descriptor_graphics_pipeline;
 }// namespace owned
 
 namespace factory {
@@ -119,7 +118,7 @@ namespace factory {
       std::string_view fragment_name = "heap.frag") const -> sender<owned::descriptor_graphics_pipeline>;
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_descriptor_graphics_pipeline_t make_descriptor_graphics_pipeline{};
 
 }// namespace factory
@@ -134,50 +133,50 @@ namespace factory {
  */
 namespace owned {
 
-class descriptor_graphics_pipeline
-{
-public:
-  //! Owning factory used after `create(descriptor_heap, ...)`.
-  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<handles::graphics_pipeline> resources)
-    -> descriptor_graphics_pipeline
-  { return descriptor_graphics_pipeline{ &ctx, std::move(resources) }; }
-
-  descriptor_graphics_pipeline(descriptor_graphics_pipeline const &) = delete;
-  auto operator=(descriptor_graphics_pipeline const &) -> descriptor_graphics_pipeline & = delete;
-
-  descriptor_graphics_pipeline(descriptor_graphics_pipeline &&other) noexcept
-    : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
-  {}
-
-  auto operator=(descriptor_graphics_pipeline &&other) noexcept -> descriptor_graphics_pipeline &
+  class descriptor_graphics_pipeline
   {
-    if (this != &other) {
-      reset();
-      ctx_ = std::exchange(other.ctx_, nullptr);
-      resources_ = std::move(other.resources_);
+  public:
+    //! Owning factory used after `create(descriptor_heap, ...)`.
+    [[nodiscard]] static auto make(context &ctx, std::unique_ptr<handles::graphics_pipeline> resources)
+      -> descriptor_graphics_pipeline
+    { return descriptor_graphics_pipeline{ &ctx, std::move(resources) }; }
+
+    descriptor_graphics_pipeline(descriptor_graphics_pipeline const &) = delete;
+    auto operator=(descriptor_graphics_pipeline const &) -> descriptor_graphics_pipeline & = delete;
+
+    descriptor_graphics_pipeline(descriptor_graphics_pipeline &&other) noexcept
+      : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_))
+    {}
+
+    auto operator=(descriptor_graphics_pipeline &&other) noexcept -> descriptor_graphics_pipeline &
+    {
+      if (this != &other) {
+        reset();
+        ctx_ = std::exchange(other.ctx_, nullptr);
+        resources_ = std::move(other.resources_);
+      }
+      return *this;
     }
-    return *this;
-  }
 
-  ~descriptor_graphics_pipeline() { reset(); }
+    ~descriptor_graphics_pipeline() { reset(); }
 
-  //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> handles::graphics_pipeline const & { return *resources_; }
+    //! Const owned Vulkan resources for this pipeline.
+    [[nodiscard]] auto resources() const noexcept -> handles::graphics_pipeline const & { return *resources_; }
 
-  //! Builds a bindless bind (null layout and descriptor set).
-  [[nodiscard]] auto bind() const -> compute_bind
-  { return compute_bind{ .pipeline = resources_->pipeline, .layout = resources_->pipeline_layout }; }
+    //! Builds a bindless bind (null layout and descriptor set).
+    [[nodiscard]] auto bind() const -> compute_bind
+    { return compute_bind{ .pipeline = resources_->pipeline, .layout = resources_->pipeline_layout }; }
 
-private:
-  descriptor_graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept
-    : ctx_(ctx), resources_(std::move(resources))
-  {}
+  private:
+    descriptor_graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept
+      : ctx_(ctx), resources_(std::move(resources))
+    {}
 
-  auto reset() noexcept -> void;
+    auto reset() noexcept -> void;
 
-  context *ctx_{ nullptr };
-  std::unique_ptr<handles::graphics_pipeline> resources_;
-};
+    context *ctx_{ nullptr };
+    std::unique_ptr<handles::graphics_pipeline> resources_;
+  };
 
 }// namespace owned
 
