@@ -165,6 +165,8 @@ public:
   [[nodiscard]] auto data() const noexcept -> T const * { return static_cast<T const *>(mapped_); }
   //! Number of `T` elements.
   [[nodiscard]] auto size() const noexcept -> std::size_t { return count_; }
+  //! Byte size of the allocation.
+  [[nodiscard]] auto byte_size() const noexcept -> VkDeviceSize { return count_ * sizeof(T); }
   //! Vulkan buffer handle.
   [[nodiscard]] auto vk_buffer() const noexcept -> VkBuffer { return buffer_; }
   //! Debug name assigned at allocation.

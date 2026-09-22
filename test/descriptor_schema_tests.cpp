@@ -3,6 +3,7 @@
 #include <vkexec/descriptor_schema.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/schema_pass.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -23,6 +24,11 @@ concept makes_resource_table = requires(Schema schema, Resources... resources) {
   { vkexec::make_resource_table(schema, std::move(resources)...) } -> std::same_as<vkexec::resource_table>;
 };
 
+template<class Schema, class... Resources>
+concept makes_schema_bind = requires(Schema schema, vkexec::pipeline_resources const &pipe, Resources... resources) {
+  { vkexec::schema_bind(schema, pipe, std::move(resources)...) } -> std::same_as<vkexec::bind_resources_closure>;
+};
+
 static_assert(sim_schema::binding_count == 2);
 static_assert(vkexec::detail::descriptor_schema_slots_unique<positions, velocities>());
 static_assert(!vkexec::detail::descriptor_schema_slots_unique<positions, positions>());
@@ -30,6 +36,8 @@ static_assert(vkexec::detail::descriptor_schema_slots_sorted<positions, velociti
 static_assert(!vkexec::detail::descriptor_schema_slots_sorted<velocities, positions>());
 static_assert(makes_resource_table<sim_schema, vkexec::resource_ref, vkexec::resource_ref>);
 static_assert(!makes_resource_table<sim_schema, vkexec::resource_ref>);
+static_assert(makes_schema_bind<sim_schema, vkexec::resource_ref, vkexec::resource_ref>);
+static_assert(!makes_schema_bind<sim_schema, vkexec::resource_ref>);
 
 }// namespace
 

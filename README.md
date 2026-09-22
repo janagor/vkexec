@@ -387,6 +387,21 @@ vkexec::destroy_compute_resources(ctx, resources);
 
 `resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
 
+For classic descriptors, `schema_pass` collapses table construction, descriptor binding, push data, and dispatch into one typed pipeable while keeping the individual steps available:
+
+```cpp
+using schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>, vkexec::storage_buffer<1>>;
+
+ex::schedule(ctx->get_scheduler())
+  | vkexec::schema_pass(schema{}, resources, params, work_count, positions, velocities);
+
+// Borrowable lower-level path:
+auto table = vkexec::make_resource_table(schema{}, positions_ref, velocities_ref);
+ex::schedule(ctx->get_scheduler())
+  | vkexec::bind_resources(resources, table, params)
+  | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
+```
+
 Example: [`examples/extensions/descriptor_heap/`](examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
 
 **Dynamic rendering:** enable with `feat::configure<feat::dynamic_rendering>` (or `configure_vulkan_13`), then use free-function helpers from the extensions target:

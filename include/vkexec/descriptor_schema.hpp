@@ -91,7 +91,25 @@ namespace detail {
 
   template<class Entry, class Resource> [[nodiscard]] auto schema_resource(Resource &&resource) -> resource_ref
   {
-    auto result = static_cast<resource_ref>(std::forward<Resource>(resource));
+    auto result = [&]() -> resource_ref {
+      if constexpr (std::convertible_to<Resource &&, resource_ref>) {
+        return static_cast<resource_ref>(std::forward<Resource>(resource));
+      } else if constexpr (Entry::kind == resource_kind::storage_buffer && requires {
+                             resource.vk_buffer();
+                             resource.byte_size();
+                           }) {
+        return buffer_resource(resource.vk_buffer(), resource.byte_size());
+      } else if constexpr (Entry::kind == resource_kind::storage_image && requires { resource.handle(); }) {
+        return storage_image_resource(resource.handle());
+      } else if constexpr (Entry::kind == resource_kind::sampled_image && requires { resource.handle(); }) {
+        return sampled_image_resource(resource.handle());
+      } else if constexpr (Entry::kind == resource_kind::sampler && requires { resource.handle(); }) {
+        return sampler_resource(resource.handle());
+      } else {
+        static_assert(std::convertible_to<Resource &&, resource_ref>,
+          "schema resource must be a resource_ref or a compatible owning resource");
+      }
+    }();
     result.kind = Entry::kind;
     return result;
   }
@@ -125,7 +143,7 @@ template<class... Entries>
 
 //! Builds a resource table whose logical slots come from `schema`.
 template<class... Entries, class... Resources>
-  requires(sizeof...(Entries) == sizeof...(Resources)) && (std::convertible_to<Resources &&, resource_ref> && ...)
+  requires(sizeof...(Entries) == sizeof...(Resources))
 [[nodiscard]] auto make_resource_table(descriptor_schema<Entries...> /*schema*/, Resources &&...resources)
   -> resource_table
 {

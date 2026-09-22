@@ -15,6 +15,7 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sampler.hpp>
+#include <vkexec/schema_pass.hpp>
 #include <vkexec/submit.hpp>
 
 #include <stdexec/execution.hpp>
@@ -171,13 +172,11 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
 
-  auto const table = vkexec::make_resource_table(sim_schema{},
-    vkexec::buffer_resource(positions.vk_buffer(), k_count * sizeof(float)),
-    vkexec::buffer_resource(velocities.vk_buffer(), k_count * sizeof(float)));
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
-  auto const groups = vkexec::dispatch_groups_for(static_cast<std::uint32_t>(k_count), k_local_size);
-  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::bind_resources(resources, table, params)
-               | vkexec::compute_pass(vkexec::bind_compute(resources), groups);
+  auto predecessor = ex::then(ex::schedule(ctx->get_scheduler()), [] {});
+  auto graph =
+    std::move(predecessor)
+    | vkexec::schema_pass(sim_schema{}, resources, params, static_cast<std::uint32_t>(k_count), positions, velocities);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
