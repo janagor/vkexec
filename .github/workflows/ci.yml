@@ -61,6 +61,10 @@ jobs:
           # setup-cpp has no LLVM 22 Windows packages; use 21.1.8 there instead (see include)
           - os: windows-latest
             compiler: llvm-22.1.8
+          # Homebrew GCC cannot parse Apple SDK headers that use ObjC blocks
+          # (e.g. MDItem.h / CGPath.h) pulled in by GLFW Cocoa.
+          - os: macos-latest
+            compiler: gcc-16
 
         include:
           # Add appropriate variables for gcov version required. This will intentionally break
