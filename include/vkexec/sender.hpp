@@ -17,6 +17,17 @@ namespace vkexec {
 
 namespace ex = stdexec;
 
+namespace detail {
+
+template<class Receiver>
+auto set_factory_exception(Receiver &&receiver) noexcept -> void
+{
+  // start() is noexcept; map unexpected throws to set_error without allocating.
+  ex::set_error(std::forward<Receiver>(receiver), error{ .code = make_error_code(errc::io_error) });
+}
+
+}// namespace detail
+
 /**
  * Sender that invokes `factory` synchronously in `start()` and completes with its `result<Value>`.
  *
@@ -50,10 +61,14 @@ template<class Value> struct sender
         }
       }
 
-      if (result<value_type> produced = factory(); produced) {
-        ex::set_value(std::move(rcvr), expected_take(produced));
-      } else {
-        ex::set_error(std::move(rcvr), std::move(produced.error()));
+      try {
+        if (result<value_type> produced = factory(); produced) {
+          ex::set_value(std::move(rcvr), expected_take(produced));
+        } else {
+          ex::set_error(std::move(rcvr), std::move(produced.error()));
+        }
+      } catch (...) {
+        detail::set_factory_exception(std::move(rcvr));
       }
     }
   };
@@ -100,10 +115,14 @@ struct void_sender
         }
       }
 
-      if (status done = factory(); done) {
-        ex::set_value(std::move(rcvr));
-      } else {
-        ex::set_error(std::move(rcvr), std::move(done.error()));
+      try {
+        if (status done = factory(); done) {
+          ex::set_value(std::move(rcvr));
+        } else {
+          ex::set_error(std::move(rcvr), std::move(done.error()));
+        }
+      } catch (...) {
+        detail::set_factory_exception(std::move(rcvr));
       }
     }
   };
