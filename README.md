@@ -8,7 +8,7 @@
 
 `vkexec` is a C++23 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, borrowable handles, and backend-neutral Vulkan presentation helpers.
 
-**Execution** — schedule work on a device; record with `compute_bind` / `pipeline_resources`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
+**Execution** — schedule work on a device; record with `compute_bind` / `handles::compute_pipeline`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
 **Resources** — owning `buffer`, typed `tensor<T>`, `compute_pipeline`, images, samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
 
@@ -29,7 +29,7 @@ The context outlives every `owned::` or `handles::` object created against it. T
 
 | Header | Role |
 |--------|------|
-| `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `pipeline_resources`, free functions |
+| `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `handles::compute_pipeline`, free functions |
 | `<vkexec/resources.hpp>` | Owning buffers, `tensor<T>`, images, samplers, `compute_pipeline` |
 | `<vkexec/vkexec.hpp>` | Full core umbrella (execution + resources) |
 
@@ -69,7 +69,7 @@ int main() {
     auto velocities = vkexec::sync_wait_value(vkexec::factory::make_buffer(*ctx, 10000, 1.5f));
 
     using enum vkexec::buffer_access;
-    auto resources = vkexec::expected_take(vkexec::create_compute_resources(*ctx, k_sim_glsl,
+    auto resources = vkexec::expected_take(vkexec::create(*ctx, k_sim_glsl,
       vkexec::layout_desc{ .bindings = { readwrite, readwrite }, .push_constant_size = sizeof(sim_params) },
       "sim.comp"));
 
@@ -87,7 +87,7 @@ int main() {
     if (auto waited = vkexec::sync_wait(std::move(graph)); !waited.has_value()) { return 1; }
 
     vkexec::free_compute_set(*ctx, resources, bound.set);
-    vkexec::destroy_compute_resources(*ctx, resources);
+    vkexec::destroy(*ctx, resources);
   } catch (vkexec::error const& err) {
     std::cerr << std::format("{}\n", err.message());
     return 1;
@@ -97,7 +97,7 @@ int main() {
 
 ### Greenfield owning factories
 
-For apps that want move-only RAII instead of bare `pipeline_resources` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
+For apps that want move-only RAII instead of bare `handles::compute_pipeline` (see also [`examples/compute.cpp`](examples/compute.cpp)). The borrowable path above matches [`examples/compute_execution.cpp`](examples/compute_execution.cpp).
 
 ```cpp
 auto pipe = vkexec::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx,
@@ -122,7 +122,7 @@ vkexec::feat::configure<vkexec::feat::buffer_device_address>(req);
 
 auto positions = vkexec::sync_wait_value(vkexec::factory::make_tensor(*ctx, 10000, 0.0f));
 auto velocities = vkexec::sync_wait_value(vkexec::factory::make_tensor(*ctx, 10000, 1.5f));
-// ... create_compute_resources + bind_storage using positions.storage_binding(0), ...
+// ... create + bind_storage using positions.storage_binding(0), ...
 
 vkexec::sync_wait(
   ex::schedule(ctx->get_scheduler())
@@ -151,7 +151,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::factory::adopt_context({
   .compute_queue_family = compute_family,
 }));
 
-auto resources = vkexec::expected_take(vkexec::create_compute_resources(*ctx, spirv, layout));
+auto resources = vkexec::expected_take(vkexec::create(*ctx, spirv, layout));
 std::array const bindings{
   vkexec::storage_binding{ .buffer = my_positions, .byte_size = bytes, .binding = 0 },
   vkexec::storage_binding{ .buffer = my_velocities, .byte_size = bytes, .binding = 1 },
@@ -163,7 +163,7 @@ ex::schedule(ctx->get_scheduler())
 
 // After GPU work finishes:
 vkexec::free_compute_set(*ctx, resources, bound.set);
-vkexec::destroy_compute_resources(*ctx, resources);
+vkexec::destroy(*ctx, resources);
 // then destroy ctx before tearing down borrowed device / VMA
 ```
 
@@ -223,15 +223,15 @@ Common entry points:
 | API | Returns |
 |-----|---------|
 | `factory::make_context` / `factory::adopt_context` | sender -> `set_value(std::unique_ptr<context>)` |
-| `create_compute_resources` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
-| `create_compute_resources(descriptor_heap, …)` / `bind_compute` / `destroy_compute_resources` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
-| `create_graphics_resources(descriptor_heap, …)` / `bind_compute` / `destroy_graphics_resources(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
+| `create` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
+| `create(descriptor_heap, …)` / `bind_compute` / `destroy` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
+| `create(descriptor_heap, …)` / `bind_compute` / `destroy(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
 | `factory::make_buffer` | sender -> `set_value(buffer<T>)` |
 | `factory::make_compute_pipeline` | sender -> `set_value(compute_pipeline)` |
 | `bind_storage_sender` | sender -> `set_value(bound_compute_pipeline)` |
 | `factory::make_presenter` / `factory::make_headless_presenter` | sender -> `set_value(presenter)` (owning Vulkan present helper) |
-| `create_graphics_resources` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
-| `create_mesh_buffers` / `destroy_mesh_buffers` | Borrowable vertex/index handle bag |
+| `create` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
+| `create` / `destroy` | Borrowable vertex/index handle bag |
 | `factory::make_graphics_pipeline` | sender -> `set_value(graphics_pipeline)` (thin owning wrapper) |
 | `factory::make_mesh` | sender -> `set_value(mesh)` (thin owning wrapper) |
 | `factory::make_gpu_buffer`, `factory::make_image`, … | sender -> `set_value(...)` |
@@ -347,7 +347,7 @@ if (vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
 | Descriptor heap | `vkexec::ext_descriptor_heap` | `<vkexec_extensions/descriptor_heap.hpp>` | `ext::descriptor_heap` (+ `feat::buffer_device_address`) |
 | Dynamic rendering | `vkexec::ext_dynamic_rendering` | `<vkexec_extensions/dynamic_rendering.hpp>` | `feat::dynamic_rendering` |
 
-**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), tagged `create_compute_resources` / `create_graphics_resources`, `bind_compute`, tagged graphics destroy, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_pass`, `record_draw` / `record_draw_indirect`, `cmd_begin_rendering`, etc.
+**Free functions** (adopt-everything embedders; same idea as core `<vkexec/execution.hpp>`): proc lookup (`descriptor_heap_procs_for`), descriptor writes (storage buffer/image, sampled image, sampler), tagged `create` / `create`, `bind_compute`, tagged graphics destroy, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, `cmd_push_data`, `record_pass`, `record_draw` / `record_draw_indirect`, `cmd_begin_rendering`, etc.
 
 **Owning RAII types** (vkexec-native apps; same idea as core `<vkexec/resources.hpp>`): `timeline_semaphore`, `frame_ring`, `acquire_present_frame` / `submit_and_present`, `descriptor_heap_buffer`, tagged `factory::make_compute_pipeline` / `factory::make_graphics_pipeline`, `compute_pass`, and rendering helpers built on top of the free functions.
 
@@ -373,7 +373,7 @@ auto heap = vkexec::sync_wait_value(
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
 // also: write_sampled_image_descriptor / write_sampler_descriptor into resource / sampler heaps
 
-auto resources = vkexec::expected_take(vkexec::create_compute_resources(vkexec::descriptor_heap, ctx, glsl,
+auto resources = vkexec::expected_take(vkexec::create(vkexec::descriptor_heap, ctx, glsl,
   vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size }));
 // or owning: factory::make_compute_pipeline(descriptor_heap, ...)
 
@@ -393,7 +393,7 @@ vkexec::cmd_bind_resource_heap(ctx, cmd, heap.device_address(), heap.size(),
 vkexec::cmd_push_data(ctx, cmd, push);
 // peel VkPipeline with resources.pipeline when recording yourself
 
-vkexec::destroy_compute_resources(ctx, resources);
+vkexec::destroy(ctx, resources);
 ```
 
 `resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
@@ -459,7 +459,7 @@ cmake --build out/build/unixlike-clang-release -j12
 
 | Header | Role |
 |--------|------|
-| `<vkexec_graphics/execution.hpp>` | `graphics_pipeline_resources`, `mesh_buffers`, bind/record/draw free functions, swapchain (borrow surface) |
+| `<vkexec_graphics/execution.hpp>` | `handles::graphics_pipeline`, `handles::mesh`, bind/record/draw free functions, swapchain (borrow surface) |
 | `<vkexec_graphics/resources.hpp>` | Owning `presenter`, `graphics_pipeline`, `mesh` |
 | `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (execution + resources) |
 
@@ -512,7 +512,7 @@ Same triangle present path without an owning `graphics_pipeline`. Prefer `#inclu
 #include <vkexec_graphics/triangle_shaders.hpp>
 // `present` is a vkexec::presenter created from the application's WSI callback.
 
-auto resources = vkexec::expected_take(vkexec::create_graphics_resources(
+auto resources = vkexec::expected_take(vkexec::create(
   present.ctx(), present.render_pass(), {}, vkexec::shaders::k_triangle_vert, vkexec::shaders::k_triangle_frag));
 
 while (application_is_running) {
@@ -522,7 +522,7 @@ while (application_is_running) {
 }
 
 present.wait_idle();
-vkexec::destroy_graphics_resources(present.ctx(), resources);
+vkexec::destroy(present.ctx(), resources);
 ```
 
 Runnable sample: [`examples/graphics_execution.cpp`](examples/graphics_execution.cpp).
@@ -532,7 +532,7 @@ Runnable sample: [`examples/graphics_execution.cpp`](examples/graphics_execution
 When shaders declare storage buffers, create resources with a binding count, then loan a set from raw handles (same contract as compute `bind_storage`):
 
 ```cpp
-auto resources = vkexec::expected_take(vkexec::create_graphics_resources(
+auto resources = vkexec::expected_take(vkexec::create(
   ctx, render_pass, cfg, vert_spirv, frag_spirv, /*storage_binding_count=*/1));
 
 std::array const bindings{
@@ -545,10 +545,10 @@ ex::schedule(ctx.get_scheduler())
 
 // After GPU work finishes:
 vkexec::free_graphics_set(ctx, resources, bound.set);
-vkexec::destroy_graphics_resources(ctx, resources);
+vkexec::destroy(ctx, resources);
 ```
 
-Mesh draws take a `mesh_draw` / `mesh_buffers` handle bag the same way — owning `mesh` is optional.
+Mesh draws take a `mesh_draw` / `handles::mesh` handle bag the same way — owning `mesh` is optional.
 
 
 ## More Details

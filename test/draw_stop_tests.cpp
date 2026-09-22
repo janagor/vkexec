@@ -132,7 +132,7 @@ TEST_CASE("presenter suspends at zero extent and resumes after resize", "[vkexec
 TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec][draw][gpu][execution]")
 {
   auto win = make_headless_presenter();
-  auto resources_result = vkexec::create_graphics_resources(win.ctx(),
+  auto resources_result = vkexec::create(win.ctx(),
     win.render_pass(),
     vkexec::graphics_pipeline_config{},
     vkexec::shaders::k_triangle_vert,
@@ -146,5 +146,5 @@ TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   win.wait_idle();
-  vkexec::destroy_graphics_resources(win.ctx(), resources);
+  vkexec::destroy(win.ctx(), resources);
 }

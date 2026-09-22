@@ -62,7 +62,7 @@ namespace {
 
 }// namespace
 
-auto destroy_mesh_buffers(context const &ctx, mesh_buffers &buffers) noexcept -> void
+auto destroy(context const &ctx, handles::mesh &buffers) noexcept -> void
 {
   if (ctx.allocator() == VK_NULL_HANDLE) {
     buffers = {};
@@ -77,15 +77,15 @@ auto destroy_mesh_buffers(context const &ctx, mesh_buffers &buffers) noexcept ->
   buffers = {};
 }
 
-auto create_mesh_buffers(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
-  -> result<mesh_buffers>
+auto create(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices)
+  -> result<handles::mesh>
 {
   VKEXEC_TRY_ASSIGN(
-    vertices_count, count_as_uint32(vertices.size(), "create_mesh_buffers vertex count must be in (0, UINT32_MAX]"));
+    vertices_count, count_as_uint32(vertices.size(), "create vertex count must be in (0, UINT32_MAX]"));
   VKEXEC_TRY_ASSIGN(
-    indices_count, count_as_uint32(indices.size(), "create_mesh_buffers index count must be in (0, UINT32_MAX]"));
+    indices_count, count_as_uint32(indices.size(), "create index count must be in (0, UINT32_MAX]"));
 
-  mesh_buffers owned{};
+  handles::mesh owned{};
   owned.vertex_count = vertices_count;
   owned.index_count = indices_count;
 
@@ -96,7 +96,7 @@ auto create_mesh_buffers(context &ctx, std::span<mesh_vertex const> vertices, st
 
   auto index = create_host_buffer(ctx, indices.size_bytes(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
   if (!index) {
-    destroy_mesh_buffers(ctx, owned);
+    destroy(ctx, owned);
     return fail(index);
   }
   auto const &index_buf = vkexec::expected_get(index);
@@ -108,7 +108,7 @@ auto create_mesh_buffers(context &ctx, std::span<mesh_vertex const> vertices, st
 
 auto mesh::reset() noexcept -> void
 {
-  if (ctx_ != nullptr) { destroy_mesh_buffers(*ctx_, buffers_); }
+  if (ctx_ != nullptr) { destroy(*ctx_, buffers_); }
   ctx_ = nullptr;
 }
 
@@ -117,7 +117,7 @@ auto factory::make_mesh_t::operator()(::vkexec::context &ctx,
   std::span<std::uint32_t const> indices) const -> sender<::vkexec::mesh>
 {
   return make_sender<::vkexec::mesh>([&ctx, vertices, indices]() -> result<::vkexec::mesh> {
-    VKEXEC_TRY_ASSIGN(owned, create_mesh_buffers(ctx, vertices, indices));
+    VKEXEC_TRY_ASSIGN(owned, create(ctx, vertices, indices));
     return ::vkexec::mesh{ &ctx, owned };
   });
 }

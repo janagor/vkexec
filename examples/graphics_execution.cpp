@@ -29,7 +29,7 @@ static auto run() -> int
     .title = "vkexec graphics execution",
     .validation_layers = true });
 
-  auto resources_result = vkexec::create_graphics_resources(win.ctx(),
+  auto resources_result = vkexec::create(win.ctx(),
     win.render_pass(),
     vkexec::graphics_pipeline_config{},
     vkexec::shaders::k_triangle_vert,
@@ -45,7 +45,7 @@ static auto run() -> int
   }
 
   win.wait_idle();
-  vkexec::destroy_graphics_resources(win.ctx(), resources);
+  vkexec::destroy(win.ctx(), resources);
   return 0;
 }
 

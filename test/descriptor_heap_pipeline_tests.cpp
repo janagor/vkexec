@@ -153,7 +153,7 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
 
-TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vkexec][descriptor_heap][gpu][execution]")
+TEST_CASE("tagged create draws without owning pipeline", "[vkexec][descriptor_heap][gpu][execution]")
 {
   VkPhysicalDeviceVulkan12Features features_12{};
   features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -195,7 +195,7 @@ TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vke
     .sampler_indices = {},
     .image_view_infos = {},
     .sampler_infos = {} };
-  auto resources_result = vkexec::create_compute_resources(vkexec::descriptor_heap,
+  auto resources_result = vkexec::create(vkexec::descriptor_heap,
     *ctx,
     k_heap_compute_glsl,
     vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size },
@@ -215,10 +215,10 @@ TEST_CASE("tagged create_compute_resources draws without owning pipeline", "[vke
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
-  vkexec::destroy_compute_resources(*ctx, resources);
+  vkexec::destroy(*ctx, resources);
 }
 
-TEST_CASE("create_graphics_resources builds null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
+TEST_CASE("create builds null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
 {
   VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
@@ -231,7 +231,7 @@ TEST_CASE("create_graphics_resources builds null-layout DR pipeline", "[vkexec][
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
-  auto resources_result = vkexec::create_graphics_resources(vkexec::descriptor_heap,
+  auto resources_result = vkexec::create(vkexec::descriptor_heap,
     *ctx,
     vkexec::shaders::k_triangle_vert,
     vkexec::shaders::k_triangle_frag,
@@ -253,7 +253,7 @@ TEST_CASE("create_graphics_resources builds null-layout DR pipeline", "[vkexec][
   REQUIRE(resources.descriptor_pool == VK_NULL_HANDLE);
   REQUIRE(resources.shader == VK_NULL_HANDLE);
 
-  vkexec::destroy_graphics_resources(vkexec::descriptor_heap, *ctx, resources);
+  vkexec::destroy(vkexec::descriptor_heap, *ctx, resources);
   REQUIRE(resources.pipeline == VK_NULL_HANDLE);
 }
 

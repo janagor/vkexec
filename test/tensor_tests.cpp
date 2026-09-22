@@ -133,7 +133,7 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
   auto ctx = require_tensor_context();
   auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_count, k_fill));
 
-  auto resources_result = vkexec::create_compute_resources(*ctx,
+  auto resources_result = vkexec::create(*ctx,
     k_scale_glsl,
     vkexec::layout_desc{
       .binding_kinds = {},
@@ -161,5 +161,5 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
   REQUIRE(values.span().back() == k_fill * params.scale);
 
   vkexec::free_compute_set(*ctx, resources, bound.set);
-  vkexec::destroy_compute_resources(*ctx, resources);
+  vkexec::destroy(*ctx, resources);
 }

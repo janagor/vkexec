@@ -69,17 +69,19 @@ struct layout_desc
 /**
  * Vulkan objects for one classic compute pipeline.
  *
- * Non-owning handle bag: fill via `create_compute_resources` or an embedder's
- * own objects. Destroy with `destroy_compute_resources` (or use owning
+ * Non-owning handle bag: fill via `create` or an embedder's
+ * own objects. Destroy with `destroy` (or use owning
  * `compute_pipeline`). Do not destroy individual handles while this struct is
  * still considered live.
  *
  * `descriptor_pool` backs `allocate_compute_set` / `bind_storage` (classic
  * pipelines only). The pool holds a fixed number of sets; free unused sets with
- * `free_compute_set`, or destroy the pool via `destroy_compute_resources`.
+ * `free_compute_set`, or destroy the pool via `destroy`.
  * Rebinding every frame without freeing will exhaust the pool.
  */
-struct pipeline_resources
+namespace handles {
+
+struct compute_pipeline
 {
   VkShaderModule shader{ VK_NULL_HANDLE };
   VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
@@ -91,28 +93,30 @@ struct pipeline_resources
   std::array<std::uint32_t, 3> local_size{ k_default_local_size };
 };
 
+}// namespace handles
+
 class context;
 
 /**
  * Creates classic compute Vulkan objects from SPIR-V.
  *
- * Caller owns the returned handles and must call `destroy_compute_resources`.
+ * Caller owns the returned handles and must call `destroy`.
  */
-[[nodiscard]] auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> result<pipeline_resources>;
+[[nodiscard]] auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+  -> result<handles::compute_pipeline>;
 
 /**
  * Compiles `glsl` to SPIR-V then creates classic compute Vulkan objects.
  *
- * Caller owns the returned handles and must call `destroy_compute_resources`.
+ * Caller owns the returned handles and must call `destroy`.
  */
-[[nodiscard]] auto create_compute_resources(context &ctx,
+[[nodiscard]] auto create(context &ctx,
   std::string_view glsl,
   layout_desc const &desc,
-  std::string_view name = "vkexec.comp") -> result<pipeline_resources>;
+  std::string_view name = "vkexec.comp") -> result<handles::compute_pipeline>;
 
 //! Destroys handles in `resources` and resets them to null.
-auto destroy_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void;
+auto destroy(context const &ctx, handles::compute_pipeline &resources) noexcept -> void;
 
 /**
  * Non-owning pair of classic pipeline resources and a bound descriptor set.
@@ -121,15 +125,15 @@ auto destroy_compute_resources(context const &ctx, pipeline_resources &resources
  */
 struct bound_compute
 {
-  pipeline_resources const *pipe{ nullptr };
+  handles::compute_pipeline const *pipe{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
 //! Allocates an empty descriptor set from `pipe.descriptor_pool`.
 //!
 //! Return the set with `free_compute_set` when finished, or free all sets by
-//! destroying the pool via `destroy_compute_resources`.
-[[nodiscard]] auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe) -> result<VkDescriptorSet>;
+//! destroying the pool via `destroy`.
+[[nodiscard]] auto allocate_compute_set(context const &ctx, handles::compute_pipeline const &pipe) -> result<VkDescriptorSet>;
 
 /**
  * Allocates a set and writes `buffers` into it.
@@ -140,7 +144,7 @@ struct bound_compute
  * after GPU work that uses it has finished if you will allocate again; otherwise
  * destroy the resources when done.
  */
-[[nodiscard]] auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storage_binding const> buffers)
+[[nodiscard]] auto bind_storage(context &ctx, handles::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
   -> result<bound_compute>;
 
 /**
@@ -149,7 +153,7 @@ struct bound_compute
  * No-op when `set` or the pool is null. Safe to call after the GPU has finished
  * using the set; do not free a set still referenced by in-flight command buffers.
  */
-auto free_compute_set(context const &ctx, pipeline_resources const &pipe, VkDescriptorSet set) noexcept -> void;
+auto free_compute_set(context const &ctx, handles::compute_pipeline const &pipe, VkDescriptorSet set) noexcept -> void;
 
 }// namespace vkexec
 

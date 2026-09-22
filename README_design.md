@@ -112,8 +112,8 @@ live under `src/**/detail/`, are supplied through the non-exported
 `vkexec_private_headers` target, and are never installed.
 
 Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
-select heap behavior once with `descriptor_heap`, then use `create_compute_resources`,
-`factory::make_compute_pipeline`, `create_graphics_resources`, `factory::make_graphics_pipeline`,
+select heap behavior once with `descriptor_heap`, then use `create`,
+`factory::make_compute_pipeline`, `create`, `factory::make_graphics_pipeline`,
 `record_pass`, `record_draw`, and `compute_pass`. Literal heap mechanism APIs such as
 `descriptor_heap_buffer`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, and
 descriptor writers keep their names.

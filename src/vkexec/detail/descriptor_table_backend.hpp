@@ -18,7 +18,7 @@ struct empty_table_lower_env
 
 template<class Backend>
 concept descriptor_table_backend = requires(context &ctx,
-  pipeline_resources const &pipe,
+  handles::compute_pipeline const &pipe,
   resource_table const &table,
   Backend::lower_env const &env,
   Backend::bound_type bound) {

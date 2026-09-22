@@ -46,13 +46,13 @@ struct heap_descriptor_backend
   { return push_bytes(ctx, cmd, bind_point, bytes); }
 
   [[nodiscard]] static auto
-    lower(context &ctx, pipeline_resources const &pipe, resource_table const &table, lower_env const &env)
+    lower(context &ctx, handles::compute_pipeline const &pipe, resource_table const &table, lower_env const &env)
       -> result<bound_type>;
 
-  [[nodiscard]] static auto make_bind(pipeline_resources const &pipe, bound_type const & /*bound*/) -> compute_bind
+  [[nodiscard]] static auto make_bind(handles::compute_pipeline const &pipe, bound_type const & /*bound*/) -> compute_bind
   { return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = VK_NULL_HANDLE }; }
 
-  static auto release(context & /*ctx*/, pipeline_resources const & /*pipe*/, bound_type const & /*bound*/) -> void {}
+  static auto release(context & /*ctx*/, handles::compute_pipeline const & /*pipe*/, bound_type const & /*bound*/) -> void {}
 
 private:
   [[nodiscard]] static auto push_bytes(context const *ctx,

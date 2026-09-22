@@ -57,17 +57,20 @@ struct graphics_pipeline_config
 /**
  * Vulkan objects for one classic graphics pipeline.
  *
- * Non-owning handle bag: fill via `create_graphics_resources` or an embedder's
- * own objects. Destroy with `destroy_graphics_resources` (or owning
+ * Non-owning handle bag: fill via `create` or an embedder's
+ * own objects. Destroy with `destroy` (or owning
  * `graphics_pipeline`).
  *
  * `descriptor_pool` backs set loans when `binding_count > 0`. Free unused sets
- * with `free_graphics_set`, or destroy the pool via `destroy_graphics_resources`.
+ * with `free_graphics_set`, or destroy the pool via `destroy`.
  * Rebinding every frame without freeing will exhaust the pool.
  */
-struct graphics_pipeline_resources
+namespace handles {
+
+struct graphics_pipeline
 {
   graphics_pipeline_config cfg{};
+  VkShaderModule shader{ VK_NULL_HANDLE };
   VkDescriptorSetLayout set_layout{ VK_NULL_HANDLE };
   VkPipelineLayout pipeline_layout{ VK_NULL_HANDLE };
   VkPipeline pipeline{ VK_NULL_HANDLE };
@@ -75,32 +78,34 @@ struct graphics_pipeline_resources
   std::uint32_t binding_count{ 0 };
 };
 
+}// namespace handles
+
 /**
  * Creates classic graphics Vulkan objects from SPIR-V.
  *
  * Does not allocate descriptor sets. When `storage_binding_count > 0`, creates a
  * set layout with bindings `0 .. count-1` and a descriptor pool for loans.
- * Caller owns the returned handles and must call `destroy_graphics_resources`.
+ * Caller owns the returned handles and must call `destroy`.
  */
-[[nodiscard]] auto create_graphics_resources(context &ctx,
+[[nodiscard]] auto create(context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  std::uint32_t storage_binding_count = 0) -> result<graphics_pipeline_resources>;
+  std::uint32_t storage_binding_count = 0) -> result<handles::graphics_pipeline>;
 
 /**
  * Compiles GLSL to SPIR-V then creates classic graphics Vulkan objects.
  */
-[[nodiscard]] auto create_graphics_resources(context &ctx,
+[[nodiscard]] auto create(context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
-  std::uint32_t storage_binding_count = 0) -> result<graphics_pipeline_resources>;
+  std::uint32_t storage_binding_count = 0) -> result<handles::graphics_pipeline>;
 
 //! Destroys handles in `resources` and resets them to null.
-auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources &resources) noexcept -> void;
+auto destroy(context const &ctx, handles::graphics_pipeline &resources) noexcept -> void;
 
 /**
  * Non-owning pair of graphics pipeline resources and a bound descriptor set.
@@ -109,15 +114,15 @@ auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources 
  */
 struct bound_graphics
 {
-  graphics_pipeline_resources const *pipe{ nullptr };
+  handles::graphics_pipeline const *pipe{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
 };
 
 //! Allocates an empty descriptor set from `pipe.descriptor_pool`.
 //!
 //! Return the set with `free_graphics_set` when finished, or free all sets by
-//! destroying the pool via `destroy_graphics_resources`.
-[[nodiscard]] auto allocate_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe)
+//! destroying the pool via `destroy`.
+[[nodiscard]] auto allocate_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe)
   -> result<VkDescriptorSet>;
 
 /**
@@ -127,7 +132,7 @@ struct bound_graphics
  * after GPU work that uses it has finished if you will allocate again.
  */
 [[nodiscard]] auto bind_graphics_storage(context &ctx,
-  graphics_pipeline_resources const &pipe,
+  handles::graphics_pipeline const &pipe,
   std::span<storage_binding const> buffers) -> result<bound_graphics>;
 
 /**
@@ -136,7 +141,7 @@ struct bound_graphics
  * No-op when `set` or the pool is null. Do not free a set still referenced by
  * in-flight command buffers.
  */
-auto free_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe, VkDescriptorSet set) noexcept
+auto free_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe, VkDescriptorSet set) noexcept
   -> void;
 
 //! Pipeline / layout / optional descriptor set for one graphics draw.
@@ -148,7 +153,7 @@ struct graphics_bind
 };
 
 //! Builds a `graphics_bind` from pipeline resources and an optional set.
-[[nodiscard]] inline auto bind_graphics(graphics_pipeline_resources const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
+[[nodiscard]] inline auto bind_graphics(handles::graphics_pipeline const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
   -> graphics_bind
 { return graphics_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }
 

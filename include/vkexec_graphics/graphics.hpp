@@ -98,18 +98,18 @@ namespace factory {
 /**
  * Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
  *
- * Thin owning wrapper over `graphics_pipeline_resources` plus an optional retained
+ * Thin owning wrapper over `handles::graphics_pipeline` plus an optional retained
  * descriptor set for storage buffers passed at create time. Compatible with a
  * `presenter` render pass. Use `draw` / `record_draw` inside a begun frame.
  *
- * @see presenter, mesh, draw, create_graphics_resources, factory::make_graphics_pipeline
+ * @see presenter, mesh, draw, create, factory::make_graphics_pipeline
  */
 class graphics_pipeline
 {
 public:
-  //! Owning factory used after `create_graphics_resources` + optional set install.
+  //! Owning factory used after `create` + optional set install.
   [[nodiscard]] static auto make(context &ctx,
-    std::unique_ptr<graphics_pipeline_resources> resources,
+    std::unique_ptr<handles::graphics_pipeline> resources,
     VkDescriptorSet set = VK_NULL_HANDLE,
     std::vector<storage_binding> buffers = {}) -> graphics_pipeline
   {
@@ -141,9 +141,9 @@ public:
   }
 
   //! Mutable owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() noexcept -> graphics_pipeline_resources & { return *resources_; }
+  [[nodiscard]] auto resources() noexcept -> handles::graphics_pipeline & { return *resources_; }
   //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> graphics_pipeline_resources const & { return *resources_; }
+  [[nodiscard]] auto resources() const noexcept -> handles::graphics_pipeline const & { return *resources_; }
 
   //! Vulkan pipeline handle.
   [[nodiscard]] auto pipeline() const noexcept -> VkPipeline { return resources_->pipeline; }
@@ -178,14 +178,14 @@ public:
     mesh const &drawn) const -> status;
 
 private:
-  graphics_pipeline(context *ctx, std::unique_ptr<graphics_pipeline_resources> resources) noexcept
+  graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept
     : ctx_(ctx), resources_(std::move(resources))
   {}
 
   auto reset() noexcept -> void;
 
   context *ctx_{ nullptr };
-  std::unique_ptr<graphics_pipeline_resources> resources_;
+  std::unique_ptr<handles::graphics_pipeline> resources_;
   VkDescriptorSet descriptor_set_{ VK_NULL_HANDLE };
   std::vector<storage_binding> buffers_;
 };

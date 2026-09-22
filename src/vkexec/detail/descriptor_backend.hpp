@@ -36,7 +36,7 @@ concept descriptor_backend = requires(context const *ctx,
   VkDevice device,
   VkCommandBuffer cmd,
   compute_bind const &bind,
-  pipeline_resources &resources,
+  handles::compute_pipeline &resources,
   descriptor_layout_info const &layout_info,
   std::span<std::byte const> push,
   VkPipelineBindPoint bind_point) {
@@ -163,7 +163,7 @@ struct set_descriptor_backend
   }
 
   [[nodiscard]] static auto
-    lower(context &ctx, pipeline_resources const &pipe, resource_table const &table, lower_env const & /*env*/)
+    lower(context &ctx, handles::compute_pipeline const &pipe, resource_table const &table, lower_env const & /*env*/)
       -> result<bound_type>
   {
     if (table.size() != pipe.binding_count) {
@@ -176,10 +176,10 @@ struct set_descriptor_backend
     return set;
   }
 
-  [[nodiscard]] static auto make_bind(pipeline_resources const &pipe, bound_type bound) -> compute_bind
+  [[nodiscard]] static auto make_bind(handles::compute_pipeline const &pipe, bound_type bound) -> compute_bind
   { return bind_compute(pipe, bound); }
 
-  static auto release(context &ctx, pipeline_resources const &pipe, bound_type bound) -> void
+  static auto release(context &ctx, handles::compute_pipeline const &pipe, bound_type bound) -> void
   { free_compute_set(ctx, pipe, bound); }
 };
 

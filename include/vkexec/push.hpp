@@ -32,7 +32,7 @@ template<typename T> auto upload_push_constants(VkCommandBuffer cmd, VkPipelineL
 
 //! Uploads trivially copyable `params` using `pipe.pipeline_layout`.
 template<typename T>
-auto upload_push_constants(VkCommandBuffer cmd, pipeline_resources const &pipe, T const &params) -> void
+auto upload_push_constants(VkCommandBuffer cmd, handles::compute_pipeline const &pipe, T const &params) -> void
 { upload_push_constants(cmd, pipe.pipeline_layout, params); }
 
 }// namespace vkexec

@@ -165,7 +165,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, 0.0F));
   auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial_velocity));
 
-  auto resources_result = vkexec::create_compute_resources(*ctx,
+  auto resources_result = vkexec::create(*ctx,
     k_sim_glsl,
     vkexec::layout_desc_from_schema(sim_schema{}, sizeof(sim_params), { k_local_size, 1, 1 }),
     "sim_execution.comp");
@@ -186,7 +186,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   REQUIRE(std::fabs(velocities.data()[0] - expected_v) <= k_epsilon);
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-  vkexec::destroy_compute_resources(*ctx, resources);
+  vkexec::destroy(*ctx, resources);
 }
 
 TEST_CASE("classic resource_table lowers image and sampler entries", "[vkexec][gpu][resource_table]")
@@ -201,7 +201,7 @@ void main() {}
     *ctx, vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
   auto view = vkexec::test::sync_wait_value(vkexec::factory::make_image_view(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
-  auto resources_result = vkexec::create_compute_resources(
+  auto resources_result = vkexec::create(
     *ctx, k_empty_compute_glsl, vkexec::layout_desc_from_schema(image_schema{}), "table_images.comp");
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
@@ -215,7 +215,7 @@ void main() {}
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
-  vkexec::destroy_compute_resources(*ctx, resources);
+  vkexec::destroy(*ctx, resources);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

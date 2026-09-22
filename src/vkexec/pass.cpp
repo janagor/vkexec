@@ -20,7 +20,7 @@
 
 namespace vkexec {
 
-auto bind_compute(pipeline_resources const &pipe, VkDescriptorSet set) -> compute_bind
+auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set) -> compute_bind
 { return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }
 
 auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
@@ -47,7 +47,7 @@ auto record_pass(VkCommandBuffer cmd,
 }
 
 auto record_pass(VkCommandBuffer cmd,
-  pipeline_resources const &pipe,
+  handles::compute_pipeline const &pipe,
   VkDescriptorSet set,
   void const *push,
   std::uint32_t push_bytes,

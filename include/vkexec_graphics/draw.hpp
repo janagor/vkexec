@@ -130,7 +130,7 @@ inline auto draw(presenter &win, graphics_pipeline &pipeline, mesh const &drawn)
 struct draw_bind_closure
 {
   presenter *win{ nullptr };
-  graphics_pipeline_resources const *resources{ nullptr };
+  handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 };
@@ -138,25 +138,25 @@ struct draw_bind_closure
 struct draw_mesh_bind_closure
 {
   presenter *win{ nullptr };
-  graphics_pipeline_resources const *resources{ nullptr };
+  handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 };
 
 //! Present one frame using borrowable pipeline resources + descriptor set.
 inline auto
-  draw(presenter &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, std::uint32_t vertex_count)
+  draw(presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, std::uint32_t vertex_count)
     -> draw_bind_closure
 { return draw_bind_closure{ .win = &win, .resources = &resources, .set = set, .vertex_count = vertex_count }; }
 
 //! Present one indexed mesh frame from borrowed handles.
-inline auto draw(presenter &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, mesh_draw drawn)
+inline auto draw(presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, mesh_draw drawn)
   -> draw_mesh_bind_closure
 { return draw_mesh_bind_closure{ .win = &win, .resources = &resources, .set = set, .drawn = drawn }; }
 
-//! Present one indexed mesh frame from `mesh_buffers`.
+//! Present one indexed mesh frame from `handles::mesh`.
 inline auto
-  draw(presenter &win, graphics_pipeline_resources const &resources, VkDescriptorSet set, mesh_buffers const &buffers)
+  draw(presenter &win, handles::graphics_pipeline const &resources, VkDescriptorSet set, handles::mesh const &buffers)
     -> draw_mesh_bind_closure
 { return draw(win, resources, set, make_mesh_draw(buffers)); }
 
@@ -628,7 +628,7 @@ struct draw_bind_sender
 
   context *ctx{ nullptr };
   presenter *win{ nullptr };
-  graphics_pipeline_resources const *resources{ nullptr };
+  handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 
@@ -637,7 +637,7 @@ struct draw_bind_sender
   template<class Receiver> struct op_state
   {
     presenter *win{ nullptr };
-    graphics_pipeline_resources const *resources{ nullptr };
+    handles::graphics_pipeline const *resources{ nullptr };
     VkDescriptorSet set{ VK_NULL_HANDLE };
     std::uint32_t vertex_count{ 0 };
     Receiver receiver;
@@ -694,7 +694,7 @@ struct draw_bind_async_sender
 
   context *ctx{ nullptr };
   presenter *win{ nullptr };
-  graphics_pipeline_resources const *resources{ nullptr };
+  handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 
@@ -708,7 +708,7 @@ struct draw_bind_async_sender
   {
     context *ctx{};
     presenter *win{};
-    graphics_pipeline_resources const *resources{};
+    handles::graphics_pipeline const *resources{};
     VkDescriptorSet set{};
     std::uint32_t vertex_count{};
     Receiver receiver;
@@ -768,7 +768,7 @@ struct draw_mesh_bind_sender
 
   context *ctx{ nullptr };
   presenter *win{ nullptr };
-  graphics_pipeline_resources const *resources{ nullptr };
+  handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 
@@ -777,7 +777,7 @@ struct draw_mesh_bind_sender
   template<class Receiver> struct op_state
   {
     presenter *win{ nullptr };
-    graphics_pipeline_resources const *resources{ nullptr };
+    handles::graphics_pipeline const *resources{ nullptr };
     VkDescriptorSet set{ VK_NULL_HANDLE };
     mesh_draw drawn{};
     Receiver receiver;
@@ -834,7 +834,7 @@ struct draw_mesh_bind_async_sender
 
   context *ctx{ nullptr };
   presenter *win{ nullptr };
-  graphics_pipeline_resources const *resources{ nullptr };
+  handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 
@@ -848,7 +848,7 @@ struct draw_mesh_bind_async_sender
   {
     context *ctx{};
     presenter *win{};
-    graphics_pipeline_resources const *resources{};
+    handles::graphics_pipeline const *resources{};
     VkDescriptorSet set{};
     mesh_draw drawn{};
     Receiver receiver;

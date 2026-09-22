@@ -106,7 +106,7 @@ namespace {
 }// namespace
 
 auto heap_descriptor_backend::lower(context &ctx,
-  [[maybe_unused]] pipeline_resources const &pipe,
+  [[maybe_unused]] handles::compute_pipeline const &pipe,
   resource_table const &table,
   lower_env const &env) -> result<bound_type>
 {
@@ -154,7 +154,7 @@ static_assert(descriptor_table_backend<heap_descriptor_backend>);
 namespace vkexec {
 
 auto bind_resources(descriptor_heap_t /*strategy*/,
-  pipeline_resources const &pipe,
+  handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
   std::span<std::byte const> push) -> descriptor_heap_bind_resources_closure

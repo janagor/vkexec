@@ -21,14 +21,14 @@ struct schema_bind_t
   template<class... Entries, class... Resources>
     requires(sizeof...(Entries) == sizeof...(Resources))
   [[nodiscard]] auto operator()(descriptor_schema<Entries...> schema,
-    pipeline_resources const &pipe,
+    handles::compute_pipeline const &pipe,
     Resources &&...resources) const -> bind_resources_closure
   { return bind_resources(pipe, make_resource_table(schema, std::forward<Resources>(resources)...)); }
 
   template<class... Entries, class Params, class... Resources>
     requires(sizeof...(Entries) == sizeof...(Resources)) && std::is_trivially_copyable_v<Params>
   [[nodiscard]] auto operator()(descriptor_schema<Entries...> schema,
-    pipeline_resources const &pipe,
+    handles::compute_pipeline const &pipe,
     Params const &params,
     Resources &&...resources) const -> bind_resources_closure
   { return bind_resources(pipe, make_resource_table(schema, std::forward<Resources>(resources)...), params); }
@@ -59,7 +59,7 @@ struct schema_pass_t
   template<class... Entries, class Params, class... Resources>
     requires(sizeof...(Entries) == sizeof...(Resources)) && std::is_trivially_copyable_v<Params>
   [[nodiscard]] auto operator()(descriptor_schema<Entries...> schema,
-    pipeline_resources const &pipe,
+    handles::compute_pipeline const &pipe,
     Params const &params,
     std::uint32_t work_count,
     Resources &&...resources) const -> schema_pass_closure

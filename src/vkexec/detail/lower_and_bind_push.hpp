@@ -19,7 +19,7 @@ template<class Backend>
 [[nodiscard]] auto lower_and_bind_push(context &ctx,
   VkCommandBuffer cmd,
   VkPipelineBindPoint bind_point,
-  pipeline_resources const &pipe,
+  handles::compute_pipeline const &pipe,
   resource_table const &table,
   typename Backend::lower_env const &env,
   std::span<std::byte const> push) -> result<typename Backend::bound_type>

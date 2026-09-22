@@ -34,10 +34,12 @@ struct mesh_vertex
 /**
  * Borrowable vertex/index buffer handles for one mesh.
  *
- * Fill via `create_mesh_buffers` or an embedder's own allocations. Destroy with
- * `destroy_mesh_buffers` (or owning `mesh`).
+ * Fill via `create` or an embedder's own allocations. Destroy with
+ * `destroy` (or owning `mesh`).
  */
-struct mesh_buffers
+namespace handles {
+
+struct mesh
 {
   VkBuffer vertex_buffer{ VK_NULL_HANDLE };
   VmaAllocation vertex_allocation{ VK_NULL_HANDLE };
@@ -47,16 +49,18 @@ struct mesh_buffers
   std::uint32_t index_count{ 0 };
 };
 
+}// namespace handles
+
 //! Creates host-visible VMA vertex/index buffers filled from the given spans.
-[[nodiscard]] auto create_mesh_buffers(context &ctx,
+[[nodiscard]] auto create(context &ctx,
   std::span<mesh_vertex const> vertices,
-  std::span<std::uint32_t const> indices) -> result<mesh_buffers>;
+  std::span<std::uint32_t const> indices) -> result<handles::mesh>;
 
 //! Destroys VMA allocations in `buffers` and resets them to null.
-auto destroy_mesh_buffers(context const &ctx, mesh_buffers &buffers) noexcept -> void;
+auto destroy(context const &ctx, handles::mesh &buffers) noexcept -> void;
 
 //! Builds a `mesh_draw` from borrowed mesh buffer handles.
-[[nodiscard]] inline auto make_mesh_draw(mesh_buffers const &buffers) noexcept -> mesh_draw
+[[nodiscard]] inline auto make_mesh_draw(handles::mesh const &buffers) noexcept -> mesh_draw
 {
   return mesh_draw{
     .vertex_buffer = buffers.vertex_buffer,
@@ -90,9 +94,9 @@ namespace factory {
 }// namespace factory
 
 /**
- * Host-visible indexed triangle mesh (owning wrapper over `mesh_buffers`).
+ * Host-visible indexed triangle mesh (owning wrapper over `handles::mesh`).
  *
- * @see create_mesh_buffers, graphics_pipeline, draw, factory::make_mesh
+ * @see create, graphics_pipeline, draw, factory::make_mesh
  */
 class mesh
 {
@@ -103,7 +107,7 @@ public:
   auto operator=(mesh const &) -> mesh & = delete;
 
   mesh(mesh &&other) noexcept
-    : ctx_(std::exchange(other.ctx_, nullptr)), buffers_(std::exchange(other.buffers_, mesh_buffers{}))
+    : ctx_(std::exchange(other.ctx_, nullptr)), buffers_(std::exchange(other.buffers_, handles::mesh{}))
   {}
 
   auto operator=(mesh &&other) noexcept -> mesh &
@@ -111,12 +115,12 @@ public:
     if (this == &other) { return *this; }
     reset();
     ctx_ = std::exchange(other.ctx_, nullptr);
-    buffers_ = std::exchange(other.buffers_, mesh_buffers{});
+    buffers_ = std::exchange(other.buffers_, handles::mesh{});
     return *this;
   }
 
   //! Borrowed mesh buffer handles.
-  [[nodiscard]] auto buffers() const noexcept -> mesh_buffers const & { return buffers_; }
+  [[nodiscard]] auto buffers() const noexcept -> handles::mesh const & { return buffers_; }
   //! Number of vertices uploaded at creation.
   [[nodiscard]] auto vertex_count() const noexcept -> std::uint32_t { return buffers_.vertex_count; }
   //! Number of indices uploaded at creation.
@@ -129,12 +133,12 @@ public:
 private:
   friend struct factory::make_mesh_t;
 
-  mesh(context *ctx, mesh_buffers buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
+  mesh(context *ctx, handles::mesh buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
 
   auto reset() noexcept -> void;
 
   context *ctx_{ nullptr };
-  mesh_buffers buffers_{};
+  handles::mesh buffers_{};
 };
 
 }// namespace vkexec

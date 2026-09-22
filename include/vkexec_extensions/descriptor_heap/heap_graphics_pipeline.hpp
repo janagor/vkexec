@@ -37,7 +37,7 @@ enum class blend_mode : std::uint8_t { none, alpha, premultiplied };
  * No render pass and no descriptor sets. Color formats feed
  * `VkPipelineRenderingCreateInfo`. Depth is optional (`UNDEFINED` = none).
  *
- * @see create_graphics_resources, descriptor_graphics_pipeline
+ * @see create, descriptor_graphics_pipeline
  */
 struct heap_graphics_layout_desc
 {
@@ -52,18 +52,18 @@ struct heap_graphics_layout_desc
 /**
  * Creates bindless heap graphics Vulkan objects from vertex/fragment SPIR-V.
  *
- * Returns a `pipeline_resources` bag with null layouts/pool and a live pipeline.
+ * Returns a `handles::graphics_pipeline` bag with null layouts/pool and a live pipeline.
  * Shader modules are destroyed after pipeline creation. Caller owns the bag and
- * must call `destroy_graphics_resources(descriptor_heap, ...)`.
+ * must call `destroy(descriptor_heap, ...)`.
  *
  * Requires `VK_EXT_descriptor_heap` and a Vulkan 1.3+ device (dynamic rendering
  * pipeline create info).
  */
-[[nodiscard]] auto create_graphics_resources(descriptor_heap_t strategy,
+[[nodiscard]] auto create(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> result<pipeline_resources>;
+  heap_graphics_layout_desc const &desc) -> result<handles::graphics_pipeline>;
 
 /**
  * Compiles GLSL then creates bindless heap graphics Vulkan objects.
@@ -71,16 +71,16 @@ struct heap_graphics_layout_desc
  * @param vertex_name Debug name for the vertex shader compiler.
  * @param fragment_name Debug name for the fragment shader compiler.
  */
-[[nodiscard]] auto create_graphics_resources(descriptor_heap_t strategy,
+[[nodiscard]] auto create(descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name = "heap.vert",
-  std::string_view fragment_name = "heap.frag") -> result<pipeline_resources>;
+  std::string_view fragment_name = "heap.frag") -> result<handles::graphics_pipeline>;
 
 //! Destroys a descriptor-heap graphics resource bag and resets it.
-auto destroy_graphics_resources(descriptor_heap_t strategy, context const &ctx, pipeline_resources &resources) noexcept
+auto destroy(descriptor_heap_t strategy, context const &ctx, handles::graphics_pipeline &resources) noexcept
   -> void;
 
 class descriptor_graphics_pipeline;
@@ -123,18 +123,18 @@ namespace factory {
 }// namespace factory
 
 /**
- * Thin owning wrapper over heap graphics `pipeline_resources`.
+ * Thin owning wrapper over heap graphics `handles::graphics_pipeline`.
  *
  * Bind returns a `compute_bind` with null layout/set (same bag shape as heap
  * compute) for use with `record_draw(context, ...)`.
  *
- * @see create_graphics_resources, heap_graphics_layout_desc, factory::make_descriptor_graphics_pipeline
+ * @see create, heap_graphics_layout_desc, factory::make_descriptor_graphics_pipeline
  */
 class descriptor_graphics_pipeline
 {
 public:
-  //! Owning factory used after `create_graphics_resources(descriptor_heap, ...)`.
-  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources)
+  //! Owning factory used after `create(descriptor_heap, ...)`.
+  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<handles::graphics_pipeline> resources)
     -> descriptor_graphics_pipeline
   { return descriptor_graphics_pipeline{ &ctx, std::move(resources) }; }
 
@@ -158,20 +158,21 @@ public:
   ~descriptor_graphics_pipeline() { reset(); }
 
   //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
+  [[nodiscard]] auto resources() const noexcept -> handles::graphics_pipeline const & { return *resources_; }
 
   //! Builds a bindless bind (null layout and descriptor set).
-  [[nodiscard]] auto bind() const -> compute_bind { return bind_compute(*resources_); }
+  [[nodiscard]] auto bind() const -> compute_bind
+  { return compute_bind{ .pipeline = resources_->pipeline, .layout = resources_->pipeline_layout }; }
 
 private:
-  descriptor_graphics_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
+  descriptor_graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept
     : ctx_(ctx), resources_(std::move(resources))
   {}
 
   auto reset() noexcept -> void;
 
   context *ctx_{ nullptr };
-  std::unique_ptr<pipeline_resources> resources_;
+  std::unique_ptr<handles::graphics_pipeline> resources_;
 };
 
 //! Owning factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.

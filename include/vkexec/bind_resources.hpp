@@ -20,13 +20,13 @@ namespace vkexec {
 //! Descriptor-set resource binding step for a pass graph.
 struct bind_resources_closure
 {
-  pipeline_resources const *pipe{ nullptr };
+  handles::compute_pipeline const *pipe{ nullptr };
   resource_table table;
   std::vector<std::byte> push;
 };
 
 //! Builds a descriptor-set-backed resource-table graph step.
-[[nodiscard]] auto bind_resources(pipeline_resources const &pipe,
+[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe,
   resource_table const &table,
   std::span<std::byte const> push = {}) -> bind_resources_closure;
 
@@ -34,7 +34,7 @@ struct bind_resources_closure
 template<class Params>
   requires std::is_trivially_copyable_v<Params>
            && (!std::same_as<std::remove_cvref_t<Params>, std::span<std::byte const>>)
-[[nodiscard]] auto bind_resources(pipeline_resources const &pipe, resource_table const &table, Params const &params)
+[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe, resource_table const &table, Params const &params)
   -> bind_resources_closure
 { return bind_resources(pipe, table, std::as_bytes(std::span{ &params, 1 })); }
 

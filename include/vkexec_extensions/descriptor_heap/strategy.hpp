@@ -24,14 +24,14 @@ inline constexpr descriptor_heap_t descriptor_heap{};
 //! Descriptor-heap resource binding step for a pass graph.
 struct descriptor_heap_bind_resources_closure
 {
-  pipeline_resources const *pipe{ nullptr };
+  handles::compute_pipeline const *pipe{ nullptr };
   resource_table table;
   heap_table_lower_env env;
   std::vector<std::byte> push;
 };
 
 [[nodiscard]] auto bind_resources(descriptor_heap_t /*strategy*/,
-  pipeline_resources const &pipe,
+  handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
   std::span<std::byte const> push = {}) -> descriptor_heap_bind_resources_closure;
@@ -39,7 +39,7 @@ struct descriptor_heap_bind_resources_closure
 template<class Params>
   requires std::is_trivially_copyable_v<Params>
 [[nodiscard]] auto bind_resources(descriptor_heap_t strategy,
-  pipeline_resources const &pipe,
+  handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
   Params const &params) -> descriptor_heap_bind_resources_closure

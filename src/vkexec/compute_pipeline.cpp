@@ -61,11 +61,11 @@ namespace {
 
 }// namespace
 
-auto destroy_compute_resources(context const &ctx, pipeline_resources &resources) noexcept -> void
+auto destroy(context const &ctx, handles::compute_pipeline &resources) noexcept -> void
 { detail::destroy_compute_resources_with<detail::set_descriptor_backend>(ctx, resources); }
 
-auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
-  -> result<pipeline_resources>
+auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc)
+  -> result<handles::compute_pipeline>
 {
   VKEXEC_TRY_ASSIGN(layout_bindings, make_compute_bindings(desc));
   detail::compute_create_info const info{ .bindings = layout_bindings,
@@ -73,10 +73,10 @@ auto create_compute_resources(context &ctx, std::span<std::uint32_t const> spirv
     .specialization = desc.specialization,
     .local_size = desc.local_size };
   return detail::create_compute_resources_with<detail::set_descriptor_backend>(
-    ctx, spirv, info, "create_compute_resources requires non-empty SPIR-V");
+    ctx, spirv, info, "create requires non-empty SPIR-V");
 }
 
-auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe) -> result<VkDescriptorSet>
+auto allocate_compute_set(context const &ctx, handles::compute_pipeline const &pipe) -> result<VkDescriptorSet>
 {
   VkDescriptorSetAllocateInfo dsai{};
   dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -89,7 +89,7 @@ auto allocate_compute_set(context const &ctx, pipeline_resources const &pipe) ->
   return set;
 }
 
-auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storage_binding const> buffers)
+auto bind_storage(context &ctx, handles::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
   -> result<bound_compute>
 {
   if (buffers.size() != pipe.binding_count) {
@@ -100,7 +100,7 @@ auto bind_storage(context &ctx, pipeline_resources const &pipe, std::span<storag
   return bound_compute{ .pipe = &pipe, .set = set };
 }
 
-auto free_compute_set(context const &ctx, pipeline_resources const &pipe, VkDescriptorSet set) noexcept -> void
+auto free_compute_set(context const &ctx, handles::compute_pipeline const &pipe, VkDescriptorSet set) noexcept -> void
 {
   if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
   vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
@@ -108,7 +108,7 @@ auto free_compute_set(context const &ctx, pipeline_resources const &pipe, VkDesc
 
 auto compute_pipeline::reset() noexcept -> void
 {
-  if (ctx_ != nullptr && resources_ != nullptr) { destroy_compute_resources(*ctx_, *resources_); }
+  if (ctx_ != nullptr && resources_ != nullptr) { destroy(*ctx_, *resources_); }
   resources_.reset();
   ctx_ = nullptr;
 }
@@ -118,8 +118,8 @@ auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
   layout_desc const &desc) const -> sender<::vkexec::compute_pipeline>
 {
   return make_sender<::vkexec::compute_pipeline>([&ctx, spirv, desc]() -> result<::vkexec::compute_pipeline> {
-    VKEXEC_TRY_ASSIGN(owned, create_compute_resources(ctx, spirv, desc));
-    return ::vkexec::compute_pipeline::make(ctx, std::make_unique<pipeline_resources>(owned));
+    VKEXEC_TRY_ASSIGN(owned, create(ctx, spirv, desc));
+    return ::vkexec::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
   });
 }
 

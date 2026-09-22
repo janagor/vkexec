@@ -31,7 +31,7 @@ struct compute_create_info
 };
 
 template<descriptor_backend Backend>
-auto destroy_compute_resources_with(context const &ctx, pipeline_resources &resources) noexcept -> void
+auto destroy_compute_resources_with(context const &ctx, handles::compute_pipeline &resources) noexcept -> void
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
@@ -44,11 +44,11 @@ template<descriptor_backend Backend>
 [[nodiscard]] auto create_compute_resources_with(context &ctx,
   std::span<std::uint32_t const> spirv,
   compute_create_info const &info,
-  std::string_view empty_message) -> result<pipeline_resources>
+  std::string_view empty_message) -> result<handles::compute_pipeline>
 {
   if (spirv.empty()) { return fail(errc::invalid_argument, std::string(empty_message)); }
 
-  pipeline_resources resources{};
+  handles::compute_pipeline resources{};
   resources.binding_count = static_cast<std::uint32_t>(info.bindings.size());
   resources.push_bytes = info.push_bytes;
   resources.local_size = info.local_size;

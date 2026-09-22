@@ -15,7 +15,7 @@
 
 namespace vkexec {
 
-auto bind_resources(pipeline_resources const &pipe, resource_table const &table, std::span<std::byte const> push)
+auto bind_resources(handles::compute_pipeline const &pipe, resource_table const &table, std::span<std::byte const> push)
   -> bind_resources_closure
 {
   return bind_resources_closure{

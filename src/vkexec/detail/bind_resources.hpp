@@ -13,7 +13,7 @@ namespace vkexec::detail {
 template<class Backend> struct bound_release_state
 {
   context *ctx{ nullptr };
-  pipeline_resources const *pipe{ nullptr };
+  handles::compute_pipeline const *pipe{ nullptr };
   std::optional<typename Backend::bound_type> bound;
 
   bound_release_state() = default;
@@ -34,7 +34,7 @@ template<class Backend> struct bound_release_state
 };
 
 template<class Backend, class LowerEnv>
-[[nodiscard]] auto make_bind_resources_step(pipeline_resources const *pipe,
+[[nodiscard]] auto make_bind_resources_step(handles::compute_pipeline const *pipe,
   resource_table table,
   LowerEnv env,
   std::vector<std::byte> push) -> pass_step

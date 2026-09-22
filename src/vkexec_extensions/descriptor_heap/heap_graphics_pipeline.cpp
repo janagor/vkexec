@@ -1,4 +1,5 @@
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
 
 #include "detail/strategy.hpp"
 
@@ -162,9 +163,9 @@ namespace {
 
 }// namespace
 
-auto destroy_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
+auto destroy([[maybe_unused]] descriptor_heap_t strategy,
   context const &ctx,
-  pipeline_resources &resources) noexcept -> void
+  handles::graphics_pipeline &resources) noexcept -> void
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
@@ -173,20 +174,20 @@ auto destroy_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
   resources = {};
 }
 
-auto create_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
+auto create([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> result<pipeline_resources>
+  heap_graphics_layout_desc const &desc) -> result<handles::graphics_pipeline>
 {
   if (vertex_spirv.empty() || fragment_spirv.empty()) {
-    return fail(errc::invalid_argument, "create_graphics_resources requires non-empty SPIR-V");
+    return fail(errc::invalid_argument, "create requires non-empty SPIR-V");
   }
   if (desc.color_formats.empty()) {
-    return fail(errc::invalid_argument, "create_graphics_resources requires at least one color format");
+    return fail(errc::invalid_argument, "create requires at least one color format");
   }
 
-  pipeline_resources resources{};
+  handles::graphics_pipeline resources{};
   VkDevice device = ctx.device();
   detail::descriptor_layout_info const layout_info{ .bindings = {},
     .push_stages = 0,
@@ -200,7 +201,7 @@ auto create_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
   }
   if (auto created = detail::heap_descriptor_backend::create_descriptor_pool(device, resources, layout_info);
     !created) {
-    destroy_graphics_resources(descriptor_heap, ctx, resources);
+    destroy(descriptor_heap, ctx, resources);
     return fail(created);
   }
 
@@ -226,7 +227,7 @@ auto create_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
 
 auto descriptor_graphics_pipeline::reset() noexcept -> void
 {
-  if (ctx_ != nullptr && resources_ != nullptr) { destroy_graphics_resources(descriptor_heap, *ctx_, *resources_); }
+  if (ctx_ != nullptr && resources_ != nullptr) { destroy(descriptor_heap, *ctx_, *resources_); }
   resources_.reset();
   ctx_ = nullptr;
 }
@@ -238,8 +239,8 @@ auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context 
 {
   return make_sender<::vkexec::descriptor_graphics_pipeline>(
     [&ctx, vertex_spirv, fragment_spirv, desc]() -> result<::vkexec::descriptor_graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned, create_graphics_resources(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc));
-      return ::vkexec::descriptor_graphics_pipeline::make(ctx, std::make_unique<pipeline_resources>(owned));
+      VKEXEC_TRY_ASSIGN(owned, create(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc));
+      return ::vkexec::descriptor_graphics_pipeline::make(ctx, std::make_unique<handles::graphics_pipeline>(owned));
     });
 }
 

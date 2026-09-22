@@ -50,7 +50,7 @@ namespace detail {
       VkDescriptorSet set{ VK_NULL_HANDLE };
     };
 
-    std::unordered_map<pipeline_resources *, pipeline_set_entry> sets;
+    std::unordered_map<handles::compute_pipeline *, pipeline_set_entry> sets;
     std::vector<allocated_set> allocated;
 
     //! Frees all tracked descriptor sets on `ctx`'s device.
@@ -74,7 +74,7 @@ namespace detail {
    * @param pipe Pipeline whose layout and pool are used.
    * @param buffers Storage bindings matching the pipeline layout.
    */
-  auto allocate_compute_set(context const &ctx, pipeline_resources &pipe, std::span<storage_binding const> buffers)
+  auto allocate_compute_set(context const &ctx, handles::compute_pipeline &pipe, std::span<storage_binding const> buffers)
     -> result<VkDescriptorSet>;
 
   /**
@@ -83,7 +83,7 @@ namespace detail {
    * @param cleanup Receives ownership of newly allocated sets.
    */
   auto bind_or_allocate_set(context const &ctx,
-    pipeline_resources &pipe,
+    handles::compute_pipeline &pipe,
     std::span<storage_binding const> buffers,
     descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
 
@@ -140,7 +140,7 @@ namespace detail {
     [[nodiscard]] auto end_recording() -> status;
 
     //! Tracks `set` (from `pipe`'s pool) for release with this scope.
-    auto track_set(pipeline_resources const &pipe, VkDescriptorSet set) -> void
+    auto track_set(handles::compute_pipeline const &pipe, VkDescriptorSet set) -> void
     { cleanup.track(pipe.descriptor_pool, set); }
 
     //! Frees the command buffer and descriptor loans; safe to call more than once.

@@ -53,7 +53,7 @@ struct tensor_pass_t
   { return (*this)(compute_pass(bind, params, groups), values...); }
 
   template<typename Params, typename... T>
-  [[nodiscard]] auto operator()(pipeline_resources const &pipe,
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
     VkDescriptorSet set,
     Params const &params,
     std::uint32_t work_count,

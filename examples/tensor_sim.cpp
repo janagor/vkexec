@@ -71,7 +71,7 @@ static auto run() -> int
     vkexec::examples::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_element_count, k_initial_velocity));
 
   using enum vkexec::buffer_access;
-  auto resources_result = vkexec::create_compute_resources(*ctx,
+  auto resources_result = vkexec::create(*ctx,
     k_sim_glsl,
     vkexec::layout_desc{
       .binding_kinds = {},
@@ -121,7 +121,7 @@ static auto run() -> int
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
   vkexec::free_compute_set(*ctx, resources, bound.set);
-  vkexec::destroy_compute_resources(*ctx, resources);
+  vkexec::destroy(*ctx, resources);
   return 0;
 }
 

@@ -160,7 +160,7 @@ namespace {
   }
 
   auto install_storage_set(context &ctx,
-    graphics_pipeline_resources const &resources,
+    handles::graphics_pipeline const &resources,
     std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
   {
     VKEXEC_TRY_ASSIGN(bound, bind_graphics_storage(ctx, resources, buffers));
@@ -175,15 +175,15 @@ namespace {
     std::span<storage_binding const> buffers) -> result<::vkexec::graphics_pipeline>
   {
     auto const binding_count = static_cast<std::uint32_t>(buffers.size());
-    VKEXEC_TRY_ASSIGN(owned, create_graphics_resources(ctx, render_pass, cfg, vs_spv, fs_spv, binding_count));
+    VKEXEC_TRY_ASSIGN(owned, create(ctx, render_pass, cfg, vs_spv, fs_spv, binding_count));
     VKEXEC_TRY_ASSIGN(set, install_storage_set(ctx, owned, buffers));
     return graphics_pipeline::make(
-      ctx, std::make_unique<graphics_pipeline_resources>(owned), set, std::vector(buffers.begin(), buffers.end()));
+      ctx, std::make_unique<handles::graphics_pipeline>(owned), set, std::vector(buffers.begin(), buffers.end()));
   }
 
 }// namespace
 
-auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources &resources) noexcept -> void
+auto destroy(context const &ctx, handles::graphics_pipeline &resources) noexcept -> void
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
@@ -191,18 +191,18 @@ auto destroy_graphics_resources(context const &ctx, graphics_pipeline_resources 
   resources = {};
 }
 
-auto create_graphics_resources(context &ctx,
+auto create(context &ctx,
   VkRenderPass render_pass,
   graphics_pipeline_config cfg,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  std::uint32_t storage_binding_count) -> result<graphics_pipeline_resources>
+  std::uint32_t storage_binding_count) -> result<handles::graphics_pipeline>
 {
   if (vertex_spirv.empty() || fragment_spirv.empty()) {
-    return fail(errc::invalid_argument, "create_graphics_resources requires non-empty SPIR-V");
+    return fail(errc::invalid_argument, "create requires non-empty SPIR-V");
   }
 
-  graphics_pipeline_resources owned{};
+  handles::graphics_pipeline owned{};
   owned.cfg = cfg;
   owned.binding_count = storage_binding_count;
   VkDevice device = ctx.device();
@@ -222,24 +222,24 @@ auto create_graphics_resources(context &ctx,
     .create_pool = storage_binding_count > 0 };
   if (auto created = detail::set_descriptor_backend::create_set_and_pipeline_layout(device, owned, layout_info);
     !created) {
-    destroy_graphics_resources(ctx, owned);
+    destroy(ctx, owned);
     return fail(created);
   }
   if (auto created = detail::set_descriptor_backend::create_descriptor_pool(device, owned, layout_info); !created) {
-    destroy_graphics_resources(ctx, owned);
+    destroy(ctx, owned);
     return fail(created);
   }
 
   auto vert = detail::create_shader_module(device, vertex_spirv);
   if (!vert) {
-    destroy_graphics_resources(ctx, owned);
+    destroy(ctx, owned);
     return fail(vert);
   }
   VkShaderModule vert_module = expected_take(vert);
   auto frag = detail::create_shader_module(device, fragment_spirv);
   if (!frag) {
     vkDestroyShaderModule(device, vert_module, nullptr);
-    destroy_graphics_resources(ctx, owned);
+    destroy(ctx, owned);
     return fail(frag);
   }
   VkShaderModule frag_module = expected_take(frag);
@@ -248,14 +248,14 @@ auto create_graphics_resources(context &ctx,
   vkDestroyShaderModule(device, frag_module, nullptr);
   vkDestroyShaderModule(device, vert_module, nullptr);
   if (!pipeline) {
-    destroy_graphics_resources(ctx, owned);
+    destroy(ctx, owned);
     return fail(pipeline);
   }
   owned.pipeline = expected_take(pipeline);
   return owned;
 }
 
-auto allocate_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe) -> result<VkDescriptorSet>
+auto allocate_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe) -> result<VkDescriptorSet>
 {
   if (pipe.descriptor_pool == VK_NULL_HANDLE || pipe.set_layout == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "allocate_graphics_set requires a descriptor pool and set layout");
@@ -273,7 +273,7 @@ auto allocate_graphics_set(context const &ctx, graphics_pipeline_resources const
 }
 
 auto bind_graphics_storage(context &ctx,
-  graphics_pipeline_resources const &pipe,
+  handles::graphics_pipeline const &pipe,
   std::span<storage_binding const> buffers) -> result<bound_graphics>
 {
   if (buffers.size() != pipe.binding_count) {
@@ -285,7 +285,7 @@ auto bind_graphics_storage(context &ctx,
   return bound_graphics{ .pipe = &pipe, .set = set };
 }
 
-auto free_graphics_set(context const &ctx, graphics_pipeline_resources const &pipe, VkDescriptorSet set) noexcept
+auto free_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe, VkDescriptorSet set) noexcept
   -> void
 {
   if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
@@ -373,7 +373,7 @@ auto draw_pass(VkCommandBuffer cmd,
 
 auto graphics_pipeline::reset() noexcept -> void
 {
-  if (ctx_ != nullptr && resources_ != nullptr) { destroy_graphics_resources(*ctx_, *resources_); }
+  if (ctx_ != nullptr && resources_ != nullptr) { destroy(*ctx_, *resources_); }
   resources_.reset();
   descriptor_set_ = VK_NULL_HANDLE;
   buffers_.clear();

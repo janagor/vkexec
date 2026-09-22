@@ -80,13 +80,13 @@ namespace factory {
  * `allocate_set` with `compute_pass` to dispatch. Destroy only after GPU work
  * that uses this pipeline has finished.
  *
- * @see factory::make_compute_pipeline, layout_desc, compute_pass, pipeline_resources
+ * @see factory::make_compute_pipeline, layout_desc, compute_pass, handles::compute_pipeline
  */
 class compute_pipeline
 {
 public:
   //! Adopts an owned pipeline resource bag.
-  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<pipeline_resources> resources) -> compute_pipeline
+  [[nodiscard]] static auto make(context &ctx, std::unique_ptr<handles::compute_pipeline> resources) -> compute_pipeline
   { return compute_pipeline{ &ctx, std::move(resources) }; }
 
   compute_pipeline(compute_pipeline const &) = delete;
@@ -109,9 +109,9 @@ public:
   ~compute_pipeline() { reset(); }
 
   //! Mutable owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() noexcept -> pipeline_resources & { return *resources_; }
+  [[nodiscard]] auto resources() noexcept -> handles::compute_pipeline & { return *resources_; }
   //! Const owned Vulkan resources for this pipeline.
-  [[nodiscard]] auto resources() const noexcept -> pipeline_resources const & { return *resources_; }
+  [[nodiscard]] auto resources() const noexcept -> handles::compute_pipeline const & { return *resources_; }
 
   //! Builds a `compute_bind` for recording with optional descriptor set.
   [[nodiscard]] auto bind(VkDescriptorSet set = VK_NULL_HANDLE) const -> compute_bind
@@ -136,14 +136,14 @@ public:
   [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status;
 
 private:
-  compute_pipeline(context *ctx, std::unique_ptr<pipeline_resources> resources) noexcept
+  compute_pipeline(context *ctx, std::unique_ptr<handles::compute_pipeline> resources) noexcept
     : ctx_(ctx), resources_(std::move(resources))
   {}
 
   auto reset() noexcept -> void;
 
   context *ctx_{ nullptr };
-  std::unique_ptr<pipeline_resources> resources_;
+  std::unique_ptr<handles::compute_pipeline> resources_;
 };
 
 /**
