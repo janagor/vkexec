@@ -3,6 +3,7 @@
 
 //! \file
 //! Borrowable graphics pipeline handle bag and create/destroy helpers.
+//! The bag is `handles::graphics_pipeline`; the owning wrapper is `owned::graphics_pipeline`.
 
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
