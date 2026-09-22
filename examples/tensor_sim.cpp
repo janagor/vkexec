@@ -5,7 +5,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/tensor.hpp>
-#include <vkexec/tensor_sync.hpp>
+#include <vkexec/tensor_pass.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_features/buffer_device_address.hpp>
 #include <vkexec_features/feature.hpp>
@@ -98,9 +98,9 @@ static auto run() -> int
 
   // Upload -> dispatch -> download on the existing pass graph.
   vkexec::examples::sync_wait_graph(
-    ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_device(positions) | vkexec::sync_to_device(velocities)
-    | vkexec::compute_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_element_count))
-    | vkexec::sync_to_host(positions) | vkexec::sync_to_host(velocities));
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::tensor_pass(
+      resources, bound.set, params, static_cast<std::uint32_t>(k_element_count), positions, velocities));
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;

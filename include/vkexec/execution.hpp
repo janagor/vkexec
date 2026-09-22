@@ -29,6 +29,7 @@
 #include <vkexec/submit_scope.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/sync_wait_outcome.hpp>
+#include <vkexec/tensor_pass.hpp>
 #include <vkexec/tensor_sync.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
