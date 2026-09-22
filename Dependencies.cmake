@@ -128,6 +128,10 @@ function(vkexec_setup_dependencies)
       if(TARGET ${_vkexec_glslang_target})
         target_include_directories(${_vkexec_glslang_target}
                                    INTERFACE $<BUILD_INTERFACE:${_vkexec_glslang_compat_include}>)
+        if(MSVC)
+          # glslang still uses strncpy; MSVC C4996 becomes an error under /WX-capable CI.
+          target_compile_definitions(${_vkexec_glslang_target} PRIVATE _CRT_SECURE_NO_WARNINGS)
+        endif()
       endif()
     endforeach()
   endif()

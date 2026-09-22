@@ -124,7 +124,7 @@ public:
   [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
 private:
-  friend auto factory::swapchain(::vkexec::context &ctx, swapchain_create_info info) -> sender<::vkexec::swapchain>;
+  friend sender<::vkexec::swapchain> factory::swapchain(::vkexec::context &ctx, swapchain_create_info info);
 
   swapchain() = default;
 

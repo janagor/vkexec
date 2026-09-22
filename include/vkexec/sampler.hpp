@@ -55,7 +55,7 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkSampler { return sampler_; }
 
 private:
-  friend auto factory::sampler(::vkexec::context &ctx, sampler_create_info info) -> sender<::vkexec::sampler>;
+  friend sender<::vkexec::sampler> factory::sampler(::vkexec::context &ctx, sampler_create_info info);
 
   sampler(context *ctx, VkSampler handle) noexcept;
   auto destroy() noexcept -> void;

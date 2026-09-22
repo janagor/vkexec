@@ -47,7 +47,7 @@ public:
   [[nodiscard]] auto handle() const noexcept -> VkImageView { return view_; }
 
 private:
-  friend auto factory::image_view(::vkexec::context &ctx, ::vkexec::image const &img) -> sender<::vkexec::image_view>;
+  friend sender<::vkexec::image_view> factory::image_view(::vkexec::context &ctx, ::vkexec::image const &img);
 
   image_view(context *ctx, VkImageView view) noexcept;
   auto destroy() noexcept -> void;

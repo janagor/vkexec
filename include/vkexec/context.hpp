@@ -277,8 +277,9 @@ public:
 private:
   friend class presenter;
   template<typename T> friend class buffer;
-  friend auto factory::context(scheduler_options const &opts) -> sender<std::unique_ptr<::vkexec::context>>;
-  friend auto factory::adopt_context(context_adopt_info const &info) -> sender<std::unique_ptr<::vkexec::context>>;
+  // MSVC misparses trailing-return friend decls named like the enclosing class.
+  friend sender<std::unique_ptr<::vkexec::context>> factory::context(scheduler_options const &opts);
+  friend sender<std::unique_ptr<::vkexec::context>> factory::adopt_context(context_adopt_info const &info);
 
   struct uninitialized_tag
   {

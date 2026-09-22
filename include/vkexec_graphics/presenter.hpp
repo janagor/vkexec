@@ -142,9 +142,9 @@ public:
   [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
 private:
-  friend auto factory::presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
-  friend auto factory::headless_presenter(presenter_config cfg) -> sender<::vkexec::presenter>;
-  friend auto factory::headless_presenter() -> sender<::vkexec::presenter>;
+  friend sender<::vkexec::presenter> factory::presenter(presenter_config cfg);
+  friend sender<::vkexec::presenter> factory::headless_presenter(presenter_config cfg);
+  friend sender<::vkexec::presenter> factory::headless_presenter();
 
   struct frame_sync
   {

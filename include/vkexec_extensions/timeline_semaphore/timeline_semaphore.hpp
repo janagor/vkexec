@@ -70,7 +70,7 @@ public:
   [[nodiscard]] auto wait(std::uint64_t value) const -> status;
 
 private:
-  friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value) -> result<timeline_semaphore>;
+  friend result<timeline_semaphore> detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value);
 
   timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept;
   auto destroy() noexcept -> void;

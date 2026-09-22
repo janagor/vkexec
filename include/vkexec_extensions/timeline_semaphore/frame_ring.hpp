@@ -154,7 +154,7 @@ public:
     -> result<frame_ring_submit_sync>;
 
 private:
-  friend auto factory::frame_ring(::vkexec::context &ctx, frame_ring_create_info info) -> sender<::vkexec::frame_ring>;
+  friend sender<::vkexec::frame_ring> factory::frame_ring(::vkexec::context &ctx, frame_ring_create_info info);
 
   frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept;
 

@@ -107,9 +107,10 @@ public:
   [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
 private:
-  friend auto factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info) -> sender<::vkexec::gpu_buffer>;
-  friend auto factory::gpu_buffer(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory)
-    -> sender<::vkexec::gpu_buffer>;
+  friend sender<::vkexec::gpu_buffer> factory::gpu_buffer(::vkexec::context &ctx, gpu_buffer_create_info info);
+  friend sender<::vkexec::gpu_buffer> factory::gpu_buffer(::vkexec::context &ctx,
+    VkDeviceSize size,
+    gpu_buffer_memory memory);
 
   gpu_buffer(context *ctx,
     VkBuffer buffer,

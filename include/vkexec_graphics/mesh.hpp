@@ -120,9 +120,9 @@ public:
   [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
 
 private:
-  friend auto factory::mesh(::vkexec::context &ctx,
+  friend sender<::vkexec::mesh> factory::mesh(::vkexec::context &ctx,
     std::span<mesh_vertex const> vertices,
-    std::span<std::uint32_t const> indices) -> sender<::vkexec::mesh>;
+    std::span<std::uint32_t const> indices);
 
   mesh(context *ctx, mesh_buffers buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
 

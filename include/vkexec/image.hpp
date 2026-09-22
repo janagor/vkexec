@@ -82,7 +82,7 @@ public:
   [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
 
 private:
-  friend auto factory::image(::vkexec::context &ctx, image_create_info info) -> sender<::vkexec::image>;
+  friend sender<::vkexec::image> factory::image(::vkexec::context &ctx, image_create_info info);
 
   image(context *ctx,
     VkImage image_handle,

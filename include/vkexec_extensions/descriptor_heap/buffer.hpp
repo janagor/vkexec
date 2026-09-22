@@ -70,8 +70,8 @@ public:
   [[nodiscard]] auto flush() const -> status;
 
 private:
-  friend auto factory::descriptor_heap_buffer(::vkexec::context &ctx, VkDeviceSize size)
-    -> sender<::vkexec::descriptor_heap_buffer>;
+  friend sender<::vkexec::descriptor_heap_buffer> factory::descriptor_heap_buffer(::vkexec::context &ctx,
+    VkDeviceSize size);
 
   descriptor_heap_buffer(context *ctx,
     VkBuffer buffer,
