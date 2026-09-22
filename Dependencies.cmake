@@ -87,6 +87,28 @@ function(vkexec_setup_dependencies)
       "GLSLANG_TESTS OFF"
       "BUILD_EXTERNAL OFF"
       "ENABLE_PCH OFF")
+
+    # glslang BUILD_INTERFACE exposes the repo root (SPIRV/...), while the
+    # install layout and public includes use glslang/SPIRV/... Mirror that
+    # layout in the build tree so #include <glslang/SPIRV/...> works via CPM.
+    # See KhronosGroup/glslang#4185 / #4298.
+    set(_vkexec_glslang_compat_include "${CMAKE_BINARY_DIR}/_deps/glslang-compat-include")
+    file(MAKE_DIRECTORY "${_vkexec_glslang_compat_include}/glslang")
+    if(NOT EXISTS "${_vkexec_glslang_compat_include}/glslang/SPIRV")
+      file(
+        CREATE_LINK
+        "${glslang_SOURCE_DIR}/SPIRV"
+        "${_vkexec_glslang_compat_include}/glslang/SPIRV"
+        SYMBOLIC
+        COPY_ON_ERROR)
+    endif()
+    foreach(_vkexec_glslang_target IN ITEMS glslang SPIRV glslang-default-resource-limits)
+      if(TARGET ${_vkexec_glslang_target})
+        target_include_directories(
+          ${_vkexec_glslang_target}
+          INTERFACE $<BUILD_INTERFACE:${_vkexec_glslang_compat_include}>)
+      endif()
+    endforeach()
   endif()
 
   if(NOT TARGET STDEXEC::stdexec)
