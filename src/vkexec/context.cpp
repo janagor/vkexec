@@ -199,7 +199,8 @@ context::context([[maybe_unused]] uninitialized_tag tag) noexcept : impl_(std::m
 auto factory::make_context_t::operator()(scheduler_options const &opts) const
   -> sender<std::unique_ptr<::vkexec::context>>
 {
-  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
+  // Factory may allocate; sender::start() catches and maps to set_error.
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks,bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
     auto ctx = std::unique_ptr<::vkexec::context>(new ::vkexec::context(::vkexec::context::uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_headless(opts));
@@ -210,7 +211,8 @@ auto factory::make_context_t::operator()(scheduler_options const &opts) const
 auto factory::adopt_context_t::operator()(context_adopt_info const &info) const
   -> sender<std::unique_ptr<::vkexec::context>>
 {
-  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
+  // Factory may allocate; sender::start() catches and maps to set_error.
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks,bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {
     auto ctx = std::unique_ptr<::vkexec::context>(new ::vkexec::context(::vkexec::context::uninitialized_tag{}));
     VKEXEC_TRY(ctx->init_adopted(info));
