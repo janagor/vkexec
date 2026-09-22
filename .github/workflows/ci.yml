@@ -211,6 +211,22 @@ jobs:
           gcovr: true
           opencppcoverage: true
 
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Install Linux window-system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev \
+            libffi-dev
+
       - name: Configure CMake
         run: |
           cmake --version

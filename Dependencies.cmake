@@ -11,13 +11,19 @@ function(vkexec_setup_dependencies)
   if(NOT TARGET Vulkan::Vulkan)
     find_package(Vulkan QUIET)
     if(NOT Vulkan_FOUND)
-      find_package(PkgConfig REQUIRED)
-      pkg_check_modules(
-        Vulkan
-        REQUIRED
-        IMPORTED_TARGET
-        vulkan)
-      add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
+      find_package(PkgConfig QUIET)
+      if(PkgConfig_FOUND)
+        pkg_check_modules(Vulkan IMPORTED_TARGET vulkan)
+        if(TARGET PkgConfig::Vulkan)
+          add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
+        endif()
+      endif()
+    endif()
+    if(NOT TARGET Vulkan::Vulkan)
+      message(
+        FATAL_ERROR
+          "Vulkan loader not found (Vulkan::Vulkan). Install the Vulkan SDK "
+          "(set VULKAN_SDK) or a system package such as libvulkan-dev.")
     endif()
   endif()
 

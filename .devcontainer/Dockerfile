@@ -9,7 +9,11 @@ RUN apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg software-properties-common wget apt-utils \
         git ninja-build python3 \
-        pkg-config graphviz doxygen ccache cppcheck gcovr mold gdb
+        pkg-config graphviz doxygen ccache cppcheck gcovr mold gdb \
+        libvulkan-dev \
+        libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+        libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev \
+        libffi-dev
 
 RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
     apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
