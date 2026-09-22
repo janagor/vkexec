@@ -136,8 +136,11 @@ namespace detail {
     auto set = allocate_compute_set(ctx, pipe, buffers);
     if (!set) { return fail(set); }
     auto *allocated = expected_take(set);
-    cleanup.sets.insert_or_assign(
-      &pipe, descriptor_cleanup::pipeline_set_entry{ .buffers = { buffers.begin(), buffers.end() }, .set = allocated });
+    cleanup.sets.insert_or_assign(&pipe,
+      descriptor_cleanup::pipeline_set_entry{
+        .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()),
+        .set = allocated,
+      });
     cleanup.track(pipe.descriptor_pool, allocated);
     return allocated;
   }

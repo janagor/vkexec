@@ -160,7 +160,10 @@ auto bind_resources(descriptor_heap_t /*strategy*/,
   std::span<std::byte const> push) -> descriptor_heap_bind_resources_closure
 {
   return descriptor_heap_bind_resources_closure{
-    .pipe = &pipe, .table = table, .env = env, .push = { push.begin(), push.end() }
+    .pipe = &pipe,
+    .table = table,
+    .env = env,
+    .push = std::vector<std::byte>(push.begin(), push.end()),
   };
 }
 
