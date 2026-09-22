@@ -105,8 +105,6 @@ namespace detail {
     submit_scope(submit_scope const &) = delete;
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
-    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
-    // CSA cannot model values stored in Boost.LEAF result<>; move is fine at runtime.
     submit_scope(submit_scope &&other) noexcept : ctx(other.ctx), cmd(other.cmd), cleanup(std::move(other.cleanup))
     {
       other.ctx = nullptr;
@@ -124,7 +122,6 @@ namespace detail {
       other.cmd = VK_NULL_HANDLE;
       return *this;
     }
-    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
 
     ~submit_scope() { release(); }
 

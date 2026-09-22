@@ -10,10 +10,12 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <bit>
 #include <array>
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <type_traits>
 #include <string_view>
 #include <vector>
 
@@ -105,8 +107,9 @@ auto compile_glsl_to_spirv(std::string_view glsl_source,
   shader.setEnvTarget(glslang::EShTargetSpv, targets.spirv);
 
   TBuiltInResource const &resources = *GetDefaultResources();
-  // NOLINTNEXTLINE(hicpp-signed-bitwise,clang-analyzer-optin.core.EnumCastOutOfRange)
-  auto const messages = static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules);
+  auto const messages = std::bit_cast<EShMessages>(
+    static_cast<std::underlying_type_t<EShMessages>>(EShMsgSpvRules) |
+    static_cast<std::underlying_type_t<EShMessages>>(EShMsgVulkanRules));
   if (!shader.parse(&resources, targets.default_glsl_version, false, messages)) {
     std::string detail = "glslang parse failed for ";
     detail += name;

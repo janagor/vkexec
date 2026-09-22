@@ -130,10 +130,8 @@ public:
   auto operator=(buffer const &) -> buffer & = delete;
 
   buffer(buffer &&other) noexcept
-    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
     : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
       count_(other.count_), name_(std::move(other.name_))
-  // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
   {
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;
@@ -147,14 +145,12 @@ public:
     if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
       vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);
     }
-    // NOLINTBEGIN(clang-analyzer-core.uninitialized.Assign)
     ctx_ = other.ctx_;
     buffer_ = other.buffer_;
     allocation_ = other.allocation_;
     mapped_ = other.mapped_;
     count_ = other.count_;
     name_ = std::move(other.name_);
-    // NOLINTEND(clang-analyzer-core.uninitialized.Assign)
     other.ctx_ = nullptr;
     other.buffer_ = VK_NULL_HANDLE;
     other.allocation_ = VK_NULL_HANDLE;

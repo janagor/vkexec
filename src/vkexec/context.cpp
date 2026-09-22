@@ -202,7 +202,7 @@ auto factory::make_context_t::operator()(scheduler_options const &opts) const
   -> sender<std::unique_ptr<::vkexec::context>>
 {
   // Factory may allocate; sender::start() catches and maps to set_error.
-  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks,bugprone-exception-escape)
+  // NOLINTNEXTLINE(bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
     // std::make_unique cannot access context's private passkey constructor.
     // NOLINTNEXTLINE(modernize-make-unique)
@@ -217,7 +217,7 @@ auto factory::adopt_context_t::operator()(context_adopt_info const &info) const
   -> sender<std::unique_ptr<::vkexec::context>>
 {
   // Factory may allocate; sender::start() catches and maps to set_error.
-  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks,bugprone-exception-escape)
+  // NOLINTNEXTLINE(bugprone-exception-escape)
   return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {
     // std::make_unique cannot access context's private passkey constructor.
     // NOLINTNEXTLINE(modernize-make-unique)

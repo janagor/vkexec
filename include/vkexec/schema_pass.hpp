@@ -108,7 +108,6 @@ template<class Pred, class Env>
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
-  // NOLINTNEXTLINE(clang-analyzer-core.StackAddressEscape)
   return ex::let_value(
     std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_sender {
       return detail::append_schema_pass(pass_graph_sender{ .ctx = ctx, .steps = {} }, std::move(closure));
