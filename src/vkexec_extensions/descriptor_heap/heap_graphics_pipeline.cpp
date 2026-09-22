@@ -162,7 +162,7 @@ namespace {
 
 }// namespace
 
-auto destroy_graphics_resources(descriptor_heap_t /*strategy*/,
+auto destroy_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
   context const &ctx,
   pipeline_resources &resources) noexcept -> void
 {
@@ -173,7 +173,7 @@ auto destroy_graphics_resources(descriptor_heap_t /*strategy*/,
   resources = {};
 }
 
-auto create_graphics_resources(descriptor_heap_t /*strategy*/,
+auto create_graphics_resources([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
@@ -243,7 +243,7 @@ auto factory::descriptor_graphics_pipeline(::vkexec::context &ctx,
     });
 }
 
-auto create_graphics_pipeline(descriptor_heap_t /*strategy*/,
+auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,

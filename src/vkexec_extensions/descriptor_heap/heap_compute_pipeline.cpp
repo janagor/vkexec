@@ -15,7 +15,7 @@
 #include <span>
 
 namespace vkexec {
-auto create_compute_resources(descriptor_heap_t /*strategy*/,
+auto create_compute_resources([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> spirv,
   heap_layout_desc const &desc) -> result<pipeline_resources>

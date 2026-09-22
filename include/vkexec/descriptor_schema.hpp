@@ -113,14 +113,14 @@ template<class... Entries> struct descriptor_schema
 template<class... Entries>
 [[nodiscard]] auto layout_desc_from_schema(descriptor_schema<Entries...> /*schema*/,
   std::size_t push_constant_size = 0,
-  std::array<std::uint32_t, 3> local_size = k_default_local_size) -> layout_desc
+  std::array<std::uint32_t, 3> shader_local_size = k_default_local_size) -> layout_desc
 {
   return layout_desc{ .binding_kinds = { Entries::kind... },
     .binding_slots = { Entries::slot... },
     .bindings = { Entries::access... },
     .push_constant_size = push_constant_size,
     .specialization = {},
-    .local_size = local_size };
+    .local_size = shader_local_size };
 }
 
 //! Builds a resource table whose logical slots come from `schema`.

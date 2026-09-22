@@ -2,7 +2,6 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
@@ -324,12 +323,7 @@ static auto run() -> int
 
   std::cout << std::format("heap_present: window ready\n");
   if (auto rendered = run_dynamic_rendering(win.ctx()); !rendered) {
-#if VKEXEC_ENABLE_EXCEPTIONS
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    throw vkexec::error(rendered.error());
-#else
     vkexec::examples::abort_with_error(rendered.error());
-#endif
   }
   std::cout << std::format("heap_present: dynamic rendering ok\n");
   if (run_heap_graphics(win.ctx())) {

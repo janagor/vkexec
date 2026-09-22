@@ -191,9 +191,9 @@ struct draw_sender
 
   template<class Receiver> struct op_state
   {
-    presenter *win;
-    graphics_pipeline *pipeline;
-    std::uint32_t vertex_count;
+    presenter *win{};
+    graphics_pipeline *pipeline{};
+    std::uint32_t vertex_count{};
     Receiver receiver;
 
     auto start() noexcept -> void

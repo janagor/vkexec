@@ -96,9 +96,9 @@ public:
    *
    * Resets image completion values; does not reset slot values or the monotonic counter.
    *
-   * @param image_count New swapchain image count.
+   * @param new_image_count New swapchain image count.
    */
-  auto resize_images(std::size_t image_count) -> status;
+  auto resize_images(std::size_t new_image_count) -> status;
 
   /**
    * Clears slot/image completion gates without rewinding the timeline sequence.
@@ -160,7 +160,7 @@ private:
 
   auto destroy() noexcept -> void;
   auto destroy_image_semaphores() noexcept -> void;
-  auto create_image_semaphores(std::size_t image_count) -> status;
+  auto create_image_semaphores(std::size_t new_image_count) -> status;
   [[nodiscard]] auto check_slot(std::size_t slot) const -> status;
   [[nodiscard]] auto check_image(std::size_t image_index) const -> status;
 

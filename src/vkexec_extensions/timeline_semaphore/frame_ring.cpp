@@ -99,11 +99,11 @@ auto frame_ring::operator=(frame_ring &&other) noexcept -> frame_ring &
   return *this;
 }
 
-auto frame_ring::resize_images(std::size_t image_count) -> status
+auto frame_ring::resize_images(std::size_t new_image_count) -> status
 {
   // Slot acquire semaphores and the timeline counter stay; only per-image present sync is rebuilt.
   destroy_image_semaphores();
-  return create_image_semaphores(image_count);
+  return create_image_semaphores(new_image_count);
 }
 
 auto frame_ring::reset_completion_tracking() -> void
@@ -215,11 +215,11 @@ auto frame_ring::destroy_image_semaphores() noexcept -> void
   image_timeline_value_.clear();
 }
 
-auto frame_ring::create_image_semaphores(std::size_t image_count) -> status
+auto frame_ring::create_image_semaphores(std::size_t new_image_count) -> status
 {
-  render_finished_.assign(image_count, VK_NULL_HANDLE);
-  image_timeline_value_.assign(image_count, 0);
-  for (std::size_t index = 0; index < image_count; ++index) {
+  render_finished_.assign(new_image_count, VK_NULL_HANDLE);
+  image_timeline_value_.assign(new_image_count, 0);
+  for (std::size_t index = 0; index < new_image_count; ++index) {
     auto semaphore_result = create_binary_semaphore(ctx_->device());
     if (!semaphore_result) {
       destroy_image_semaphores();

@@ -106,7 +106,7 @@ namespace {
 }// namespace
 
 auto heap_descriptor_backend::lower(context &ctx,
-  pipeline_resources const & /*pipe*/,
+  [[maybe_unused]] pipeline_resources const &pipe,
   resource_table const &table,
   lower_env const &env) -> result<bound_type>
 {
@@ -139,7 +139,7 @@ auto heap_descriptor_backend::lower(context &ctx,
 
 auto heap_descriptor_backend::push_bytes(context const *ctx,
   VkCommandBuffer cmd,
-  VkPipelineBindPoint /*bind_point*/,
+  [[maybe_unused]] VkPipelineBindPoint bind_point,
   std::span<std::byte const> bytes) -> status
 {
   if (bytes.empty()) { return {}; }
