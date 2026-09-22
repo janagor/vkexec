@@ -14,6 +14,7 @@ RUN apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
         git ninja-build python3 \
         pkg-config graphviz doxygen ccache cppcheck gcovr mold gdb \
         libvulkan-dev \
+        mesa-vulkan-drivers \
         libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
         libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev \
         libffi-dev

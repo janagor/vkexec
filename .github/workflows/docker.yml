@@ -34,9 +34,16 @@ jobs:
           docker run --rm \
             -v "$PWD:/workspaces/cmake_template" \
             -w /workspaces/cmake_template \
+            -e VK_DRIVER_FILES \
+            -e VK_ICD_FILENAMES \
             cmake_template:${{ matrix.target }} \
             bash -c "
+              ICD=\$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -1)
+              if [[ -n \"\$ICD\" ]]; then
+                export VK_DRIVER_FILES=\"\$ICD\"
+                export VK_ICD_FILENAMES=\"\$ICD\"
+              fi
               cmake --preset ${{ matrix.configure_preset }}
               cmake --build out/build/${{ matrix.configure_preset }} -j\$(nproc)
-              ctest --preset ${{ matrix.test_preset }}
+              ctest --preset ${{ matrix.test_preset }} --output-on-failure
             "

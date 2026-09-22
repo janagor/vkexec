@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -14,9 +15,17 @@
 
 namespace vkexec::test {
 
-inline auto skip_if_no_vulkan(error const &err) -> void { SKIP(std::string("Vulkan unavailable: ") + err.message()); }
+inline auto skip_if_no_vulkan(error const &err) -> void
+{
+  SKIP(std::string("Vulkan unavailable: ") + err.message());
+  std::abort();// SKIP must not return; avoid falling through to empty result access
+}
 
-inline auto skip_if_unavailable(error const &err) -> void { SKIP(std::string("Unavailable: ") + err.message()); }
+inline auto skip_if_unavailable(error const &err) -> void
+{
+  SKIP(std::string("Unavailable: ") + err.message());
+  std::abort();
+}
 
 template<class Sender> [[nodiscard]] auto sync_wait_value(Sender &&sender)
 {
