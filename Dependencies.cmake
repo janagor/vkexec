@@ -8,6 +8,27 @@ function(vkexec_setup_dependencies)
   # For each dependency, see if it's
   # already been provided to us by a parent project
 
+  # Pin headers before find_package(Vulkan): FindVulkan creates Vulkan::Headers
+  # from the system/SDK install when present, which can be older than the
+  # vk-bootstrap tag (e.g. Ubuntu libvulkan-dev) and then skips CPM.
+  # Use DOWNLOAD_ONLY + IMPORTED so export still treats Headers like FindVulkan
+  # (consumers resolve it via find_dependency(Vulkan)).
+  if(NOT TARGET Vulkan::Headers)
+    cpmaddpackage(
+      NAME
+      VulkanHeaders
+      GITHUB_REPOSITORY
+      KhronosGroup/Vulkan-Headers
+      GIT_TAG
+      "v1.4.352"
+      DOWNLOAD_ONLY
+      YES
+      SYSTEM
+      YES)
+    add_library(Vulkan::Headers INTERFACE IMPORTED)
+    set_target_properties(Vulkan::Headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VulkanHeaders_SOURCE_DIR}/include")
+  endif()
+
   if(NOT TARGET Vulkan::Vulkan)
     find_package(Vulkan QUIET)
     if(NOT Vulkan_FOUND)
@@ -25,16 +46,16 @@ function(vkexec_setup_dependencies)
     endif()
   endif()
 
-  if(NOT TARGET Vulkan::Headers)
-    cpmaddpackage(
-      NAME
-      Vulkan-Headers
-      GITHUB_REPOSITORY
-      KhronosGroup/Vulkan-Headers
-      GIT_TAG
-      "v1.4.352"
-      SYSTEM
-      YES)
+  # Prefer the pinned Vulkan::Headers over any system/SDK include dirs that
+  # FindVulkan / pkg-config attach to the loader target.
+  if(TARGET Vulkan::Vulkan)
+    get_target_property(_vkexec_vulkan_aliased Vulkan::Vulkan ALIASED_TARGET)
+    if(_vkexec_vulkan_aliased)
+      set_property(TARGET ${_vkexec_vulkan_aliased} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
+    else()
+      set_property(TARGET Vulkan::Vulkan PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
+    endif()
+    unset(_vkexec_vulkan_aliased)
   endif()
 
   if(NOT TARGET Catch2::Catch2WithMain)
