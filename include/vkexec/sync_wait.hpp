@@ -51,30 +51,42 @@ namespace detail {
 
     template<class... As> auto set_value(As &&...args) noexcept -> void
     {
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+        values->emplace(std::forward<As>(args)...);
+      } catch (...) {
+        state->wait_error = unexpected_exception_error();
+      }
+#else
       values->emplace(std::forward<As>(args)...);
+#endif
       state->loop.finish();
     }
 
-    // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
     auto set_error(error &&err) noexcept -> void
     {
-      state->wait_error.emplace(std::move(err));
+      state->wait_error = std::move(err);
       state->loop.finish();
     }
 
     auto set_error(error const &err) noexcept -> void
     {
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+        state->wait_error.emplace(err);
+      } catch (...) {
+        state->wait_error = unexpected_exception_error();
+      }
+#else
       state->wait_error.emplace(err);
+#endif
       state->loop.finish();
     }
 
     // stdexec adaptors (then, etc.) still advertise exception_ptr even under -fno-exceptions.
     auto set_error(std::exception_ptr const & /*exception*/) noexcept -> void
     {
-      state->wait_error.emplace(error{
-        .code = make_error_code(errc::unsupported),
-        .detail = "sender completed with exception_ptr",
-      });
+      state->wait_error = unexpected_exception_error();
       state->loop.finish();
     }
 

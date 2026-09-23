@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace vkexec {
 
@@ -150,6 +151,9 @@ struct error
     return code.message();
   }
 };
+
+static_assert(std::is_nothrow_move_constructible_v<error>);
+static_assert(std::is_nothrow_move_assignable_v<error>);
 
 //! Returns the non-throwing error used when a sender catches an exception.
 [[nodiscard]] inline auto unexpected_exception_error() noexcept -> error
