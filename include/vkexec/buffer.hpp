@@ -66,19 +66,31 @@ template<typename T> struct buffer_allocate_sender
 
     auto start() noexcept -> void
     {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      auto const token = ex::get_stop_token(ex::get_env(receiver));
       if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
         if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
+          ex::set_stopped(std::move(receiver));
           return;
         }
       }
 
-      if (result<owned::buffer<T>> allocated = owned::buffer<T>::make_allocated(*ctx, count, fill); allocated) {
-        ex::set_value(std::move(rcvr), expected_take(allocated));
+      std::optional<result<owned::buffer<T>>> allocated;
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+        allocated.emplace(owned::buffer<T>::make_allocated(*ctx, count, fill));
+      } catch (...) {
+        ex::set_error(std::move(receiver), unexpected_exception_error());
+        return;
+      }
+#else
+      allocated.emplace(owned::buffer<T>::make_allocated(*ctx, count, fill));
+#endif
+
+      auto &allocation_result = *allocated;
+      if (allocation_result) {
+        ex::set_value(std::move(receiver), expected_take(allocation_result));
       } else {
-        ex::set_error(std::move(rcvr), std::move(allocated.error()));
+        ex::set_error(std::move(receiver), std::move(allocation_result.error()));
       }
     }
   };
@@ -192,7 +204,10 @@ namespace owned {
     [[nodiscard]] static auto make_allocated(context &ctx, std::size_t count, T fill) -> result<buffer>
     {
       static_assert(std::is_trivially_copyable_v<T>);
+      static_assert(std::is_nothrow_copy_assignable_v<T>);
       if (count == 0) { return fail(errc::invalid_argument, "vkexec::buffer count must be > 0"); }
+
+      std::string name = "buf" + std::to_string(next_name_id());
 
       auto const bytes = count * sizeof(T);
 
@@ -222,8 +237,7 @@ namespace owned {
       auto *const elems = static_cast<T *>(ainfo.pMappedData);
       for (T &elem : std::span<T>{ elems, count }) { elem = fill; }
 
-      return buffer(
-        owned_tag{}, &ctx, handle, allocation, ainfo.pMappedData, count, "buf" + std::to_string(next_name_id()));
+      return buffer(owned_tag{}, &ctx, handle, allocation, ainfo.pMappedData, count, std::move(name));
     }
 
     static auto next_name_id() -> int
