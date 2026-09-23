@@ -455,12 +455,12 @@ auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compu
 
 //! Returns the specialized local workgroup size as a `dispatch`.
 [[nodiscard]] inline auto local_size(handles::compute_pipeline const &pipe) noexcept -> dispatch
-{ return dispatch{ .x = pipe.local_size.at(0), .y = pipe.local_size.at(1), .z = pipe.local_size.at(2) }; }
+{ return dispatch{ .x = std::get<0>(pipe.local_size), .y = std::get<1>(pipe.local_size), .z = std::get<2>(pipe.local_size) }; }
 
 //! Returns workgroup counts covering `work_count` invocations along X.
 [[nodiscard]] inline auto groups_for(handles::compute_pipeline const &pipe, std::uint32_t work_count) noexcept
   -> dispatch
-{ return dispatch_groups_for(work_count, pipe.local_size.at(0)); }
+{ return dispatch_groups_for(work_count, std::get<0>(pipe.local_size)); }
 
 //! Convenience overload that binds `pipe` with `set` before building the closure.
 template<typename Params>

@@ -117,8 +117,10 @@ auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
   std::span<std::uint32_t const> spirv,
   layout_desc const &desc) const -> sender<::vkexec::owned::compute_pipeline>
 {
+  layout_desc owned_desc = desc;
+
   return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx, spirv, desc]() -> result<::vkexec::owned::compute_pipeline> {
+    [&ctx, spirv, desc = std::move(owned_desc)]() -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(ctx, spirv, desc));
       return ::vkexec::owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
     });

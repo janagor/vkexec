@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace vkexec {
@@ -65,6 +66,8 @@ struct layout_desc
   std::vector<std::uint32_t> specialization;
   std::array<std::uint32_t, 3> local_size{ k_default_local_size };
 };
+
+static_assert(std::is_nothrow_move_constructible_v<layout_desc>);
 
 /**
  * Vulkan objects for one classic compute pipeline.
