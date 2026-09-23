@@ -227,14 +227,6 @@ set(VKEXEC_PACKAGE_TARGETS
     vkexec_graphics
     vkexec_options
     vkexec_warnings
-    boost_system
-    boost_assert
-    boost_config
-    boost_throw_exception
-    boost_variant2
-    boost_winapi
-    boost_mp11
-    boost_predef
     stdexec
     vk-bootstrap
     vk-bootstrap-compiler-warnings
@@ -252,6 +244,7 @@ vkexec_package_project(
   TARGETS
   ${VKEXEC_PACKAGE_TARGETS}
   PUBLIC_DEPENDENCIES
+  "Boost 1.86 CONFIG"
   Vulkan
   Threads)
 
@@ -260,15 +253,6 @@ vkexec_package_project(
 # add_subdirectory / CPM for full target propagation until deps are packaged.
 include(GNUInstallDirs)
 install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
-file(
-  GLOB_RECURSE VKEXEC_BOOST_INCLUDE_DIRS
-  LIST_DIRECTORIES true
-  "${Boost_SOURCE_DIR}/libs/*/include")
-foreach(_boost_include_dir IN LISTS VKEXEC_BOOST_INCLUDE_DIRS)
-  if(IS_DIRECTORY "${_boost_include_dir}/boost")
-    install(DIRECTORY "${_boost_include_dir}/boost" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-  endif()
-endforeach()
 install(FILES "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrap.h"
               "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapDispatch.h"
               "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapFeatureChain.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
