@@ -189,8 +189,8 @@ struct pass_graph_sender
     std::vector<pass_step> steps;
     Receiver receiver;
     using child_receiver_t = after_gpu_receiver<Receiver>;
-    using submit_op_t = decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(),
-      std::declval<child_receiver_t>()));
+    using submit_op_t =
+      decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<child_receiver_t>()));
 
     struct submit_op_holder
     {
@@ -223,15 +223,15 @@ struct pass_graph_sender
 #if VKEXEC_ENABLE_EXCEPTIONS
       try {
 #endif
-      auto prepared = detail::open_and_record_pass(ctx, steps);
-      if (!prepared) {
-        ex::set_error(std::move(receiver), std::move(prepared.error()));
-        return;
-      }
+        auto prepared = detail::open_and_record_pass(ctx, steps);
+        if (!prepared) {
+          ex::set_error(std::move(receiver), std::move(prepared.error()));
+          return;
+        }
 
-      auto &child = submit_op.emplace(detail::submit_and_wait(expected_take(prepared)),
-        child_receiver_t{ .rcvr = &receiver, .steps = &steps });
-      ex::start(child.op);
+        auto &child = submit_op.emplace(
+          detail::submit_and_wait(expected_take(prepared)), child_receiver_t{ .rcvr = &receiver, .steps = &steps });
+        ex::start(child.op);
 #if VKEXEC_ENABLE_EXCEPTIONS
       } catch (...) {
         ex::set_error(std::move(receiver), unexpected_exception_error());
@@ -356,15 +356,15 @@ struct pass_graph_async_sender
 #if VKEXEC_ENABLE_EXCEPTIONS
       try {
 #endif
-      auto prepared = detail::open_and_record_pass(ctx, steps);
-      if (!prepared) {
-        ex::set_error(std::move(receiver), std::move(prepared.error()));
-        return;
-      }
+        auto prepared = detail::open_and_record_pass(ctx, steps);
+        if (!prepared) {
+          ex::set_error(std::move(receiver), std::move(prepared.error()));
+          return;
+        }
 
-      auto &child = submit_op.emplace(detail::submit_fence(expected_take(prepared)),
-        child_receiver_t{ .rcvr = &receiver, .steps = &steps });
-      ex::start(child.op);
+        auto &child = submit_op.emplace(
+          detail::submit_fence(expected_take(prepared)), child_receiver_t{ .rcvr = &receiver, .steps = &steps });
+        ex::start(child.op);
 #if VKEXEC_ENABLE_EXCEPTIONS
       } catch (...) {
         ex::set_error(std::move(receiver), unexpected_exception_error());

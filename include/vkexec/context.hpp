@@ -261,8 +261,7 @@ public:
       stop_requested = [state]() -> bool { return state->stop_requested(); };
     }
     auto done = std::make_shared<done_t>(std::forward<Done>(on_done));
-    return do_enqueue_fence_wait(
-      semaphore,
+    return do_enqueue_fence_wait(semaphore,
       fence,
       std::move(stop_requested),
       [done](std::optional<error> failure, bool stopped) mutable noexcept -> void {

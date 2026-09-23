@@ -153,9 +153,7 @@ struct error
 
 //! Returns the non-throwing error used when a sender catches an exception.
 [[nodiscard]] inline auto unexpected_exception_error() noexcept -> error
-{
-  return error{ .code = make_error_code(errc::unexpected_exception), .detail = {} };
-}
+{ return error{ .code = make_error_code(errc::unexpected_exception), .detail = {} }; }
 
 /**
  * Constructs an `error` with a vkexec `errc` and optional detail string.

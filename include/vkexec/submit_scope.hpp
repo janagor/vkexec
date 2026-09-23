@@ -172,8 +172,10 @@ namespace detail {
   }
 
   template<class Receiver>
-  auto release_scope_and_complete(submit_scope &scope, Receiver &&receiver, std::optional<error> failure, bool stopped)
-    noexcept -> void
+  auto release_scope_and_complete(submit_scope &scope,
+    Receiver &&receiver,
+    std::optional<error> failure,
+    bool stopped) noexcept -> void
   {
     scope.release();
     complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
@@ -361,10 +363,7 @@ namespace detail {
           submitted_to_gpu = true;
 
           auto enqueued = host->enqueue_fence_wait(
-            done,
-            fence,
-            token,
-            [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+            done, fence, token, [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
               release_scope_and_complete(scope, std::move(receiver), std::move(wait_error), stopped);
             });
           if (!enqueued) {
@@ -373,9 +372,7 @@ namespace detail {
           }
 #if VKEXEC_ENABLE_EXCEPTIONS
         } catch (...) {
-          if (submitted_to_gpu) {
-            reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
-          }
+          if (submitted_to_gpu) { reclaim_submission_sync(host->device(), host->compute_queue(), done, fence); }
           scope.release();
           ex::set_error(std::move(receiver), unexpected_exception_error());
         }
