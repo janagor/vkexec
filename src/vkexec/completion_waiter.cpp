@@ -40,15 +40,8 @@ completion_waiter::~completion_waiter() { shutdown(); }
 
 auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
 {
-  {
-    std::scoped_lock const lock(mutex_);
-    if (shutting_down_) {
-      error failure = make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
-      status result = fail(failure);
-      reclaim_sync(device_, fallback_queue_, semaphore, fence);
-      if (on_done) { on_done(std::move(failure), false); }
-      return result;
-    }
+  std::unique_lock lock(mutex_);
+  if (!shutting_down_) {
     pending_.reserve(pending_.size() + 1);
     pending_.push_back(job{
       .semaphore = semaphore,
@@ -58,9 +51,18 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
       .stop_seen = false,
       .destroy_sync = true,
     });
+    lock.unlock();
+    cv_.notify_one();
+    return {};
   }
-  cv_.notify_one();
-  return {};
+  lock.unlock();
+
+  // No waiter mutex is held while reclaiming or completing synchronously.
+  error failure = make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
+  status result = fail(failure);
+  reclaim_sync(device_, fallback_queue_, semaphore, fence);
+  if (on_done) { on_done(std::move(failure), false); }
+  return result;
 }
 
 auto completion_waiter::enqueue_borrowed(VkFence fence, stop_fn stop_requested, done_fn on_done) -> status

@@ -160,7 +160,7 @@ namespace detail {
    * and command/descriptor loans released (or about to be via `release_scope_and_complete`).
    */
   template<class Receiver>
-  auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
+  auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
   {
     if (failure) {
       ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
@@ -173,7 +173,7 @@ namespace detail {
 
   template<class Receiver>
   auto release_scope_and_complete(submit_scope &scope, Receiver &&receiver, std::optional<error> failure, bool stopped)
-    -> void
+    noexcept -> void
   {
     scope.release();
     complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
@@ -364,7 +364,7 @@ namespace detail {
             done,
             fence,
             token,
-            [this](std::optional<error> wait_error, bool stopped) mutable -> void {
+            [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
               release_scope_and_complete(scope, std::move(receiver), std::move(wait_error), stopped);
             });
           if (!enqueued) {
