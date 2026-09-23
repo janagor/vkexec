@@ -201,21 +201,30 @@ namespace detail {
 
       auto start() noexcept -> void
       {
-        Receiver rcvr = std::move(receiver);
-        auto const token = ex::get_stop_token(ex::get_env(rcvr));
+        auto const token = ex::get_stop_token(ex::get_env(receiver));
         if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
           if (token.stop_requested()) {
-            ex::set_stopped(std::move(rcvr));
+            ex::set_stopped(std::move(receiver));
             return;
           }
         }
 
-        auto opened = submit_scope::open(*ctx);
-        if (!opened) {
-          ex::set_error(std::move(rcvr), std::move(opened.error()));
+        result<submit_scope> opened;
+#if VKEXEC_ENABLE_EXCEPTIONS
+        try {
+          opened = submit_scope::open(*ctx);
+        } catch (...) {
+          ex::set_error(std::move(receiver), unexpected_exception_error());
           return;
         }
-        ex::set_value(std::move(rcvr), expected_take(opened));
+#else
+        opened = submit_scope::open(*ctx);
+#endif
+        if (!opened) {
+          ex::set_error(std::move(receiver), std::move(opened.error()));
+          return;
+        }
+        ex::set_value(std::move(receiver), expected_take(opened));
       }
     };
 
@@ -257,7 +266,19 @@ namespace detail {
       auto start() noexcept -> void
       {
         context *const host = scope.ctx;
-        if (auto submitted = host->submit_and_wait(scope.cmd); !submitted) {
+        status submitted;
+#if VKEXEC_ENABLE_EXCEPTIONS
+        try {
+          submitted = host->submit_and_wait(scope.cmd);
+        } catch (...) {
+          scope.release();
+          ex::set_error(std::move(receiver), unexpected_exception_error());
+          return;
+        }
+#else
+        submitted = host->submit_and_wait(scope.cmd);
+#endif
+        if (!submitted) {
           scope.release();
           ex::set_error(std::move(receiver), std::move(submitted.error()));
           return;
@@ -315,12 +336,11 @@ namespace detail {
 
       auto start() noexcept -> void
       {
-        Receiver rcvr = std::move(receiver);
-        auto const token = ex::get_stop_token(ex::get_env(rcvr));
+        auto const token = ex::get_stop_token(ex::get_env(receiver));
         if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
           if (token.stop_requested()) {
             scope.release();
-            ex::set_stopped(std::move(rcvr));
+            ex::set_stopped(std::move(receiver));
             return;
           }
         }
@@ -328,22 +348,38 @@ namespace detail {
         context *const host = scope.ctx;
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done{ VK_NULL_HANDLE };
-        if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
-          reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
-          scope.release();
-          ex::set_error(std::move(rcvr), std::move(submitted.error()));
-          return;
-        }
+        bool submitted_to_gpu = false;
+#if VKEXEC_ENABLE_EXCEPTIONS
+        try {
+#endif
+          if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
+            reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
+            scope.release();
+            ex::set_error(std::move(receiver), std::move(submitted.error()));
+            return;
+          }
+          submitted_to_gpu = true;
 
-        if (auto enqueued = host->enqueue_fence_wait(done,
-              fence,
-              token,
-              [scope = std::move(scope), rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable
-                -> void { release_scope_and_complete(scope, std::move(rcvr), std::move(wait_error), stopped); });
-          !enqueued) {
-          // on_done already completed `rcvr` (and released `scope`) on the failure path.
-          (void)enqueued;
+          auto enqueued = host->enqueue_fence_wait(
+            done,
+            fence,
+            token,
+            [this](std::optional<error> wait_error, bool stopped) mutable -> void {
+              release_scope_and_complete(scope, std::move(receiver), std::move(wait_error), stopped);
+            });
+          if (!enqueued) {
+            // enqueue_fence_wait has already reclaimed the submission and synchronously completed the receiver.
+            return;
+          }
+#if VKEXEC_ENABLE_EXCEPTIONS
+        } catch (...) {
+          if (submitted_to_gpu) {
+            reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
+          }
+          scope.release();
+          ex::set_error(std::move(receiver), unexpected_exception_error());
         }
+#endif
       }
     };
 

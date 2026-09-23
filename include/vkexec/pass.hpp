@@ -155,23 +155,32 @@ struct pass_graph_sender
   {
     using receiver_concept = ex::receiver_t;
 
-    Receiver rcvr;
-    std::vector<std::function<void()>> after_gpu;
+    Receiver *rcvr{ nullptr };
+    std::vector<pass_step> *steps{ nullptr };
 
     auto set_value() && noexcept -> void
     {
-      for (std::function<void()> const &callback : after_gpu) {
-        if (callback) { callback(); }
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+#endif
+        for (pass_step const &step : *steps) {
+          if (step.after_gpu) { step.after_gpu(); }
+        }
+#if VKEXEC_ENABLE_EXCEPTIONS
+      } catch (...) {
+        ex::set_error(std::move(*rcvr), unexpected_exception_error());
+        return;
       }
-      ex::set_value(std::move(rcvr));
+#endif
+      ex::set_value(std::move(*rcvr));
     }
 
-    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(rcvr), std::move(err)); }
+    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(*rcvr), std::move(err)); }
 
-    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(rcvr)); }
+    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(*rcvr)); }
 
     [[nodiscard]] auto get_env() const noexcept -> decltype(ex::get_env(std::declval<Receiver const &>()))
-    { return ex::get_env(rcvr); }
+    { return ex::get_env(std::as_const(*rcvr)); }
   };
 
   template<class Receiver> struct op_state
@@ -179,36 +188,55 @@ struct pass_graph_sender
     context *ctx{ nullptr };
     std::vector<pass_step> steps;
     Receiver receiver;
+    using child_receiver_t = after_gpu_receiver<Receiver>;
     using submit_op_t = decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(),
-      std::declval<after_gpu_receiver<Receiver>>()));
-    std::optional<submit_op_t> submit_op;
+      std::declval<child_receiver_t>()));
+
+    struct submit_op_holder
+    {
+      submit_op_t op;
+
+      submit_op_holder(detail::submit_and_wait_sender sender, child_receiver_t child)
+        : op(ex::connect(std::move(sender), std::move(child)))
+      {}
+
+      ~submit_op_holder() = default;
+
+      submit_op_holder(submit_op_holder const &) = delete;
+      auto operator=(submit_op_holder const &) -> submit_op_holder & = delete;
+      submit_op_holder(submit_op_holder &&) = delete;
+      auto operator=(submit_op_holder &&) -> submit_op_holder & = delete;
+    };
+
+    std::optional<submit_op_holder> submit_op;
 
     auto start() noexcept -> void
     {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      auto const token = ex::get_stop_token(ex::get_env(receiver));
       if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
         if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
+          ex::set_stopped(std::move(receiver));
           return;
         }
       }
 
-      std::vector<std::function<void()>> after;
-      after.reserve(steps.size());
-      for (pass_step &step : steps) {
-        if (step.after_gpu) { after.push_back(std::move(step.after_gpu)); }
-      }
-
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+#endif
       auto prepared = detail::open_and_record_pass(ctx, steps);
       if (!prepared) {
-        ex::set_error(std::move(rcvr), std::move(prepared.error()));
+        ex::set_error(std::move(receiver), std::move(prepared.error()));
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_and_wait(expected_take(prepared)),
-        after_gpu_receiver<Receiver>{ .rcvr = std::move(rcvr), .after_gpu = std::move(after) }));
-      ex::start(*submit_op);
+      auto &child = submit_op.emplace(detail::submit_and_wait(expected_take(prepared)),
+        child_receiver_t{ .rcvr = &receiver, .steps = &steps });
+      ex::start(child.op);
+#if VKEXEC_ENABLE_EXCEPTIONS
+      } catch (...) {
+        ex::set_error(std::move(receiver), unexpected_exception_error());
+      }
+#endif
     }
   };
 
@@ -260,23 +288,32 @@ struct pass_graph_async_sender
   {
     using receiver_concept = ex::receiver_t;
 
-    Receiver rcvr;
-    std::vector<std::function<void()>> after_gpu;
+    Receiver *rcvr{ nullptr };
+    std::vector<pass_step> *steps{ nullptr };
 
     auto set_value() && noexcept -> void
     {
-      for (std::function<void()> const &callback : after_gpu) {
-        if (callback) { callback(); }
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+#endif
+        for (pass_step const &step : *steps) {
+          if (step.after_gpu) { step.after_gpu(); }
+        }
+#if VKEXEC_ENABLE_EXCEPTIONS
+      } catch (...) {
+        ex::set_error(std::move(*rcvr), unexpected_exception_error());
+        return;
       }
-      ex::set_value(std::move(rcvr));
+#endif
+      ex::set_value(std::move(*rcvr));
     }
 
-    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(rcvr), std::move(err)); }
+    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(*rcvr), std::move(err)); }
 
-    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(rcvr)); }
+    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(*rcvr)); }
 
     [[nodiscard]] auto get_env() const noexcept -> decltype(ex::get_env(std::declval<Receiver const &>()))
-    { return ex::get_env(rcvr); }
+    { return ex::get_env(std::as_const(*rcvr)); }
   };
 
   template<class Receiver> struct op_state
@@ -284,36 +321,55 @@ struct pass_graph_async_sender
     context *ctx{ nullptr };
     std::vector<pass_step> steps;
     Receiver receiver;
+    using child_receiver_t = after_gpu_receiver<Receiver>;
     using submit_op_t =
-      decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<after_gpu_receiver<Receiver>>()));
-    std::optional<submit_op_t> submit_op;
+      decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<child_receiver_t>()));
+
+    struct submit_op_holder
+    {
+      submit_op_t op;
+
+      submit_op_holder(detail::submit_fence_sender sender, child_receiver_t child)
+        : op(ex::connect(std::move(sender), std::move(child)))
+      {}
+
+      ~submit_op_holder() = default;
+
+      submit_op_holder(submit_op_holder const &) = delete;
+      auto operator=(submit_op_holder const &) -> submit_op_holder & = delete;
+      submit_op_holder(submit_op_holder &&) = delete;
+      auto operator=(submit_op_holder &&) -> submit_op_holder & = delete;
+    };
+
+    std::optional<submit_op_holder> submit_op;
 
     auto start() noexcept -> void
     {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      auto const token = ex::get_stop_token(ex::get_env(receiver));
       if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
         if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
+          ex::set_stopped(std::move(receiver));
           return;
         }
       }
 
-      std::vector<std::function<void()>> after;
-      after.reserve(steps.size());
-      for (pass_step &step : steps) {
-        if (step.after_gpu) { after.push_back(std::move(step.after_gpu)); }
-      }
-
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+#endif
       auto prepared = detail::open_and_record_pass(ctx, steps);
       if (!prepared) {
-        ex::set_error(std::move(rcvr), std::move(prepared.error()));
+        ex::set_error(std::move(receiver), std::move(prepared.error()));
         return;
       }
 
-      submit_op.emplace(ex::connect(detail::submit_fence(expected_take(prepared)),
-        after_gpu_receiver<Receiver>{ .rcvr = std::move(rcvr), .after_gpu = std::move(after) }));
-      ex::start(*submit_op);
+      auto &child = submit_op.emplace(detail::submit_fence(expected_take(prepared)),
+        child_receiver_t{ .rcvr = &receiver, .steps = &steps });
+      ex::start(child.op);
+#if VKEXEC_ENABLE_EXCEPTIONS
+      } catch (...) {
+        ex::set_error(std::move(receiver), unexpected_exception_error());
+      }
+#endif
     }
   };
 

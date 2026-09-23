@@ -31,6 +31,7 @@ enum class errc {
   empty_result,
   cancelled,
   vulkan,
+  unexpected_exception,
 };
 
 //! Stable category id for `vkexec_error_category`.
@@ -81,6 +82,8 @@ public:
       return "cancelled";
     case errc::vulkan:
       return "vulkan error";
+    case errc::unexpected_exception:
+      return "unexpected C++ exception";
     default:
       return "unknown vkexec error";
     }
@@ -147,6 +150,12 @@ struct error
     return code.message();
   }
 };
+
+//! Returns the non-throwing error used when a sender catches an exception.
+[[nodiscard]] inline auto unexpected_exception_error() noexcept -> error
+{
+  return error{ .code = make_error_code(errc::unexpected_exception), .detail = {} };
+}
 
 /**
  * Constructs an `error` with a vkexec `errc` and optional detail string.

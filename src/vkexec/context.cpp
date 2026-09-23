@@ -494,8 +494,10 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
     impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
   }
   if (!impl_->completion_waiter) {
-    error const failure = make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
-    // Fail closed: reclaim owned sync objects before delivering the error to on_done.
+    error failure = make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
+    status result = fail(failure);
+    // From here on, ownership of the sync objects is consumed and no error/status
+    // construction is allowed to occur before completion is delivered.
     if (fence != VK_NULL_HANDLE) {
       (void)vkWaitForFences(device(), 1, &fence, VK_TRUE, UINT64_MAX);
     } else if (compute_queue() != VK_NULL_HANDLE) {
@@ -503,8 +505,8 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
     }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device(), semaphore, nullptr); }
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(device(), fence, nullptr); }
-    if (on_done) { on_done(failure, false); }
-    return fail(failure);
+    if (on_done) { on_done(std::move(failure), false); }
+    return result;
   }
   detail::completion_waiter::stop_fn stop;
   if (stop_requested) { stop = std::move(stop_requested); }

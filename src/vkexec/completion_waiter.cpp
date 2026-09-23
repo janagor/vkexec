@@ -43,10 +43,13 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
   {
     std::scoped_lock const lock(mutex_);
     if (shutting_down_) {
+      error failure = make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
+      status result = fail(failure);
       reclaim_sync(device_, fallback_queue_, semaphore, fence);
-      if (on_done) { on_done(make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown"), false); }
-      return fail(errc::invalid_argument, "completion_waiter enqueue after shutdown");
+      if (on_done) { on_done(std::move(failure), false); }
+      return result;
     }
+    pending_.reserve(pending_.size() + 1);
     pending_.push_back(job{
       .semaphore = semaphore,
       .fence = fence,
