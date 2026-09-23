@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <utility>
 
 namespace vkexec {
 auto create([[maybe_unused]] descriptor_heap_t strategy,
@@ -34,8 +35,11 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
   std::span<std::uint32_t const> spirv,
   heap_layout_desc const &desc) -> sender<owned::compute_pipeline>
 {
+  heap_layout_desc owned_desc = desc;
+
   return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx, strategy, spirv, desc]() -> result<::vkexec::owned::compute_pipeline> {
+    [&ctx, strategy, spirv, desc = std::move(owned_desc)]()
+      -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(strategy, ctx, spirv, desc));
       return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
     });

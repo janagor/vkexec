@@ -19,6 +19,7 @@
 #include <memory>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -48,6 +49,8 @@ struct heap_graphics_layout_desc
   std::vector<VkFormat> color_formats;
   VkFormat depth_format{ VK_FORMAT_UNDEFINED };
 };
+
+static_assert(std::is_nothrow_move_constructible_v<heap_graphics_layout_desc>);
 
 /**
  * Creates bindless heap graphics Vulkan objects from vertex/fragment SPIR-V.
