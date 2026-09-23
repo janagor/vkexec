@@ -207,7 +207,7 @@ namespace owned {
       static_assert(std::is_nothrow_copy_assignable_v<T>);
       if (count == 0) { return fail(errc::invalid_argument, "vkexec::buffer count must be > 0"); }
 
-      std::string name = "buf" + std::to_string(next_name_id());
+      std::string buffer_name = "buf" + std::to_string(next_name_id());
 
       auto const bytes = count * sizeof(T);
 
@@ -237,7 +237,7 @@ namespace owned {
       auto *const elems = static_cast<T *>(ainfo.pMappedData);
       for (T &elem : std::span<T>{ elems, count }) { elem = fill; }
 
-      return buffer(owned_tag{}, &ctx, handle, allocation, ainfo.pMappedData, count, std::move(name));
+      return buffer(owned_tag{}, &ctx, handle, allocation, ainfo.pMappedData, count, std::move(buffer_name));
     }
 
     static auto next_name_id() -> int
