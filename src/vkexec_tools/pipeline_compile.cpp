@@ -37,8 +37,15 @@ auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
   layout_desc const &desc,
   std::string_view name) const -> sender<::vkexec::owned::compute_pipeline>
 {
+  std::string owned_glsl{ glsl };
+  layout_desc owned_desc = desc;
+  std::string owned_name{ name };
+
   return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx, glsl = std::string(glsl), desc, name = std::string(name)]() -> result<::vkexec::owned::compute_pipeline> {
+    [&ctx,
+      glsl = std::move(owned_glsl),
+      desc = std::move(owned_desc),
+      name = std::move(owned_name)]() -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(ctx, glsl, desc, name));
       return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
     });
@@ -68,13 +75,17 @@ auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
   std::string_view fragment_glsl,
   std::span<storage_binding const> buffers) const -> sender<::vkexec::owned::graphics_pipeline>
 {
+  std::string owned_vertex_glsl{ vertex_glsl };
+  std::string owned_fragment_glsl{ fragment_glsl };
+  std::vector<storage_binding> owned_buffers{ buffers.begin(), buffers.end() };
+
   return make_sender<::vkexec::owned::graphics_pipeline>(
     [&ctx,
       render_pass,
       cfg,
-      vertex_glsl = std::string(vertex_glsl),
-      fragment_glsl = std::string(fragment_glsl),
-      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<::vkexec::owned::graphics_pipeline> {
+      vertex_glsl = std::move(owned_vertex_glsl),
+      fragment_glsl = std::move(owned_fragment_glsl),
+      owned = std::move(owned_buffers)]() mutable -> result<::vkexec::owned::graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(gfx_resources,
         create(ctx, render_pass, cfg, vertex_glsl, fragment_glsl, static_cast<std::uint32_t>(owned.size())));
       VkDescriptorSet set = VK_NULL_HANDLE;
@@ -118,8 +129,16 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
   heap_layout_desc const &desc,
   std::string_view name) -> sender<::vkexec::owned::compute_pipeline>
 {
+  std::string owned_glsl{ glsl };
+  heap_layout_desc owned_desc = desc;
+  std::string owned_name{ name };
+
   return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx, strategy, glsl = std::string(glsl), desc, name = std::string(name)]()
+    [&ctx,
+      strategy,
+      glsl = std::move(owned_glsl),
+      desc = std::move(owned_desc),
+      name = std::move(owned_name)]()
       -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(strategy, ctx, glsl, desc, name));
       return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
@@ -151,13 +170,20 @@ auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context 
   std::string_view vertex_name,
   std::string_view fragment_name) const -> sender<::vkexec::owned::descriptor_graphics_pipeline>
 {
+  std::string owned_vertex_glsl{ vertex_glsl };
+  std::string owned_fragment_glsl{ fragment_glsl };
+  heap_graphics_layout_desc owned_desc = desc;
+  std::string owned_vertex_name{ vertex_name };
+  std::string owned_fragment_name{ fragment_name };
+
   return make_sender<::vkexec::owned::descriptor_graphics_pipeline>(
     [&ctx,
-      vertex_glsl = std::string(vertex_glsl),
-      fragment_glsl = std::string(fragment_glsl),
-      desc,
-      vertex_name = std::string(vertex_name),
-      fragment_name = std::string(fragment_name)]() -> result<::vkexec::owned::descriptor_graphics_pipeline> {
+      vertex_glsl = std::move(owned_vertex_glsl),
+      fragment_glsl = std::move(owned_fragment_glsl),
+      desc = std::move(owned_desc),
+      vertex_name = std::move(owned_vertex_name),
+      fragment_name = std::move(owned_fragment_name)]()
+      -> result<::vkexec::owned::descriptor_graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(
         owned, create(descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
       return ::vkexec::owned::descriptor_graphics_pipeline::make(
