@@ -4,6 +4,7 @@ FROM ubuntu:${VARIANT} AS base
 ARG VARIANT
 ARG GCC_VER="16"
 ARG LLVM_VER="22"
+ARG VULKAN_HEADERS_VERSION="v1.4.352"
 
 # GitHub Actions Docker runners often have broken IPv6 to apt.llvm.org / mirrors.
 RUN printf 'Acquire::ForceIPv4 "true";\n' > /etc/apt/apt.conf.d/99force-ipv4
@@ -52,6 +53,15 @@ RUN curl -4fsSL --retry 5 --retry-all-errors \
       > /etc/apt/sources.list.d/kitware.list && \
     apt-get update -qq && export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y --no-install-recommends cmake
+
+RUN git clone --depth 1 --branch "${VULKAN_HEADERS_VERSION}" \
+        https://github.com/KhronosGroup/Vulkan-Headers.git /tmp/Vulkan-Headers && \
+    cmake -S /tmp/Vulkan-Headers -B /tmp/Vulkan-Headers/build \
+        -G Ninja \
+        -DVULKAN_HEADERS_ENABLE_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --install /tmp/Vulkan-Headers/build && \
+    rm -rf /tmp/Vulkan-Headers
 
 ENV IWYU=/opt/iwyu
 ENV IWYU_BUILD=${IWYU}/build
