@@ -558,7 +558,10 @@ namespace {
 
 auto load_gltf_mesh(std::string const &path) -> vkexec::sender<gltf_mesh_data>
 {
-  return vkexec::make_sender<gltf_mesh_data>([path]() -> vkexec::result<gltf_mesh_data> {
+  std::string owned_path = path;
+
+  return vkexec::make_sender<gltf_mesh_data>(
+    [path = std::move(owned_path)]() -> vkexec::result<gltf_mesh_data> {
     tinygltf3::Model model;
     tinygltf3::ErrorStack errors;
     tg3_parse_options options{};
