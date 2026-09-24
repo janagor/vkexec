@@ -469,8 +469,7 @@ auto context::create_allocator() -> status
   allocator_info.instance = impl_->instance.instance;
   allocator_info.vulkanApiVersion = impl_->api_version;
   if (impl_->procs.get_buffer_device_address != nullptr) {
-    allocator_info.flags |=
-      static_cast<decltype(allocator_info.flags)>(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT);
+    allocator_info.flags |= static_cast<decltype(allocator_info.flags)>(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT);
   }
   if (vmaCreateAllocator(&allocator_info, &impl_->allocator) != VK_SUCCESS) {
     return fail(VK_ERROR_UNKNOWN, "vmaCreateAllocator failed");

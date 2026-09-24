@@ -50,48 +50,57 @@ if(NOT DEFINED VKEXEC_CONFIG
   endif()
 endif()
 
-file(REMOVE_RECURSE "${prefix}" "${build}" "${boost_prefix}" "${boost_build}")
+file(
+  REMOVE_RECURSE
+  "${prefix}"
+  "${build}"
+  "${boost_prefix}"
+  "${boost_build}")
 
 set(generator_args "-G" "${VKEXEC_GENERATOR}")
 if(DEFINED VKEXEC_GENERATOR_PLATFORM
-   AND NOT "${VKEXEC_GENERATOR_PLATFORM}" STREQUAL "")
-  list(APPEND generator_args "-A" "${VKEXEC_GENERATOR_PLATFORM}")
+   AND NOT
+       "${VKEXEC_GENERATOR_PLATFORM}"
+       STREQUAL
+       "")
+  list(
+    APPEND
+    generator_args
+    "-A"
+    "${VKEXEC_GENERATOR_PLATFORM}")
 endif()
 if(DEFINED VKEXEC_GENERATOR_TOOLSET
-   AND NOT "${VKEXEC_GENERATOR_TOOLSET}" STREQUAL "")
-  list(APPEND generator_args "-T" "${VKEXEC_GENERATOR_TOOLSET}")
+   AND NOT
+       "${VKEXEC_GENERATOR_TOOLSET}"
+       STREQUAL
+       "")
+  list(
+    APPEND
+    generator_args
+    "-T"
+    "${VKEXEC_GENERATOR_TOOLSET}")
 endif()
 
-vkexec_read_cache_entry(
-  "${parent_cache}"
-  "CMAKE_CONFIGURATION_TYPES"
-  _configuration_types)
-vkexec_read_cache_entry(
-  "${parent_cache}"
-  "CMAKE_TOOLCHAIN_FILE"
-  _toolchain_file)
-vkexec_read_cache_entry(
-  "${parent_cache}"
-  "CMAKE_GENERATOR_INSTANCE"
-  _generator_instance)
-vkexec_read_cache_entry(
-  "${parent_cache}"
-  "CMAKE_CXX_COMPILER"
-  _cxx_compiler)
+vkexec_read_cache_entry("${parent_cache}" "CMAKE_CONFIGURATION_TYPES" _configuration_types)
+vkexec_read_cache_entry("${parent_cache}" "CMAKE_TOOLCHAIN_FILE" _toolchain_file)
+vkexec_read_cache_entry("${parent_cache}" "CMAKE_GENERATOR_INSTANCE" _generator_instance)
+vkexec_read_cache_entry("${parent_cache}" "CMAKE_CXX_COMPILER" _cxx_compiler)
 
 if(_toolchain_file AND NOT IS_ABSOLUTE "${_toolchain_file}")
   if(EXISTS "${VKEXEC_BINARY_DIR}/${_toolchain_file}")
     cmake_path(
-      ABSOLUTE_PATH _toolchain_file
-      BASE_DIRECTORY "${VKEXEC_BINARY_DIR}")
+      ABSOLUTE_PATH
+      _toolchain_file
+      BASE_DIRECTORY
+      "${VKEXEC_BINARY_DIR}")
   elseif(EXISTS "${VKEXEC_SOURCE_DIR}/${_toolchain_file}")
     cmake_path(
-      ABSOLUTE_PATH _toolchain_file
-      BASE_DIRECTORY "${VKEXEC_SOURCE_DIR}")
+      ABSOLUTE_PATH
+      _toolchain_file
+      BASE_DIRECTORY
+      "${VKEXEC_SOURCE_DIR}")
   else()
-    message(
-      FATAL_ERROR
-      "Could not resolve parent CMAKE_TOOLCHAIN_FILE: ${_toolchain_file}")
+    message(FATAL_ERROR "Could not resolve parent CMAKE_TOOLCHAIN_FILE: ${_toolchain_file}")
   endif()
 endif()
 
@@ -133,17 +142,23 @@ endif()
 
 if(NOT _toolchain_file
    AND _cxx_compiler
-   AND NOT VKEXEC_GENERATOR MATCHES "Visual Studio"
-   AND NOT VKEXEC_GENERATOR MATCHES "Xcode")
+   AND NOT
+       VKEXEC_GENERATOR
+       MATCHES
+       "Visual Studio"
+   AND NOT
+       VKEXEC_GENERATOR
+       MATCHES
+       "Xcode")
   list(APPEND boost_configure_args "-DCMAKE_CXX_COMPILER=${_cxx_compiler}")
   list(APPEND consumer_configure_args "-DCMAKE_CXX_COMPILER=${_cxx_compiler}")
 endif()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" ${boost_configure_args} COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND "${CMAKE_COMMAND}" --build "${boost_build}" --config "${VKEXEC_CONFIG}" --parallel 10
-                COMMAND_ERROR_IS_FATAL ANY)
+                        COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND "${CMAKE_COMMAND}" --install "${boost_build}" --config "${VKEXEC_CONFIG}"
-                COMMAND_ERROR_IS_FATAL ANY)
+                        COMMAND_ERROR_IS_FATAL ANY)
 
 execute_process(COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${prefix}" --config
                         "${VKEXEC_CONFIG}" COMMAND_ERROR_IS_FATAL ANY)

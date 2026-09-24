@@ -455,7 +455,11 @@ auto compute_pass(compute_bind bind, indirect_dispatch groups) -> prebuilt_compu
 
 //! Returns the specialized local workgroup size as a `dispatch`.
 [[nodiscard]] inline auto local_size(handles::compute_pipeline const &pipe) noexcept -> dispatch
-{ return dispatch{ .x = std::get<0>(pipe.local_size), .y = std::get<1>(pipe.local_size), .z = std::get<2>(pipe.local_size) }; }
+{
+  return dispatch{
+    .x = std::get<0>(pipe.local_size), .y = std::get<1>(pipe.local_size), .z = std::get<2>(pipe.local_size)
+  };
+}
 
 //! Returns workgroup counts covering `work_count` invocations along X.
 [[nodiscard]] inline auto groups_for(handles::compute_pipeline const &pipe, std::uint32_t work_count) noexcept

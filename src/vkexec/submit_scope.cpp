@@ -130,21 +130,14 @@ namespace detail {
     descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
   {
     // Reuse a set already allocated for this pipeline in the same submit when bindings match.
-    auto found = std::ranges::find_if(
-      cleanup.sets,
-      [&pipe](descriptor_cleanup::pipeline_set_entry const &entry) -> bool {
-        return entry.pipeline == &pipe;
-      });
+    auto found = std::ranges::find_if(cleanup.sets,
+      [&pipe](descriptor_cleanup::pipeline_set_entry const &entry) -> bool { return entry.pipeline == &pipe; });
     bool const has_existing = found != cleanup.sets.end();
-    if (has_existing && storage_bindings_equal(found->buffers, buffers)) {
-      return found->set;
-    }
+    if (has_existing && storage_bindings_equal(found->buffers, buffers)) { return found->set; }
 
     // Prepare all potentially throwing storage before acquiring the descriptor set.
     std::vector<storage_binding> owned_buffers{ buffers.begin(), buffers.end() };
-    if (!has_existing) {
-      cleanup.sets.reserve(cleanup.sets.size() + 1);
-    }
+    if (!has_existing) { cleanup.sets.reserve(cleanup.sets.size() + 1); }
     cleanup.allocated.reserve(cleanup.allocated.size() + 1);
 
     auto set = allocate_compute_set(ctx, pipe, buffers);

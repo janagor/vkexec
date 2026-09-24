@@ -42,10 +42,8 @@ auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
   std::string owned_name{ name };
 
   return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx,
-      glsl = std::move(owned_glsl),
-      desc = std::move(owned_desc),
-      name = std::move(owned_name)]() -> result<::vkexec::owned::compute_pipeline> {
+    [&ctx, glsl = std::move(owned_glsl), desc = std::move(owned_desc), name = std::move(owned_name)]()
+      -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(ctx, glsl, desc, name));
       return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
     });
@@ -134,11 +132,7 @@ auto create_compute_pipeline(descriptor_heap_t strategy,
   std::string owned_name{ name };
 
   return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx,
-      strategy,
-      glsl = std::move(owned_glsl),
-      desc = std::move(owned_desc),
-      name = std::move(owned_name)]()
+    [&ctx, strategy, glsl = std::move(owned_glsl), desc = std::move(owned_desc), name = std::move(owned_name)]()
       -> result<::vkexec::owned::compute_pipeline> {
       VKEXEC_TRY_ASSIGN(owned, create(strategy, ctx, glsl, desc, name));
       return owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
@@ -182,8 +176,7 @@ auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context 
       fragment_glsl = std::move(owned_fragment_glsl),
       desc = std::move(owned_desc),
       vertex_name = std::move(owned_vertex_name),
-      fragment_name = std::move(owned_fragment_name)]()
-      -> result<::vkexec::owned::descriptor_graphics_pipeline> {
+      fragment_name = std::move(owned_fragment_name)]() -> result<::vkexec::owned::descriptor_graphics_pipeline> {
       VKEXEC_TRY_ASSIGN(
         owned, create(descriptor_heap, ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
       return ::vkexec::owned::descriptor_graphics_pipeline::make(

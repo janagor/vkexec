@@ -4,8 +4,8 @@
 //! \file
 //! Small-buffer move-only type-erased callable (like `std::move_only_function`).
 
-#include <cassert>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <functional>
 #include <memory>
