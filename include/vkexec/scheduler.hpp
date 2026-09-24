@@ -12,7 +12,7 @@
 #include <stdexec/execution.hpp>
 
 #include <concepts>
-#include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -71,15 +71,29 @@ struct schedule_sender
         return;
       }
 
-      struct shared_state
-      {
-        Receiver receiver;
-      };
+#if VKEXEC_ENABLE_EXCEPTIONS
+      std::optional<status> enqueued;
+      try {
+        enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void {
+          ex::set_value(std::move(receiver));
+        }));
+      } catch (...) {
+        ex::set_error(std::move(receiver), unexpected_exception_error());
+        return;
+      }
+#else
+      auto enqueued = ctx->enqueue_host([this]() noexcept -> void {
+        ex::set_value(std::move(receiver));
+      });
+#endif
 
-      auto state = std::make_shared<shared_state>(std::move(receiver));
-      if (status enqueued = ctx->enqueue_host([state]() mutable -> void { ex::set_value(std::move(state->receiver)); });
-        !enqueued) {
-        ex::set_error(std::move(state->receiver), std::move(enqueued.error()));
+#if VKEXEC_ENABLE_EXCEPTIONS
+      auto &enqueue_status = *enqueued;
+#else
+      auto &enqueue_status = enqueued;
+#endif
+      if (!enqueue_status) {
+        ex::set_error(std::move(receiver), std::move(enqueue_status.error()));
       }
     }
   };
