@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <mutex>
 #include <span>
 #include <utility>
@@ -86,7 +87,7 @@ auto write_resource_descriptors(VkDevice device, VkDescriptorSet set, std::span<
 
 namespace detail {
 
-  auto descriptor_cleanup::release(context const &ctx) noexcept -> void
+  auto descriptor_cleanup::release(context const &ctx) -> void
   {
     // Host lock matches allocate path; pool frees must be serialized with submits.
     std::unique_lock const lock = ctx.lock_host();
@@ -191,12 +192,24 @@ namespace detail {
   {
     // Always free cmd before descriptors so a failed submit still returns loans.
     if (ctx == nullptr) { return; }
-    if (cmd != VK_NULL_HANDLE) {
-      ctx->free_command_buffer(cmd);
-      cmd = VK_NULL_HANDLE;
+
+#if VKEXEC_ENABLE_EXCEPTIONS
+    try {
+#endif
+      if (cmd != VK_NULL_HANDLE) {
+        ctx->free_command_buffer(cmd);
+        cmd = VK_NULL_HANDLE;
+      }
+
+      cleanup.release(*ctx);
+      ctx = nullptr;
+#if VKEXEC_ENABLE_EXCEPTIONS
+    } catch (...) {
+      // Cleanup is an RAII/noexcept boundary. If host synchronization fails,
+      // Vulkan loans cannot be safely reclaimed or propagated to the caller.
+      std::terminate();
     }
-    cleanup.release(*ctx);
-    ctx = nullptr;
+#endif
   }
 
   // Same reclaim order as completion_waiter: wait, then destroy owned sync objects.

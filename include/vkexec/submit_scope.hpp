@@ -54,7 +54,10 @@ namespace detail {
     std::vector<allocated_set> allocated;
 
     //! Frees all tracked descriptor sets on `ctx`'s device.
-    auto release(context const &ctx) noexcept -> void;
+    //!
+    //! May throw if host synchronization (`lock_host`) fails. Callers that need a
+    //! noexcept RAII boundary should catch at `submit_scope::release()`.
+    auto release(context const &ctx) -> void;
 
     //! Records a pool/set pair for later release.
     auto track(VkDescriptorPool pool, VkDescriptorSet set) -> void
@@ -147,6 +150,8 @@ namespace detail {
     { cleanup.track(pipe.descriptor_pool, set); }
 
     //! Frees the command buffer and descriptor loans; safe to call more than once.
+    //!
+    //! Host-mutex failure during cleanup is unrecoverable and calls `std::terminate()`.
     auto release() noexcept -> void;
   };
 
