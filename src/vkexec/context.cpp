@@ -523,9 +523,10 @@ auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
     impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
   }
   if (!impl_->completion_waiter) {
-    error const failure = make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
-    if (on_done) { on_done(failure, false); }
-    return fail(failure);
+    error failure = make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
+    status result = fail(failure);
+    if (on_done) { on_done(std::move(failure), false); }
+    return result;
   }
   detail::completion_waiter::stop_fn stop;
   if (stop_requested) { stop = std::move(stop_requested); }

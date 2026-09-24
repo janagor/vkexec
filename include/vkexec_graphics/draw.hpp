@@ -37,7 +37,8 @@ namespace detail {
   [[nodiscard]] inline auto try_end_frame(owned::presenter &win, frame const &drawn) -> result<VkFence>
   { return win.end_frame(drawn); }
 
-  template<class Receiver> auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) -> void
+  template<class Receiver>
+  auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
   {
     if (failure) {
       ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
@@ -48,38 +49,62 @@ namespace detail {
     }
   }
 
-  template<class WindowOp, class Receiver>
-  auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver receiver) -> void
+  template<class Receiver, class Operation>
+  auto start_draw_sync(Receiver &receiver, Operation &&operation) noexcept -> void
   {
-    Receiver rcvr = std::move(receiver);
-    auto const token = ex::get_stop_token(ex::get_env(rcvr));
-    if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-      if (token.stop_requested()) {
-        ex::set_stopped(std::move(rcvr));
+#if VKEXEC_ENABLE_EXCEPTIONS
+    try {
+      std::forward<Operation>(operation)();
+    } catch (...) {
+      ex::set_error(std::move(receiver), unexpected_exception_error());
+    }
+#else
+    std::forward<Operation>(operation)();
+#endif
+  }
+
+  template<class WindowOp, class Receiver>
+  auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver &receiver) noexcept -> void
+  {
+#if VKEXEC_ENABLE_EXCEPTIONS
+    try {
+#endif
+      auto const token = ex::get_stop_token(ex::get_env(receiver));
+      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
+        if (token.stop_requested()) {
+          ex::set_stopped(std::move(receiver));
+          return;
+        }
+      }
+
+      auto frame_result = try_begin_frame(*win);
+      if (!frame_result) {
+        ex::set_error(std::move(receiver), std::move(frame_result.error()));
         return;
       }
-    }
+      if (!frame_result->has_value()) {
+        ex::set_value(std::move(receiver));
+        return;
+      }
 
-    auto frame_result = try_begin_frame(*win);
-    if (!frame_result) {
-      ex::set_error(std::move(rcvr), std::move(frame_result.error()));
-      return;
-    }
-    if (!frame_result->has_value()) {
-      ex::set_value(std::move(rcvr));
-      return;
-    }
+      auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
+      if (!fence_result) {
+        ex::set_error(std::move(receiver), std::move(fence_result.error()));
+        return;
+      }
 
-    auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
-    if (!fence_result) {
-      ex::set_error(std::move(rcvr), std::move(fence_result.error()));
-      return;
+      Receiver *const rcvr = &receiver;
+      (void)ctx->enqueue_borrowed_fence_wait(
+        *fence_result,
+        token,
+        [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+          complete_draw(std::move(*rcvr), std::move(wait_error), stopped);
+        });
+#if VKEXEC_ENABLE_EXCEPTIONS
+    } catch (...) {
+      ex::set_error(std::move(receiver), unexpected_exception_error());
     }
-
-    (void)ctx->enqueue_borrowed_fence_wait(
-      *fence_result, token, [rcvr = std::move(rcvr)](std::optional<error> wait_error, bool stopped) mutable -> void {
-        complete_draw(std::move(rcvr), std::move(wait_error), stopped);
-      });
+#endif
   }
 
 }// namespace detail
@@ -202,6 +227,7 @@ struct draw_sender
 
     auto start() noexcept -> void
     {
+      detail::start_draw_sync(receiver, [this]() -> void {
       auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
         ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -224,6 +250,7 @@ struct draw_sender
         return;
       }
       ex::set_value(std::move(receiver));
+      });
     }
   };
 
@@ -281,7 +308,7 @@ struct draw_async_sender
           }
           return detail::try_end_frame(*win, drawn);
         },
-        std::move(receiver));
+        receiver);
     }
   };
 
@@ -333,6 +360,7 @@ struct draw_layers_sender
 
     auto start() noexcept -> void
     {
+      detail::start_draw_sync(receiver, [this]() -> void {
       if (layers.empty()) {
         ex::set_error(
           std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
@@ -376,6 +404,7 @@ struct draw_layers_sender
         return;
       }
       ex::set_value(std::move(receiver));
+      });
     }
   };
 
@@ -435,7 +464,7 @@ struct draw_layers_async_sender
           }
           return detail::try_end_frame(*win, drawn_frame);
         },
-        std::move(receiver));
+        receiver);
     }
   };
 
@@ -497,6 +526,7 @@ struct draw_mesh_sender
 
     auto start() noexcept -> void
     {
+      detail::start_draw_sync(receiver, [this]() -> void {
       auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
         ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -519,6 +549,7 @@ struct draw_mesh_sender
         return;
       }
       ex::set_value(std::move(receiver));
+      });
     }
   };
 
@@ -572,7 +603,7 @@ struct draw_mesh_async_sender
           }
           return detail::try_end_frame(*win, drawn_frame);
         },
-        std::move(receiver));
+        receiver);
     }
   };
 
@@ -648,6 +679,7 @@ struct draw_bind_sender
 
     auto start() noexcept -> void
     {
+      detail::start_draw_sync(receiver, [this]() -> void {
       auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
         ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -675,6 +707,7 @@ struct draw_bind_sender
         return;
       }
       ex::set_value(std::move(receiver));
+      });
     }
   };
 
@@ -735,7 +768,7 @@ struct draw_bind_async_sender
           }
           return detail::try_end_frame(*win, drawn);
         },
-        std::move(receiver));
+        receiver);
     }
   };
 
@@ -788,6 +821,7 @@ struct draw_mesh_bind_sender
 
     auto start() noexcept -> void
     {
+      detail::start_draw_sync(receiver, [this]() -> void {
       auto frame_result = detail::try_begin_frame(*win);
       if (!frame_result) {
         ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -815,6 +849,7 @@ struct draw_mesh_bind_sender
         return;
       }
       ex::set_value(std::move(receiver));
+      });
     }
   };
 
@@ -875,7 +910,7 @@ struct draw_mesh_bind_async_sender
           }
           return detail::try_end_frame(*win, drawn_frame);
         },
-        std::move(receiver));
+        receiver);
     }
   };
 
