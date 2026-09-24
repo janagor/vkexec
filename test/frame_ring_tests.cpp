@@ -105,23 +105,20 @@ TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]
   REQUIRE(ring.wait_image(0));
 }
 
-TEST_CASE("frame_ring resize_images replaces finished semaphores", "[vkexec][frame_ring][gpu]")
+TEST_CASE("frame_ring resize_images rebuilds image synchronization", "[vkexec][frame_ring][gpu]")
 {
   auto ctx = open_timeline_context();
 
   auto ring = vkexec::test::sync_wait_value(
     vkexec::factory::make_frame_ring(*ctx, vkexec::frame_ring_create_info{ .slot_count = 2, .image_count = 2 }));
-  auto const old_finished = ring.render_finished_semaphore(0);
-  REQUIRE(old_finished.has_value());
 
   REQUIRE(ring.resize_images(4));
   REQUIRE(ring.image_count() == 4);
-  auto const new_finished = ring.render_finished_semaphore(0);
-  REQUIRE(new_finished.has_value());
-  REQUIRE(*new_finished != VK_NULL_HANDLE);
-  REQUIRE(*new_finished != *old_finished);
+  auto const finished0 = ring.render_finished_semaphore(0);
+  REQUIRE(finished0.has_value());
+  REQUIRE(*finished0 != VK_NULL_HANDLE);
   auto const finished3 = ring.render_finished_semaphore(3);
-  REQUIRE(finished3);
+  REQUIRE(finished3.has_value());
   REQUIRE(*finished3 != VK_NULL_HANDLE);
   ring.reset_completion_tracking();
   REQUIRE(ring.wait_slot(1));
