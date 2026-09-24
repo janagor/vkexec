@@ -3,9 +3,9 @@
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 
-#include <future>
+#include <exception>
+#include <latch>
 #include <mutex>
-#include <stop_token>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -38,14 +38,21 @@ namespace {
 host_agent::host_agent()
 {
   // Publish thread_id_ before the constructor returns so enqueue can detect the agent thread.
-  std::promise<void> ready;
-  std::future<void> const started = ready.get_future();
-  thread_ = std::jthread([this, signal = std::move(ready)](std::stop_token const & /*token*/) mutable -> void {
+  std::latch ready{ 1 };
+  thread_ = std::jthread([this, &ready]() noexcept -> void {
     thread_id_ = std::this_thread::get_id();
-    signal.set_value();
+    ready.count_down();
+#if VKEXEC_ENABLE_EXCEPTIONS
+    try {
+      run();
+    } catch (...) {
+      std::terminate();
+    }
+#else
     run();
+#endif
   });
-  started.wait();
+  ready.wait();
 }
 
 host_agent::~host_agent() { shutdown(); }
