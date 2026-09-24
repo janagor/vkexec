@@ -302,6 +302,37 @@ jobs:
         run: |
           cmake --build ./build --config ${{matrix.build_type}}
 
+      - name: Windows Vulkan diagnostics
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "VULKAN_SDK=$env:VULKAN_SDK"
+          Write-Host "VK_DRIVER_FILES=$env:VK_DRIVER_FILES"
+          Write-Host "VK_ICD_FILENAMES=$env:VK_ICD_FILENAMES"
+
+          $vulkanInfo = Get-Command vulkaninfo -ErrorAction SilentlyContinue
+          $vulkanInfoPath = $null
+
+          if ($null -ne $vulkanInfo) {
+            $vulkanInfoPath = $vulkanInfo.Source
+          } elseif ($env:VULKAN_SDK) {
+            $sdkVulkanInfo = Join-Path $env:VULKAN_SDK "Bin/vulkaninfo.exe"
+            if (Test-Path $sdkVulkanInfo) {
+              $vulkanInfoPath = $sdkVulkanInfo
+            }
+          }
+
+          if ($null -eq $vulkanInfoPath) {
+            Write-Error "vulkaninfo was not found in PATH or VULKAN_SDK/Bin"
+            exit 1
+          }
+
+          Write-Host "Using vulkaninfo: $vulkanInfoPath"
+          & $vulkanInfoPath --summary
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
       - name: Unix - Test
         if: runner.os != 'Windows'
         working-directory: ./build
