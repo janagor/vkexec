@@ -213,17 +213,10 @@ function(vkexec_setup_dependencies)
     add_library(tinygltf::tinygltf ALIAS tinygltf)
 
     target_include_directories(tinygltf SYSTEM PUBLIC ${tinygltf_SOURCE_DIR})
-    target_compile_definitions(
-      tinygltf
-      PRIVATE
-        TINYGLTF3_ENABLE_FS
-        $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
+    target_compile_definitions(tinygltf PRIVATE TINYGLTF3_ENABLE_FS $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
     target_compile_options(
-      tinygltf
-      PRIVATE
-        $<$<C_COMPILER_ID:MSVC>:/w>
-        $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-everything>
-        $<$<C_COMPILER_ID:GNU>:-w>)
+      tinygltf PRIVATE $<$<C_COMPILER_ID:MSVC>:/w> $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-everything>
+                       $<$<C_COMPILER_ID:GNU>:-w>)
     set_target_properties(
       tinygltf
       PROPERTIES C_STANDARD 11

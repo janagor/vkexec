@@ -64,7 +64,8 @@ namespace detail {
   }
 
   template<class WindowOp, class Receiver>
-  auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver &receiver) noexcept -> void
+  auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver &receiver) noexcept
+    -> void
   {
 #if VKEXEC_ENABLE_EXCEPTIONS
     try {
@@ -95,9 +96,7 @@ namespace detail {
 
       Receiver *const rcvr = &receiver;
       (void)ctx->enqueue_borrowed_fence_wait(
-        *fence_result,
-        token,
-        [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+        *fence_result, token, [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
           complete_draw(std::move(*rcvr), std::move(wait_error), stopped);
         });
 #if VKEXEC_ENABLE_EXCEPTIONS
@@ -228,28 +227,28 @@ struct draw_sender
     auto start() noexcept -> void
     {
       detail::start_draw_sync(receiver, [this]() -> void {
-      auto frame_result = detail::try_begin_frame(*win);
-      if (!frame_result) {
-        ex::set_error(std::move(receiver), std::move(frame_result.error()));
-        return;
-      }
-      if (!frame_result->has_value()) {
-        ex::set_value(std::move(receiver));
-        return;
-      }
+        auto frame_result = detail::try_begin_frame(*win);
+        if (!frame_result) {
+          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          return;
+        }
+        if (!frame_result->has_value()) {
+          ex::set_value(std::move(receiver));
+          return;
+        }
 
-      frame const &drawn = **frame_result;
-      if (auto draw_status =
-            pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
-        !draw_status) {
-        ex::set_error(std::move(receiver), std::move(draw_status.error()));
-        return;
-      }
-      if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-        ex::set_error(std::move(receiver), std::move(fence_result.error()));
-        return;
-      }
-      ex::set_value(std::move(receiver));
+        frame const &drawn = **frame_result;
+        if (auto draw_status =
+              pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
+          !draw_status) {
+          ex::set_error(std::move(receiver), std::move(draw_status.error()));
+          return;
+        }
+        if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          return;
+        }
+        ex::set_value(std::move(receiver));
       });
     }
   };
@@ -361,49 +360,49 @@ struct draw_layers_sender
     auto start() noexcept -> void
     {
       detail::start_draw_sync(receiver, [this]() -> void {
-      if (layers.empty()) {
-        ex::set_error(
-          std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
-        return;
-      }
+        if (layers.empty()) {
+          ex::set_error(
+            std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
+          return;
+        }
 
-      auto frame_result = detail::try_begin_frame(*win);
-      if (!frame_result) {
-        ex::set_error(std::move(receiver), std::move(frame_result.error()));
-        return;
-      }
-      if (!frame_result->has_value()) {
+        auto frame_result = detail::try_begin_frame(*win);
+        if (!frame_result) {
+          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          return;
+        }
+        if (!frame_result->has_value()) {
+          ex::set_value(std::move(receiver));
+          return;
+        }
+
+        frame const &drawn = **frame_result;
+        graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
+        std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
+
+        VkRenderPassBeginInfo rp_begin{};
+        rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        rp_begin.renderPass = win->render_pass();
+        rp_begin.framebuffer = drawn.framebuffer;
+        rp_begin.renderArea.offset = { .x = 0, .y = 0 };
+        rp_begin.renderArea.extent = drawn.extent;
+        rp_begin.clearValueCount = k_graphics_clear_count;
+        rp_begin.pClearValues = clears.data();
+
+        vkCmdBeginRenderPass(drawn.command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+        for (draw_layer const &layer : layers) {
+          layer.pipeline->record_draw(drawn.command_buffer, drawn.extent, layer.vertex_count);
+        }
+        vkCmdEndRenderPass(drawn.command_buffer);
+        if (VkResult const end_result = vkEndCommandBuffer(drawn.command_buffer); end_result != VK_SUCCESS) {
+          ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed"));
+          return;
+        }
+        if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          return;
+        }
         ex::set_value(std::move(receiver));
-        return;
-      }
-
-      frame const &drawn = **frame_result;
-      graphics_pipeline_config const &clear_cfg = layers.front().pipeline->config();
-      std::array<VkClearValue, k_graphics_clear_count> const clears = make_clear_values(clear_cfg);
-
-      VkRenderPassBeginInfo rp_begin{};
-      rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-      rp_begin.renderPass = win->render_pass();
-      rp_begin.framebuffer = drawn.framebuffer;
-      rp_begin.renderArea.offset = { .x = 0, .y = 0 };
-      rp_begin.renderArea.extent = drawn.extent;
-      rp_begin.clearValueCount = k_graphics_clear_count;
-      rp_begin.pClearValues = clears.data();
-
-      vkCmdBeginRenderPass(drawn.command_buffer, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-      for (draw_layer const &layer : layers) {
-        layer.pipeline->record_draw(drawn.command_buffer, drawn.extent, layer.vertex_count);
-      }
-      vkCmdEndRenderPass(drawn.command_buffer);
-      if (VkResult const end_result = vkEndCommandBuffer(drawn.command_buffer); end_result != VK_SUCCESS) {
-        ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed"));
-        return;
-      }
-      if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-        ex::set_error(std::move(receiver), std::move(fence_result.error()));
-        return;
-      }
-      ex::set_value(std::move(receiver));
       });
     }
   };
@@ -527,28 +526,28 @@ struct draw_mesh_sender
     auto start() noexcept -> void
     {
       detail::start_draw_sync(receiver, [this]() -> void {
-      auto frame_result = detail::try_begin_frame(*win);
-      if (!frame_result) {
-        ex::set_error(std::move(receiver), std::move(frame_result.error()));
-        return;
-      }
-      if (!frame_result->has_value()) {
-        ex::set_value(std::move(receiver));
-        return;
-      }
+        auto frame_result = detail::try_begin_frame(*win);
+        if (!frame_result) {
+          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          return;
+        }
+        if (!frame_result->has_value()) {
+          ex::set_value(std::move(receiver));
+          return;
+        }
 
-      frame const &drawn_frame = **frame_result;
-      if (auto draw_status = pipeline->draw(
-            drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
-        !draw_status) {
-        ex::set_error(std::move(receiver), std::move(draw_status.error()));
-        return;
-      }
-      if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
-        ex::set_error(std::move(receiver), std::move(fence_result.error()));
-        return;
-      }
-      ex::set_value(std::move(receiver));
+        frame const &drawn_frame = **frame_result;
+        if (auto draw_status = pipeline->draw(
+              drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
+          !draw_status) {
+          ex::set_error(std::move(receiver), std::move(draw_status.error()));
+          return;
+        }
+        if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
+          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          return;
+        }
+        ex::set_value(std::move(receiver));
       });
     }
   };
@@ -680,33 +679,33 @@ struct draw_bind_sender
     auto start() noexcept -> void
     {
       detail::start_draw_sync(receiver, [this]() -> void {
-      auto frame_result = detail::try_begin_frame(*win);
-      if (!frame_result) {
-        ex::set_error(std::move(receiver), std::move(frame_result.error()));
-        return;
-      }
-      if (!frame_result->has_value()) {
-        ex::set_value(std::move(receiver));
-        return;
-      }
+        auto frame_result = detail::try_begin_frame(*win);
+        if (!frame_result) {
+          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          return;
+        }
+        if (!frame_result->has_value()) {
+          ex::set_value(std::move(receiver));
+          return;
+        }
 
-      frame const &drawn = **frame_result;
-      if (auto draw_status = draw_pass(drawn.command_buffer,
-            win->render_pass(),
-            drawn.framebuffer,
-            drawn.extent,
-            resources->cfg,
-            bind_graphics(*resources, set),
-            vertex_count);
-        !draw_status) {
-        ex::set_error(std::move(receiver), std::move(draw_status.error()));
-        return;
-      }
-      if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-        ex::set_error(std::move(receiver), std::move(fence_result.error()));
-        return;
-      }
-      ex::set_value(std::move(receiver));
+        frame const &drawn = **frame_result;
+        if (auto draw_status = draw_pass(drawn.command_buffer,
+              win->render_pass(),
+              drawn.framebuffer,
+              drawn.extent,
+              resources->cfg,
+              bind_graphics(*resources, set),
+              vertex_count);
+          !draw_status) {
+          ex::set_error(std::move(receiver), std::move(draw_status.error()));
+          return;
+        }
+        if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
+          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          return;
+        }
+        ex::set_value(std::move(receiver));
       });
     }
   };
@@ -822,33 +821,33 @@ struct draw_mesh_bind_sender
     auto start() noexcept -> void
     {
       detail::start_draw_sync(receiver, [this]() -> void {
-      auto frame_result = detail::try_begin_frame(*win);
-      if (!frame_result) {
-        ex::set_error(std::move(receiver), std::move(frame_result.error()));
-        return;
-      }
-      if (!frame_result->has_value()) {
-        ex::set_value(std::move(receiver));
-        return;
-      }
+        auto frame_result = detail::try_begin_frame(*win);
+        if (!frame_result) {
+          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          return;
+        }
+        if (!frame_result->has_value()) {
+          ex::set_value(std::move(receiver));
+          return;
+        }
 
-      frame const &drawn_frame = **frame_result;
-      if (auto draw_status = draw_pass(drawn_frame.command_buffer,
-            win->render_pass(),
-            drawn_frame.framebuffer,
-            drawn_frame.extent,
-            resources->cfg,
-            bind_graphics(*resources, set),
-            drawn);
-        !draw_status) {
-        ex::set_error(std::move(receiver), std::move(draw_status.error()));
-        return;
-      }
-      if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
-        ex::set_error(std::move(receiver), std::move(fence_result.error()));
-        return;
-      }
-      ex::set_value(std::move(receiver));
+        frame const &drawn_frame = **frame_result;
+        if (auto draw_status = draw_pass(drawn_frame.command_buffer,
+              win->render_pass(),
+              drawn_frame.framebuffer,
+              drawn_frame.extent,
+              resources->cfg,
+              bind_graphics(*resources, set),
+              drawn);
+          !draw_status) {
+          ex::set_error(std::move(receiver), std::move(draw_status.error()));
+          return;
+        }
+        if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
+          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          return;
+        }
+        ex::set_value(std::move(receiver));
       });
     }
   };

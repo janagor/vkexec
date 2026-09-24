@@ -74,17 +74,13 @@ struct schedule_sender
 #if VKEXEC_ENABLE_EXCEPTIONS
       std::optional<status> enqueued;
       try {
-        enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void {
-          ex::set_value(std::move(receiver));
-        }));
+        enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void { ex::set_value(std::move(receiver)); }));
       } catch (...) {
         ex::set_error(std::move(receiver), unexpected_exception_error());
         return;
       }
 #else
-      auto enqueued = ctx->enqueue_host([this]() noexcept -> void {
-        ex::set_value(std::move(receiver));
-      });
+      auto enqueued = ctx->enqueue_host([this]() noexcept -> void { ex::set_value(std::move(receiver)); });
 #endif
 
 #if VKEXEC_ENABLE_EXCEPTIONS
@@ -92,9 +88,7 @@ struct schedule_sender
 #else
       auto &enqueue_status = enqueued;
 #endif
-      if (!enqueue_status) {
-        ex::set_error(std::move(receiver), std::move(enqueue_status.error()));
-      }
+      if (!enqueue_status) { ex::set_error(std::move(receiver), std::move(enqueue_status.error())); }
     }
   };
 

@@ -51,15 +51,17 @@ struct graphics_pipeline_config
 {
   return {
     VkClearValue{
-      .color = VkClearColorValue{
-        .float32 = { cfg.clear_r, cfg.clear_g, cfg.clear_b, cfg.clear_a },
-      },
+      .color =
+        VkClearColorValue{
+          .float32 = { cfg.clear_r, cfg.clear_g, cfg.clear_b, cfg.clear_a },
+        },
     },
     VkClearValue{
-      .depthStencil = VkClearDepthStencilValue{
-        .depth = k_depth_clear_value,
-        .stencil = k_stencil_clear_value,
-      },
+      .depthStencil =
+        VkClearDepthStencilValue{
+          .depth = k_depth_clear_value,
+          .stencil = k_stencil_clear_value,
+        },
     },
   };
 }

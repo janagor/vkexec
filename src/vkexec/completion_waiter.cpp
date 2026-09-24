@@ -34,9 +34,7 @@ namespace {
 }// namespace
 
 completion_waiter::completion_waiter(VkDevice device, VkQueue fallback_queue)
-  : device_(device),
-    fallback_queue_(fallback_queue),
-    thread_([this]() noexcept -> void {
+  : device_(device), fallback_queue_(fallback_queue), thread_([this]() noexcept -> void {
 #if VKEXEC_ENABLE_EXCEPTIONS
       try {
         run();
