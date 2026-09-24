@@ -5,6 +5,7 @@
 //! Small-buffer move-only type-erased callable (like `std::move_only_function`).
 
 #include <cassert>
+#include <array>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -89,13 +90,13 @@ private:
 
   static constexpr std::size_t k_buffer_size = 3 * sizeof(void *);
 
-  alignas(std::max_align_t) unsigned char buffer_[k_buffer_size]{};
+  alignas(std::max_align_t) std::array<std::byte, k_buffer_size> buffer_{};
   invoker_fn invoker_{ nullptr };
   relocator_fn relocator_{ nullptr };
   destructor_fn destructor_{ nullptr };
 
-  [[nodiscard]] auto storage() noexcept -> void * { return static_cast<void *>(buffer_); }
-  [[nodiscard]] auto storage() const noexcept -> void const * { return static_cast<void const *>(buffer_); }
+  [[nodiscard]] auto storage() noexcept -> void * { return buffer_.data(); }
+  [[nodiscard]] auto storage() const noexcept -> void const * { return buffer_.data(); }
 
   template<typename F> static auto invoke(void *slot, Args... args) -> R
   {

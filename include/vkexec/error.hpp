@@ -141,7 +141,7 @@ public:
  */
 struct error
 {
-  sys::error_code code{};
+  sys::error_code code;
   std::string detail;
 
   //! Returns `detail` if non-empty; otherwise `code.message()`.

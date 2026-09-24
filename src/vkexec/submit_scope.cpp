@@ -130,19 +130,37 @@ namespace detail {
     descriptor_cleanup &cleanup) -> result<VkDescriptorSet>
   {
     // Reuse a set already allocated for this pipeline in the same submit when bindings match.
-    if (auto found = cleanup.sets.find(&pipe); found != cleanup.sets.end()) {
-      if (storage_bindings_equal(found->second.buffers, buffers)) { return found->second.set; }
+    auto found = std::ranges::find_if(
+      cleanup.sets,
+      [&pipe](descriptor_cleanup::pipeline_set_entry const &entry) -> bool {
+        return entry.pipeline == &pipe;
+      });
+    bool const has_existing = found != cleanup.sets.end();
+    if (has_existing && storage_bindings_equal(found->buffers, buffers)) {
+      return found->set;
     }
+
+    // Prepare all potentially throwing storage before acquiring the descriptor set.
+    std::vector<storage_binding> owned_buffers{ buffers.begin(), buffers.end() };
+    if (!has_existing) {
+      cleanup.sets.reserve(cleanup.sets.size() + 1);
+    }
+    cleanup.allocated.reserve(cleanup.allocated.size() + 1);
 
     auto set = allocate_compute_set(ctx, pipe, buffers);
     if (!set) { return fail(set); }
     auto *allocated = expected_take(set);
-    cleanup.sets.insert_or_assign(&pipe,
-      descriptor_cleanup::pipeline_set_entry{
-        .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()),
-        .set = allocated,
-      });
+    descriptor_cleanup::pipeline_set_entry entry{
+      .pipeline = &pipe,
+      .buffers = std::move(owned_buffers),
+      .set = allocated,
+    };
     cleanup.track(pipe.descriptor_pool, allocated);
+    if (has_existing) {
+      *found = std::move(entry);
+    } else {
+      cleanup.sets.push_back(std::move(entry));
+    }
     return allocated;
   }
 

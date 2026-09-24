@@ -20,7 +20,6 @@
 #include <optional>
 #include <span>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -46,11 +45,12 @@ namespace detail {
 
     struct pipeline_set_entry
     {
+      handles::compute_pipeline *pipeline{ nullptr };
       std::vector<storage_binding> buffers;
       VkDescriptorSet set{ VK_NULL_HANDLE };
     };
 
-    std::unordered_map<handles::compute_pipeline *, pipeline_set_entry> sets;
+    std::vector<pipeline_set_entry> sets;
     std::vector<allocated_set> allocated;
 
     //! Frees all tracked descriptor sets on `ctx`'s device.
@@ -60,6 +60,11 @@ namespace detail {
     auto track(VkDescriptorPool pool, VkDescriptorSet set) -> void
     { allocated.push_back(allocated_set{ .pool = pool, .set = set }); }
   };
+
+  static_assert(std::is_nothrow_move_constructible_v<descriptor_cleanup>);
+  static_assert(std::is_nothrow_move_assignable_v<descriptor_cleanup>);
+  static_assert(std::is_nothrow_move_constructible_v<descriptor_cleanup::pipeline_set_entry>);
+  static_assert(std::is_nothrow_move_assignable_v<descriptor_cleanup::pipeline_set_entry>);
 
   //! Compatibility alias used by pass graph recording.
   using pass_cleanup = descriptor_cleanup;

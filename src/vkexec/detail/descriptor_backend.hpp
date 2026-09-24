@@ -156,7 +156,8 @@ struct set_descriptor_backend
       VkShaderStageFlags const stages =
         bind_point == VK_PIPELINE_BIND_POINT_COMPUTE
           ? static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_COMPUTE_BIT)
-          : static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+          : static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_VERTEX_BIT)
+              | static_cast<VkShaderStageFlags>(VK_SHADER_STAGE_FRAGMENT_BIT);
       vkCmdPushConstants(cmd, bind.layout, stages, 0, static_cast<std::uint32_t>(bytes.size()), bytes.data());
     }
     return {};
