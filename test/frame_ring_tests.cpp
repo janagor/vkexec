@@ -66,6 +66,7 @@ TEST_CASE("frame_ring creates slot and image semaphores", "[vkexec][frame_ring][
   REQUIRE(ring.wait_image(0));
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("frame_ring gates slot reuse via timeline", "[vkexec][frame_ring][gpu]")
 {
   auto ctx = open_timeline_context();
