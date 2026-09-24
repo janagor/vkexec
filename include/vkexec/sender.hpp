@@ -76,10 +76,18 @@ template<class Value> struct sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_copy_constructible_v<factory_type>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   { return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) }; }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<factory_type>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   { return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) }; }
 };
 
@@ -133,10 +141,18 @@ struct void_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_copy_constructible_v<factory_type>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   { return op_state<Receiver>{ .factory = factory, .receiver = std::move(receiver) }; }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<factory_type>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   { return op_state<Receiver>{ .factory = std::move(factory), .receiver = std::move(receiver) }; }
 };
 

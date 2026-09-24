@@ -49,10 +49,19 @@ struct graphics_pipeline_config
 [[nodiscard]] inline auto make_clear_values(graphics_pipeline_config const &cfg)
   -> std::array<VkClearValue, k_graphics_clear_count>
 {
-  std::array<VkClearValue, k_graphics_clear_count> clears{};
-  clears.at(0).color = { { cfg.clear_r, cfg.clear_g, cfg.clear_b, cfg.clear_a } };
-  clears.at(1).depthStencil = { .depth = k_depth_clear_value, .stencil = k_stencil_clear_value };
-  return clears;
+  return {
+    VkClearValue{
+      .color = VkClearColorValue{
+        .float32 = { cfg.clear_r, cfg.clear_g, cfg.clear_b, cfg.clear_a },
+      },
+    },
+    VkClearValue{
+      .depthStencil = VkClearDepthStencilValue{
+        .depth = k_depth_clear_value,
+        .stencil = k_stencil_clear_value,
+      },
+    },
+  };
 }
 
 /**

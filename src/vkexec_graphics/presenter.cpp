@@ -39,10 +39,12 @@ namespace {
       VK_FORMAT_D32_SFLOAT_S8_UINT,
       VK_FORMAT_D24_UNORM_S8_UINT,
     };
+    constexpr auto k_depth_stencil_feature =
+      static_cast<VkFormatFeatureFlags>(VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     for (VkFormat const format : k_candidates) {
       VkFormatProperties properties{};
       vkGetPhysicalDeviceFormatProperties(phys, format, &properties);
-      if ((properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0U) { return format; }
+      if ((properties.optimalTilingFeatures & k_depth_stencil_feature) != 0U) { return format; }
     }
     return fail(errc::unsupported, "no supported depth format");
   }
