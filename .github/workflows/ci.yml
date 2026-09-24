@@ -235,6 +235,29 @@ jobs:
           version: 1.4.350.0
           cache: true
 
+      - name: Install SwiftShader
+        if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.4.350.0
+          install_swiftshader: true
+          swiftshader_destination: C:\SwiftShader
+          install_runtime: false
+          cache: true
+
+      - name: Select SwiftShader Vulkan ICD
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $swiftShaderIcd = 'C:\SwiftShader\vk_swiftshader_icd.json'
+          if (-not (Test-Path $swiftShaderIcd)) {
+            Write-Error "SwiftShader ICD was not found: $swiftShaderIcd"
+            exit 1
+          }
+
+          Write-Host "Using SwiftShader ICD: $swiftShaderIcd"
+          "VK_DRIVER_FILES=$swiftShaderIcd" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Install Linux window-system and lavapipe
         if: runner.os == 'Linux'
         run: |
