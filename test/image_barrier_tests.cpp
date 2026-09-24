@@ -5,12 +5,10 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/image.hpp>
-#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
-#include <array>
 #include <cstdint>
 #include <memory>
 
@@ -52,7 +50,6 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
     });
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
-  std::array<VkCommandBuffer, 1> const cmds{ cmd };
-  REQUIRE(ctx->submit(vkexec::queue_submit{ .command_buffers = cmds }));
+  REQUIRE(ctx->submit_and_wait(cmd));
   ctx->free_command_buffer(cmd);
 }

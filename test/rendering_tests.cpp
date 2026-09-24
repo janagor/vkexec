@@ -6,7 +6,6 @@
 #include <vkexec/context.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
-#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
@@ -81,7 +80,6 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   REQUIRE(vkexec::cmd_end_rendering(cmd));
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
-  std::array<VkCommandBuffer, 1> const cmds{ cmd };
-  REQUIRE(ctx->submit(vkexec::queue_submit{ .command_buffers = cmds }));
+  REQUIRE(ctx->submit_and_wait(cmd));
   ctx->free_command_buffer(cmd);
 }
