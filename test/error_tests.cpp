@@ -57,6 +57,7 @@ TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vul
   REQUIRE(without_context.message() == "device lost");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("vulkan library floors document instance and device requests", "[vkexec][vulkan]")
 {
   auto const headless_instance = vkexec::vulkan_library::required_headless_surface_instance_extensions();

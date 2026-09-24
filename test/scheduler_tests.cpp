@@ -27,6 +27,7 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
   REQUIRE(completion.get_context() == nullptr);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
