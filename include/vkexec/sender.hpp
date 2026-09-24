@@ -14,19 +14,13 @@
 #include <type_traits>
 #include <utility>
 
+#ifndef VKEXEC_ENABLE_EXCEPTIONS
+#define VKEXEC_ENABLE_EXCEPTIONS 1
+#endif
+
 namespace vkexec {
 
 namespace ex = stdexec;
-
-namespace detail {
-
-  template<class Receiver> auto set_factory_exception(Receiver &&receiver) noexcept -> void
-  {
-    // start() is noexcept; map unexpected throws to set_error without allocating.
-    ex::set_error(std::forward<Receiver>(receiver), error{ .code = make_error_code(errc::io_error), .detail = {} });
-  }
-
-}// namespace detail
 
 /**
  * Sender that invokes `factory` synchronously in `start()` and completes with its `result<Value>`.
@@ -52,26 +46,36 @@ template<class Value> struct sender
 
     auto start() noexcept -> void
     {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      auto const token = ex::get_stop_token(ex::get_env(receiver));
       if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
         if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
+          ex::set_stopped(std::move(receiver));
           return;
         }
       }
 
-      std::optional<result<value_type>> produced;
+      std::optional<value_type> value;
+      std::optional<error> failure;
+#if VKEXEC_ENABLE_EXCEPTIONS
       try {
-        produced.emplace(factory());
+#endif
+        auto produced = factory();
+        if (produced) {
+          value.emplace(expected_take(produced));
+        } else {
+          failure.emplace(std::move(produced.error()));
+        }
+#if VKEXEC_ENABLE_EXCEPTIONS
       } catch (...) {
-        detail::set_factory_exception(std::move(rcvr));
+        ex::set_error(std::move(receiver), unexpected_exception_error());
         return;
       }
-      if (*produced) {
-        ex::set_value(std::move(rcvr), expected_take(*produced));
+#endif
+
+      if (value) {
+        ex::set_value(std::move(receiver), std::move(*value));
       } else {
-        ex::set_error(std::move(rcvr), std::move(produced->error()));
+        ex::set_error(std::move(receiver), std::move(*failure));
       }
     }
   };
@@ -115,26 +119,31 @@ struct void_sender
 
     auto start() noexcept -> void
     {
-      Receiver rcvr = std::move(receiver);
-      auto const token = ex::get_stop_token(ex::get_env(rcvr));
+      auto const token = ex::get_stop_token(ex::get_env(receiver));
       if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
         if (token.stop_requested()) {
-          ex::set_stopped(std::move(rcvr));
+          ex::set_stopped(std::move(receiver));
           return;
         }
       }
 
-      status done;
+      std::optional<error> failure;
+#if VKEXEC_ENABLE_EXCEPTIONS
       try {
-        done = factory();
+#endif
+        auto done = factory();
+        if (!done) { failure.emplace(std::move(done.error())); }
+#if VKEXEC_ENABLE_EXCEPTIONS
       } catch (...) {
-        detail::set_factory_exception(std::move(rcvr));
+        ex::set_error(std::move(receiver), unexpected_exception_error());
         return;
       }
-      if (done) {
-        ex::set_value(std::move(rcvr));
+#endif
+
+      if (failure) {
+        ex::set_error(std::move(receiver), std::move(*failure));
       } else {
-        ex::set_error(std::move(rcvr), std::move(done.error()));
+        ex::set_value(std::move(receiver));
       }
     }
   };

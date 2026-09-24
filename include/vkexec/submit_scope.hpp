@@ -301,20 +301,6 @@ namespace detail {
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
-    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    [[nodiscard]] auto connect(Receiver receiver) &
-      noexcept(std::is_nothrow_copy_constructible_v<submit_scope>
-               && std::is_nothrow_move_constructible_v<Receiver>)
-      -> op_state<Receiver>
-    {
-      return op_state<Receiver>{
-        scope,
-        std::move(receiver),
-      };
-    }
-
-    template<class Receiver>
-    // cppcheck-suppress functionStatic
     [[nodiscard]] auto connect(Receiver receiver) &&
       noexcept(std::is_nothrow_move_constructible_v<submit_scope>
                && std::is_nothrow_move_constructible_v<Receiver>)
@@ -394,20 +380,6 @@ namespace detail {
 #endif
       }
     };
-
-    template<class Receiver>
-    // cppcheck-suppress functionStatic
-    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    [[nodiscard]] auto connect(Receiver receiver) &
-      noexcept(std::is_nothrow_copy_constructible_v<submit_scope>
-               && std::is_nothrow_move_constructible_v<Receiver>)
-      -> op_state<Receiver>
-    {
-      return op_state<Receiver>{
-        scope,
-        std::move(receiver),
-      };
-    }
 
     template<class Receiver>
     // cppcheck-suppress functionStatic

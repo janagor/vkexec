@@ -94,12 +94,16 @@ struct schedule_sender
 
   template<class Receiver>
   // cppcheck-suppress functionStatic
-  [[nodiscard]] auto connect(Receiver receiver) & noexcept -> op_state<Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   { return op_state<Receiver>{ ctx, std::move(receiver) }; }
 
   template<class Receiver>
   // cppcheck-suppress functionStatic
-  [[nodiscard]] auto connect(Receiver receiver) && noexcept -> op_state<Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   { return op_state<Receiver>{ ctx, std::move(receiver) }; }
 };
 

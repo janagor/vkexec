@@ -253,7 +253,10 @@ struct draw_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) const
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .win = win,
@@ -311,7 +314,10 @@ struct draw_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -322,7 +328,10 @@ struct draw_async_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -407,8 +416,31 @@ struct draw_layers_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
-  { return op_state<Receiver>{ .win = win, .layers = layers, .receiver = std::move(receiver) }; }
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) const &
+    noexcept(std::is_nothrow_copy_constructible_v<std::vector<draw_layer>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .win = win,
+      .layers = layers,
+      .receiver = std::move(receiver),
+    };
+  }
+
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<std::vector<draw_layer>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      .win = win,
+      .layers = std::move(layers),
+      .receiver = std::move(receiver),
+    };
+  }
 };
 
 //! Async variant of `draw_layers_sender` (fence-agent completion via `| submit`).
@@ -467,7 +499,11 @@ struct draw_layers_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_copy_constructible_v<std::vector<draw_layer>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -477,7 +513,11 @@ struct draw_layers_async_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<std::vector<draw_layer>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -552,7 +592,10 @@ struct draw_mesh_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) const
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .win = win,
@@ -606,7 +649,10 @@ struct draw_mesh_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -617,7 +663,10 @@ struct draw_mesh_async_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -710,7 +759,10 @@ struct draw_bind_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) const
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .win = win,
@@ -771,7 +823,10 @@ struct draw_bind_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -783,7 +838,10 @@ struct draw_bind_async_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -852,7 +910,10 @@ struct draw_mesh_bind_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) const -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) const
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .win = win,
@@ -913,7 +974,10 @@ struct draw_mesh_bind_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -925,7 +989,10 @@ struct draw_mesh_bind_async_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,

@@ -279,14 +279,18 @@ public:
   template<class StopToken, class Done>
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
+    using done_t = std::remove_cvref_t<Done>;
+    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error>, bool>,
+      "enqueue_borrowed_fence_wait completion callback must be noexcept");
+
     std::function<bool()> stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
       auto state = std::make_shared<std::remove_cvref_t<StopToken>>(std::move(token));
       stop_requested = [state]() -> bool { return state->stop_requested(); };
     }
-    auto done = std::make_shared<std::remove_cvref_t<Done>>(std::forward<Done>(on_done));
+    auto done = std::make_shared<done_t>(std::forward<Done>(on_done));
     return do_enqueue_borrowed_fence_wait(
-      fence, std::move(stop_requested), [done](std::optional<error> failure, bool stopped) mutable -> void {
+      fence, std::move(stop_requested), [done](std::optional<error> failure, bool stopped) mutable noexcept -> void {
         std::invoke(*done, std::move(failure), stopped);
       });
   }
