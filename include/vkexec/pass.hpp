@@ -240,7 +240,11 @@ struct pass_graph_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_copy_constructible_v<std::vector<pass_step>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -250,7 +254,11 @@ struct pass_graph_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<std::vector<pass_step>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -373,7 +381,11 @@ struct pass_graph_async_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_copy_constructible_v<std::vector<pass_step>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,
@@ -383,7 +395,11 @@ struct pass_graph_async_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<std::vector<pass_step>>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       .ctx = ctx,

@@ -95,7 +95,11 @@ template<typename T> struct buffer_allocate_sender
     }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &
+    noexcept(std::is_nothrow_copy_constructible_v<T>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       ctx,
@@ -105,7 +109,11 @@ template<typename T> struct buffer_allocate_sender
     };
   }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) &&
+    noexcept(std::is_nothrow_move_constructible_v<T>
+             && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
   {
     return op_state<Receiver>{
       ctx,
@@ -219,8 +227,12 @@ namespace owned {
 
       VmaAllocationCreateInfo aci{};
       aci.usage = VMA_MEMORY_USAGE_AUTO;
-      aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-      aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      aci.flags =
+        static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
+        | static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_MAPPED_BIT);
+      aci.requiredFlags =
+        static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+        | static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
       VkBuffer handle{ VK_NULL_HANDLE };
       VmaAllocation allocation{ VK_NULL_HANDLE };

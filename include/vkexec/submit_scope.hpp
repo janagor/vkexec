@@ -237,12 +237,16 @@ namespace detail {
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+    [[nodiscard]] auto connect(Receiver receiver) &
+      noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+      -> op_state<Receiver>
     { return op_state<Receiver>{ ctx, std::move(receiver) }; }
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    [[nodiscard]] auto connect(Receiver receiver) &&
+      noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+      -> op_state<Receiver>
     { return op_state<Receiver>{ ctx, std::move(receiver) }; }
   };
 
@@ -298,7 +302,10 @@ namespace detail {
     template<class Receiver>
     // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+    [[nodiscard]] auto connect(Receiver receiver) &
+      noexcept(std::is_nothrow_copy_constructible_v<submit_scope>
+               && std::is_nothrow_move_constructible_v<Receiver>)
+      -> op_state<Receiver>
     {
       return op_state<Receiver>{
         scope,
@@ -308,7 +315,10 @@ namespace detail {
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    [[nodiscard]] auto connect(Receiver receiver) &&
+      noexcept(std::is_nothrow_move_constructible_v<submit_scope>
+               && std::is_nothrow_move_constructible_v<Receiver>)
+      -> op_state<Receiver>
     {
       return op_state<Receiver>{
         std::move(scope),
@@ -388,7 +398,10 @@ namespace detail {
     template<class Receiver>
     // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver>
+    [[nodiscard]] auto connect(Receiver receiver) &
+      noexcept(std::is_nothrow_copy_constructible_v<submit_scope>
+               && std::is_nothrow_move_constructible_v<Receiver>)
+      -> op_state<Receiver>
     {
       return op_state<Receiver>{
         scope,
@@ -398,7 +411,10 @@ namespace detail {
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    [[nodiscard]] auto connect(Receiver receiver) &&
+      noexcept(std::is_nothrow_move_constructible_v<submit_scope>
+               && std::is_nothrow_move_constructible_v<Receiver>)
+      -> op_state<Receiver>
     {
       return op_state<Receiver>{
         std::move(scope),
