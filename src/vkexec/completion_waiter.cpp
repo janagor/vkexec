@@ -7,6 +7,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
+#include <exception>
 #include <iterator>
 #include <mutex>
 #include <optional>
@@ -33,7 +34,19 @@ namespace {
 }// namespace
 
 completion_waiter::completion_waiter(VkDevice device, VkQueue fallback_queue)
-  : device_(device), fallback_queue_(fallback_queue), thread_([this]() -> void { run(); })
+  : device_(device),
+    fallback_queue_(fallback_queue),
+    thread_([this]() noexcept -> void {
+#if VKEXEC_ENABLE_EXCEPTIONS
+      try {
+        run();
+      } catch (...) {
+        std::terminate();
+      }
+#else
+      run();
+#endif
+    })
 {}
 
 completion_waiter::~completion_waiter() { shutdown(); }
