@@ -26,7 +26,6 @@
 #include <vkexec/scheduler.hpp>
 #include <vkexec/schema_pass.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/sync_wait_outcome.hpp>

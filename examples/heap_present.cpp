@@ -9,7 +9,6 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
@@ -28,6 +27,7 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/presenter.hpp>
+#include <vkexec_graphics/submit.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 
 #include <vulkan/vulkan_core.h>

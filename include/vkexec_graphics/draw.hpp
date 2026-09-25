@@ -8,11 +8,11 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/mesh.hpp>
 #include <vkexec_graphics/presenter.hpp>
+#include <vkexec_graphics/submit.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>

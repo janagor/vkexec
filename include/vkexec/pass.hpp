@@ -2,7 +2,7 @@
 #define VKEXEC_PASS_HPP
 
 //! \file
-//! Compute pass recording, pass graphs, and stdexec pipe adaptors (`compute_pass`, `| submit`).
+//! Compute pass recording, pass graphs, and stdexec pipe adaptors.
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/error.hpp>
@@ -10,7 +10,6 @@
 #include <vkexec/push.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <stdexec/execution.hpp>
@@ -142,7 +141,7 @@ namespace detail {
  * vkexec::sync_wait(std::move(graph));
  * ~~~~~~~~~~~
  *
- * @see pass_graph_async_sender, compute_pass, submit
+ * @see compute_pass
  */
 struct pass_graph_sender
 {
@@ -238,153 +237,6 @@ struct pass_graph_sender
         auto &child = submit_op.emplace(detail::submit_fence(expected_take(prepared)),
           ctx->get_scheduler(),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
-        ex::start(child.op);
-#if VKEXEC_ENABLE_EXCEPTIONS
-      } catch (...) {
-        ex::set_error(std::move(receiver), unexpected_exception_error());
-      }
-#endif
-    }
-  };
-
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) &
-    noexcept(std::is_nothrow_copy_constructible_v<std::vector<pass_step>>
-             && std::is_nothrow_move_constructible_v<Receiver>)
-    -> op_state<Receiver>
-  {
-    return op_state<Receiver>{
-      .ctx = ctx,
-      .steps = steps,
-      .receiver = std::move(receiver),
-      .submit_op = std::nullopt,
-    };
-  }
-
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) &&
-    noexcept(std::is_nothrow_move_constructible_v<std::vector<pass_step>>
-             && std::is_nothrow_move_constructible_v<Receiver>)
-    -> op_state<Receiver>
-  {
-    return op_state<Receiver>{
-      .ctx = ctx,
-      .steps = std::move(steps),
-      .receiver = std::move(receiver),
-      .submit_op = std::nullopt,
-    };
-  }
-};
-
-/**
- * Like `pass_graph_sender`, but completes asynchronously via the fence agent.
- *
- * Produced by `pass_graph_sender | vkexec::submit`. Does not block `start()`.
- *
- * Completion is delivered by the context completion agent. The completion agent
- * is not exposed as a stdexec scheduler, so this sender deliberately does not
- * advertise a completion scheduler.
- *
- * @see pass_graph_sender, submit_t
- */
-struct pass_graph_async_sender
-{
-  using sender_concept = ex::sender_t;
-  using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
-
-  context *ctx{ nullptr };
-  std::vector<pass_step> steps;
-
-  // cppcheck-suppress functionStatic
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] auto get_env() const noexcept -> detail::domain_env { return {}; }
-
-  explicit pass_graph_async_sender(pass_graph_sender graph) : ctx(graph.ctx), steps(std::move(graph.steps)) {}
-
-  pass_graph_async_sender(context *host, std::vector<pass_step> graph_steps) : ctx(host), steps(std::move(graph_steps))
-  {}
-
-  template<class Receiver> struct after_gpu_receiver
-  {
-    using receiver_concept = ex::receiver_t;
-
-    Receiver *rcvr{ nullptr };
-    std::vector<pass_step> *steps{ nullptr };
-
-    auto set_value() && noexcept -> void
-    {
-#if VKEXEC_ENABLE_EXCEPTIONS
-      try {
-#endif
-        for (pass_step const &step : *steps) {
-          if (step.after_gpu) { step.after_gpu(); }
-        }
-#if VKEXEC_ENABLE_EXCEPTIONS
-      } catch (...) {
-        ex::set_error(std::move(*rcvr), unexpected_exception_error());
-        return;
-      }
-#endif
-      ex::set_value(std::move(*rcvr));
-    }
-
-    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(*rcvr), std::move(err)); }
-
-    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(*rcvr)); }
-
-    [[nodiscard]] auto get_env() const noexcept -> decltype(ex::get_env(std::declval<Receiver const &>()))
-    { return ex::get_env(std::as_const(*rcvr)); }
-  };
-
-  template<class Receiver> struct op_state
-  {
-    context *ctx{ nullptr };
-    std::vector<pass_step> steps;
-    Receiver receiver;
-    using child_receiver_t = after_gpu_receiver<Receiver>;
-    using submit_op_t =
-      decltype(ex::connect(std::declval<detail::submit_fence_sender>(), std::declval<child_receiver_t>()));
-
-    struct submit_op_holder
-    {
-      submit_op_t op;
-
-      submit_op_holder(detail::submit_fence_sender sender, child_receiver_t child)
-        : op(ex::connect(std::move(sender), std::move(child)))
-      {}
-
-      ~submit_op_holder() = default;
-
-      submit_op_holder(submit_op_holder const &) = delete;
-      auto operator=(submit_op_holder const &) -> submit_op_holder & = delete;
-      submit_op_holder(submit_op_holder &&) = delete;
-      auto operator=(submit_op_holder &&) -> submit_op_holder & = delete;
-    };
-
-    std::optional<submit_op_holder> submit_op;
-
-    auto start() noexcept -> void
-    {
-      auto const token = ex::get_stop_token(ex::get_env(receiver));
-      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-        if (token.stop_requested()) {
-          ex::set_stopped(std::move(receiver));
-          return;
-        }
-      }
-
-#if VKEXEC_ENABLE_EXCEPTIONS
-      try {
-#endif
-        auto prepared = detail::open_and_record_pass(ctx, steps);
-        if (!prepared) {
-          ex::set_error(std::move(receiver), std::move(prepared.error()));
-          return;
-        }
-
-        auto &child = submit_op.emplace(
-          detail::submit_fence(expected_take(prepared)), child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
 #if VKEXEC_ENABLE_EXCEPTIONS
       } catch (...) {
@@ -569,43 +421,6 @@ template<class Pred, class Closure, class Env>
     });
 }
 
-/**
- * Like `pass_adaptor_sender`, but lowers to `pass_graph_async_sender` (non-blocking submit).
- *
- * Produced by `pass_adaptor_sender | vkexec::submit`. Final value completion
- * occurs on the completion waiter, not the predecessor's scheduler, so no
- * completion scheduler is advertised.
- */
-template<class Pred, class Closure> struct pass_async_adaptor_sender
-{
-  using sender_concept = ex::sender_t;
-  using completion_signatures = pass_graph_async_sender::completion_signatures;
-
-  Pred pred;
-  Closure closure;
-
-  // cppcheck-suppress functionStatic
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] auto get_env() const noexcept -> detail::domain_env { return {}; }
-};
-
-template<class Pred, class Closure, class Env>
-[[nodiscard]] auto
-  lower_vkexec_sender(ex::set_value_t /*tag*/, pass_async_adaptor_sender<Pred, Closure> sndr, Env const & /*env*/)
-{
-  scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
-  // NOLINTNEXTLINE(misc-const-correctness)
-  context *const ctx = sched.get_context();
-  return ex::let_value(
-    std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> pass_graph_async_sender {
-      pass_graph_sender graph{
-        .ctx = ctx,
-        .steps = { detail::make_prebuilt_step(std::move(closure)) },
-      };
-      return pass_graph_async_sender{ std::move(graph) };
-    });
-}
-
 //! Starts a pass graph from a `schedule()` sender with one compute step.
 auto operator|(schedule_sender snd, prebuilt_compute_pass_closure closure) -> pass_graph_sender;
 
@@ -644,33 +459,6 @@ auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> p
 
 //! Appends a compute read-after-write barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender;
-
-//! Converts a pass graph into the explicit async graph form (`pass_graph_async_sender`).
-[[nodiscard]] auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender;
-
-//! Converts a pass graph into the explicit async graph form (lvalue overload).
-[[nodiscard]] auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender;
-
-template<class Pred, class Closure>
-// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
-[[nodiscard]] auto operator|(pass_adaptor_sender<Pred, Closure> &&snd, submit_t /*tag*/)
-  -> pass_async_adaptor_sender<Pred, Closure>
-{
-  return pass_async_adaptor_sender<Pred, Closure>{
-    .pred = std::move(snd.pred),
-    .closure = std::move(snd.closure),
-  };
-}
-
-template<class Pred, class Closure>
-[[nodiscard]] auto operator|(pass_adaptor_sender<Pred, Closure> &snd, submit_t /*tag*/)
-  -> pass_async_adaptor_sender<Pred, Closure>
-{
-  return pass_async_adaptor_sender<Pred, Closure>{
-    .pred = snd.pred,
-    .closure = snd.closure,
-  };
-}
 
 }// namespace vkexec
 

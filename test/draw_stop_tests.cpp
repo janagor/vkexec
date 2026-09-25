@@ -3,12 +3,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/result.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/presenter.hpp>
+#include <vkexec_graphics/submit.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 
 #include <stdexec/execution.hpp>

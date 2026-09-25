@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
@@ -104,8 +105,6 @@ concept advertises_completion_scheduler = requires(Sender const &sndr) {
 
 using pass_adaptor_t =
   vkexec::pass_adaptor_sender<vkexec::schedule_sender, vkexec::prebuilt_compute_pass_closure>;
-using pass_async_adaptor_t =
-  vkexec::pass_async_adaptor_sender<vkexec::schedule_sender, vkexec::prebuilt_compute_pass_closure>;
 using schema_pass_adaptor_t = vkexec::schema_pass_sender<vkexec::schedule_sender>;
 using tensor_pass_adaptor_t =
   vkexec::tensor_pass_sender<vkexec::schedule_sender, vkexec::tensor_pass_closure<float>>;
@@ -115,7 +114,6 @@ static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_
 
 static_assert(advertises_completion_scheduler<vkexec::pass_graph_sender, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::pass_graph_sender, ex::set_error_t>);
-static_assert(!advertises_completion_scheduler<vkexec::pass_graph_async_sender, ex::set_value_t>);
 
 static_assert(!advertises_completion_scheduler<vkexec::detail::enter_submit_scope_sender, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::detail::submit_and_wait_sender, ex::set_value_t>);
@@ -127,15 +125,12 @@ static_assert(advertises_completion_scheduler<schema_pass_adaptor_t, ex::set_val
 static_assert(!advertises_completion_scheduler<schema_pass_adaptor_t, ex::set_error_t>);
 static_assert(advertises_completion_scheduler<tensor_pass_adaptor_t, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<tensor_pass_adaptor_t, ex::set_error_t>);
-static_assert(!advertises_completion_scheduler<pass_async_adaptor_t, ex::set_value_t>);
 
 static_assert(vkexec::vkexec_predecessor<vkexec::schedule_sender>);
 static_assert(vkexec::vkexec_predecessor<vkexec::pass_graph_sender>);
-static_assert(!vkexec::vkexec_predecessor<vkexec::pass_graph_async_sender>);
 static_assert(vkexec::vkexec_predecessor<pass_adaptor_t>);
 static_assert(vkexec::vkexec_predecessor<schema_pass_adaptor_t>);
 static_assert(vkexec::vkexec_predecessor<tensor_pass_adaptor_t>);
-static_assert(!vkexec::vkexec_predecessor<pass_async_adaptor_t>);
 
 TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler]")
 {
@@ -236,13 +231,6 @@ TEST_CASE("tensor_pass_sender preserves predecessor value completion scheduler",
 
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr));
   REQUIRE(completion == sched);
-}
-
-TEST_CASE("pass_async_adaptor_sender does not advertise completion scheduler", "[vkexec][scheduler]")
-{
-  STATIC_REQUIRE(!advertises_completion_scheduler<pass_async_adaptor_t, ex::set_value_t>);
-  STATIC_REQUIRE(
-    std::same_as<decltype(std::declval<pass_async_adaptor_t const &>().get_env()), vkexec::detail::domain_env>);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -353,4 +341,19 @@ TEST_CASE("pass_graph_sender completes on the context host scheduler", "[vkexec]
     std::move(graph) | ex::then([&]() noexcept -> void { completed_on = std::this_thread::get_id(); }));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
   REQUIRE(completed_on == agent);
+}
+
+TEST_CASE("pass composition uses one graph sender type", "[vkexec][pass]")
+{
+  vkexec::scheduler sched{ nullptr };
+
+  auto graph = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  STATIC_REQUIRE(std::same_as<decltype(graph), vkexec::pass_graph_sender>);
+
+  auto graph2 = std::move(graph) | vkexec::barrier::compute_to_compute();
+  STATIC_REQUIRE(std::same_as<decltype(graph2), vkexec::pass_graph_sender>);
+
+  auto graph3 =
+    std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  STATIC_REQUIRE(std::same_as<decltype(graph3), vkexec::pass_graph_sender>);
 }

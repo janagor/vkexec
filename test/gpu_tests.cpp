@@ -16,7 +16,6 @@
 #include <vkexec/result.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/schema_pass.hpp>
-#include <vkexec/submit.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -292,8 +291,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
     ex::schedule(ctx->get_scheduler())
     | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
     | vkexec::barrier::compute_to_compute()
-    | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count))
-    | vkexec::submit;
+    | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
   auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -305,15 +303,14 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-TEST_CASE("pass graph submit completes with set_stopped when stop is already requested", "[vkexec][pass]")
+TEST_CASE("pass graph completes with set_stopped when stop is already requested", "[vkexec][pass]")
 {
   // Null scheduler: exercises stop handling without allocating a Vulkan context.
   vkexec::scheduler const sched{ nullptr };
   ex::inplace_stop_source source;
   source.request_stop();
 
-  auto sender =
-    ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }) | vkexec::submit;
+  auto sender = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
 
   auto const waited =
     vkexec::test::sync_wait_sender(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));

@@ -4,9 +4,9 @@
 #include <stdexec/__detail/__execution_fwd.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
+#include <vkexec_graphics/submit.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <stdexec/execution.hpp>

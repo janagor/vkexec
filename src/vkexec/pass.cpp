@@ -7,7 +7,6 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/submit.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -139,11 +138,5 @@ auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> p
 
 auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender
 { return detail::append_step(std::move(graph), detail::make_barrier_step(tag)); }
-
-auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender
-{ return pass_graph_async_sender{ std::move(snd) }; }
-
-auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender
-{ return pass_graph_async_sender{ snd.ctx, snd.steps }; }
 
 }// namespace vkexec
