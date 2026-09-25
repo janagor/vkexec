@@ -127,6 +127,9 @@ namespace detail {
 /**
  * Sender that records a list of pass steps, submits, and blocks until the GPU finishes.
  *
+ * Completion currently occurs inline on the thread that starts the operation.
+ * The sender therefore deliberately does not advertise a completion scheduler.
+ *
  * Built by piping `schedule()` into `compute_pass(...)` and optional barriers.
  * Use `| vkexec::submit` to switch to non-blocking completion.
  *
@@ -149,7 +152,9 @@ struct pass_graph_sender
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> detail::domain_env { return {}; }
 
   template<class Receiver> struct after_gpu_receiver
   {
@@ -274,6 +279,10 @@ struct pass_graph_sender
  *
  * Produced by `pass_graph_sender | vkexec::submit`. Does not block `start()`.
  *
+ * Completion is delivered by the context completion agent. The completion agent
+ * is not exposed as a stdexec scheduler, so this sender deliberately does not
+ * advertise a completion scheduler.
+ *
  * @see pass_graph_sender, submit_t
  */
 struct pass_graph_async_sender
@@ -285,7 +294,9 @@ struct pass_graph_async_sender
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> detail::domain_env { return {}; }
 
   explicit pass_graph_async_sender(pass_graph_sender graph) : ctx(graph.ctx), steps(std::move(graph.steps)) {}
 
@@ -524,7 +535,9 @@ namespace detail {
 /**
  * Lazy adaptor: after `pred` completes, builds a one-step `pass_graph_sender`.
  *
- * Lowered by the vkexec domain via `lower_vkexec_sender`.
+ * Lowered by the vkexec domain via `lower_vkexec_sender`. Value completion
+ * remains on the predecessor's value completion agent, so only
+ * `get_completion_scheduler<set_value_t>` is advertised.
  */
 template<class Pred, class Closure> struct pass_adaptor_sender
 {
@@ -534,7 +547,11 @@ template<class Pred, class Closure> struct pass_adaptor_sender
   Pred pred;
   Closure closure;
 
-  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  {
+    scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred));
+    return scheduler_env{ .ctx = sched.get_context() };
+  }
 };
 
 template<class Pred, class Closure, class Env>
@@ -553,7 +570,9 @@ template<class Pred, class Closure, class Env>
 /**
  * Like `pass_adaptor_sender`, but lowers to `pass_graph_async_sender` (non-blocking submit).
  *
- * Produced by `pass_adaptor_sender | vkexec::submit`.
+ * Produced by `pass_adaptor_sender | vkexec::submit`. Final value completion
+ * occurs on the completion waiter, not the predecessor's scheduler, so no
+ * completion scheduler is advertised.
  */
 template<class Pred, class Closure> struct pass_async_adaptor_sender
 {
@@ -563,7 +582,9 @@ template<class Pred, class Closure> struct pass_async_adaptor_sender
   Pred pred;
   Closure closure;
 
-  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> detail::domain_env { return {}; }
 };
 
 template<class Pred, class Closure, class Env>

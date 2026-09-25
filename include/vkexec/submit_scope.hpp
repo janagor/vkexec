@@ -194,6 +194,9 @@ namespace detail {
   /**
    * Sender that completes with an open `submit_scope` (command buffer begun, ready to record).
    *
+   * Completes inline on the thread that calls `start()`. No completion scheduler
+   * is advertised.
+   *
    * @see enter_submit_scope
    */
   struct enter_submit_scope_sender
@@ -204,7 +207,9 @@ namespace detail {
 
     context *ctx{ nullptr };
 
-    [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+    // cppcheck-suppress functionStatic
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
 
     template<class Receiver> struct op_state
     {
@@ -264,6 +269,9 @@ namespace detail {
   /**
    * Sender that submits a fully recorded scope, blocks until the GPU finishes,
    * then releases command/descriptor loans.
+   *
+   * Blocks the starting thread and completes inline after the wait.
+   * No completion scheduler is advertised.
    */
   struct submit_and_wait_sender
   {
@@ -272,7 +280,9 @@ namespace detail {
 
     submit_scope scope;
 
-    [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = scope.ctx }; }
+    // cppcheck-suppress functionStatic
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
 
     template<class Receiver> struct op_state
     {
@@ -326,6 +336,9 @@ namespace detail {
    *
    * Completion runs on the context fence agent after reclaiming semaphore/fence
    * and releasing loans. Honours stop tokens with `set_stopped`.
+   *
+   * The completion agent is not exposed as a stdexec scheduler, so no
+   * completion scheduler is advertised.
    */
   struct submit_fence_sender
   {
@@ -335,7 +348,9 @@ namespace detail {
 
     submit_scope scope;
 
-    [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = scope.ctx }; }
+    // cppcheck-suppress functionStatic
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
 
     template<class Receiver> struct op_state
     {

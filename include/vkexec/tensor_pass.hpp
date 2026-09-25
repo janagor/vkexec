@@ -81,7 +81,11 @@ template<class Pred, class Closure> struct tensor_pass_sender
   Pred pred;
   Closure closure;
 
-  [[nodiscard]] auto get_env() const noexcept -> decltype(auto) { return ex::get_env(pred); }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  {
+    scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred));
+    return scheduler_env{ .ctx = sched.get_context() };
+  }
 };
 
 template<vkexec_predecessor Pred, typename... T>

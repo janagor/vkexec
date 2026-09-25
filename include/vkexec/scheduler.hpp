@@ -22,8 +22,38 @@ namespace ex = stdexec;
 
 class scheduler;
 
+namespace detail {
+
 /**
- * Sender environment: value completions finish on this context's scheduler.
+ * Sender environment that advertises the vkexec domain but no completion scheduler.
+ *
+ * Use for senders that are vkexec-domain but do not guarantee where any completion
+ * signal is delivered.
+ */
+struct domain_env
+{
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+  {
+    return {};
+  }
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain
+  {
+    return {};
+  }
+};
+
+}// namespace detail
+
+/**
+ * Attributes for senders whose set_value completion is guaranteed to occur on
+ * the context host scheduler.
+ *
+ * No scheduling guarantee is made for set_error or set_stopped.
  *
  * Also advertises the vkexec `domain` so algorithms can lower to Vulkan-native
  * senders when overloads exist.
@@ -147,9 +177,10 @@ inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t>
 inline auto context::get_scheduler() noexcept -> scheduler { return scheduler{ this }; }
 
 /**
- * True when `Pred` is a sender whose value completion scheduler is `vkexec::scheduler`.
+ * True when `Pred` is a sender whose value completion is guaranteed to happen
+ * on a `vkexec::scheduler` (not merely a sender associated with vkexec).
  *
- * Used by pass and graphics adaptors to require a vkexec schedule predecessor.
+ * Used by pass and graphics adaptors to require a scheduler-completing predecessor.
  */
 template<class Pred>
 concept vkexec_predecessor = ex::sender<Pred> && requires(Pred const &pred) {
