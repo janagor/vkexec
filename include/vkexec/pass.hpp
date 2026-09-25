@@ -125,13 +125,14 @@ namespace detail {
 }// namespace detail
 
 /**
- * Sender that records a list of pass steps, submits, and blocks until the GPU finishes.
+ * Sender that records a list of pass steps and submits them for GPU execution.
  *
- * Completion currently occurs inline on the thread that starts the operation.
- * The sender therefore deliberately does not advertise a completion scheduler.
+ * `start()` records and submits the graph, then returns without waiting for GPU
+ * completion on the successful path. After the submission fence signals,
+ * completion is transferred to the context host scheduler, where `after_gpu`
+ * callbacks run and the receiver is completed.
  *
  * Built by piping `schedule()` into `compute_pass(...)` and optional barriers.
- * Use `| vkexec::submit` to switch to non-blocking completion.
  *
  * ~~~~~~~~~~~{.cpp}
  * auto graph = ex::schedule(ctx->get_scheduler())
@@ -152,9 +153,7 @@ struct pass_graph_sender
   context *ctx{ nullptr };
   std::vector<pass_step> steps;
 
-  // cppcheck-suppress functionStatic
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] auto get_env() const noexcept -> detail::domain_env { return {}; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct after_gpu_receiver
   {
@@ -194,15 +193,17 @@ struct pass_graph_sender
     std::vector<pass_step> steps;
     Receiver receiver;
     using child_receiver_t = after_gpu_receiver<Receiver>;
-    using submit_op_t =
-      decltype(ex::connect(std::declval<detail::submit_and_wait_sender>(), std::declval<child_receiver_t>()));
+    using fence_sender_t = detail::submit_fence_sender;
+    using completion_sender_t =
+      decltype(ex::continues_on(std::declval<fence_sender_t>(), std::declval<scheduler>()));
+    using submit_op_t = decltype(ex::connect(std::declval<completion_sender_t>(), std::declval<child_receiver_t>()));
 
     struct submit_op_holder
     {
       submit_op_t op;
 
-      submit_op_holder(detail::submit_and_wait_sender sender, child_receiver_t child)
-        : op(ex::connect(std::move(sender), std::move(child)))
+      submit_op_holder(detail::submit_fence_sender sender, scheduler sched, child_receiver_t child)
+        : op(ex::connect(ex::continues_on(std::move(sender), sched), std::move(child)))
       {}
 
       ~submit_op_holder() = default;
@@ -234,8 +235,9 @@ struct pass_graph_sender
           return;
         }
 
-        auto &child = submit_op.emplace(
-          detail::submit_and_wait(expected_take(prepared)), child_receiver_t{ .rcvr = &receiver, .steps = &steps });
+        auto &child = submit_op.emplace(detail::submit_fence(expected_take(prepared)),
+          ctx->get_scheduler(),
+          child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
 #if VKEXEC_ENABLE_EXCEPTIONS
       } catch (...) {
@@ -535,9 +537,9 @@ namespace detail {
 /**
  * Lazy adaptor: after `pred` completes, builds a one-step `pass_graph_sender`.
  *
- * Lowered by the vkexec domain via `lower_vkexec_sender`. Value completion
- * remains on the predecessor's value completion agent, so only
- * `get_completion_scheduler<set_value_t>` is advertised.
+ * Lowered by the vkexec domain via `lower_vkexec_sender`.
+ * `get_completion_scheduler<set_value_t>` is preserved from the predecessor; the
+ * resulting graph completes on that context's host scheduler.
  */
 template<class Pred, class Closure> struct pass_adaptor_sender
 {
@@ -643,10 +645,10 @@ auto operator|(pass_graph_sender graph, barrier::graphics_to_compute_t tag) -> p
 //! Appends a compute read-after-write barrier step to the graph.
 auto operator|(pass_graph_sender graph, barrier::compute_read_t tag) -> pass_graph_sender;
 
-//! Converts a blocking pass graph into an async fence-wait graph.
+//! Converts a pass graph into the explicit async graph form (`pass_graph_async_sender`).
 [[nodiscard]] auto operator|(pass_graph_sender &&snd, submit_t /*tag*/) -> pass_graph_async_sender;
 
-//! Converts a blocking pass graph into an async fence-wait graph (lvalue overload).
+//! Converts a pass graph into the explicit async graph form (lvalue overload).
 [[nodiscard]] auto operator|(pass_graph_sender &snd, submit_t /*tag*/) -> pass_graph_async_sender;
 
 template<class Pred, class Closure>

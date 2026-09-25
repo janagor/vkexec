@@ -4,12 +4,14 @@
 namespace vkexec {
 
 /**
- * Pipe tag that turns a sync GPU sender into a completion sender.
+ * Explicit submission adaptor for pass graphs.
  *
- * Use as `| vkexec::submit` so `start()` does not block on the GPU; completion
- * is delivered asynchronously via the context fence agent.
+ * Pass graphs already submit asynchronously and complete on the context host
+ * scheduler. This adaptor is retained for compatibility and produces the
+ * explicit raw async form (`pass_graph_async_sender`), which completes on the
+ * completion waiter without returning to the host scheduler.
  *
- * @see detail::submit_fence_sender
+ * @see pass_graph_sender, pass_graph_async_sender
  */
 struct submit_t
 {
