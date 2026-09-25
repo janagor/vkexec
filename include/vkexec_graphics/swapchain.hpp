@@ -49,6 +49,18 @@ namespace owned {
   class swapchain;
 }// namespace owned
 
+namespace detail {
+
+  struct make_swapchain_factory
+  {
+    context *ctx;
+    swapchain_create_info info;
+
+    [[nodiscard]] auto operator()() const -> result<owned::swapchain>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_swapchain_t
@@ -60,7 +72,8 @@ namespace factory {
      * @param ctx Context with presentation queues enabled.
      * @param info Surface, extent, and present preferences.
      */
-    [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const -> sender<owned::swapchain>;
+    [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const
+    { return make_sender(detail::make_swapchain_factory{ .ctx = &ctx, .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -135,7 +148,7 @@ namespace owned {
     [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 
   private:
-    friend struct factory::make_swapchain_t;
+    friend struct detail::make_swapchain_factory;
 
     swapchain() = default;
 

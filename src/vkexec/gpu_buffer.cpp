@@ -4,7 +4,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -65,55 +64,48 @@ namespace {
 
 }// namespace
 
-auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, gpu_buffer_create_info info) const
-  -> sender<::vkexec::owned::gpu_buffer>
+auto detail::make_gpu_buffer_factory::operator()() const -> result<::vkexec::owned::gpu_buffer>
 {
-  return make_sender<::vkexec::owned::gpu_buffer>([&ctx, info]() -> result<::vkexec::owned::gpu_buffer> {
-    if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
-    if (ctx.allocator() == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
+  if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
+  if (ctx->allocator() == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
+  }
+
+  bool const want_device_address = info.shader_device_address;
+  if (want_device_address && ctx->procs().get_buffer_device_address == nullptr) {
+    return fail(errc::unsupported,
+      "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
+  }
+
+  VKEXEC_TRY_ASSIGN(usage, usage_for(info.memory, want_device_address));
+
+  VkBufferCreateInfo bci{};
+  bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bci.size = info.size;
+  bci.usage = usage;
+  bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  VmaAllocationCreateInfo const aci = allocation_info_for(info.memory);
+
+  VkBuffer buffer_handle{ VK_NULL_HANDLE };
+  VmaAllocation allocation{ VK_NULL_HANDLE };
+  VmaAllocationInfo ainfo{};
+  VkResult const create_result = vmaCreateBuffer(ctx->allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBuffer failed"); }
+
+  void *mapped_ptr = nullptr;
+  if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging) {
+    mapped_ptr = ainfo.pMappedData;
+    if (mapped_ptr == nullptr) {
+      vmaDestroyBuffer(ctx->allocator(), buffer_handle, allocation);
+      return fail(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
     }
+  }
 
-    bool const want_device_address = info.shader_device_address;
-    if (want_device_address && ctx.procs().get_buffer_device_address == nullptr) {
-      return fail(errc::unsupported,
-        "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
-    }
-
-    VKEXEC_TRY_ASSIGN(usage, usage_for(info.memory, want_device_address));
-
-    VkBufferCreateInfo bci{};
-    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.size = info.size;
-    bci.usage = usage;
-    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo const aci = allocation_info_for(info.memory);
-
-    VkBuffer buffer_handle{ VK_NULL_HANDLE };
-    VmaAllocation allocation{ VK_NULL_HANDLE };
-    VmaAllocationInfo ainfo{};
-    VkResult const create_result = vmaCreateBuffer(ctx.allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBuffer failed"); }
-
-    void *mapped_ptr = nullptr;
-    if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging) {
-      mapped_ptr = ainfo.pMappedData;
-      if (mapped_ptr == nullptr) {
-        vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);
-        return fail(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
-      }
-    }
-
-    return ::vkexec::owned::gpu_buffer{
-      &ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address
-    };
-  });
+  return ::vkexec::owned::gpu_buffer{
+    ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address
+  };
 }
-
-auto factory::make_gpu_buffer_t::operator()(::vkexec::context &ctx, VkDeviceSize size, gpu_buffer_memory memory) const
-  -> sender<::vkexec::owned::gpu_buffer>
-{ return factory::make_gpu_buffer(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
 
 owned::gpu_buffer::gpu_buffer(context *ctx,
   VkBuffer buffer,

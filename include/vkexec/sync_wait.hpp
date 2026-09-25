@@ -131,15 +131,11 @@ namespace detail {
 #pragma GCC diagnostic pop
 #endif
 
-    sync_wait_outcome<sync_wait_value_tuple_t<CvSender>> outcome{};
     if (state.wait_error) {
-      outcome.error = std::move(*state.wait_error);
-    } else if (state.stopped) {
-      outcome.stopped = true;
-    } else {
-      outcome.values = std::move(values);
+      return { .values = std::nullopt, .error = std::move(state.wait_error), .stopped = false };
     }
-    return outcome;
+    if (state.stopped) { return { .values = std::nullopt, .error = std::nullopt, .stopped = true }; }
+    return { .values = std::move(values), .error = std::nullopt, .stopped = false };
   }
 
 }// namespace detail

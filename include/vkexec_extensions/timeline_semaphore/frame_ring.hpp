@@ -48,6 +48,18 @@ namespace owned {
   class frame_ring;
 }// namespace owned
 
+namespace detail {
+
+  struct make_frame_ring_factory
+  {
+    context *ctx;
+    frame_ring_create_info info;
+
+    [[nodiscard]] auto operator()() const -> result<owned::frame_ring>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_frame_ring_t
@@ -59,7 +71,8 @@ namespace factory {
      * @param ctx Context that owns the device (timeline + binary semaphores).
      * @param info Slot count and initial image count.
      */
-    [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const -> sender<owned::frame_ring>;
+    [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const
+    { return make_sender(detail::make_frame_ring_factory{ .ctx = &ctx, .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -165,7 +178,7 @@ namespace owned {
       -> result<frame_ring_submit_sync>;
 
   private:
-    friend struct factory::make_frame_ring_t;
+    friend struct detail::make_frame_ring_factory;
 
     frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept;
 

@@ -58,6 +58,24 @@ namespace owned {
   class presenter;
 }// namespace owned
 
+namespace detail {
+
+  struct make_presenter_factory
+  {
+    presenter_config cfg;
+
+    [[nodiscard]] auto operator()() -> result<owned::presenter>;
+  };
+
+  struct make_headless_presenter_factory
+  {
+    presenter_config cfg;
+
+    [[nodiscard]] auto operator()() -> result<owned::presenter>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_presenter_t
@@ -68,7 +86,8 @@ namespace factory {
      *
      * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
      */
-    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<owned::presenter>;
+    [[nodiscard]] auto operator()(presenter_config cfg) const
+    { return make_sender(detail::make_presenter_factory{ .cfg = std::move(cfg) }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -81,9 +100,10 @@ namespace factory {
    */
   struct make_headless_presenter_t
   {
-    [[nodiscard]] auto operator()(presenter_config cfg) const -> sender<owned::presenter>;
+    [[nodiscard]] auto operator()(presenter_config cfg) const
+    { return make_sender(detail::make_headless_presenter_factory{ .cfg = std::move(cfg) }); }
     //! Headless presenter with default config.
-    [[nodiscard]] auto operator()() const -> sender<owned::presenter>;
+    [[nodiscard]] auto operator()() const { return (*this)(presenter_config{}); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -161,8 +181,8 @@ namespace owned {
     [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
   private:
-    friend struct factory::make_presenter_t;
-    friend struct factory::make_headless_presenter_t;
+    friend struct detail::make_presenter_factory;
+    friend struct detail::make_headless_presenter_factory;
 
     struct frame_sync
     {

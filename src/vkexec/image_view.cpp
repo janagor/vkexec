@@ -5,7 +5,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -17,29 +16,26 @@ namespace {
 
 }// namespace
 
-auto factory::make_image_view_t::operator()(::vkexec::context &ctx, ::vkexec::owned::image const &img) const
-  -> sender<::vkexec::owned::image_view>
+auto detail::make_image_view_factory::operator()() const -> result<::vkexec::owned::image_view>
 {
-  return make_sender<::vkexec::owned::image_view>([&ctx, &img]() -> result<::vkexec::owned::image_view> {
-    if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
-    if (img.handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
+  if (ctx->device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
+  if (img->handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
 
-    VkImageViewCreateInfo view_info{};
-    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.image = img.handle();
-    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    view_info.format = img.format();
-    view_info.subresourceRange.aspectMask = aspect_for(img.usage());
-    view_info.subresourceRange.baseMipLevel = 0;
-    view_info.subresourceRange.levelCount = 1;
-    view_info.subresourceRange.baseArrayLayer = 0;
-    view_info.subresourceRange.layerCount = 1;
+  VkImageViewCreateInfo view_info{};
+  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_info.image = img->handle();
+  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_info.format = img->format();
+  view_info.subresourceRange.aspectMask = aspect_for(img->usage());
+  view_info.subresourceRange.baseMipLevel = 0;
+  view_info.subresourceRange.levelCount = 1;
+  view_info.subresourceRange.baseArrayLayer = 0;
+  view_info.subresourceRange.layerCount = 1;
 
-    VkImageView view{ VK_NULL_HANDLE };
-    VkResult const create_result = vkCreateImageView(ctx.device(), &view_info, nullptr, &view);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateImageView failed"); }
-    return ::vkexec::owned::image_view{ &ctx, view };
-  });
+  VkImageView view{ VK_NULL_HANDLE };
+  VkResult const create_result = vkCreateImageView(ctx->device(), &view_info, nullptr, &view);
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateImageView failed"); }
+  return ::vkexec::owned::image_view{ ctx, view };
 }
 
 owned::image_view::image_view(context *ctx, VkImageView view) noexcept : ctx_(ctx), view_(view) {}

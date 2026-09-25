@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -89,6 +90,32 @@ namespace owned {
   class descriptor_graphics_pipeline;
 }// namespace owned
 
+namespace detail {
+
+  struct make_descriptor_graphics_pipeline_spirv_factory
+  {
+    context *ctx;
+    std::vector<std::uint32_t> vertex_spirv;
+    std::vector<std::uint32_t> fragment_spirv;
+    heap_graphics_layout_desc desc;
+
+    [[nodiscard]] auto operator()() const -> result<owned::descriptor_graphics_pipeline>;
+  };
+
+  struct make_descriptor_graphics_pipeline_glsl_factory
+  {
+    context *ctx;
+    std::string vertex_glsl;
+    std::string fragment_glsl;
+    heap_graphics_layout_desc desc;
+    std::string vertex_name;
+    std::string fragment_name;
+
+    [[nodiscard]] auto operator()() const -> result<owned::descriptor_graphics_pipeline>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_descriptor_graphics_pipeline_t
@@ -105,7 +132,13 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx,
       std::span<std::uint32_t const> vertex_spirv,
       std::span<std::uint32_t const> fragment_spirv,
-      heap_graphics_layout_desc const &desc) const -> sender<owned::descriptor_graphics_pipeline>;
+      heap_graphics_layout_desc const &desc) const
+    {
+      return make_sender(detail::make_descriptor_graphics_pipeline_spirv_factory{ .ctx = &ctx,
+        .vertex_spirv = std::vector<std::uint32_t>(vertex_spirv.begin(), vertex_spirv.end()),
+        .fragment_spirv = std::vector<std::uint32_t>(fragment_spirv.begin(), fragment_spirv.end()),
+        .desc = desc });
+    }
 
     /**
      * Compiles GLSL then creates a heap graphics pipeline.
@@ -118,7 +151,15 @@ namespace factory {
       std::string_view fragment_glsl,
       heap_graphics_layout_desc const &desc,
       std::string_view vertex_name = "heap.vert",
-      std::string_view fragment_name = "heap.frag") const -> sender<owned::descriptor_graphics_pipeline>;
+      std::string_view fragment_name = "heap.frag") const
+    {
+      return make_sender(detail::make_descriptor_graphics_pipeline_glsl_factory{ .ctx = &ctx,
+        .vertex_glsl = std::string{ vertex_glsl },
+        .fragment_glsl = std::string{ fragment_glsl },
+        .desc = desc,
+        .vertex_name = std::string{ vertex_name },
+        .fragment_name = std::string{ fragment_name } });
+    }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -184,20 +225,24 @@ namespace owned {
 }// namespace owned
 
 //! Owning factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.
-[[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
+[[nodiscard]] inline auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> sender<owned::descriptor_graphics_pipeline>;
+  heap_graphics_layout_desc const &desc)
+{ return factory::make_descriptor_graphics_pipeline(ctx, vertex_spirv, fragment_spirv, desc); }
 
 //! Owning GLSL factory customization used by `factory::make_graphics_pipeline(descriptor_heap, ...)`.
-[[nodiscard]] auto create_graphics_pipeline(descriptor_heap_t strategy,
+[[nodiscard]] inline auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
   context &ctx,
   std::string_view vertex_glsl,
   std::string_view fragment_glsl,
   heap_graphics_layout_desc const &desc,
   std::string_view vertex_name = "heap.vert",
-  std::string_view fragment_name = "heap.frag") -> sender<owned::descriptor_graphics_pipeline>;
+  std::string_view fragment_name = "heap.frag")
+{
+  return factory::make_descriptor_graphics_pipeline(ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name);
+}
 
 }// namespace vkexec
 

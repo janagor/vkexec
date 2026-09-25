@@ -8,7 +8,6 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -18,7 +17,6 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -113,29 +111,21 @@ auto owned::compute_pipeline::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto factory::make_compute_pipeline_t::operator()(::vkexec::context &ctx,
-  std::span<std::uint32_t const> spirv,
-  layout_desc const &desc) const -> sender<::vkexec::owned::compute_pipeline>
+auto detail::make_compute_pipeline_spirv_factory::operator()() const -> result<::vkexec::owned::compute_pipeline>
 {
-  layout_desc owned_desc = desc;
-
-  return make_sender<::vkexec::owned::compute_pipeline>(
-    [&ctx, spirv, desc = std::move(owned_desc)]() -> result<::vkexec::owned::compute_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned, create(ctx, spirv, desc));
-      return ::vkexec::owned::compute_pipeline::make(ctx, std::make_unique<handles::compute_pipeline>(owned));
-    });
+  VKEXEC_TRY_ASSIGN(owned, create(*ctx, spirv, desc));
+  return ::vkexec::owned::compute_pipeline::make(*ctx, std::make_unique<handles::compute_pipeline>(owned));
 }
 
-auto owned::compute_pipeline::allocate_set_sender() const -> sender<VkDescriptorSet>
-{
-  return make_sender<VkDescriptorSet>([this]() -> result<VkDescriptorSet> { return allocate_set(); });
-}
+auto detail::allocate_set_factory::operator()() const -> result<VkDescriptorSet> { return pipe->allocate_set(); }
 
-auto owned::compute_pipeline::update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
-  -> void_sender
+auto detail::update_set_factory::operator()() const -> status { return pipe->update_set(set, buffers); }
+
+auto detail::bind_storage_factory::operator()() const -> result<bound_compute_pipeline>
 {
-  std::vector<storage_binding> owned(buffers.begin(), buffers.end());
-  return make_void_sender([this, set, owned = std::move(owned)]() -> status { return update_set(set, owned); });
+  VKEXEC_TRY_ASSIGN(set, pipe->allocate_set());
+  VKEXEC_TRY(pipe->update_set(set, buffers));
+  return bound_compute_pipeline{ .pipe = pipe, .set = set };
 }
 
 auto owned::compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
@@ -148,18 +138,6 @@ auto owned::compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_
   }
   write_storage_descriptors(ctx_->device(), set, buffers);
   return {};
-}
-
-auto bind_storage_sender(owned::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
-  -> sender<bound_compute_pipeline>
-{
-  std::vector<storage_binding> owned(buffers.begin(), buffers.end());
-  return make_sender<bound_compute_pipeline>(
-    [&pipe, owned = std::move(owned)]() mutable -> result<bound_compute_pipeline> {
-      VKEXEC_TRY_ASSIGN(set, pipe.allocate_set());
-      VKEXEC_TRY(pipe.update_set(set, owned));
-      return bound_compute_pipeline{ .pipe = &pipe, .set = set };
-    });
 }
 
 auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)

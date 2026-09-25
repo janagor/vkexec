@@ -81,15 +81,25 @@ struct context_adopt_info
 
 class context;
 
-namespace factory {
+namespace detail {
 
-  struct make_context_t
+  struct make_context_factory
   {
-    [[nodiscard]] auto operator()(scheduler_options const &opts = {}) const -> sender<std::unique_ptr<context>>;
+    scheduler_options opts;
+
+    [[nodiscard]] auto operator()() const -> result<std::unique_ptr<context>>;
   };
 
-  // NOLINTNEXTLINE(readability-identifier-naming)
-  inline constexpr make_context_t make_context{};
+  struct adopt_context_factory
+  {
+    context_adopt_info info;
+
+    [[nodiscard]] auto operator()() const -> result<std::unique_ptr<context>>;
+  };
+
+}// namespace detail
+
+namespace factory {
 
   /**
    * Creates a compute-only context (no window / swapchain).
@@ -100,6 +110,15 @@ namespace factory {
    * @param opts Validation and extra Vulkan requirements.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
+  struct make_context_t
+  {
+    [[nodiscard]] auto operator()(scheduler_options const &opts = {}) const
+    { return make_sender(detail::make_context_factory{ .opts = opts }); }
+  };
+
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr make_context_t make_context{};
+
   /**
    * Adopts embedder-owned Vulkan handles without taking destruction ownership.
    *
@@ -108,7 +127,8 @@ namespace factory {
    */
   struct adopt_context_t
   {
-    [[nodiscard]] auto operator()(context_adopt_info const &info) const -> sender<std::unique_ptr<context>>;
+    [[nodiscard]] auto operator()(context_adopt_info const &info) const
+    { return make_sender(detail::adopt_context_factory{ .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -313,8 +333,8 @@ private:
   friend class owned::presenter;
   template<typename T> friend class owned::buffer;
   // MSVC misparses trailing-return friend decls named like the enclosing class.
-  friend struct factory::make_context_t;
-  friend struct factory::adopt_context_t;
+  friend struct detail::make_context_factory;
+  friend struct detail::adopt_context_factory;
 
   //! Empty tags for staged construction; only friends can name them.
   struct uninitialized_tag
@@ -331,8 +351,8 @@ private:
   class factory_access
   {
     factory_access() = default;
-    friend struct factory::make_context_t;
-    friend struct factory::adopt_context_t;
+    friend struct detail::make_context_factory;
+    friend struct detail::adopt_context_factory;
     friend class owned::presenter;
   };
 

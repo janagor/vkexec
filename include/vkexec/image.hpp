@@ -44,6 +44,18 @@ namespace owned {
   class image;
 }// namespace owned
 
+namespace detail {
+
+  struct make_image_factory
+  {
+    context *ctx;
+    image_create_info info;
+
+    [[nodiscard]] auto operator()() const -> result<owned::image>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_image_t
@@ -55,7 +67,8 @@ namespace factory {
      * @param ctx Context whose VMA allocator owns the allocation.
      * @param info Extent, usage, and optional format override.
      */
-    [[nodiscard]] auto operator()(context &ctx, image_create_info info) const -> sender<owned::image>;
+    [[nodiscard]] auto operator()(context &ctx, image_create_info info) const
+    { return make_sender(detail::make_image_factory{ .ctx = &ctx, .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -93,7 +106,7 @@ namespace owned {
     [[nodiscard]] auto usage() const noexcept -> image_usage { return usage_; }
 
   private:
-    friend struct factory::make_image_t;
+    friend struct detail::make_image_factory;
 
     image(context *ctx,
       VkImage image_handle,

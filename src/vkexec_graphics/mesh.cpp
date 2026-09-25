@@ -4,7 +4,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -111,14 +110,10 @@ auto owned::mesh::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto factory::make_mesh_t::operator()(::vkexec::context &ctx,
-  std::span<mesh_vertex const> vertices,
-  std::span<std::uint32_t const> indices) const -> sender<::vkexec::owned::mesh>
+auto detail::make_mesh_factory::operator()() const -> result<::vkexec::owned::mesh>
 {
-  return make_sender<::vkexec::owned::mesh>([&ctx, vertices, indices]() -> result<::vkexec::owned::mesh> {
-    VKEXEC_TRY_ASSIGN(owned, create(ctx, vertices, indices));
-    return ::vkexec::owned::mesh{ &ctx, owned };
-  });
+  VKEXEC_TRY_ASSIGN(owned, create(*ctx, vertices, indices));
+  return ::vkexec::owned::mesh{ ctx, owned };
 }
 
 }// namespace vkexec

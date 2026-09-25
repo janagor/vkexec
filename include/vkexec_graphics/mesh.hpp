@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace vkexec {
 
@@ -72,6 +73,19 @@ namespace owned {
   class mesh;
 }// namespace owned
 
+namespace detail {
+
+  struct make_mesh_factory
+  {
+    context *ctx;
+    std::vector<mesh_vertex> vertices;
+    std::vector<std::uint32_t> indices;
+
+    [[nodiscard]] auto operator()() const -> result<owned::mesh>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_mesh_t
@@ -84,9 +98,13 @@ namespace factory {
      * @param vertices Vertex data (copied into the vertex buffer).
      * @param indices Triangle indices (copied into the index buffer).
      */
-    [[nodiscard]] auto operator()(context &ctx,
-      std::span<mesh_vertex const> vertices,
-      std::span<std::uint32_t const> indices) const -> sender<owned::mesh>;
+    [[nodiscard]] auto
+      operator()(context &ctx, std::span<mesh_vertex const> vertices, std::span<std::uint32_t const> indices) const
+    {
+      return make_sender(detail::make_mesh_factory{ .ctx = &ctx,
+        .vertices = std::vector<mesh_vertex>(vertices.begin(), vertices.end()),
+        .indices = std::vector<std::uint32_t>(indices.begin(), indices.end()) });
+    }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -134,7 +152,7 @@ namespace owned {
     [[nodiscard]] auto vk_index_buffer() const noexcept -> VkBuffer { return buffers_.index_buffer; }
 
   private:
-    friend struct factory::make_mesh_t;
+    friend struct detail::make_mesh_factory;
 
     mesh(context *ctx, handles::mesh buffers) noexcept : ctx_(ctx), buffers_(buffers) {}
 

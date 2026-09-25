@@ -17,8 +17,20 @@ struct gltf_mesh_data
   std::vector<std::uint32_t> indices;
 };
 
+namespace detail {
+
+  struct load_gltf_mesh_factory
+  {
+    std::string path;
+
+    [[nodiscard]] auto operator()() const -> vkexec::result<gltf_mesh_data>;
+  };
+
+}// namespace detail
+
 /// Load the first triangle mesh from a GLTF/GLB file into vkexec mesh arrays.
-[[nodiscard]] auto load_gltf_mesh(std::string const &path) -> vkexec::sender<gltf_mesh_data>;
+[[nodiscard]] inline auto load_gltf_mesh(std::string const &path)
+{ return vkexec::make_sender(detail::load_gltf_mesh_factory{ .path = path }); }
 
 }// namespace vkexec::examples
 

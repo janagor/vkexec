@@ -7,7 +7,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -40,14 +39,6 @@ auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value)
   return ::vkexec::owned::timeline_semaphore{ &ctx, semaphore };
 }
 
-auto factory::make_timeline_semaphore_t::operator()(::vkexec::context &ctx, std::uint64_t initial_value) const
-  -> sender<::vkexec::owned::timeline_semaphore>
-{
-  return make_sender<::vkexec::owned::timeline_semaphore>(
-    [&ctx, initial_value]() -> result<::vkexec::owned::timeline_semaphore> {
-      return detail::make_timeline_semaphore(ctx, initial_value);
-    });
-}
 
 owned::timeline_semaphore::timeline_semaphore(context *ctx, VkSemaphore semaphore) noexcept
   : ctx_(ctx), semaphore_(semaphore)

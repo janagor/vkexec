@@ -171,9 +171,9 @@ namespace factory {
      */
     template<typename T>
       requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] auto operator()(context &ctx, std::size_t count, T fill) const -> sender<owned::tensor<T>>
+    [[nodiscard]] auto operator()(context &ctx, std::size_t count, T fill) const
     {
-      return make_sender<owned::tensor<T>>([&ctx, count, fill]() -> result<owned::tensor<T>> {
+      return make_sender([&ctx, count, fill]() -> result<owned::tensor<T>> {
         if (count == 0) { return fail(errc::invalid_argument, "vkexec::tensor count must be > 0"); }
         return owned::tensor<T>::make_allocated(ctx, std::vector<T>(count, fill));
       });
@@ -187,9 +187,9 @@ namespace factory {
      */
     template<typename T>
       requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] auto operator()(context &ctx, std::span<T const> values) const -> sender<owned::tensor<T>>
+    [[nodiscard]] auto operator()(context &ctx, std::span<T const> values) const
     {
-      return make_sender<owned::tensor<T>>([&ctx, values]() -> result<owned::tensor<T>> {
+      return make_sender([&ctx, values]() -> result<owned::tensor<T>> {
         if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor span must be non-empty"); }
         return owned::tensor<T>::make_allocated(ctx, std::vector<T>(values.begin(), values.end()));
       });
@@ -198,9 +198,9 @@ namespace factory {
     //! Convenience overload that copies from a `std::vector`.
     template<typename T>
       requires std::is_trivially_copyable_v<T>
-    [[nodiscard]] auto operator()(context &ctx, std::vector<T> values) const -> sender<owned::tensor<T>>
+    [[nodiscard]] auto operator()(context &ctx, std::vector<T> values) const
     {
-      return make_sender<owned::tensor<T>>([&ctx, values = std::move(values)]() mutable -> result<owned::tensor<T>> {
+      return make_sender([&ctx, values = std::move(values)]() mutable -> result<owned::tensor<T>> {
         if (values.empty()) { return fail(errc::invalid_argument, "vkexec::tensor vector must be non-empty"); }
         return owned::tensor<T>::make_allocated(ctx, std::move(values));
       });

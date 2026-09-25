@@ -25,6 +25,18 @@ namespace owned {
   class sampler;
 }// namespace owned
 
+namespace detail {
+
+  struct make_sampler_factory
+  {
+    context *ctx;
+    sampler_create_info info;
+
+    [[nodiscard]] auto operator()() const -> result<owned::sampler>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_sampler_t
@@ -36,7 +48,8 @@ namespace factory {
      * @param ctx Context that owns the device.
      * @param info Filter and addressing parameters.
      */
-    [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const -> sender<owned::sampler>;
+    [[nodiscard]] auto operator()(context &ctx, sampler_create_info info = {}) const
+    { return make_sender(detail::make_sampler_factory{ .ctx = &ctx, .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -66,7 +79,7 @@ namespace owned {
     [[nodiscard]] auto handle() const noexcept -> VkSampler { return sampler_; }
 
   private:
-    friend struct factory::make_sampler_t;
+    friend struct detail::make_sampler_factory;
 
     sampler(context *ctx, VkSampler handle) noexcept;
     auto destroy() noexcept -> void;

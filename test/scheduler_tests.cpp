@@ -67,10 +67,9 @@ struct completion_probe_receiver
 [[nodiscard]] auto make_empty_pass_step(std::function<void()> after_gpu) -> vkexec::pass_step
 {
   return vkexec::pass_step{
-    .record =
-      [](vkexec::context & /*host*/,
-        VkCommandBuffer /*cmd*/,
-        vkexec::detail::pass_cleanup & /*cleanup*/) -> vkexec::status { return {}; },
+    .record = [](vkexec::context & /*host*/,
+                VkCommandBuffer /*cmd*/,
+                vkexec::detail::pass_cleanup & /*cleanup*/) -> vkexec::status { return {}; },
     .after_gpu = std::move(after_gpu),
   };
 }
@@ -99,15 +98,12 @@ struct release_promise
 }// namespace
 
 template<class Sender, class CompletionTag>
-concept advertises_completion_scheduler = requires(Sender const &sndr) {
-  ex::get_completion_scheduler<CompletionTag>(ex::get_env(sndr));
-};
+concept advertises_completion_scheduler =
+  requires(Sender const &sndr) { ex::get_completion_scheduler<CompletionTag>(ex::get_env(sndr)); };
 
-using pass_adaptor_t =
-  vkexec::pass_adaptor_sender<vkexec::schedule_sender, vkexec::prebuilt_compute_pass_closure>;
+using pass_adaptor_t = vkexec::pass_adaptor_sender<vkexec::schedule_sender, vkexec::prebuilt_compute_pass_closure>;
 using schema_pass_adaptor_t = vkexec::schema_pass_sender<vkexec::schedule_sender>;
-using tensor_pass_adaptor_t =
-  vkexec::tensor_pass_sender<vkexec::schedule_sender, vkexec::tensor_pass_closure<float>>;
+using tensor_pass_adaptor_t = vkexec::tensor_pass_sender<vkexec::schedule_sender, vkexec::tensor_pass_closure<float>>;
 
 static_assert(advertises_completion_scheduler<vkexec::schedule_sender, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_error_t>);
@@ -191,8 +187,7 @@ TEST_CASE("domain-only sender environment advertises vkexec domain", "[vkexec][s
 {
   vkexec::detail::domain_env const env{};
 
-  STATIC_REQUIRE(
-    std::same_as<decltype(env.query(ex::get_completion_domain_t<ex::set_value_t>{})), vkexec::domain>);
+  STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_completion_domain_t<ex::set_value_t>{})), vkexec::domain>);
   STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_domain_t{})), vkexec::domain>);
 }
 
@@ -353,7 +348,6 @@ TEST_CASE("pass composition uses one graph sender type", "[vkexec][pass]")
   auto graph2 = std::move(graph) | vkexec::barrier::compute_to_compute();
   STATIC_REQUIRE(std::same_as<decltype(graph2), vkexec::pass_graph_sender>);
 
-  auto graph3 =
-    std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  auto graph3 = std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
   STATIC_REQUIRE(std::same_as<decltype(graph3), vkexec::pass_graph_sender>);
 }

@@ -5,7 +5,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include "detail/completion_waiter.hpp"
@@ -198,32 +197,26 @@ context::context(factory_access /*access*/, [[maybe_unused]] uninitialized_tag t
   : impl_(std::make_unique<impl>())
 {}
 
-auto factory::make_context_t::operator()(scheduler_options const &opts) const
-  -> sender<std::unique_ptr<::vkexec::context>>
+auto detail::make_context_factory::operator()() const -> result<std::unique_ptr<::vkexec::context>>
 {
   // Factory may allocate; sender::start() catches and maps to set_error.
   // NOLINTNEXTLINE(bugprone-exception-escape)
-  return make_sender<std::unique_ptr<::vkexec::context>>([opts]() -> result<std::unique_ptr<::vkexec::context>> {
-    auto ctx =
-      std::make_unique<::vkexec::context>(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{});
+  auto ctx =
+    std::make_unique<::vkexec::context>(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{});
 
-    VKEXEC_TRY(ctx->init_headless(opts));
-    return ctx;
-  });
+  VKEXEC_TRY(ctx->init_headless(opts));
+  return ctx;
 }
 
-auto factory::adopt_context_t::operator()(context_adopt_info const &info) const
-  -> sender<std::unique_ptr<::vkexec::context>>
+auto detail::adopt_context_factory::operator()() const -> result<std::unique_ptr<::vkexec::context>>
 {
   // Factory may allocate; sender::start() catches and maps to set_error.
   // NOLINTNEXTLINE(bugprone-exception-escape)
-  return make_sender<std::unique_ptr<::vkexec::context>>([info]() -> result<std::unique_ptr<::vkexec::context>> {
-    auto ctx =
-      std::make_unique<::vkexec::context>(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{});
+  auto ctx =
+    std::make_unique<::vkexec::context>(::vkexec::context::factory_access{}, ::vkexec::context::uninitialized_tag{});
 
-    VKEXEC_TRY(ctx->init_adopted(info));
-    return ctx;
-  });
+  VKEXEC_TRY(ctx->init_adopted(info));
+  return ctx;
 }
 
 auto context::instance() const noexcept -> VkInstance { return impl_->instance.instance; }

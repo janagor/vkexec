@@ -193,8 +193,7 @@ struct pass_graph_sender
     Receiver receiver;
     using child_receiver_t = after_gpu_receiver<Receiver>;
     using fence_sender_t = detail::submit_fence_sender;
-    using completion_sender_t =
-      decltype(ex::continues_on(std::declval<fence_sender_t>(), std::declval<scheduler>()));
+    using completion_sender_t = decltype(ex::continues_on(std::declval<fence_sender_t>(), std::declval<scheduler>()));
     using submit_op_t = decltype(ex::connect(std::declval<completion_sender_t>(), std::declval<child_receiver_t>()));
 
     struct submit_op_holder
@@ -247,9 +246,8 @@ struct pass_graph_sender
   };
 
   template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) &
-    noexcept(std::is_nothrow_copy_constructible_v<std::vector<pass_step>>
-             && std::is_nothrow_move_constructible_v<Receiver>)
+  [[nodiscard]] auto connect(Receiver receiver) & noexcept(
+    std::is_nothrow_copy_constructible_v<std::vector<pass_step>> && std::is_nothrow_move_constructible_v<Receiver>)
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
@@ -261,9 +259,8 @@ struct pass_graph_sender
   }
 
   template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) &&
-    noexcept(std::is_nothrow_move_constructible_v<std::vector<pass_step>>
-             && std::is_nothrow_move_constructible_v<Receiver>)
+  [[nodiscard]] auto connect(Receiver receiver) && noexcept(
+    std::is_nothrow_move_constructible_v<std::vector<pass_step>> && std::is_nothrow_move_constructible_v<Receiver>)
     -> op_state<Receiver>
   {
     return op_state<Receiver>{

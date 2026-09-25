@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -26,6 +27,34 @@ namespace owned {
   class mesh;
   class graphics_pipeline;
 }// namespace owned
+
+namespace detail {
+
+  struct make_graphics_pipeline_spirv_factory
+  {
+    context *ctx;
+    VkRenderPass render_pass;
+    graphics_pipeline_config cfg;
+    std::vector<std::uint32_t> vertex_spirv;
+    std::vector<std::uint32_t> fragment_spirv;
+    std::vector<storage_binding> buffers;
+
+    [[nodiscard]] auto operator()() -> result<owned::graphics_pipeline>;
+  };
+
+  struct make_graphics_pipeline_glsl_factory
+  {
+    context *ctx;
+    VkRenderPass render_pass;
+    graphics_pipeline_config cfg;
+    std::string vertex_glsl;
+    std::string fragment_glsl;
+    std::vector<storage_binding> buffers;
+
+    [[nodiscard]] auto operator()() -> result<owned::graphics_pipeline>;
+  };
+
+}// namespace detail
 
 namespace factory {
 
@@ -47,14 +76,23 @@ namespace factory {
       graphics_pipeline_config cfg,
       std::span<std::uint32_t const> vertex_spirv,
       std::span<std::uint32_t const> fragment_spirv,
-      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const
+    {
+      return make_sender(detail::make_graphics_pipeline_spirv_factory{ .ctx = &ctx,
+        .render_pass = render_pass,
+        .cfg = cfg,
+        .vertex_spirv = std::vector<std::uint32_t>(vertex_spirv.begin(), vertex_spirv.end()),
+        .fragment_spirv = std::vector<std::uint32_t>(fragment_spirv.begin(), fragment_spirv.end()),
+        .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
+    }
 
     //! Creates a graphics pipeline from SPIR-V with default config.
     [[nodiscard]] auto operator()(context &ctx,
       VkRenderPass render_pass,
       std::span<std::uint32_t const> vertex_spirv,
       std::span<std::uint32_t const> fragment_spirv,
-      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const
+    { return (*this)(ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers); }
 
     //! Creates a graphics pipeline by compiling GLSL with an explicit config.
     [[nodiscard]] auto operator()(context &ctx,
@@ -62,14 +100,23 @@ namespace factory {
       graphics_pipeline_config cfg,
       std::string_view vertex_glsl,
       std::string_view fragment_glsl,
-      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const
+    {
+      return make_sender(detail::make_graphics_pipeline_glsl_factory{ .ctx = &ctx,
+        .render_pass = render_pass,
+        .cfg = cfg,
+        .vertex_glsl = std::string{ vertex_glsl },
+        .fragment_glsl = std::string{ fragment_glsl },
+        .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
+    }
 
     //! Creates a graphics pipeline by compiling GLSL with default config.
     [[nodiscard]] auto operator()(context &ctx,
       VkRenderPass render_pass,
       std::string_view vertex_glsl,
       std::string_view fragment_glsl,
-      std::span<storage_binding const> buffers = {}) const -> sender<owned::graphics_pipeline>;
+      std::span<storage_binding const> buffers = {}) const
+    { return (*this)(ctx, render_pass, graphics_pipeline_config{}, vertex_glsl, fragment_glsl, buffers); }
 
     //! Creates a graphics pipeline through an extension-owned descriptor strategy tag.
     template<class Strategy, class Desc>

@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -25,6 +26,55 @@ namespace vkexec {
 namespace owned {
   class compute_pipeline;
 }// namespace owned
+
+struct bound_compute_pipeline;
+
+namespace detail {
+
+  struct make_compute_pipeline_spirv_factory
+  {
+    context *ctx;
+    std::vector<std::uint32_t> spirv;
+    layout_desc desc;
+
+    [[nodiscard]] auto operator()() const -> result<owned::compute_pipeline>;
+  };
+
+  struct make_compute_pipeline_glsl_factory
+  {
+    context *ctx;
+    std::string glsl;
+    layout_desc desc;
+    std::string name;
+
+    [[nodiscard]] auto operator()() const -> result<owned::compute_pipeline>;
+  };
+
+  struct allocate_set_factory
+  {
+    owned::compute_pipeline const *pipe;
+
+    [[nodiscard]] auto operator()() const -> result<VkDescriptorSet>;
+  };
+
+  struct update_set_factory
+  {
+    owned::compute_pipeline const *pipe;
+    VkDescriptorSet set;
+    std::vector<storage_binding> buffers;
+
+    [[nodiscard]] auto operator()() const -> status;
+  };
+
+  struct bind_storage_factory
+  {
+    owned::compute_pipeline const *pipe;
+    std::vector<storage_binding> buffers;
+
+    [[nodiscard]] auto operator()() const -> result<bound_compute_pipeline>;
+  };
+
+}// namespace detail
 
 namespace factory {
 
@@ -39,7 +89,10 @@ namespace factory {
      * @param desc Descriptor and push-constant layout.
      */
     [[nodiscard]] auto operator()(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc) const
-      -> sender<owned::compute_pipeline>;
+    {
+      return make_sender(detail::make_compute_pipeline_spirv_factory{
+        .ctx = &ctx, .spirv = std::vector<std::uint32_t>(spirv.begin(), spirv.end()), .desc = desc });
+    }
 
     /**
      * Compiles `glsl` to SPIR-V then creates a pipeline.
@@ -52,7 +105,11 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx,
       std::string_view glsl,
       layout_desc const &desc,
-      std::string_view name = "vkexec.comp") const -> sender<owned::compute_pipeline>;
+      std::string_view name = "vkexec.comp") const
+    {
+      return make_sender(detail::make_compute_pipeline_glsl_factory{
+        .ctx = &ctx, .glsl = std::string{ glsl }, .desc = desc, .name = std::string{ name } });
+    }
 
     //! Creates a pipeline through an extension-owned descriptor strategy tag.
     template<class Strategy, class Desc>
@@ -130,10 +187,13 @@ namespace owned {
     { return vkexec::groups_for(*resources_, work_count); }
 
     //! Sender that allocates an empty descriptor set from this pipeline's pool.
-    [[nodiscard]] auto allocate_set_sender() const -> sender<VkDescriptorSet>;
+    [[nodiscard]] auto allocate_set_sender() const { return make_sender(detail::allocate_set_factory{ .pipe = this }); }
     //! Sender that writes `buffers` into `set`.
     [[nodiscard]] auto update_set_sender(VkDescriptorSet set, std::span<storage_binding const> buffers) const
-      -> void_sender;
+    {
+      return make_sender(detail::update_set_factory{
+        .pipe = this, .set = set, .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
+    }
 
     //! Allocates an empty descriptor set from this pipeline's pool.
     [[nodiscard]] auto allocate_set() const -> result<VkDescriptorSet>;
@@ -172,8 +232,12 @@ struct bound_compute_pipeline
  * @param pipe Pipeline whose layout matches `buffers`.
  * @param buffers Storage bindings to write into the set.
  */
-[[nodiscard]] auto bind_storage_sender(owned::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
-  -> sender<bound_compute_pipeline>;
+[[nodiscard]] inline auto bind_storage_sender(
+  owned::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
+{
+  return make_sender(detail::bind_storage_factory{
+    .pipe = &pipe, .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
+}
 
 /**
  * Builds a prebuilt compute pass with push constants and automatic group counts.

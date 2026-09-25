@@ -4,7 +4,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <VkBootstrap.h>
 
@@ -19,28 +18,25 @@
 
 namespace vkexec {
 
-auto factory::make_swapchain_t::operator()(::vkexec::context &ctx, swapchain_create_info info) const
-  -> sender<::vkexec::owned::swapchain>
+auto detail::make_swapchain_factory::operator()() const -> result<::vkexec::owned::swapchain>
 {
-  return make_sender<::vkexec::owned::swapchain>([&ctx, info]() -> result<::vkexec::owned::swapchain> {
-    if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
-    if (info.surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"); }
-    if (ctx.present_queue() == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "swapchain requires a present queue");
-    }
+  if (ctx->device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkDevice"); }
+  if (info.surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "swapchain requires a VkSurfaceKHR"); }
+  if (ctx->present_queue() == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "swapchain requires a present queue");
+  }
 
-    ::vkexec::owned::swapchain created;
-    created.ctx_ = &ctx;
-    created.surface_ = info.surface;
-    created.preferred_format_ = info.preferred_format;
-    created.preferred_color_space_ = info.preferred_color_space;
-    created.present_mode_ = info.present_mode;
-    created.create_flags_ = info.flags;
-    if (auto created_swapchain = created.create_or_recreate(info.width, info.height); !created_swapchain) {
-      return fail(created_swapchain);
-    }
-    return created;
-  });
+  ::vkexec::owned::swapchain created;
+  created.ctx_ = ctx;
+  created.surface_ = info.surface;
+  created.preferred_format_ = info.preferred_format;
+  created.preferred_color_space_ = info.preferred_color_space;
+  created.present_mode_ = info.present_mode;
+  created.create_flags_ = info.flags;
+  if (auto created_swapchain = created.create_or_recreate(info.width, info.height); !created_swapchain) {
+    return fail(created_swapchain);
+  }
+  return created;
 }
 
 owned::swapchain::~swapchain() { destroy(); }

@@ -17,6 +17,7 @@
 #include <array>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -60,18 +61,51 @@ static_assert(std::is_nothrow_move_constructible_v<heap_layout_desc>);
   heap_layout_desc const &desc,
   std::string_view name = "heap.comp") -> result<handles::compute_pipeline>;
 
+namespace detail {
+
+  struct create_heap_compute_pipeline_spirv_factory
+  {
+    descriptor_heap_t strategy;
+    context *ctx;
+    std::vector<std::uint32_t> spirv;
+    heap_layout_desc desc;
+
+    [[nodiscard]] auto operator()() const -> result<owned::compute_pipeline>;
+  };
+
+  struct create_heap_compute_pipeline_glsl_factory
+  {
+    descriptor_heap_t strategy;
+    context *ctx;
+    std::string glsl;
+    heap_layout_desc desc;
+    std::string name;
+
+    [[nodiscard]] auto operator()() const -> result<owned::compute_pipeline>;
+  };
+
+}// namespace detail
+
 //! Owning factory customization used by `factory::make_compute_pipeline(descriptor_heap, ...)`.
-[[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
+[[nodiscard]] inline auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::span<std::uint32_t const> spirv,
-  heap_layout_desc const &desc) -> sender<owned::compute_pipeline>;
+  heap_layout_desc const &desc)
+{
+  return make_sender(detail::create_heap_compute_pipeline_spirv_factory{
+    .strategy = strategy, .ctx = &ctx, .spirv = std::vector<std::uint32_t>(spirv.begin(), spirv.end()), .desc = desc });
+}
 
 //! Owning GLSL factory customization used by `factory::make_compute_pipeline(descriptor_heap, ...)`.
-[[nodiscard]] auto create_compute_pipeline(descriptor_heap_t strategy,
+[[nodiscard]] inline auto create_compute_pipeline(descriptor_heap_t strategy,
   context &ctx,
   std::string_view glsl,
   heap_layout_desc const &desc,
-  std::string_view name = "heap.comp") -> sender<owned::compute_pipeline>;
+  std::string_view name = "heap.comp")
+{
+  return make_sender(detail::create_heap_compute_pipeline_glsl_factory{
+    .strategy = strategy, .ctx = &ctx, .glsl = std::string{ glsl }, .desc = desc, .name = std::string{ name } });
+}
 
 }// namespace vkexec
 

@@ -4,7 +4,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/sync_wait_outcome.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -63,17 +62,14 @@ namespace {
 
 }// namespace
 
-auto factory::make_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::owned::presenter>
+auto detail::make_presenter_factory::operator()() -> result<::vkexec::owned::presenter>
 {
-  return make_sender<::vkexec::owned::presenter>(
-    [cfg = std::move(cfg)]() mutable -> result<::vkexec::owned::presenter> {
-      ::vkexec::owned::presenter created;
-      if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
-      return created;
-    });
+  ::vkexec::owned::presenter created;
+  if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
+  return created;
 }
 
-auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const -> sender<::vkexec::owned::presenter>
+auto detail::make_headless_presenter_factory::operator()() -> result<::vkexec::owned::presenter>
 {
   auto const surface_exts = vulkan_library::required_headless_surface_instance_extensions();
   cfg.surface_instance_extensions.assign(surface_exts.begin(), surface_exts.end());
@@ -91,11 +87,11 @@ auto factory::make_headless_presenter_t::operator()(presenter_config cfg) const 
     }
     return surface;
   };
-  return factory::make_presenter(std::move(cfg));
-}
 
-auto factory::make_headless_presenter_t::operator()() const -> sender<::vkexec::owned::presenter>
-{ return factory::make_headless_presenter(presenter_config{}); }
+  ::vkexec::owned::presenter created;
+  if (auto initialized = created.init(std::move(cfg)); !initialized) { return fail(initialized); }
+  return created;
+}
 
 owned::presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),

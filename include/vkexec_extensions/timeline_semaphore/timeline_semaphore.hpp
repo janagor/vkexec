@@ -27,26 +27,6 @@ namespace detail {
 
 }// namespace detail
 
-namespace factory {
-
-  struct make_timeline_semaphore_t
-  {
-
-    /**
-     * Creates a timeline semaphore with the given initial counter value.
-     *
-     * @param ctx Context that owns the device.
-     * @param initial_value Starting timeline value (often 0).
-     */
-    [[nodiscard]] auto operator()(context &ctx, std::uint64_t initial_value = 0) const
-      -> sender<owned::timeline_semaphore>;
-  };
-
-  // NOLINTNEXTLINE(readability-identifier-naming)
-  inline constexpr make_timeline_semaphore_t make_timeline_semaphore{};
-
-}// namespace factory
-
 /**
  * RAII timeline semaphore (`VK_SEMAPHORE_TYPE_TIMELINE`).
  *
@@ -92,6 +72,30 @@ namespace owned {
   };
 
 }// namespace owned
+
+namespace factory {
+
+  struct make_timeline_semaphore_t
+  {
+
+    /**
+     * Creates a timeline semaphore with the given initial counter value.
+     *
+     * @param ctx Context that owns the device.
+     * @param initial_value Starting timeline value (often 0).
+     */
+    [[nodiscard]] auto operator()(context &ctx, std::uint64_t initial_value = 0) const
+    {
+      return make_sender([ctx = &ctx, initial_value]() -> result<owned::timeline_semaphore> {
+        return detail::make_timeline_semaphore(*ctx, initial_value);
+      });
+    }
+  };
+
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr make_timeline_semaphore_t make_timeline_semaphore{};
+
+}// namespace factory
 
 }// namespace vkexec
 

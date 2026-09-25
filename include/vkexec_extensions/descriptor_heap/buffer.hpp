@@ -17,6 +17,18 @@ namespace vkexec {
 
 class descriptor_heap_buffer;
 
+namespace detail {
+
+  struct make_descriptor_heap_buffer_factory
+  {
+    context *ctx;
+    VkDeviceSize size;
+
+    [[nodiscard]] auto operator()() const -> result<descriptor_heap_buffer>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_descriptor_heap_buffer_t
@@ -28,7 +40,8 @@ namespace factory {
      * @param ctx Context whose VMA allocator owns the allocation.
      * @param size Byte size (must accommodate descriptors + reserved range).
      */
-    [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size) const -> sender<descriptor_heap_buffer>;
+    [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size) const
+    { return make_sender(detail::make_descriptor_heap_buffer_factory{ .ctx = &ctx, .size = size }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -76,7 +89,7 @@ public:
   [[nodiscard]] auto flush() const -> status;
 
 private:
-  friend struct factory::make_descriptor_heap_buffer_t;
+  friend struct detail::make_descriptor_heap_buffer_factory;
 
   descriptor_heap_buffer(context *ctx,
     VkBuffer buffer,

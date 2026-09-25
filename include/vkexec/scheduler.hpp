@@ -24,28 +24,23 @@ class scheduler;
 
 namespace detail {
 
-/**
- * Sender environment that advertises the vkexec domain but no completion scheduler.
- *
- * Use for senders that are vkexec-domain but do not guarantee where any completion
- * signal is delivered.
- */
-struct domain_env
-{
-  // cppcheck-suppress functionStatic
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+  /**
+   * Sender environment that advertises the vkexec domain but no completion scheduler.
+   *
+   * Use for senders that are vkexec-domain but do not guarantee where any completion
+   * signal is delivered.
+   */
+  struct domain_env
   {
-    return {};
-  }
+    // cppcheck-suppress functionStatic
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+    { return {}; }
 
-  // cppcheck-suppress functionStatic
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain
-  {
-    return {};
-  }
-};
+    // cppcheck-suppress functionStatic
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
+  };
 
 }// namespace detail
 
@@ -124,15 +119,13 @@ struct schedule_sender
 
   template<class Receiver>
   // cppcheck-suppress functionStatic
-  [[nodiscard]] auto connect(Receiver receiver) &
-    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+  [[nodiscard]] auto connect(Receiver receiver) & noexcept(std::is_nothrow_move_constructible_v<Receiver>)
     -> op_state<Receiver>
   { return op_state<Receiver>{ ctx, std::move(receiver) }; }
 
   template<class Receiver>
   // cppcheck-suppress functionStatic
-  [[nodiscard]] auto connect(Receiver receiver) &&
-    noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+  [[nodiscard]] auto connect(Receiver receiver) && noexcept(std::is_nothrow_move_constructible_v<Receiver>)
     -> op_state<Receiver>
   { return op_state<Receiver>{ ctx, std::move(receiver) }; }
 };

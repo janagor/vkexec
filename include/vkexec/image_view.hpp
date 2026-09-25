@@ -14,6 +14,18 @@ namespace owned {
   class image_view;
 }// namespace owned
 
+namespace detail {
+
+  struct make_image_view_factory
+  {
+    context *ctx;
+    owned::image const *img;
+
+    [[nodiscard]] auto operator()() const -> result<owned::image_view>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_image_view_t
@@ -25,7 +37,8 @@ namespace factory {
      * @param ctx Context that owns the device.
      * @param img Image to view (must remain alive while the view is used).
      */
-    [[nodiscard]] auto operator()(context &ctx, owned::image const &img) const -> sender<owned::image_view>;
+    [[nodiscard]] auto operator()(context &ctx, owned::image const &img) const
+    { return make_sender(detail::make_image_view_factory{ .ctx = &ctx, .img = &img }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -58,7 +71,7 @@ namespace owned {
     [[nodiscard]] auto handle() const noexcept -> VkImageView { return view_; }
 
   private:
-    friend struct factory::make_image_view_t;
+    friend struct detail::make_image_view_factory;
 
     image_view(context *ctx, VkImageView view) noexcept;
     auto destroy() noexcept -> void;

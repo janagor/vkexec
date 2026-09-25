@@ -10,7 +10,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -22,7 +21,6 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -229,27 +227,11 @@ auto owned::descriptor_graphics_pipeline::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto factory::make_descriptor_graphics_pipeline_t::operator()(::vkexec::context &ctx,
-  std::span<std::uint32_t const> vertex_spirv,
-  std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) const -> sender<::vkexec::owned::descriptor_graphics_pipeline>
+auto detail::make_descriptor_graphics_pipeline_spirv_factory::operator()() const
+  -> result<::vkexec::owned::descriptor_graphics_pipeline>
 {
-  heap_graphics_layout_desc owned_desc = desc;
-
-  return make_sender<::vkexec::owned::descriptor_graphics_pipeline>(
-    [&ctx, vertex_spirv, fragment_spirv, desc = std::move(owned_desc)]()
-      -> result<::vkexec::owned::descriptor_graphics_pipeline> {
-      VKEXEC_TRY_ASSIGN(owned, create(descriptor_heap, ctx, vertex_spirv, fragment_spirv, desc));
-      return ::vkexec::owned::descriptor_graphics_pipeline::make(
-        ctx, std::make_unique<handles::graphics_pipeline>(owned));
-    });
+  VKEXEC_TRY_ASSIGN(owned, create(descriptor_heap, *ctx, vertex_spirv, fragment_spirv, desc));
+  return ::vkexec::owned::descriptor_graphics_pipeline::make(*ctx, std::make_unique<handles::graphics_pipeline>(owned));
 }
-
-auto create_graphics_pipeline([[maybe_unused]] descriptor_heap_t strategy,
-  context &ctx,
-  std::span<std::uint32_t const> vertex_spirv,
-  std::span<std::uint32_t const> fragment_spirv,
-  heap_graphics_layout_desc const &desc) -> sender<::vkexec::owned::descriptor_graphics_pipeline>
-{ return factory::make_descriptor_graphics_pipeline(ctx, vertex_spirv, fragment_spirv, desc); }
 
 }// namespace vkexec

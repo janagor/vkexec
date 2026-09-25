@@ -4,7 +4,6 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -19,54 +18,51 @@ namespace {
 
 }// namespace
 
-auto factory::make_descriptor_heap_buffer_t::operator()(::vkexec::context &ctx, VkDeviceSize size) const
-  -> sender<::vkexec::descriptor_heap_buffer>
+auto detail::make_descriptor_heap_buffer_factory::operator()() const -> result<::vkexec::descriptor_heap_buffer>
 {
-  return make_sender<::vkexec::descriptor_heap_buffer>([&ctx, size]() -> result<::vkexec::descriptor_heap_buffer> {
-    if (size == 0) { return fail(errc::invalid_argument, "descriptor_heap_buffer size must be > 0"); }
-    if (ctx.allocator() == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "descriptor_heap_buffer requires a VMA allocator");
-    }
-    if (ctx.procs().get_buffer_device_address == nullptr) {
-      return fail(errc::unsupported, "descriptor_heap_buffer requires vkGetBufferDeviceAddress on the device");
-    }
+  if (size == 0) { return fail(errc::invalid_argument, "descriptor_heap_buffer size must be > 0"); }
+  if (ctx->allocator() == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "descriptor_heap_buffer requires a VMA allocator");
+  }
+  if (ctx->procs().get_buffer_device_address == nullptr) {
+    return fail(errc::unsupported, "descriptor_heap_buffer requires vkGetBufferDeviceAddress on the device");
+  }
 
-    VkBufferCreateInfo bci{};
-    bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bci.size = size;
-    // NOLINTBEGIN(hicpp-signed-bitwise)
-    bci.usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    // NOLINTEND(hicpp-signed-bitwise)
-    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  VkBufferCreateInfo bci{};
+  bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bci.size = size;
+  // NOLINTBEGIN(hicpp-signed-bitwise)
+  bci.usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+  // NOLINTEND(hicpp-signed-bitwise)
+  bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VmaAllocationCreateInfo aci{};
-    aci.usage = VMA_MEMORY_USAGE_AUTO;
-    // NOLINTBEGIN(hicpp-signed-bitwise)
-    aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
-                | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    // NOLINTEND(hicpp-signed-bitwise)
+  VmaAllocationCreateInfo aci{};
+  aci.usage = VMA_MEMORY_USAGE_AUTO;
+  // NOLINTBEGIN(hicpp-signed-bitwise)
+  aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+              | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+  aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+  // NOLINTEND(hicpp-signed-bitwise)
 
-    VkBuffer buffer_handle{ VK_NULL_HANDLE };
-    VmaAllocation allocation{ VK_NULL_HANDLE };
-    VmaAllocationInfo ainfo{};
-    VkResult const create_result = vmaCreateBufferWithAlignment(
-      ctx.allocator(), &bci, &aci, k_heap_device_address_alignment, &buffer_handle, &allocation, &ainfo);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBufferWithAlignment failed"); }
+  VkBuffer buffer_handle{ VK_NULL_HANDLE };
+  VmaAllocation allocation{ VK_NULL_HANDLE };
+  VmaAllocationInfo ainfo{};
+  VkResult const create_result = vmaCreateBufferWithAlignment(
+    ctx->allocator(), &bci, &aci, k_heap_device_address_alignment, &buffer_handle, &allocation, &ainfo);
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBufferWithAlignment failed"); }
 
-    void *const mapped_ptr = ainfo.pMappedData;
-    if (mapped_ptr == nullptr) {
-      vmaDestroyBuffer(ctx.allocator(), buffer_handle, allocation);
-      return fail(errc::unsupported, "descriptor_heap_buffer did not map host-visible memory");
-    }
+  void *const mapped_ptr = ainfo.pMappedData;
+  if (mapped_ptr == nullptr) {
+    vmaDestroyBuffer(ctx->allocator(), buffer_handle, allocation);
+    return fail(errc::unsupported, "descriptor_heap_buffer did not map host-visible memory");
+  }
 
-    VkMemoryPropertyFlags memory_flags = 0;
-    vmaGetAllocationMemoryProperties(ctx.allocator(), allocation, &memory_flags);
-    // NOLINTNEXTLINE(hicpp-signed-bitwise)
-    bool const host_coherent = (memory_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
+  VkMemoryPropertyFlags memory_flags = 0;
+  vmaGetAllocationMemoryProperties(ctx->allocator(), allocation, &memory_flags);
+  // NOLINTNEXTLINE(hicpp-signed-bitwise)
+  bool const host_coherent = (memory_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
 
-    return ::vkexec::descriptor_heap_buffer{ &ctx, buffer_handle, allocation, mapped_ptr, size, host_coherent };
-  });
+  return ::vkexec::descriptor_heap_buffer{ ctx, buffer_handle, allocation, mapped_ptr, size, host_coherent };
 }
 
 descriptor_heap_buffer::descriptor_heap_buffer(context *ctx,

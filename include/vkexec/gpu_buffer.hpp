@@ -51,6 +51,18 @@ namespace owned {
   class gpu_buffer;
 }// namespace owned
 
+namespace detail {
+
+  struct make_gpu_buffer_factory
+  {
+    context *ctx;
+    gpu_buffer_create_info info;
+
+    [[nodiscard]] auto operator()() const -> result<owned::gpu_buffer>;
+  };
+
+}// namespace detail
+
 namespace factory {
 
   struct make_gpu_buffer_t
@@ -64,9 +76,10 @@ namespace factory {
      * @return Sender that completes with ownership of the buffer.
      */
     //! Creates a buffer of `size` bytes with the given memory preset.
-    [[nodiscard]] auto operator()(context &ctx, gpu_buffer_create_info info) const -> sender<owned::gpu_buffer>;
+    [[nodiscard]] auto operator()(context &ctx, gpu_buffer_create_info info) const
+    { return make_sender(detail::make_gpu_buffer_factory{ .ctx = &ctx, .info = info }); }
     [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size, gpu_buffer_memory memory) const
-      -> sender<owned::gpu_buffer>;
+    { return (*this)(ctx, gpu_buffer_create_info{ .size = size, .memory = memory }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -117,7 +130,7 @@ namespace owned {
     [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
 
   private:
-    friend struct factory::make_gpu_buffer_t;
+    friend struct detail::make_gpu_buffer_factory;
 
     gpu_buffer(context *ctx,
       VkBuffer buffer,

@@ -8,7 +8,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 #include <vkexec_extensions/timeline_semaphore/timeline_semaphore.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -34,38 +33,35 @@ namespace {
 
 }// namespace
 
-auto factory::make_frame_ring_t::operator()(::vkexec::context &ctx, frame_ring_create_info info) const
-  -> sender<::vkexec::owned::frame_ring>
+auto detail::make_frame_ring_factory::operator()() const -> result<::vkexec::owned::frame_ring>
 {
-  return make_sender<::vkexec::owned::frame_ring>([&ctx, info]() -> result<::vkexec::owned::frame_ring> {
-    if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }
-    if (info.slot_count == 0) { return fail(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
-    if (!feat::available<feat::timeline_semaphore>(ctx)) {
-      return fail(errc::unsupported, "frame_ring requires feat::timeline_semaphore");
-    }
+  if (ctx->device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "frame_ring requires a VkDevice"); }
+  if (info.slot_count == 0) { return fail(errc::invalid_argument, "frame_ring requires slot_count > 0"); }
+  if (!feat::available<feat::timeline_semaphore>(*ctx)) {
+    return fail(errc::unsupported, "frame_ring requires feat::timeline_semaphore");
+  }
 
-    VKEXEC_TRY_ASSIGN(timeline_sem, detail::make_timeline_semaphore(ctx, 0));
-    ::vkexec::owned::frame_ring ring{ &ctx, std::move(timeline_sem) };
-    ring.acquire_.resize(info.slot_count, VK_NULL_HANDLE);
-    ring.slot_timeline_value_.assign(info.slot_count, 0);
+  VKEXEC_TRY_ASSIGN(timeline_sem, detail::make_timeline_semaphore(*ctx, 0));
+  ::vkexec::owned::frame_ring ring{ ctx, std::move(timeline_sem) };
+  ring.acquire_.resize(info.slot_count, VK_NULL_HANDLE);
+  ring.slot_timeline_value_.assign(info.slot_count, 0);
 
-    for (std::size_t slot = 0; slot < info.slot_count; ++slot) {
-      auto semaphore_result = create_binary_semaphore(ctx.device());
-      if (!semaphore_result) {
-        for (std::size_t index = 0; index < slot; ++index) {
-          if (ring.acquire_.at(index) != VK_NULL_HANDLE) {
-            vkDestroySemaphore(ctx.device(), ring.acquire_.at(index), nullptr);
-            ring.acquire_.at(index) = VK_NULL_HANDLE;
-          }
+  for (std::size_t slot = 0; slot < info.slot_count; ++slot) {
+    auto semaphore_result = create_binary_semaphore(ctx->device());
+    if (!semaphore_result) {
+      for (std::size_t index = 0; index < slot; ++index) {
+        if (ring.acquire_.at(index) != VK_NULL_HANDLE) {
+          vkDestroySemaphore(ctx->device(), ring.acquire_.at(index), nullptr);
+          ring.acquire_.at(index) = VK_NULL_HANDLE;
         }
-        return fail(semaphore_result);
       }
-      ring.acquire_.at(slot) = expected_take(semaphore_result);
+      return fail(semaphore_result);
     }
+    ring.acquire_.at(slot) = expected_take(semaphore_result);
+  }
 
-    VKEXEC_TRY(ring.create_image_semaphores(info.image_count));
-    return ring;
-  });
+  VKEXEC_TRY(ring.create_image_semaphores(info.image_count));
+  return ring;
 }
 
 owned::frame_ring::frame_ring(context *ctx, timeline_semaphore timeline_sem) noexcept

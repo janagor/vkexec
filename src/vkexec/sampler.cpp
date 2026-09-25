@@ -4,41 +4,37 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 namespace vkexec {
 
-auto factory::make_sampler_t::operator()(::vkexec::context &ctx, sampler_create_info info) const
-  -> sender<::vkexec::owned::sampler>
+auto detail::make_sampler_factory::operator()() const -> result<::vkexec::owned::sampler>
 {
-  return make_sender<::vkexec::owned::sampler>([&ctx, info]() -> result<::vkexec::owned::sampler> {
-    if (ctx.device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "sampler requires a VkDevice"); }
+  if (ctx->device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "sampler requires a VkDevice"); }
 
-    VkSamplerCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    create_info.magFilter = info.mag_filter;
-    create_info.minFilter = info.min_filter;
-    create_info.addressModeU = info.address_mode_u;
-    create_info.addressModeV = info.address_mode_v;
-    create_info.addressModeW = info.address_mode_w;
-    create_info.anisotropyEnable = info.anisotropy_enable;
-    create_info.maxAnisotropy = info.max_anisotropy;
-    create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    create_info.unnormalizedCoordinates = VK_FALSE;
-    create_info.compareEnable = VK_FALSE;
-    create_info.compareOp = VK_COMPARE_OP_ALWAYS;
-    create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    create_info.mipLodBias = 0.0F;
-    create_info.minLod = 0.0F;
-    create_info.maxLod = 0.0F;
+  VkSamplerCreateInfo create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  create_info.magFilter = info.mag_filter;
+  create_info.minFilter = info.min_filter;
+  create_info.addressModeU = info.address_mode_u;
+  create_info.addressModeV = info.address_mode_v;
+  create_info.addressModeW = info.address_mode_w;
+  create_info.anisotropyEnable = info.anisotropy_enable;
+  create_info.maxAnisotropy = info.max_anisotropy;
+  create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  create_info.unnormalizedCoordinates = VK_FALSE;
+  create_info.compareEnable = VK_FALSE;
+  create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+  create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  create_info.mipLodBias = 0.0F;
+  create_info.minLod = 0.0F;
+  create_info.maxLod = 0.0F;
 
-    VkSampler sampler_handle{ VK_NULL_HANDLE };
-    VkResult const create_result = vkCreateSampler(ctx.device(), &create_info, nullptr, &sampler_handle);
-    if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSampler failed"); }
-    return ::vkexec::owned::sampler{ &ctx, sampler_handle };
-  });
+  VkSampler sampler_handle{ VK_NULL_HANDLE };
+  VkResult const create_result = vkCreateSampler(ctx->device(), &create_info, nullptr, &sampler_handle);
+  if (create_result != VK_SUCCESS) { return fail(create_result, "vkCreateSampler failed"); }
+  return ::vkexec::owned::sampler{ ctx, sampler_handle };
 }
 
 owned::sampler::sampler(context *ctx, VkSampler handle) noexcept : ctx_(ctx), sampler_(handle) {}

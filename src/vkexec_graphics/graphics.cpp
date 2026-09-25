@@ -11,7 +11,6 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -377,33 +376,8 @@ auto owned::graphics_pipeline::reset() noexcept -> void
   ctx_ = nullptr;
 }
 
-auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
-  VkRenderPass render_pass,
-  graphics_pipeline_config cfg,
-  std::span<std::uint32_t const> vertex_spirv,
-  std::span<std::uint32_t const> fragment_spirv,
-  std::span<storage_binding const> buffers) const -> sender<::vkexec::owned::graphics_pipeline>
-{
-  return make_sender<::vkexec::owned::graphics_pipeline>(
-    [&ctx,
-      render_pass,
-      cfg,
-      vertex_spirv = std::vector(vertex_spirv.begin(), vertex_spirv.end()),
-      fragment_spirv = std::vector(fragment_spirv.begin(), fragment_spirv.end()),
-      owned = std::vector(buffers.begin(), buffers.end())]() mutable -> result<::vkexec::owned::graphics_pipeline> {
-      return ::vkexec::make_graphics_pipeline(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, owned);
-    });
-}
-
-auto factory::make_graphics_pipeline_t::operator()(::vkexec::context &ctx,
-  VkRenderPass render_pass,
-  std::span<std::uint32_t const> vertex_spirv,
-  std::span<std::uint32_t const> fragment_spirv,
-  std::span<storage_binding const> buffers) const -> sender<::vkexec::owned::graphics_pipeline>
-{
-  return factory::make_graphics_pipeline(
-    ctx, render_pass, graphics_pipeline_config{}, vertex_spirv, fragment_spirv, buffers);
-}
+auto detail::make_graphics_pipeline_spirv_factory::operator()() -> result<::vkexec::owned::graphics_pipeline>
+{ return ::vkexec::make_graphics_pipeline(*ctx, render_pass, cfg, vertex_spirv, fragment_spirv, buffers); }
 
 auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const
   -> void
