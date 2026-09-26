@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/bind_resources.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
@@ -12,7 +13,7 @@
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
-#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp> // NOLINT(misc-include-cleaner)
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
@@ -25,7 +26,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include <array>
-#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -61,18 +61,16 @@ struct heap_push
 constexpr std::size_t k_fixed_heap_byte_count = 16;
 using fixed_heap_byte_span = std::span<std::byte const, k_fixed_heap_byte_count>;
 
-static_assert(std::same_as<decltype(vkexec::bind_resources(vkexec::descriptor_heap,
-                             std::declval<vkexec::handles::compute_pipeline const &>(),
-                             std::declval<vkexec::resource_table const &>(),
-                             std::declval<vkexec::heap_table_lower_env>(),
-                             heap_push{})),
-  vkexec::descriptor_heap_bind_resources_step<heap_push>>);
-static_assert(std::same_as<decltype(vkexec::bind_resources(vkexec::descriptor_heap,
-                             std::declval<vkexec::handles::compute_pipeline const &>(),
-                             std::declval<vkexec::resource_table const &>(),
-                             std::declval<vkexec::heap_table_lower_env>(),
-                             std::declval<fixed_heap_byte_span>())),
-  vkexec::descriptor_heap_bind_resources_closure>);
+static_assert(vkexec::detail::sender_adaptor_closure<decltype(vkexec::bind_resources(vkexec::descriptor_heap,
+  std::declval<vkexec::handles::compute_pipeline const &>(),
+  std::declval<vkexec::resource_table const &>(),
+  std::declval<vkexec::heap_table_lower_env>(),
+  heap_push{}))>);
+static_assert(vkexec::detail::sender_adaptor_closure<decltype(vkexec::bind_resources(vkexec::descriptor_heap,
+  std::declval<vkexec::handles::compute_pipeline const &>(),
+  std::declval<vkexec::resource_table const &>(),
+  std::declval<vkexec::heap_table_lower_env>(),
+  std::declval<fixed_heap_byte_span>()))>);
 
 }// namespace
 

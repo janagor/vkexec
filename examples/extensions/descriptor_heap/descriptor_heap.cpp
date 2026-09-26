@@ -1,12 +1,13 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/gpu_buffer.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
-#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp> // NOLINT(misc-include-cleaner)
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>

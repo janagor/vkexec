@@ -6,12 +6,13 @@
 #include <vkexec/gpu_buffer.hpp>
 #include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
-#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp> // NOLINT(misc-include-cleaner)
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>

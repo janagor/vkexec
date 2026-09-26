@@ -160,13 +160,13 @@ namespace detail {
   };
 }// namespace detail
 
-auto bind_resources(descriptor_heap_t /*strategy*/,
+auto make_descriptor_heap_bind_resources_step(descriptor_heap_t /*strategy*/,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
-  std::span<std::byte const> push) -> descriptor_heap_bind_resources_closure
+  std::span<std::byte const> push) -> descriptor_heap_runtime_bind_resources_step
 {
-  return descriptor_heap_bind_resources_closure{
+  return descriptor_heap_runtime_bind_resources_step{
     .pipe = &pipe,
     .table = table,
     .env = env,
@@ -204,7 +204,7 @@ auto detail::release_descriptor_heap_bind_resources_step(
   if (state) { state->release(); }
 }
 
-auto descriptor_heap_bind_resources_closure::record(context &ctx,
+auto descriptor_heap_runtime_bind_resources_step::record(context &ctx,
   VkCommandBuffer cmd,
   [[maybe_unused]] detail::pass_cleanup &cleanup) -> status
 {
@@ -212,7 +212,7 @@ auto descriptor_heap_bind_resources_closure::record(context &ctx,
     ctx, cmd, pipe, table, env, std::span<std::byte const>{ push }, state);
 }
 
-auto descriptor_heap_bind_resources_closure::after_gpu() const -> void
+auto descriptor_heap_runtime_bind_resources_step::after_gpu() const -> void
 { detail::release_descriptor_heap_bind_resources_step(state); }
 
 auto heap_index_map::index_for(std::uint32_t slot) const noexcept -> std::optional<std::uint32_t>

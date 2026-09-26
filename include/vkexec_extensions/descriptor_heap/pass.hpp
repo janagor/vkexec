@@ -89,7 +89,7 @@ auto record_draw_indirect(context const &ctx,
  *
  * @see compute_pass
  */
-template<class Push, class Dispatch> struct descriptor_compute_pass_closure
+template<class Push, class Dispatch> struct descriptor_compute_pass_step
 {
   detail::compute_pass_step<Push, Dispatch> inner;
 

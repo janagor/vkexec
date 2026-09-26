@@ -11,9 +11,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec/schema_pass.hpp>
 #include <vkexec/submit_scope.hpp>
-#include <vkexec/tensor_pass.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -26,6 +24,7 @@
 #include <memory>
 #include <thread>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace ex = stdexec;
@@ -132,13 +131,6 @@ template<class Sender, class CompletionTag>
 concept advertises_completion_scheduler =
   requires(Sender const &sndr) { ex::get_completion_scheduler<CompletionTag>(ex::get_env(sndr)); };
 
-using compute_step_t = decltype(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}));
-using pass_adaptor_t = vkexec::pass_adaptor_sender<vkexec::schedule_sender, compute_step_t>;
-using no_push_bind_step_t = vkexec::bind_resources_step<vkexec::detail::no_push_constants>;
-using schema_closure_t = vkexec::schema_pass_closure<no_push_bind_step_t, compute_step_t>;
-using schema_pass_adaptor_t = vkexec::schema_pass_sender<vkexec::schedule_sender, schema_closure_t>;
-using tensor_closure_t = vkexec::tensor_pass_closure<compute_step_t, float>;
-using tensor_pass_adaptor_t = vkexec::tensor_pass_sender<vkexec::schedule_sender, tensor_closure_t>;
 using move_only_graph_t = vkexec::pass_graph_sender<move_only_pass_step>;
 
 template<class Graph>
@@ -149,14 +141,20 @@ template<class Graph>
 concept const_lvalue_connectable_graph =
   requires(Graph const &graph, completion_probe_receiver receiver) { ex::connect(graph, std::move(receiver)); };
 
+template<class Sender, class Closure>
+concept pipeable_with = requires(Sender &&sender, Closure &&closure) {
+  std::forward<Sender>(sender) | std::forward<Closure>(closure);
+};
+
+using move_only_closure_t = decltype(vkexec::make_pass_adaptor(std::declval<move_only_pass_step>()));
+
 static_assert(vkexec::detail::static_pass_step<move_only_pass_step>);
 static_assert(std::move_constructible<move_only_graph_t>);
 static_assert(!std::copy_constructible<move_only_graph_t>);
 static_assert(rvalue_connectable_graph<move_only_graph_t>);
 static_assert(!const_lvalue_connectable_graph<move_only_graph_t>);
-static_assert(
-  std::same_as<compute_step_t, vkexec::detail::compute_pass_step<vkexec::detail::no_push_constants, vkexec::dispatch>>);
-
+static_assert(pipeable_with<vkexec::schedule_sender, move_only_closure_t>);
+static_assert(!pipeable_with<vkexec::schedule_sender, move_only_closure_t &>);
 static_assert(advertises_completion_scheduler<vkexec::schedule_sender, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_error_t>);
 
@@ -167,23 +165,12 @@ static_assert(!advertises_completion_scheduler<vkexec::detail::enter_submit_scop
 static_assert(!advertises_completion_scheduler<vkexec::detail::submit_and_wait_sender, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::detail::submit_fence_sender, ex::set_value_t>);
 
-static_assert(advertises_completion_scheduler<pass_adaptor_t, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<pass_adaptor_t, ex::set_error_t>);
-static_assert(advertises_completion_scheduler<schema_pass_adaptor_t, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<schema_pass_adaptor_t, ex::set_error_t>);
-static_assert(advertises_completion_scheduler<tensor_pass_adaptor_t, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<tensor_pass_adaptor_t, ex::set_error_t>);
-
 static_assert(vkexec::vkexec_predecessor<vkexec::schedule_sender>);
 static_assert(vkexec::vkexec_predecessor<vkexec::pass_graph_sender<>>);
 static_assert(std::move_constructible<vkexec::dynamic_pass_graph_sender>);
 static_assert(!std::copy_constructible<vkexec::dynamic_pass_graph_sender>);
 static_assert(vkexec::detail::is_pass_graph_sender_v<vkexec::dynamic_pass_graph_sender>);
 static_assert(vkexec::vkexec_predecessor<vkexec::dynamic_pass_graph_sender>);
-static_assert(vkexec::vkexec_predecessor<pass_adaptor_t>);
-static_assert(vkexec::vkexec_predecessor<schema_pass_adaptor_t>);
-static_assert(vkexec::vkexec_predecessor<tensor_pass_adaptor_t>);
-
 TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
@@ -247,41 +234,50 @@ TEST_CASE("domain-only sender environment advertises vkexec domain", "[vkexec][s
   STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_domain_t{})), vkexec::domain>);
 }
 
-TEST_CASE("pass_adaptor_sender preserves predecessor value completion scheduler", "[vkexec][scheduler]")
+TEST_CASE("deferred pass graph preserves predecessor value completion scheduler", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
-  auto const step = vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
-  pass_adaptor_t const sndr{
-    .pred = sched.schedule(),
-    .step = step,
-  };
+  auto pred = sched.schedule() | ex::then([]() -> void {});
+  auto const sndr = pred | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
 
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr));
   REQUIRE(completion == sched);
 }
 
-TEST_CASE("schema_pass_sender preserves predecessor value completion scheduler", "[vkexec][scheduler]")
+TEST_CASE("pass closures compose independently from a sender", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
-  schema_pass_adaptor_t const sndr{
-    .pred = sched.schedule(),
-    .closure = {},
-  };
-
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr));
-  REQUIRE(completion == sched);
+  auto pipeline = vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 })
+                | vkexec::barrier::compute_to_compute()
+                | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  auto sndr = sched.schedule() | pipeline;
+  auto second = sched.schedule() | pipeline;
+  STATIC_REQUIRE(ex::sender<decltype(sndr)>);
+  REQUIRE(sndr.ctx == nullptr);
+  REQUIRE(second.ctx == nullptr);
 }
 
-TEST_CASE("tensor_pass_sender preserves predecessor value completion scheduler", "[vkexec][scheduler]")
+TEST_CASE("compute pass direct and pipe forms produce the same sender", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
-  tensor_pass_adaptor_t const sndr{
-    .pred = sched.schedule(),
-    .closure = {},
-  };
+  auto direct = vkexec::compute_pass(sched.schedule(), vkexec::compute_bind{}, vkexec::dispatch{});
+  auto piped = sched.schedule() | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
 
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr));
-  REQUIRE(completion == sched);
+  STATIC_REQUIRE(std::same_as<decltype(direct), decltype(piped)>);
+  REQUIRE(direct.ctx == piped.ctx);
+}
+
+TEST_CASE("deferred pass adaptors fuse into one typed graph", "[vkexec][scheduler]")
+{
+  vkexec::scheduler const sched{ nullptr };
+  auto pred = sched.schedule() | ex::then([]() -> void {});
+  auto sndr = pred
+            | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
+            | vkexec::barrier::compute_to_compute()
+            | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
+
+  STATIC_REQUIRE(std::tuple_size_v<std::remove_cvref_t<decltype(sndr.steps)>> == 3);
+  REQUIRE(std::get<0>(sndr.steps).bind.pipeline == VK_NULL_HANDLE);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -343,11 +339,11 @@ TEST_CASE("dynamic pass graph start returns before GPU completion", "[vkexec][sc
   std::promise<void> receiver_completed;
   auto receiver_done = receiver_completed.get_future();
 
-  auto graph =
-    vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler())) | make_empty_pass_step([&]() noexcept -> void {
-      signal_promise(after_gpu_entered);
-      allow_completion_future.wait();
-    });
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
+             | vkexec::make_pass_adaptor(make_empty_pass_step([&]() noexcept -> void {
+                 signal_promise(after_gpu_entered);
+                 allow_completion_future.wait();
+               }));
 
   auto operation = ex::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
 
@@ -400,8 +396,9 @@ TEST_CASE("dynamic pass graph executes multiple runtime steps", "[vkexec][pass][
     },
     [&]() -> void { ++second_after_gpu; });
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler())) | first
-               | vkexec::barrier::compute_to_compute() | second;
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
+             | vkexec::make_pass_adaptor(first) | vkexec::barrier::compute_to_compute()
+             | vkexec::make_pass_adaptor(second);
 
   auto result = vkexec::test::sync_wait_sender(std::move(graph));
 
@@ -514,7 +511,7 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
   constexpr int k_initial_value = 42;
   vkexec::scheduler sched{ nullptr };
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
-  graph = std::move(graph) | move_only_pass_step{ k_initial_value };
+  graph = std::move(graph) | vkexec::make_pass_adaptor(move_only_pass_step{ k_initial_value });
   REQUIRE(graph.steps.size() == 1);
 }
 
@@ -562,9 +559,15 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   int skipped_count = 0;
 
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
-  graph = std::move(graph) | counting_pass_step{ .record_count = &first_count, .should_fail = false };
-  graph = std::move(graph) | counting_pass_step{ .record_count = &failing_count, .should_fail = true };
-  graph = std::move(graph) | counting_pass_step{ .record_count = &skipped_count, .should_fail = false };
+  graph = std::move(graph)
+        | vkexec::make_pass_adaptor(
+            counting_pass_step{ .record_count = &first_count, .should_fail = false });
+  graph = std::move(graph)
+        | vkexec::make_pass_adaptor(
+            counting_pass_step{ .record_count = &failing_count, .should_fail = true });
+  graph = std::move(graph)
+        | vkexec::make_pass_adaptor(
+            counting_pass_step{ .record_count = &skipped_count, .should_fail = false });
 
   vkexec::detail::pass_cleanup cleanup{};
   auto recorded = vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, graph.steps);

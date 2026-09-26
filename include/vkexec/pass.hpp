@@ -4,7 +4,6 @@
 //! \file
 //! Compute pass recording, pass graphs, and stdexec pipe adaptors.
 
-#include <vkexec/barrier.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
@@ -136,6 +135,11 @@ namespace detail {
       { step.record(ctx, cmd, cleanup) } -> std::same_as<status>;
     };
 
+  template<class T>
+  concept sender_adaptor_closure =
+    std::derived_from<std::decay_t<T>, ex::sender_adaptor_closure<std::decay_t<T>>>
+    && std::move_constructible<std::decay_t<T>> && std::constructible_from<std::decay_t<T>, T>;
+
   template<class Step> auto run_after_gpu(Step &step) -> void
   {
     if constexpr (requires {
@@ -217,6 +221,11 @@ namespace detail {
       return {};
     }
   };
+
+  template<push_constant_type Push, dispatch_kind Dispatch>
+  [[nodiscard]] auto make_compute_pass_step(compute_bind bind, Push const &push, Dispatch dispatch_info)
+    -> compute_pass_step<Push, Dispatch>
+  { return { .bind = bind, .push = push, .dispatch_info = dispatch_info }; }
 
   template<class Tag> struct barrier_step
   {
@@ -526,35 +535,75 @@ struct dynamic_pass_graph_sender
  * @param params Trivially copyable push-constant blob.
  * @param groups Workgroup counts.
  */
-template<detail::push_constant_type Params> auto compute_pass(compute_bind bind, Params const &params, dispatch groups)
-{ return detail::compute_pass_step<Params, dispatch>{ .bind = bind, .push = params, .dispatch_info = groups }; }
+struct compute_pass_t
+{
+  template<detail::push_constant_type Params>
+  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, dispatch groups) const;
+
+  template<detail::push_constant_type Params>
+  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, indirect_dispatch groups) const;
+
+  [[nodiscard]] auto operator()(compute_bind bind, dispatch groups) const;
+  [[nodiscard]] auto operator()(compute_bind bind, indirect_dispatch groups) const;
+
+  template<detail::push_constant_type Params>
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    VkDescriptorSet set,
+    Params const &params,
+    dispatch groups) const;
+
+  template<detail::push_constant_type Params>
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    VkDescriptorSet set,
+    Params const &params,
+    std::uint32_t work_count) const;
+
+  [[nodiscard]] auto
+    operator()(handles::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count) const;
+
+  template<class Pipe, detail::push_constant_type Params>
+    requires requires(Pipe const &pipe, VkDescriptorSet set, std::uint32_t count) {
+      pipe.bind(set);
+      pipe.groups_for(count);
+    }
+  [[nodiscard]] auto
+    operator()(Pipe const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count) const
+  { return (*this)(pipe.bind(set), params, pipe.groups_for(work_count)); }
+
+  template<class Pipe>
+    requires requires(Pipe const &pipe, VkDescriptorSet set, std::uint32_t count) {
+      pipe.bind(set);
+      pipe.groups_for(count);
+    }
+  [[nodiscard]] auto operator()(Pipe const &pipe, VkDescriptorSet set, std::uint32_t work_count) const
+  { return (*this)(pipe.bind(set), pipe.groups_for(work_count)); }
+
+  template<class... Args>
+    requires requires(compute_pass_t const &self, Args &&...args) {
+      compute_pass_custom(self, std::forward<Args>(args)...);
+    }
+  [[nodiscard]] auto operator()(Args &&...args) const
+    -> decltype(compute_pass_custom(*this, std::forward<Args>(args)...))
+  { return compute_pass_custom(*this, std::forward<Args>(args)...); }
+
+  template<vkexec_predecessor Sender, class... Args>
+    requires requires(compute_pass_t const &self, Sender &&sender, Args &&...args) {
+      std::forward<Sender>(sender) | self(std::forward<Args>(args)...);
+    }
+  [[nodiscard]] auto operator()(Sender &&sender, Args &&...args) const
+    noexcept(noexcept(std::forward<Sender>(sender) | (*this)(std::forward<Args>(args)...)))
+      -> decltype(std::forward<Sender>(sender) | (*this)(std::forward<Args>(args)...))
+  { return std::forward<Sender>(sender) | (*this)(std::forward<Args>(args)...); }
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr compute_pass_t compute_pass{};
 
 /**
  * Builds an indirect-dispatch compute pass with push constants `params`.
  *
  * @param groups Buffer containing `VkDispatchIndirectCommand` at `offset`.
  */
-template<detail::push_constant_type Params>
-auto compute_pass(compute_bind bind, Params const &params, indirect_dispatch groups)
-{
-  return detail::compute_pass_step<Params, indirect_dispatch>{ .bind = bind, .push = params, .dispatch_info = groups };
-}
-
-//! Builds a direct-dispatch compute pass without push constants.
-[[nodiscard]] inline auto compute_pass(compute_bind bind, dispatch groups)
-{
-  return detail::compute_pass_step<detail::no_push_constants, dispatch>{
-    .bind = bind, .push = {}, .dispatch_info = groups
-  };
-}
-
-//! Builds an indirect-dispatch compute pass without push constants.
-[[nodiscard]] inline auto compute_pass(compute_bind bind, indirect_dispatch groups)
-{
-  return detail::compute_pass_step<detail::no_push_constants, indirect_dispatch>{
-    .bind = bind, .push = {}, .dispatch_info = groups
-  };
-}
 
 //! Returns the specialized local workgroup size as a `dispatch`.
 [[nodiscard]] inline auto local_size(handles::compute_pipeline const &pipe) noexcept -> dispatch
@@ -570,22 +619,6 @@ auto compute_pass(compute_bind bind, Params const &params, indirect_dispatch gro
 { return dispatch_groups_for(work_count, std::get<0>(pipe.local_size)); }
 
 //! Convenience overload that binds `pipe` with `set` before building the closure.
-template<detail::push_constant_type Params>
-auto compute_pass(handles::compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, dispatch groups)
-{ return compute_pass(bind_compute(pipe, set), params, groups); }
-
-//! Builds a direct-dispatch pass with push constants and automatic group counts.
-template<detail::push_constant_type Params>
-auto compute_pass(handles::compute_pipeline const &pipe,
-  VkDescriptorSet set,
-  Params const &params,
-  std::uint32_t work_count)
-{ return compute_pass(pipe, set, params, groups_for(pipe, work_count)); }
-
-//! Builds a direct-dispatch pass without push constants using automatic group counts.
-inline auto compute_pass(handles::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
-{ return compute_pass(bind_compute(pipe, set), groups_for(pipe, work_count)); }
-
 namespace detail {
 
   template<class T> struct is_pass_graph_sender : std::false_type
@@ -603,15 +636,21 @@ namespace detail {
   // NOLINTNEXTLINE(readability-identifier-naming)
   template<class T> inline constexpr bool is_pass_graph_sender_v = is_pass_graph_sender<std::remove_cvref_t<T>>::value;
 
-  template<static_pass_step Step> [[nodiscard]] auto make_pass_graph(context *ctx, Step step)
+  template<static_pass_step Step>
+  [[nodiscard]] auto make_pass_graph(context *ctx, Step step) noexcept(std::is_nothrow_move_constructible_v<Step>)
+    -> pass_graph_sender<Step>
   { return pass_graph_sender<Step>{ .ctx = ctx, .steps = std::tuple<Step>{ std::move(step) } }; }
 
   template<class... Steps, static_pass_step NewStep>
-  [[nodiscard]] auto append_step(pass_graph_sender<Steps...> graph, NewStep step)
+  [[nodiscard]] auto append_step(pass_graph_sender<Steps...> graph, NewStep step) noexcept(
+    (std::is_nothrow_move_constructible_v<Steps> && ...) && std::is_nothrow_move_constructible_v<NewStep>)
+    -> pass_graph_sender<Steps..., NewStep>
   {
     context *const ctx = graph.ctx;
     return std::apply(
-      [ctx, step = std::move(step)](auto &&...old) mutable -> pass_graph_sender<Steps..., NewStep> {
+      [ctx, step = std::move(step)](auto &&...old) mutable noexcept(
+        (std::is_nothrow_move_constructible_v<Steps> && ...) && std::is_nothrow_move_constructible_v<NewStep>)
+        -> pass_graph_sender<Steps..., NewStep> {
         return pass_graph_sender<Steps..., NewStep>{
           .ctx = ctx,
           .steps = std::tuple<Steps..., NewStep>{ std::forward<decltype(old)>(old)..., std::move(step) },
@@ -623,19 +662,20 @@ namespace detail {
 }// namespace detail
 
 /**
- * Lazy adaptor: after `pred` completes, builds a one-step `pass_graph_sender`.
+ * Lazy adaptor: after `pred` completes, builds one typed `pass_graph_sender`.
  *
  * Lowered by the vkexec domain via `lower_vkexec_sender`.
- * `get_completion_scheduler<set_value_t>` is preserved from the predecessor; the
- * resulting graph completes on that context's host scheduler.
+ * `get_completion_scheduler<set_value_t>` is preserved from the predecessor. All
+ * composed steps remain fused in one tuple, and the resulting graph completes
+ * on that context's host scheduler.
  */
-template<class Pred, detail::static_pass_step Step> struct pass_adaptor_sender
+template<class Pred, detail::static_pass_step... Steps> struct deferred_pass_graph_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures = pass_graph_completion_signatures;
 
   Pred pred;
-  Step step;
+  std::tuple<Steps...> steps;
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env
   {
@@ -644,31 +684,47 @@ template<class Pred, detail::static_pass_step Step> struct pass_adaptor_sender
   }
 };
 
-template<class Pred, detail::static_pass_step Step, class Env>
+template<class Pred, detail::static_pass_step... Steps, class Env>
 [[nodiscard]] auto
-  lower_vkexec_sender(ex::set_value_t /*tag*/, pass_adaptor_sender<Pred, Step> sndr, Env const & /*env*/)
+  lower_vkexec_sender(ex::set_value_t /*tag*/, deferred_pass_graph_sender<Pred, Steps...> sndr, Env const & /*env*/)
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   // NOLINTNEXTLINE(misc-const-correctness)
   context *const ctx = sched.get_context();
   return ex::let_value(
-    std::move(sndr.pred), [ctx, step = std::move(sndr.step)](auto &&...) mutable -> pass_graph_sender<Step> {
-      return detail::make_pass_graph(ctx, std::move(step));
+    std::move(sndr.pred), [ctx, steps = std::move(sndr.steps)](auto &&...) mutable -> pass_graph_sender<Steps...> {
+      return pass_graph_sender<Steps...>{ .ctx = ctx, .steps = std::move(steps) };
     });
 }
 
-template<detail::static_pass_step Step> [[nodiscard]] auto operator|(schedule_sender snd, Step step)
+namespace detail {
+
+template<class T> struct is_deferred_pass_graph_sender : std::false_type
+{
+};
+
+template<class Pred, static_pass_step... Steps>
+struct is_deferred_pass_graph_sender<deferred_pass_graph_sender<Pred, Steps...>> : std::true_type
+{
+};
+
+template<class T>
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr bool is_deferred_pass_graph_sender_v =
+  is_deferred_pass_graph_sender<std::remove_cvref_t<T>>::value;
+
+template<static_pass_step Step>
+[[nodiscard]] auto apply_pass_step(schedule_sender snd, Step step)
+  noexcept(noexcept(make_pass_graph(snd.ctx, std::move(step)))) -> pass_graph_sender<Step>
 { return detail::make_pass_graph(snd.ctx, std::move(step)); }
 
-[[nodiscard]] inline auto make_dynamic_pass_graph(schedule_sender snd) -> dynamic_pass_graph_sender
-{ return dynamic_pass_graph_sender{ snd.ctx }; }
-
-template<class... Steps, detail::static_pass_step Step>
-[[nodiscard]] auto operator|(pass_graph_sender<Steps...> graph, Step step)
+template<class... Steps, static_pass_step Step>
+[[nodiscard]] auto apply_pass_step(pass_graph_sender<Steps...> graph, Step step)
+  noexcept(noexcept(append_step(std::move(graph), std::move(step)))) -> pass_graph_sender<Steps..., Step>
 { return detail::append_step(std::move(graph), std::move(step)); }
 
-template<detail::static_pass_step Step>
-[[nodiscard]] auto operator|(dynamic_pass_graph_sender graph, Step step) -> dynamic_pass_graph_sender
+template<static_pass_step Step>
+[[nodiscard]] auto apply_pass_step(dynamic_pass_graph_sender graph, Step step) -> dynamic_pass_graph_sender
 {
   graph.steps.emplace_back(std::move(step));
   return graph;
@@ -679,31 +735,94 @@ template<detail::static_pass_step Step>
  *
  * Used when the left-hand side is not already a `schedule_sender` or `pass_graph_sender`.
  */
-template<vkexec_predecessor Pred>
-  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender> && !detail::is_pass_graph_sender_v<Pred>)
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
-[[nodiscard]] auto operator|(Pred &&pred, detail::static_pass_step auto step)
-  -> pass_adaptor_sender<std::remove_cvref_t<Pred>, decltype(step)>
+template<class Pred, static_pass_step... Steps, static_pass_step Step>
+[[nodiscard]] auto apply_pass_step(deferred_pass_graph_sender<Pred, Steps...> sndr, Step step)
+  noexcept(std::is_nothrow_move_constructible_v<Pred>
+           && (std::is_nothrow_move_constructible_v<Steps> && ...)
+           && std::is_nothrow_move_constructible_v<Step>)
+  -> deferred_pass_graph_sender<Pred, Steps..., Step>
 {
-  return pass_adaptor_sender<std::remove_cvref_t<Pred>, decltype(step)>{
-    .pred = std::forward<Pred>(pred),
-    .step = std::move(step),
+  return std::apply(
+    [&sndr, &step](Steps &&...old) noexcept(
+      std::is_nothrow_move_constructible_v<Pred>
+      && (std::is_nothrow_move_constructible_v<Steps> && ...)
+      && std::is_nothrow_move_constructible_v<Step>)
+      -> deferred_pass_graph_sender<Pred, Steps..., Step> {
+      return { .pred = std::move(sndr.pred), .steps = { std::move(old)..., std::move(step) } };
+    },
+    std::move(sndr.steps));
+}
+
+template<vkexec_predecessor Pred, static_pass_step Step>
+  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender> && !is_pass_graph_sender_v<Pred>
+           && !is_deferred_pass_graph_sender_v<Pred>)
+[[nodiscard]] auto apply_pass_step(Pred &&pred, Step step)
+  noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<Pred>, Pred>
+           && std::is_nothrow_move_constructible_v<Step>)
+  -> deferred_pass_graph_sender<std::remove_cvref_t<Pred>, Step>
+{
+  return deferred_pass_graph_sender<std::remove_cvref_t<Pred>, Step>{
+    .pred = std::forward<Pred>(pred), .steps = { std::move(step) }
   };
 }
 
-template<class T>
-concept barrier_tag = std::same_as<std::remove_cvref_t<T>, barrier::transfer_to_compute_t>
-                      || std::same_as<std::remove_cvref_t<T>, barrier::compute_to_compute_t>
-                      || std::same_as<std::remove_cvref_t<T>, barrier::compute_to_graphics_t>
-                      || std::same_as<std::remove_cvref_t<T>, barrier::graphics_to_compute_t>
-                      || std::same_as<std::remove_cvref_t<T>, barrier::compute_read_t>;
+template<static_pass_step Step> struct pass_step_closure
+  : ex::sender_adaptor_closure<pass_step_closure<Step>>
+{
+  [[no_unique_address]] Step step;
 
-template<class... Steps, barrier_tag Tag> [[nodiscard]] auto operator|(pass_graph_sender<Steps...> graph, Tag tag)
-{ return detail::append_step(std::move(graph), detail::make_barrier_step(std::move(tag))); }
+  template<class Sender>
+    requires requires(Sender &&sender, Step &&value) {
+      apply_pass_step(std::forward<Sender>(sender), std::move(value));
+    }
+  [[nodiscard]] auto operator()(Sender &&sender) &&
+    noexcept(noexcept(apply_pass_step(std::forward<Sender>(sender), std::move(step))))
+      -> decltype(apply_pass_step(std::forward<Sender>(sender), std::move(step)))
+  { return apply_pass_step(std::forward<Sender>(sender), std::move(step)); }
 
-template<barrier_tag Tag>
-[[nodiscard]] auto operator|(dynamic_pass_graph_sender graph, Tag tag) -> dynamic_pass_graph_sender
-{ return std::move(graph) | detail::make_barrier_step(std::move(tag)); }
+  template<class Sender>
+    requires std::copy_constructible<Step> && requires(Sender &&sender, Step const &value) {
+      apply_pass_step(std::forward<Sender>(sender), value);
+    }
+  [[nodiscard]] auto operator()(Sender &&sender) const &
+    noexcept(noexcept(apply_pass_step(std::forward<Sender>(sender), step)))
+      -> decltype(apply_pass_step(std::forward<Sender>(sender), step))
+  { return apply_pass_step(std::forward<Sender>(sender), step); }
+};
+
+}// namespace detail
+
+template<detail::static_pass_step Step> [[nodiscard]] auto make_pass_adaptor(Step step)
+  noexcept(std::is_nothrow_move_constructible_v<Step>) -> detail::pass_step_closure<Step>
+{ return detail::pass_step_closure<Step>{ {}, std::move(step) }; }
+
+[[nodiscard]] inline auto make_dynamic_pass_graph(schedule_sender snd) -> dynamic_pass_graph_sender
+{ return dynamic_pass_graph_sender{ snd.ctx }; }
+
+template<detail::push_constant_type Params>
+auto compute_pass_t::operator()(compute_bind bind, Params const &params, dispatch groups) const
+{ return make_pass_adaptor(detail::make_compute_pass_step(bind, params, groups)); }
+
+template<detail::push_constant_type Params>
+auto compute_pass_t::operator()(compute_bind bind, Params const &params, indirect_dispatch groups) const
+{ return make_pass_adaptor(detail::make_compute_pass_step(bind, params, groups)); }
+
+inline auto compute_pass_t::operator()(compute_bind bind, dispatch groups) const
+{ return make_pass_adaptor(detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups)); }
+
+inline auto compute_pass_t::operator()(compute_bind bind, indirect_dispatch groups) const
+{ return make_pass_adaptor(detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups)); }
+
+template<detail::push_constant_type Params>
+auto compute_pass_t::operator()(handles::compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, dispatch groups) const
+{ return (*this)(bind_compute(pipe, set), params, groups); }
+
+template<detail::push_constant_type Params>
+auto compute_pass_t::operator()(handles::compute_pipeline const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count) const
+{ return (*this)(pipe, set, params, groups_for(pipe, work_count)); }
+
+inline auto compute_pass_t::operator()(handles::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count) const
+{ return (*this)(bind_compute(pipe, set), groups_for(pipe, work_count)); }
 
 }// namespace vkexec
 

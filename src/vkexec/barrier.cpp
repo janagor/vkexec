@@ -101,12 +101,6 @@ namespace barrier {
       });
   }
 
-  auto transfer_to_compute(VkCommandBuffer cmd) -> void { transfer_to_compute()(cmd); }
-  auto compute_to_compute(VkCommandBuffer cmd) -> void { compute_to_compute()(cmd); }
-  auto compute_to_graphics(VkCommandBuffer cmd) -> void { compute_to_graphics()(cmd); }
-  auto graphics_to_compute(VkCommandBuffer cmd) -> void { graphics_to_compute()(cmd); }
-  auto compute_read(VkCommandBuffer cmd) -> void { compute_read()(cmd); }
-
 }// namespace barrier
 
 }// namespace vkexec

@@ -406,6 +406,15 @@ using schema = vkexec::descriptor_schema<vkexec::storage_buffer<0>, vkexec::stor
 ex::schedule(ctx->get_scheduler())
   | vkexec::schema_pass(schema{}, resources, params, work_count, positions, velocities);
 
+// Pass algorithms are stdexec adaptor closures and can be composed first.
+auto simulation_step =
+  vkexec::sync_to_device(positions)
+  | vkexec::compute_pass(vkexec::bind_compute(resources), groups)
+  | vkexec::barrier::compute_to_compute()
+  | vkexec::sync_to_host(positions);
+
+vkexec::sync_wait(ex::schedule(ctx->get_scheduler()) | std::move(simulation_step));
+
 // Borrowable lower-level path:
 auto table = vkexec::make_resource_table(schema{}, positions_ref, velocities_ref);
 ex::schedule(ctx->get_scheduler())

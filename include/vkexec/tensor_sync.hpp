@@ -29,38 +29,12 @@ namespace vkexec {
  *
  * @see sync_to_host, tensor
  */
-template<typename T> struct sync_to_device_closure
-{
-  owned::tensor<T> *target{ nullptr };
-};
-
-/**
- * Pass-graph closure that copies device storage back into a tensor host mirror.
- *
- * Records device->staging copy + host visibility barriers. Updates the host mirror
- * after the graph's GPU submit completes.
- *
- * @see sync_to_device, tensor
- */
-template<typename T> struct sync_to_host_closure
-{
-  owned::tensor<T> *target{ nullptr };
-};
-
-//! Builds a `sync_to_device` pipeable for `values`.
-template<typename T> [[nodiscard]] auto sync_to_device(owned::tensor<T> &values) noexcept -> sync_to_device_closure<T>
-{ return sync_to_device_closure<T>{ .target = &values }; }
-
-//! Builds a `sync_to_host` pipeable for `values`.
-template<typename T> [[nodiscard]] auto sync_to_host(owned::tensor<T> &values) noexcept -> sync_to_host_closure<T>
-{ return sync_to_host_closure<T>{ .target = &values }; }
-
 namespace detail {
 
-  template<typename T> [[nodiscard]] auto make_sync_to_device_step(sync_to_device_closure<T> closure)
+  template<typename T> [[nodiscard]] auto make_sync_to_device_step(owned::tensor<T> *target)
   {
     return make_callback_pass_step(
-      [target = closure.target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
+      [target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
         if (target == nullptr || target->size() == 0) {
           return fail(errc::invalid_argument, "sync_to_device requires a non-empty tensor");
         }
@@ -108,9 +82,8 @@ namespace detail {
       });
   }
 
-  template<typename T> [[nodiscard]] auto make_sync_to_host_step(sync_to_host_closure<T> closure)
+  template<typename T> [[nodiscard]] auto make_sync_to_host_step(owned::tensor<T> *target)
   {
-    owned::tensor<T> *const target = closure.target;
     return make_callback_pass_step(
       [target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
         if (target == nullptr || target->size() == 0) {
@@ -183,51 +156,32 @@ namespace detail {
 
 }// namespace detail
 
-template<typename T> [[nodiscard]] auto operator|(schedule_sender snd, sync_to_device_closure<T> closure)
-{ return detail::make_pass_graph(snd.ctx, detail::make_sync_to_device_step(std::move(closure))); }
-
-template<class... Steps, typename T>
-[[nodiscard]] auto operator|(pass_graph_sender<Steps...> graph, sync_to_device_closure<T> closure)
-{ return detail::append_step(std::move(graph), detail::make_sync_to_device_step(std::move(closure))); }
-
-template<typename T>
-[[nodiscard]] auto operator|(dynamic_pass_graph_sender graph, sync_to_device_closure<T> closure)
-  -> dynamic_pass_graph_sender
-{ return std::move(graph) | detail::make_sync_to_device_step(std::move(closure)); }
-
-template<typename T> [[nodiscard]] auto operator|(schedule_sender snd, sync_to_host_closure<T> closure)
-{ return detail::make_pass_graph(snd.ctx, detail::make_sync_to_host_step(std::move(closure))); }
-
-template<class... Steps, typename T>
-[[nodiscard]] auto operator|(pass_graph_sender<Steps...> graph, sync_to_host_closure<T> closure)
-{ return detail::append_step(std::move(graph), detail::make_sync_to_host_step(std::move(closure))); }
-
-template<typename T>
-[[nodiscard]] auto operator|(dynamic_pass_graph_sender graph, sync_to_host_closure<T> closure)
-  -> dynamic_pass_graph_sender
-{ return std::move(graph) | detail::make_sync_to_host_step(std::move(closure)); }
-
-template<vkexec_predecessor Pred, typename T>
-  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender> && !detail::is_pass_graph_sender_v<Pred>)
-[[nodiscard]] auto operator|(Pred &&pred, sync_to_device_closure<T> closure)
+struct sync_to_device_t
 {
-  auto step = detail::make_sync_to_device_step(std::move(closure));
-  return pass_adaptor_sender<std::remove_cvref_t<Pred>, decltype(step)>{
-    .pred = std::forward<Pred>(pred),
-    .step = std::move(step),
-  };
-}
+  template<typename T> [[nodiscard]] auto operator()(owned::tensor<T> &values) const
+  { return make_pass_adaptor(detail::make_sync_to_device_step(&values)); }
 
-template<vkexec_predecessor Pred, typename T>
-  requires(!std::same_as<std::remove_cvref_t<Pred>, schedule_sender> && !detail::is_pass_graph_sender_v<Pred>)
-[[nodiscard]] auto operator|(Pred &&pred, sync_to_host_closure<T> closure)
+  template<vkexec_predecessor Sender, typename T>
+  [[nodiscard]] auto operator()(Sender &&sender, owned::tensor<T> &values) const
+    -> decltype(std::forward<Sender>(sender) | (*this)(values))
+  { return std::forward<Sender>(sender) | (*this)(values); }
+};
+
+struct sync_to_host_t
 {
-  auto step = detail::make_sync_to_host_step(std::move(closure));
-  return pass_adaptor_sender<std::remove_cvref_t<Pred>, decltype(step)>{
-    .pred = std::forward<Pred>(pred),
-    .step = std::move(step),
-  };
-}
+  template<typename T> [[nodiscard]] auto operator()(owned::tensor<T> &values) const
+  { return make_pass_adaptor(detail::make_sync_to_host_step(&values)); }
+
+  template<vkexec_predecessor Sender, typename T>
+  [[nodiscard]] auto operator()(Sender &&sender, owned::tensor<T> &values) const
+    -> decltype(std::forward<Sender>(sender) | (*this)(values))
+  { return std::forward<Sender>(sender) | (*this)(values); }
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr sync_to_device_t sync_to_device{};
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr sync_to_host_t sync_to_host{};
 
 }// namespace vkexec
 

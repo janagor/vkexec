@@ -1,6 +1,7 @@
 #ifndef VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_STRATEGY_HPP
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_STRATEGY_HPP
 
+#include <vkexec/bind_resources.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
@@ -38,7 +39,7 @@ struct descriptor_heap_t
 inline constexpr descriptor_heap_t descriptor_heap{};
 
 //! Descriptor-heap resource binding step for a pass graph.
-struct descriptor_heap_bind_resources_closure
+struct descriptor_heap_runtime_bind_resources_step
 {
   handles::compute_pipeline const *pipe{ nullptr };
   resource_table table;
@@ -67,49 +68,65 @@ template<detail::push_constant_type Push> struct descriptor_heap_bind_resources_
   auto after_gpu() const -> void { detail::release_descriptor_heap_bind_resources_step(state); }
 };
 
-[[nodiscard]] auto bind_resources(descriptor_heap_t /*strategy*/,
+[[nodiscard]] auto make_descriptor_heap_bind_resources_step(descriptor_heap_t /*strategy*/,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
-  std::span<std::byte const> push) -> descriptor_heap_bind_resources_closure;
+  std::span<std::byte const> push) -> descriptor_heap_runtime_bind_resources_step;
 
 template<std::size_t Extent>
-[[nodiscard]] auto bind_resources(descriptor_heap_t strategy,
+[[nodiscard]] auto bind_resources_custom(bind_resources_t const & /*cpo*/,
+  descriptor_heap_t strategy,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
-  std::span<std::byte const, Extent> push) -> descriptor_heap_bind_resources_closure
-{ return bind_resources(strategy, pipe, table, env, std::span<std::byte const>{ push }); }
+  std::span<std::byte const, Extent> push)
+{
+  return make_pass_adaptor(
+    make_descriptor_heap_bind_resources_step(strategy, pipe, table, env, std::span<std::byte const>{ push }));
+}
 
 template<std::size_t Extent>
-[[nodiscard]] auto bind_resources(descriptor_heap_t strategy,
+[[nodiscard]] auto bind_resources_custom(bind_resources_t const & /*cpo*/,
+  descriptor_heap_t strategy,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
-  std::span<std::byte, Extent> push) -> descriptor_heap_bind_resources_closure
-{ return bind_resources(strategy, pipe, table, env, std::span<std::byte const>{ push }); }
+  std::span<std::byte, Extent> push)
+{
+  return make_pass_adaptor(
+    make_descriptor_heap_bind_resources_step(strategy, pipe, table, env, std::span<std::byte const>{ push }));
+}
 
-[[nodiscard]] inline auto bind_resources(descriptor_heap_t /*strategy*/,
+[[nodiscard]] inline auto bind_resources_custom(bind_resources_t const & /*cpo*/,
+  descriptor_heap_t strategy,
+  handles::compute_pipeline const &pipe,
+  resource_table const &table,
+  heap_table_lower_env env,
+  std::span<std::byte const> push)
+{ return make_pass_adaptor(make_descriptor_heap_bind_resources_step(strategy, pipe, table, env, push)); }
+
+[[nodiscard]] inline auto bind_resources_custom(bind_resources_t const & /*cpo*/,
+  descriptor_heap_t /*strategy*/,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env)
 {
-  return descriptor_heap_bind_resources_step<detail::no_push_constants>{
-    .pipe = &pipe, .table = table, .env = env, .push = {}, .state = {}
-  };
+  return make_pass_adaptor(descriptor_heap_bind_resources_step<detail::no_push_constants>{
+    .pipe = &pipe, .table = table, .env = env, .push = {}, .state = {} });
 }
 
 template<class Params>
   requires std::is_trivially_copyable_v<Params> && (!detail::is_byte_span_v<Params>)
-[[nodiscard]] auto bind_resources(descriptor_heap_t /*strategy*/,
+[[nodiscard]] auto bind_resources_custom(bind_resources_t const & /*cpo*/,
+  descriptor_heap_t /*strategy*/,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
   heap_table_lower_env env,
   Params const &params)
 {
-  return descriptor_heap_bind_resources_step<Params>{
-    .pipe = &pipe, .table = table, .env = env, .push = params, .state = {}
-  };
+  return make_pass_adaptor(descriptor_heap_bind_resources_step<Params>{
+    .pipe = &pipe, .table = table, .env = env, .push = params, .state = {} });
 }
 
 }// namespace vkexec

@@ -247,18 +247,6 @@ struct bound_compute_pipeline
  * @param params Trivially copyable push-constant blob.
  * @param work_count Invocation count along X (converted via `groups_for`).
  */
-template<detail::push_constant_type Params>
-auto compute_pass(owned::compute_pipeline const &pipe,
-  VkDescriptorSet set,
-  Params const &params,
-  std::uint32_t work_count)
-{ return compute_pass(pipe.bind(set), params, pipe.groups_for(work_count)); }
-
-//! Builds a prebuilt compute pass without push constants.
-[[nodiscard]] inline auto
-  compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
-{ return compute_pass(pipe.bind(set), pipe.groups_for(work_count)); }
-
 //! Uploads push constants using `pipe.resources().pipeline_layout`.
 template<typename T>
 auto upload_push_constants(VkCommandBuffer cmd, owned::compute_pipeline const &pipe, T const &params) -> void

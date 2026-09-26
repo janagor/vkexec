@@ -16,50 +16,72 @@
 namespace vkexec {
 
 template<detail::push_constant_type Params>
-auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, Params const &params, dispatch groups)
+auto compute_pass_custom(compute_pass_t const & /*cpo*/,
+  descriptor_heap_t /*strategy*/,
+  compute_bind bind,
+  Params const &params,
+  dispatch groups)
 {
-  auto inner = compute_pass(bind, params, groups);
-  return descriptor_compute_pass_closure<Params, dispatch>{ .inner = std::move(inner) };
+  auto step = descriptor_compute_pass_step<Params, dispatch>{
+    .inner = detail::make_compute_pass_step(bind, params, groups) };
+  return make_pass_adaptor(std::move(step));
 }
 
 template<detail::push_constant_type Params>
-auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, Params const &params, indirect_dispatch groups)
+auto compute_pass_custom(compute_pass_t const & /*cpo*/,
+  descriptor_heap_t /*strategy*/,
+  compute_bind bind,
+  Params const &params,
+  indirect_dispatch groups)
 {
-  auto inner = compute_pass(bind, params, groups);
-  return descriptor_compute_pass_closure<Params, indirect_dispatch>{ .inner = std::move(inner) };
+  auto step = descriptor_compute_pass_step<Params, indirect_dispatch>{
+    .inner = detail::make_compute_pass_step(bind, params, groups) };
+  return make_pass_adaptor(std::move(step));
 }
 
-[[nodiscard]] inline auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, dispatch groups)
+[[nodiscard]] inline auto compute_pass_custom(
+  compute_pass_t const & /*cpo*/, descriptor_heap_t /*strategy*/, compute_bind bind, dispatch groups)
 {
-  auto inner = compute_pass(bind, groups);
-  return descriptor_compute_pass_closure<detail::no_push_constants, dispatch>{ .inner = inner };
+  auto step = descriptor_compute_pass_step<detail::no_push_constants, dispatch>{
+    .inner = detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups) };
+  return make_pass_adaptor(step);
 }
 
-[[nodiscard]] inline auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, indirect_dispatch groups)
+[[nodiscard]] inline auto compute_pass_custom(
+  compute_pass_t const & /*cpo*/, descriptor_heap_t /*strategy*/, compute_bind bind, indirect_dispatch groups)
 {
-  auto inner = compute_pass(bind, groups);
-  return descriptor_compute_pass_closure<detail::no_push_constants, indirect_dispatch>{ .inner = inner };
+  auto step = descriptor_compute_pass_step<detail::no_push_constants, indirect_dispatch>{
+    .inner = detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups) };
+  return make_pass_adaptor(step);
 }
 
 template<detail::push_constant_type Params>
-auto compute_pass(descriptor_heap_t strategy,
+auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
   owned::compute_pipeline const &pipe,
   Params const &params,
   std::uint32_t work_count)
-{ return compute_pass(strategy, pipe.bind(), params, pipe.groups_for(work_count)); }
+{ return cpo(strategy, pipe.bind(), params, pipe.groups_for(work_count)); }
 
-inline auto compute_pass(descriptor_heap_t strategy, owned::compute_pipeline const &pipe, std::uint32_t work_count)
-{ return compute_pass(strategy, pipe.bind(), pipe.groups_for(work_count)); }
+inline auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
+  owned::compute_pipeline const &pipe,
+  std::uint32_t work_count)
+{ return cpo(strategy, pipe.bind(), pipe.groups_for(work_count)); }
 
 template<detail::push_constant_type Params>
-auto compute_pass(descriptor_heap_t strategy,
+auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
   owned::compute_pipeline const &pipe,
   Params const &params,
   indirect_dispatch groups)
-{ return compute_pass(strategy, pipe.bind(), params, groups); }
+{ return cpo(strategy, pipe.bind(), params, groups); }
 
-inline auto compute_pass(descriptor_heap_t strategy, owned::compute_pipeline const &pipe, indirect_dispatch groups)
-{ return compute_pass(strategy, pipe.bind(), groups); }
+inline auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
+  owned::compute_pipeline const &pipe,
+  indirect_dispatch groups)
+{ return cpo(strategy, pipe.bind(), groups); }
 
 }// namespace vkexec
 

@@ -25,10 +25,12 @@ namespace detail {
   };
 }// namespace detail
 
-auto bind_resources(handles::compute_pipeline const &pipe, resource_table const &table, std::span<std::byte const> push)
-  -> bind_resources_closure
+auto make_bind_resources_step(handles::compute_pipeline const &pipe,
+  resource_table const &table,
+  std::span<std::byte const> push)
+  -> runtime_bind_resources_step
 {
-  return bind_resources_closure{
+  return runtime_bind_resources_step{
     .pipe = &pipe,
     .table = table,
     .push = std::vector<std::byte>(push.begin(), push.end()),
@@ -64,10 +66,11 @@ auto detail::release_bind_resources_step(std::shared_ptr<bind_resources_step_sta
   if (state) { state->release(); }
 }
 
-auto bind_resources_closure::record(context &ctx, VkCommandBuffer cmd, [[maybe_unused]] detail::pass_cleanup &cleanup)
+auto runtime_bind_resources_step::record(
+  context &ctx, VkCommandBuffer cmd, [[maybe_unused]] detail::pass_cleanup &cleanup)
   -> status
 { return detail::record_bind_resources_step(ctx, cmd, pipe, table, std::span<std::byte const>{ push }, state); }
 
-auto bind_resources_closure::after_gpu() const -> void { detail::release_bind_resources_step(state); }
+auto runtime_bind_resources_step::after_gpu() const -> void { detail::release_bind_resources_step(state); }
 
 }// namespace vkexec

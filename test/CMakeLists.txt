@@ -44,6 +44,7 @@ add_test(
 add_executable(
   tests
   tests.cpp
+  barrier_header_tests.cpp
   sender_tests.cpp
   resource_table_tests.cpp
   descriptor_schema_tests.cpp

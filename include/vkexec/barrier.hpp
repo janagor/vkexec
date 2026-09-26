@@ -4,9 +4,12 @@
 //! \file
 //! Global memory and image barriers, plus pipeable stage presets for pass graphs.
 
+#include <vkexec/pass.hpp>
+
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <utility>
 
 namespace vkexec {
 
@@ -63,43 +66,67 @@ namespace barrier {
   struct transfer_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()() const
+    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+
+    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    { return std::forward<Sender>(sender) | (*this)(); }
   };
 
   //! Compute -> compute (shader write to shader read/write).
   struct compute_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()() const
+    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+
+    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    { return std::forward<Sender>(sender) | (*this)(); }
   };
 
   //! Compute -> graphics (shader write to vertex/fragment read).
   struct compute_to_graphics_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()() const
+    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+
+    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    { return std::forward<Sender>(sender) | (*this)(); }
   };
 
   //! Graphics -> compute.
   struct graphics_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()() const
+    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+
+    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    { return std::forward<Sender>(sender) | (*this)(); }
   };
 
   //! Compute shader write -> compute shader read (read-after-write).
   struct compute_read_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()() const
+    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+
+    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    { return std::forward<Sender>(sender) | (*this)(); }
   };
 
-  [[nodiscard]] inline auto transfer_to_compute() -> transfer_to_compute_t { return {}; }
-  [[nodiscard]] inline auto compute_to_compute() -> compute_to_compute_t { return {}; }
-  [[nodiscard]] inline auto compute_to_graphics() -> compute_to_graphics_t { return {}; }
-  [[nodiscard]] inline auto graphics_to_compute() -> graphics_to_compute_t { return {}; }
-  [[nodiscard]] inline auto compute_read() -> compute_read_t { return {}; }
-
-  auto transfer_to_compute(VkCommandBuffer cmd) -> void;
-  auto compute_to_compute(VkCommandBuffer cmd) -> void;
-  auto compute_to_graphics(VkCommandBuffer cmd) -> void;
-  auto graphics_to_compute(VkCommandBuffer cmd) -> void;
-  auto compute_read(VkCommandBuffer cmd) -> void;
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr transfer_to_compute_t transfer_to_compute{};
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr compute_to_compute_t compute_to_compute{};
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr compute_to_graphics_t compute_to_graphics{};
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr graphics_to_compute_t graphics_to_compute{};
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr compute_read_t compute_read{};
 
 }// namespace barrier
 

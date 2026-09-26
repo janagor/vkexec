@@ -32,7 +32,7 @@ namespace detail {
 }// namespace detail
 
 //! Descriptor-set resource binding step for a pass graph.
-struct bind_resources_closure
+struct runtime_bind_resources_step
 {
   handles::compute_pipeline const *pipe{ nullptr };
   resource_table table;
@@ -57,32 +57,63 @@ template<detail::push_constant_type Push> struct bind_resources_step
 };
 
 //! Builds a descriptor-set-backed resource-table graph step with runtime-sized push data.
-[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe,
+[[nodiscard]] auto make_bind_resources_step(handles::compute_pipeline const &pipe,
   resource_table const &table,
-  std::span<std::byte const> push) -> bind_resources_closure;
+  std::span<std::byte const> push) -> runtime_bind_resources_step;
 
-template<std::size_t Extent>
-[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe,
-  resource_table const &table,
-  std::span<std::byte const, Extent> push) -> bind_resources_closure
-{ return bind_resources(pipe, table, std::span<std::byte const>{ push }); }
+struct bind_resources_t
+{
+  template<class... Args>
+    requires requires(bind_resources_t const &self, Args &&...args) {
+      bind_resources_custom(self, std::forward<Args>(args)...);
+    }
+  [[nodiscard]] auto operator()(Args &&...args) const
+    -> decltype(bind_resources_custom(*this, std::forward<Args>(args)...))
+  { return bind_resources_custom(*this, std::forward<Args>(args)...); }
 
-template<std::size_t Extent>
-[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe,
-  resource_table const &table,
-  std::span<std::byte, Extent> push) -> bind_resources_closure
-{ return bind_resources(pipe, table, std::span<std::byte const>{ push }); }
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    resource_table const &table,
+    std::span<std::byte const> push) const
+  { return make_pass_adaptor(make_bind_resources_step(pipe, table, push)); }
 
-//! Builds a descriptor-set-backed resource-table graph step without push data.
-[[nodiscard]] inline auto bind_resources(handles::compute_pipeline const &pipe, resource_table const &table)
-{ return bind_resources_step<detail::no_push_constants>{ .pipe = &pipe, .table = table, .push = {}, .state = {} }; }
+  template<std::size_t Extent>
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    resource_table const &table,
+    std::span<std::byte const, Extent> push) const
+  { return (*this)(pipe, table, std::span<std::byte const>{ push }); }
 
-//! Typed push-data overload for descriptor-set resource binding.
-template<class Params>
-  requires std::is_trivially_copyable_v<Params> && (!detail::is_byte_span_v<Params>)
-[[nodiscard]] auto
-  bind_resources(handles::compute_pipeline const &pipe, resource_table const &table, Params const &params)
-{ return bind_resources_step<Params>{ .pipe = &pipe, .table = table, .push = params, .state = {} }; }
+  template<std::size_t Extent>
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    resource_table const &table,
+    std::span<std::byte, Extent> push) const
+  { return (*this)(pipe, table, std::span<std::byte const>{ push }); }
+
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe, resource_table const &table) const
+  {
+    return make_pass_adaptor(bind_resources_step<detail::no_push_constants>{
+      .pipe = &pipe, .table = table, .push = {}, .state = {} });
+  }
+
+  template<class Params>
+    requires std::is_trivially_copyable_v<Params> && (!detail::is_byte_span_v<Params>)
+  [[nodiscard]] auto
+    operator()(handles::compute_pipeline const &pipe, resource_table const &table, Params const &params) const
+  {
+    return make_pass_adaptor(
+      bind_resources_step<Params>{ .pipe = &pipe, .table = table, .push = params, .state = {} });
+  }
+
+  template<vkexec_predecessor Sender, class... Args>
+    requires requires(bind_resources_t const &self, Sender &&sender, Args &&...args) {
+      std::forward<Sender>(sender) | self(std::forward<Args>(args)...);
+    }
+  [[nodiscard]] auto operator()(Sender &&sender, Args &&...args) const
+    -> decltype(std::forward<Sender>(sender) | (*this)(std::forward<Args>(args)...))
+  { return std::forward<Sender>(sender) | (*this)(std::forward<Args>(args)...); }
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr bind_resources_t bind_resources{};
 
 }// namespace vkexec
 
