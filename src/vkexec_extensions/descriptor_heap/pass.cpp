@@ -7,15 +7,12 @@
 #include <vkexec/detail/viewport.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/scheduler.hpp>
-#include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <utility>
 
 namespace vkexec {
 
@@ -81,43 +78,5 @@ auto record_draw_indirect([[maybe_unused]] context const &ctx,
   bind_heap_graphics_draw_state(cmd, bind, extent);
   vkCmdDrawIndirect(cmd, buffer, offset, 1, sizeof(VkDrawIndirectCommand));
 }
-
-namespace detail {
-
-  auto make_descriptor_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step
-  {
-    return pass_step{ .record = [closure = std::move(closure)](
-                                  context &record_ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-                       std::span<std::byte const> const push_bytes{ closure.push };
-                       if (closure.is_indirect) {
-                         return record_pass(record_ctx, cmd, closure.bind, push_bytes, closure.indirect);
-                       }
-                       return record_pass(record_ctx, cmd, closure.bind, push_bytes, closure.groups);
-                     },
-      .after_gpu = {} };
-  }
-
-  namespace {
-
-    auto append_heap_step(pass_graph_sender graph, pass_step step) -> pass_graph_sender
-    {
-      graph.steps.push_back(std::move(step));
-      return graph;
-    }
-
-  }// namespace
-
-}// namespace detail
-
-auto operator|(schedule_sender snd, descriptor_compute_pass_closure closure) -> pass_graph_sender
-{
-  return pass_graph_sender{
-    .ctx = snd.ctx,
-    .steps = { detail::make_descriptor_prebuilt_step(std::move(closure.inner)) },
-  };
-}
-
-auto operator|(pass_graph_sender graph, descriptor_compute_pass_closure closure) -> pass_graph_sender
-{ return detail::append_heap_step(std::move(graph), detail::make_descriptor_prebuilt_step(std::move(closure.inner))); }
 
 }// namespace vkexec

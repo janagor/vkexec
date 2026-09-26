@@ -11,49 +11,54 @@
 
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 namespace vkexec {
 
-template<typename Params>
+template<detail::push_constant_type Params>
 auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, Params const &params, dispatch groups)
-  -> descriptor_compute_pass_closure
 {
-  static_assert(std::is_trivially_copyable_v<Params>);
-  return descriptor_compute_pass_closure{ .inner = compute_pass(bind, params, groups) };
+  auto inner = compute_pass(bind, params, groups);
+  return descriptor_compute_pass_closure<Params, dispatch>{ .inner = std::move(inner) };
 }
 
-template<typename Params>
+template<detail::push_constant_type Params>
 auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, Params const &params, indirect_dispatch groups)
-  -> descriptor_compute_pass_closure
 {
-  static_assert(std::is_trivially_copyable_v<Params>);
-  return descriptor_compute_pass_closure{ .inner = compute_pass(bind, params, groups) };
+  auto inner = compute_pass(bind, params, groups);
+  return descriptor_compute_pass_closure<Params, indirect_dispatch>{ .inner = std::move(inner) };
 }
 
-auto compute_pass(descriptor_heap_t strategy, compute_bind bind, dispatch groups) -> descriptor_compute_pass_closure;
-auto compute_pass(descriptor_heap_t strategy, compute_bind bind, indirect_dispatch groups)
-  -> descriptor_compute_pass_closure;
+[[nodiscard]] inline auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, dispatch groups)
+{
+  auto inner = compute_pass(bind, groups);
+  return descriptor_compute_pass_closure<detail::no_push_constants, dispatch>{ .inner = inner };
+}
 
-template<typename Params>
+[[nodiscard]] inline auto compute_pass(descriptor_heap_t /*strategy*/, compute_bind bind, indirect_dispatch groups)
+{
+  auto inner = compute_pass(bind, groups);
+  return descriptor_compute_pass_closure<detail::no_push_constants, indirect_dispatch>{ .inner = inner };
+}
+
+template<detail::push_constant_type Params>
 auto compute_pass(descriptor_heap_t strategy,
   owned::compute_pipeline const &pipe,
   Params const &params,
-  std::uint32_t work_count) -> descriptor_compute_pass_closure
+  std::uint32_t work_count)
 { return compute_pass(strategy, pipe.bind(), params, pipe.groups_for(work_count)); }
 
 inline auto compute_pass(descriptor_heap_t strategy, owned::compute_pipeline const &pipe, std::uint32_t work_count)
-  -> descriptor_compute_pass_closure
 { return compute_pass(strategy, pipe.bind(), pipe.groups_for(work_count)); }
 
-template<typename Params>
+template<detail::push_constant_type Params>
 auto compute_pass(descriptor_heap_t strategy,
   owned::compute_pipeline const &pipe,
   Params const &params,
-  indirect_dispatch groups) -> descriptor_compute_pass_closure
+  indirect_dispatch groups)
 { return compute_pass(strategy, pipe.bind(), params, groups); }
 
 inline auto compute_pass(descriptor_heap_t strategy, owned::compute_pipeline const &pipe, indirect_dispatch groups)
-  -> descriptor_compute_pass_closure
 { return compute_pass(strategy, pipe.bind(), groups); }
 
 }// namespace vkexec

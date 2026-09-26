@@ -1,6 +1,6 @@
 #include "sync_wait_helpers.hpp"
-#include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
+#include <vkexec/barrier.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
@@ -100,10 +100,14 @@ static auto run() -> int
     return vkexec::compute_pass(*bound.pipe, bound.set, params, static_cast<std::uint32_t>(k_element_count / 2));
   };
 
-  auto graph = ex::schedule(ctx->get_scheduler()) | make_phase(0);
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  graph.reserve((2 * k_element_count) - 1);
+  graph = std::move(graph) | make_phase(0);
+
   for (std::size_t phase = 1; phase < k_element_count; ++phase) {
     graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
   }
+
   vkexec::examples::sync_wait_graph(std::move(graph));
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)

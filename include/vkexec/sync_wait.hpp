@@ -131,9 +131,7 @@ namespace detail {
 #pragma GCC diagnostic pop
 #endif
 
-    if (state.wait_error) {
-      return { .values = std::nullopt, .error = std::move(state.wait_error), .stopped = false };
-    }
+    if (state.wait_error) { return { .values = std::nullopt, .error = std::move(state.wait_error), .stopped = false }; }
     if (state.stopped) { return { .values = std::nullopt, .error = std::nullopt, .stopped = true }; }
     return { .values = std::move(values), .error = std::nullopt, .stopped = false };
   }

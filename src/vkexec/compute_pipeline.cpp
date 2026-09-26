@@ -4,7 +4,6 @@
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
@@ -139,9 +138,5 @@ auto owned::compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_
   write_storage_descriptors(ctx_->device(), set, buffers);
   return {};
 }
-
-auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
-  -> prebuilt_compute_pass_closure
-{ return compute_pass(pipe.bind(set), pipe.groups_for(work_count)); }
 
 }// namespace vkexec

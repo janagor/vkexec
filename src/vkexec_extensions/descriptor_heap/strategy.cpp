@@ -9,12 +9,12 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/bind_resources.hpp>
 #include <vkexec/detail/descriptor_table_backend.hpp>
+#include <vkexec/detail/lower_and_bind_push.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
-#include <vkexec/scheduler.hpp>
+#include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <span>
 #include <utility>
@@ -153,6 +154,12 @@ static_assert(descriptor_table_backend<heap_descriptor_backend>);
 
 namespace vkexec {
 
+namespace detail {
+  struct descriptor_heap_bind_resources_step_state : bound_release_state<heap_descriptor_backend>
+  {
+  };
+}// namespace detail
+
 auto bind_resources(descriptor_heap_t /*strategy*/,
   handles::compute_pipeline const &pipe,
   resource_table const &table,
@@ -164,22 +171,49 @@ auto bind_resources(descriptor_heap_t /*strategy*/,
     .table = table,
     .env = env,
     .push = std::vector<std::byte>(push.begin(), push.end()),
+    .state = {},
   };
 }
 
-auto operator|(schedule_sender snd, descriptor_heap_bind_resources_closure closure) -> pass_graph_sender
+auto detail::record_descriptor_heap_bind_resources_step(context &ctx,
+  VkCommandBuffer cmd,
+  handles::compute_pipeline const *pipe,
+  resource_table const &table,
+  heap_table_lower_env env,
+  std::span<std::byte const> push,
+  std::shared_ptr<descriptor_heap_bind_resources_step_state> &state) -> status
 {
-  auto step = detail::make_bind_resources_step<detail::heap_descriptor_backend>(
-    closure.pipe, std::move(closure.table), closure.env, std::move(closure.push));
-  return pass_graph_sender{ .ctx = snd.ctx, .steps = { std::move(step) } };
+  using backend = heap_descriptor_backend;
+  if (pipe == nullptr) { return fail(errc::invalid_argument, "bind_resources requires a pipeline"); }
+  if (!state) {
+    state = std::make_shared<descriptor_heap_bind_resources_step_state>();
+  } else {
+    state->release();
+  }
+  auto lowered = lower_and_bind_push<backend>(ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipe, table, env, push);
+  if (!lowered) { return fail(lowered); }
+  state->ctx = &ctx;
+  state->pipe = pipe;
+  state->bound.emplace(expected_take(lowered));
+  return {};
 }
 
-auto operator|(pass_graph_sender graph, descriptor_heap_bind_resources_closure closure) -> pass_graph_sender
+auto detail::release_descriptor_heap_bind_resources_step(
+  std::shared_ptr<descriptor_heap_bind_resources_step_state> const &state) -> void
 {
-  return detail::append_step(std::move(graph),
-    detail::make_bind_resources_step<detail::heap_descriptor_backend>(
-      closure.pipe, std::move(closure.table), closure.env, std::move(closure.push)));
+  if (state) { state->release(); }
 }
+
+auto descriptor_heap_bind_resources_closure::record(context &ctx,
+  VkCommandBuffer cmd,
+  [[maybe_unused]] detail::pass_cleanup &cleanup) -> status
+{
+  return detail::record_descriptor_heap_bind_resources_step(
+    ctx, cmd, pipe, table, env, std::span<std::byte const>{ push }, state);
+}
+
+auto descriptor_heap_bind_resources_closure::after_gpu() const -> void
+{ detail::release_descriptor_heap_bind_resources_step(state); }
 
 auto heap_index_map::index_for(std::uint32_t slot) const noexcept -> std::optional<std::uint32_t>
 {

@@ -15,14 +15,12 @@ namespace vkexec {
 //! Backend-neutral owning compute algorithm.
 using algorithm = owned::compute_pipeline;
 
-template<typename Params>
+template<detail::push_constant_type Params>
 [[nodiscard]] auto
   dispatch_compute(descriptor_heap_t strategy, algorithm const &algo, Params const &params, std::uint32_t work_count)
-    -> descriptor_compute_pass_closure
 { return compute_pass(strategy, algo, params, work_count); }
 
 [[nodiscard]] inline auto dispatch_compute(descriptor_heap_t strategy, algorithm const &algo, std::uint32_t work_count)
-  -> descriptor_compute_pass_closure
 { return compute_pass(strategy, algo, work_count); }
 
 }// namespace vkexec

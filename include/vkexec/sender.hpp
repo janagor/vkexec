@@ -50,7 +50,7 @@ namespace detail {
       ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
   };
 
-  template<class F> using factory_result_type = std::remove_cvref_t<std::invoke_result_t<F &>>;
+  template<class F> using factory_result_type = std::remove_cvref_t<decltype(std::declval<F &>()())>;
 
   template<class F> using factory_value_t = factory_result_traits<factory_result_type<F>>::value_type;
 
@@ -110,7 +110,7 @@ namespace detail {
 }// namespace detail
 
 template<class F>
-concept factory_callable = std::invocable<F &> && detail::factory_result<detail::factory_result_type<F>>;
+concept factory_callable = detail::factory_result<decltype(std::declval<F &>()())>;
 
 /**
  * Synchronous sender backed by a concrete result-returning callable.

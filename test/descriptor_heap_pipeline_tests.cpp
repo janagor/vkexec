@@ -25,8 +25,11 @@
 #include <vulkan/vulkan_core.h>
 
 #include <array>
+#include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -54,6 +57,22 @@ struct heap_push
 {
   std::uint32_t count;
 };
+
+constexpr std::size_t k_fixed_heap_byte_count = 16;
+using fixed_heap_byte_span = std::span<std::byte const, k_fixed_heap_byte_count>;
+
+static_assert(std::same_as<decltype(vkexec::bind_resources(vkexec::descriptor_heap,
+                             std::declval<vkexec::handles::compute_pipeline const &>(),
+                             std::declval<vkexec::resource_table const &>(),
+                             std::declval<vkexec::heap_table_lower_env>(),
+                             heap_push{})),
+  vkexec::descriptor_heap_bind_resources_step<heap_push>>);
+static_assert(std::same_as<decltype(vkexec::bind_resources(vkexec::descriptor_heap,
+                             std::declval<vkexec::handles::compute_pipeline const &>(),
+                             std::declval<vkexec::resource_table const &>(),
+                             std::declval<vkexec::heap_table_lower_env>(),
+                             std::declval<fixed_heap_byte_span>())),
+  vkexec::descriptor_heap_bind_resources_closure>);
 
 }// namespace
 

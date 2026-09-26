@@ -33,29 +33,6 @@ template<class Backend> struct bound_release_state
   ~bound_release_state() { release(); }
 };
 
-template<class Backend, class LowerEnv>
-[[nodiscard]] auto make_bind_resources_step(handles::compute_pipeline const *pipe,
-  resource_table table,
-  LowerEnv env,
-  std::vector<std::byte> push) -> pass_step
-{
-  auto state = std::make_shared<bound_release_state<Backend>>();
-  return pass_step{
-    .record = [pipe, table = std::move(table), env = std::move(env), push = std::move(push), state](
-                context &ctx, VkCommandBuffer cmd, pass_cleanup &) mutable -> status {
-      if (pipe == nullptr) { return fail(errc::invalid_argument, "bind_resources requires a pipeline"); }
-      state->release();
-      auto lowered = lower_and_bind_push<Backend>(ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipe, table, env, push);
-      if (!lowered) { return fail(lowered); }
-      state->ctx = &ctx;
-      state->pipe = pipe;
-      state->bound.emplace(expected_take(lowered));
-      return {};
-    },
-    .after_gpu = [state]() -> void { state->release(); },
-  };
-}
-
 }// namespace vkexec::detail
 
 #endif// VKEXEC_PRIVATE_BIND_RESOURCES_HPP

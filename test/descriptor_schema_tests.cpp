@@ -2,6 +2,7 @@
 
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/descriptor_schema.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/schema_pass.hpp>
@@ -10,6 +11,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <span>
 #include <utility>
 
 namespace {
@@ -20,6 +22,15 @@ using sim_schema = vkexec::descriptor_schema<positions, velocities>;
 using image_schema =
   vkexec::descriptor_schema<vkexec::storage_image<1>, vkexec::sampled_image<2>, vkexec::sampler_binding<3>>;
 
+struct typed_push_constants
+{
+  // cppcheck-suppress unusedStructMember
+  float scale{ 1.0F };
+};
+
+constexpr std::size_t k_fixed_byte_count = 16;
+using fixed_byte_span = std::span<std::byte const, k_fixed_byte_count>;
+
 template<class Schema, class... Resources>
 concept makes_resource_table = requires(Schema schema, Resources... resources) {
   { vkexec::make_resource_table(schema, std::move(resources)...) } -> std::same_as<vkexec::resource_table>;
@@ -28,8 +39,14 @@ concept makes_resource_table = requires(Schema schema, Resources... resources) {
 template<class Schema, class... Resources>
 concept makes_schema_bind =
   requires(Schema schema, vkexec::handles::compute_pipeline const &pipe, Resources... resources) {
-    { vkexec::schema_bind(schema, pipe, std::move(resources)...) } -> std::same_as<vkexec::bind_resources_closure>;
+    { vkexec::schema_bind(schema, pipe, std::move(resources)...) }
+    -> std::same_as<vkexec::bind_resources_step<vkexec::detail::no_push_constants>>;
   };
+
+template<class Push>
+concept makes_compute_pass = requires(Push push) {
+  vkexec::compute_pass(vkexec::compute_bind{}, push, vkexec::dispatch{});
+};
 
 static_assert(sim_schema::binding_count == 2);
 static_assert(vkexec::detail::descriptor_schema_slots_unique<positions, velocities>());
@@ -40,6 +57,16 @@ static_assert(makes_resource_table<sim_schema, vkexec::resource_ref, vkexec::res
 static_assert(!makes_resource_table<sim_schema, vkexec::resource_ref>);
 static_assert(makes_schema_bind<sim_schema, vkexec::resource_ref, vkexec::resource_ref>);
 static_assert(!makes_schema_bind<sim_schema, vkexec::resource_ref>);
+static_assert(std::same_as<decltype(vkexec::bind_resources(std::declval<vkexec::handles::compute_pipeline const &>(),
+                             std::declval<vkexec::resource_table const &>(),
+                             typed_push_constants{})),
+  vkexec::bind_resources_step<typed_push_constants>>);
+static_assert(std::same_as<decltype(vkexec::bind_resources(std::declval<vkexec::handles::compute_pipeline const &>(),
+                             std::declval<vkexec::resource_table const &>(),
+                             std::declval<fixed_byte_span>())),
+  vkexec::bind_resources_closure>);
+static_assert(makes_compute_pass<typed_push_constants>);
+static_assert(!makes_compute_pass<fixed_byte_span>);
 
 }// namespace
 

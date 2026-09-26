@@ -85,27 +85,20 @@ auto record_draw_indirect(context const &ctx,
 /**
  * Wraps a prebuilt compute pass recorded with push-data instead of push constants.
  *
- * Pipe onto `schedule()` or a `pass_graph_sender` like `prebuilt_compute_pass_closure`.
+ * Pipe onto `schedule()` or a `pass_graph_sender`.
  *
  * @see compute_pass
  */
-struct descriptor_compute_pass_closure
+template<class Push, class Dispatch> struct descriptor_compute_pass_closure
 {
-  prebuilt_compute_pass_closure inner;
+  detail::compute_pass_step<Push, Dispatch> inner;
+
+  auto record(context &ctx, VkCommandBuffer cmd, detail::pass_cleanup & /*cleanup*/) -> status
+  {
+    auto const bytes = detail::push_bytes(inner.push);
+    return record_pass(ctx, cmd, inner.bind, bytes, inner.dispatch_info);
+  }
 };
-
-namespace detail {
-
-  //! Wraps a prebuilt closure as a heap (push-data) `pass_step`.
-  [[nodiscard]] auto make_descriptor_prebuilt_step(prebuilt_compute_pass_closure closure) -> pass_step;
-
-}// namespace detail
-
-//! Starts a pass graph from `schedule()` with one bindless compute step.
-[[nodiscard]] auto operator|(schedule_sender snd, descriptor_compute_pass_closure closure) -> pass_graph_sender;
-
-//! Appends a bindless compute step to an existing pass graph.
-[[nodiscard]] auto operator|(pass_graph_sender graph, descriptor_compute_pass_closure closure) -> pass_graph_sender;
 
 }// namespace vkexec
 

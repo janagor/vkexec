@@ -232,8 +232,8 @@ struct bound_compute_pipeline
  * @param pipe Pipeline whose layout matches `buffers`.
  * @param buffers Storage bindings to write into the set.
  */
-[[nodiscard]] inline auto bind_storage_sender(
-  owned::compute_pipeline const &pipe, std::span<storage_binding const> buffers)
+[[nodiscard]] inline auto bind_storage_sender(owned::compute_pipeline const &pipe,
+  std::span<storage_binding const> buffers)
 {
   return make_sender(detail::bind_storage_factory{
     .pipe = &pipe, .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
@@ -247,16 +247,17 @@ struct bound_compute_pipeline
  * @param params Trivially copyable push-constant blob.
  * @param work_count Invocation count along X (converted via `groups_for`).
  */
-template<typename Params>
+template<detail::push_constant_type Params>
 auto compute_pass(owned::compute_pipeline const &pipe,
   VkDescriptorSet set,
   Params const &params,
-  std::uint32_t work_count) -> prebuilt_compute_pass_closure
+  std::uint32_t work_count)
 { return compute_pass(pipe.bind(set), params, pipe.groups_for(work_count)); }
 
 //! Builds a prebuilt compute pass without push constants.
-auto compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
-  -> prebuilt_compute_pass_closure;
+[[nodiscard]] inline auto
+  compute_pass(owned::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count)
+{ return compute_pass(pipe.bind(set), pipe.groups_for(work_count)); }
 
 //! Uploads push constants using `pipe.resources().pipeline_layout`.
 template<typename T>
