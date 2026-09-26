@@ -3,6 +3,8 @@ on:
   pull_request:
   release:
     types: [published]
+  schedule:
+    - cron: '17 4 * * 1'
   push:
     tags:
     branches:
@@ -22,6 +24,7 @@ env:
 
 jobs:
   Test:
+    if: github.event_name != 'schedule'
     name: ${{matrix.os}} ${{matrix.compiler}} ${{matrix.build_type}} ${{matrix.packaging_maintainer_mode == 'ON' && '(maintainer mode)' || ''}}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -426,3 +429,39 @@ jobs:
           name: ${{ runner.os }}-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./build/coverage.xml
+
+  stdexec-main-compat:
+    if: github.event_name == 'schedule'
+    name: stdexec main compatibility
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: llvm-22.1.8
+          cmake: true
+          ninja: true
+          ccache: true
+          clangtidy: false
+          cppcheck: false
+
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B ./build -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug -DBUILD_TESTING=ON -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF -DVKEXEC_STDEXEC_GIT_TAG:STRING=main
+
+      - name: Build representative tests
+        run: cmake --build ./build --target tests
+
+      - name: Check private stdexec API boundary
+        working-directory: ./build
+        run: ctest -R '^vkexec\.stdexec_public_api_boundary$' --output-on-failure

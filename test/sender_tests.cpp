@@ -12,12 +12,15 @@
 #include <concepts>
 #include <memory>
 #include <stdexcept>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
 namespace {
 
 constexpr auto k_expected_value = 42;
+constexpr auto k_sync_wait_pair_integer = 1;
+constexpr auto k_sync_wait_pair_floating_point = 2.0;
 
 struct status_factory
 {
@@ -64,7 +67,34 @@ struct move_construct_only
   auto operator=(move_construct_only const &) -> move_construct_only & = delete;
 };
 
+struct reference_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t(int &)>;
+};
+
+struct const_reference_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t(int const &)>;
+};
+
+struct multiple_value_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t(int), stdexec::set_value_t(double)>;
+};
+
+struct no_value_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures = stdexec::completion_signatures<stdexec::set_error_t(vkexec::error)>;
+};
+
 }// namespace
+
+template<class Sender>
+concept sync_wait_value_tuple_well_formed = requires { typename vkexec::detail::sync_wait_value_tuple_t<Sender>; };
 
 static_assert(stdexec::sender<vkexec::factory_sender<empty_factory>>);
 static_assert(stdexec::sender<vkexec::factory_sender<status_factory>>);
@@ -83,6 +113,20 @@ static_assert(stdexec::sender<vkexec::factory_sender<move_only_factory>>);
 static_assert(std::copy_constructible<vkexec::factory_sender<copyable_factory>>);
 static_assert(std::move_constructible<move_construct_only>);
 static_assert(!std::is_move_assignable_v<move_construct_only>);
+
+using sync_wait_empty_sender = decltype(stdexec::just());
+using sync_wait_int_sender = decltype(stdexec::just(k_expected_value));
+using sync_wait_pair_sender = decltype(stdexec::just(k_sync_wait_pair_integer, k_sync_wait_pair_floating_point));
+
+static_assert(std::same_as<vkexec::detail::sync_wait_value_tuple_t<sync_wait_empty_sender>, std::tuple<>>);
+static_assert(std::same_as<vkexec::detail::sync_wait_value_tuple_t<sync_wait_int_sender>, std::tuple<int>>);
+static_assert(std::same_as<vkexec::detail::sync_wait_value_tuple_t<sync_wait_pair_sender>, std::tuple<int, double>>);
+static_assert(std::same_as<vkexec::detail::sync_wait_value_tuple_t<reference_sender>, std::tuple<int>>);
+static_assert(std::same_as<vkexec::detail::sync_wait_value_tuple_t<const_reference_sender>, std::tuple<int>>);
+static_assert(stdexec::sender_in<sync_wait_int_sender, vkexec::detail::sync_wait_env>);
+static_assert(stdexec::sender_to<sync_wait_int_sender, vkexec::detail::sync_wait_receiver_t<sync_wait_int_sender>>);
+static_assert(!sync_wait_value_tuple_well_formed<multiple_value_sender>);
+static_assert(!sync_wait_value_tuple_well_formed<no_value_sender>);
 
 TEST_CASE("factory_sender preserves concrete callable type", "[vkexec][sender]")
 {

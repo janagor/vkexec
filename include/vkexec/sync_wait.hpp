@@ -4,6 +4,7 @@
 //! \file
 //! Blocking wait helpers for vkexec senders (`sync_wait`, `try_sync_wait`, …).
 
+#include <vkexec/detail/stdexec_compat.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait_outcome.hpp>
@@ -11,6 +12,11 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdlib>
+#include <exception>
+#include <optional>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 #ifndef VKEXEC_ENABLE_EXCEPTIONS
 #define VKEXEC_ENABLE_EXCEPTIONS 1
@@ -25,12 +31,20 @@ namespace detail {
   struct sync_wait_env
   {
     // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-    template<ex::__one_of<ex::get_scheduler_t, ex::get_start_scheduler_t, ex::get_delegation_scheduler_t> Query>
-    [[nodiscard]] constexpr auto query(Query /*query*/) const noexcept -> ex::run_loop::scheduler
+    [[nodiscard]] constexpr auto query(ex::get_scheduler_t /*query*/) const noexcept -> ex::run_loop::scheduler
     { return loop->get_scheduler(); }
 
     // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-    [[nodiscard]] static constexpr auto query(ex::__root_t /*query*/) noexcept -> bool { return true; }
+    [[nodiscard]] constexpr auto query(ex::get_start_scheduler_t /*query*/) const noexcept -> ex::run_loop::scheduler
+    { return loop->get_scheduler(); }
+
+    // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+    [[nodiscard]] constexpr auto query(ex::get_delegation_scheduler_t /*query*/) const noexcept
+      -> ex::run_loop::scheduler
+    { return loop->get_scheduler(); }
+
+    // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
+    [[nodiscard]] static constexpr auto query(stdexec_compat::root_t /*query*/) noexcept -> bool { return true; }
 
     ex::run_loop *loop{ nullptr };
   };
@@ -99,15 +113,16 @@ namespace detail {
     [[nodiscard]] auto get_env() const noexcept -> sync_wait_env { return sync_wait_env{ &state->loop }; }
   };
 
-  template<class CvSender, class Continuation>
-  using sync_wait_result_t = ex::__value_types_of_t<CvSender,
-    sync_wait_env,
-    ex::__mtransform<ex::__q<std::decay_t>, Continuation>,
-    ex::__q<ex::__msingle>>;
+  template<class... Ts> using decayed_tuple_t = std::tuple<std::decay_t<Ts>...>;
 
-  template<class CvSender> using sync_wait_value_tuple_t = sync_wait_result_t<CvSender, ex::__qq<std::tuple>>;
+  template<class... Ts> using decayed_sync_wait_receiver_t = sync_wait_receiver<std::decay_t<Ts>...>;
 
-  template<class CvSender> using sync_wait_receiver_t = sync_wait_result_t<CvSender, ex::__q<sync_wait_receiver>>;
+  template<class CvSender>
+  using sync_wait_value_tuple_t = ex::value_types_of_t<CvSender, sync_wait_env, decayed_tuple_t, std::type_identity_t>;
+
+  template<class CvSender>
+  using sync_wait_receiver_t =
+    ex::value_types_of_t<CvSender, sync_wait_env, decayed_sync_wait_receiver_t, std::type_identity_t>;
 
   template<class CvSender>
   concept sync_waitable_sender =

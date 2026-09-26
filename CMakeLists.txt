@@ -62,10 +62,11 @@ add_subdirectory(configured_files)
 # Adding the library source:
 add_subdirectory(src)
 
-# Public headers are owned by exported targets. Source-only detail headers are
-# deliberately absent from these sets and can never enter an install package.
+# Public headers and installed template implementation-support headers are owned
+# by exported targets. Source-only detail headers are deliberately absent from
+# these sets and can never enter an install package.
 file(
-  GLOB
+  GLOB_RECURSE
   VKEXEC_CORE_HEADERS
   CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec/*.hpp")
@@ -199,6 +200,9 @@ include(CTest)
 if(BUILD_TESTING)
   message(AUTHOR_WARNING "Building Tests. Be sure to check out test/constexpr_tests.cpp for constexpr testing")
   add_subdirectory(test)
+  add_test(NAME vkexec.stdexec_public_api_boundary
+           COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
+                   "${PROJECT_SOURCE_DIR}/cmake/CheckStdexecPrivateApi.cmake")
 endif()
 
 # If MSVC is being used, and ASAN is enabled, we need to set the debugger environment

@@ -1,5 +1,9 @@
 include(cmake/CPM.cmake)
 
+set(VKEXEC_STDEXEC_GIT_TAG
+    "ead186b1d8db3ebe37a946ff84a6ce08bf795153"
+    CACHE STRING "NVIDIA/stdexec revision used by vkexec")
+
 # Done as a function so that updates to variables like
 # CMAKE_CXX_FLAGS don't propagate out to other
 # targets
@@ -143,7 +147,7 @@ function(vkexec_setup_dependencies)
       GITHUB_REPOSITORY
       "NVIDIA/stdexec"
       GIT_TAG
-      "main"
+      "${VKEXEC_STDEXEC_GIT_TAG}"
       SYSTEM
       YES
       OPTIONS

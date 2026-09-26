@@ -105,11 +105,21 @@ backend is descriptor sets, while the extension overload is selected with
 
 ## Public and private headers
 
-Installed headers live under `include/` and contain the supported API. Template
-machinery may use a local `detail` namespace inside its owning public header, but
-detail types do not appear in public signatures. Shared implementation headers
-live under `src/**/detail/`, are supplied through the non-exported
-`vkexec_private_headers` target, and are never installed.
+Installed headers live under `include/` and contain the supported API, except
+`include/vkexec/detail/**`: installed template implementation support that is
+explicitly not user-facing API. Template machinery may use a local `detail`
+namespace inside its owning public header, but detail types do not appear in
+public signatures. Shared implementation headers live under `src/**/detail/`,
+are supplied through the non-exported `vkexec_private_headers` target, and are
+never installed.
+
+vkexec uses the public `<stdexec/execution.hpp>` execution vocabulary. No source
+or public header may name a `stdexec::__*`, `ex::__*`, `exec::__*`, or
+`STDEXEC::__*` identifier, or include `stdexec/__detail/*`, except for
+`include/vkexec/detail/stdexec_compat.hpp`. That header quarantines the current
+root-environment compatibility dependency and must not expose its types in a
+public signature. Any future private compatibility dependency must be added
+there rather than used directly elsewhere.
 
 Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
 select heap behavior once with `descriptor_heap`, then use `create`,

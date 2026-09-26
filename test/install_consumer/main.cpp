@@ -1,5 +1,7 @@
 #include <vkexec/execution.hpp>
 
+#include <stdexec/execution.hpp>
+
 #include <type_traits>
 
 int main()

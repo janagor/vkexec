@@ -1,7 +1,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include <stdexec/__detail/__execution_fwd.hpp>
+#include <stdexec/execution.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -9,7 +9,6 @@
 #include <vkexec_graphics/submit.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
-#include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <concepts>

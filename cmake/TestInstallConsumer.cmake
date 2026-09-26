@@ -163,6 +163,10 @@ execute_process(COMMAND "${CMAKE_COMMAND}" --install "${boost_build}" --config "
 execute_process(COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${prefix}" --config
                         "${VKEXEC_CONFIG}" COMMAND_ERROR_IS_FATAL ANY)
 
+if(NOT EXISTS "${prefix}/include/vkexec/detail/stdexec_compat.hpp")
+  message(FATAL_ERROR "Installed vkexec package is missing stdexec compatibility support header")
+endif()
+
 vkexec_read_cache_entry("${parent_cache}" "Vulkan_INCLUDE_DIR" _vulkan_include_dir)
 vkexec_read_cache_entry("${parent_cache}" "Vulkan_LIBRARY" _vulkan_library)
 if(_vulkan_include_dir)
