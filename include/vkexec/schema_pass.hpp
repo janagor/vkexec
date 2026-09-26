@@ -16,6 +16,18 @@
 
 namespace vkexec {
 
+namespace detail {
+
+  template<class Params> struct schema_pass_data
+  {
+    handles::compute_pipeline const *pipe{ nullptr };
+    resource_table table;
+    [[no_unique_address]] Params params;
+    std::uint32_t work_count{ 0 };
+  };
+
+}// namespace detail
+
 struct schema_bind_t
 {
   template<class... Entries, class... Resources>
@@ -45,11 +57,15 @@ struct schema_pass_t
     handles::compute_pipeline const &pipe,
     Params const &params,
     std::uint32_t work_count,
-    Resources &&...resources) const
+    Resources &&...resources) const -> detail::expr_closure<schema_pass_t, detail::schema_pass_data<Params>>
   {
-    auto bind = schema_bind(schema, pipe, params, std::forward<Resources>(resources)...);
-    auto compute = compute_pass(bind_compute(pipe), groups_for(pipe, work_count));
-    return std::move(bind) | std::move(compute);
+    return detail::make_expr_closure(*this,
+      detail::schema_pass_data<Params>{
+        .pipe = &pipe,
+        .table = make_resource_table(schema, std::forward<Resources>(resources)...),
+        .params = params,
+        .work_count = work_count,
+      });
   }
 
   template<vkexec_predecessor Sender, class... Args>
@@ -63,6 +79,22 @@ struct schema_pass_t
 
 // NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr schema_pass_t schema_pass{};
+
+namespace detail {
+
+  template<class Params, class Child, class Env>
+  [[nodiscard]] auto lower_vkexec_expression(schema_pass_t /*tag*/,
+    schema_pass_data<Params> const &data,
+    Child child,
+    Env const & /*env*/) -> decltype(std::move(child) | bind_resources(*data.pipe, data.table, data.params)
+                                     | compute_pass(bind_compute(*data.pipe), groups_for(*data.pipe, data.work_count)))
+  {
+    auto bind = bind_resources(*data.pipe, data.table, data.params);
+    auto compute = compute_pass(bind_compute(*data.pipe), groups_for(*data.pipe, data.work_count));
+    return std::move(child) | std::move(bind) | std::move(compute);
+  }
+
+}// namespace detail
 
 }// namespace vkexec
 

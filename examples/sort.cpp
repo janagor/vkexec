@@ -102,10 +102,11 @@ static auto run() -> int
 
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
   graph.reserve((2 * k_element_count) - 1);
-  graph = std::move(graph) | make_phase(0);
+  graph.append(make_phase(0));
 
   for (std::size_t phase = 1; phase < k_element_count; ++phase) {
-    graph = std::move(graph) | vkexec::barrier::compute_to_compute() | make_phase(phase);
+    graph.append(vkexec::barrier::compute_to_compute());
+    graph.append(make_phase(phase));
   }
 
   vkexec::examples::sync_wait_graph(std::move(graph));

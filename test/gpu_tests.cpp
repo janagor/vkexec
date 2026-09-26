@@ -175,7 +175,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   auto graph =
     ex::schedule(ctx->get_scheduler())
     | vkexec::schema_pass(sim_schema{}, resources, params, static_cast<std::uint32_t>(k_count), positions, velocities);
-  auto waited = vkexec::test::sync_wait_sender(std::move(graph));
+  auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   float const expected_v = k_initial_velocity * k_damping;
@@ -249,7 +249,7 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
     | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
     | vkexec::barrier::compute_to_compute()
     | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
-  auto waited = vkexec::test::sync_wait_sender(std::move(graph));
+  auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   float const expected = (k_initial + k_add) * k_scale;

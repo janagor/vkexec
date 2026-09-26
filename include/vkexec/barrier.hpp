@@ -66,9 +66,12 @@ namespace barrier {
   struct transfer_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const -> detail::expr_closure<transfer_to_compute_t, detail::empty_data>
+    { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
-    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    template<vkexec_predecessor Sender>
+    [[nodiscard]] auto operator()(Sender &&sender) const
+      -> detail::sender_expr<transfer_to_compute_t, detail::empty_data, std::decay_t<Sender>>
     { return std::forward<Sender>(sender) | (*this)(); }
   };
 
@@ -76,9 +79,12 @@ namespace barrier {
   struct compute_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const -> detail::expr_closure<compute_to_compute_t, detail::empty_data>
+    { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
-    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    template<vkexec_predecessor Sender>
+    [[nodiscard]] auto operator()(Sender &&sender) const
+      -> detail::sender_expr<compute_to_compute_t, detail::empty_data, std::decay_t<Sender>>
     { return std::forward<Sender>(sender) | (*this)(); }
   };
 
@@ -86,9 +92,12 @@ namespace barrier {
   struct compute_to_graphics_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const -> detail::expr_closure<compute_to_graphics_t, detail::empty_data>
+    { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
-    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    template<vkexec_predecessor Sender>
+    [[nodiscard]] auto operator()(Sender &&sender) const
+      -> detail::sender_expr<compute_to_graphics_t, detail::empty_data, std::decay_t<Sender>>
     { return std::forward<Sender>(sender) | (*this)(); }
   };
 
@@ -96,9 +105,12 @@ namespace barrier {
   struct graphics_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const -> detail::expr_closure<graphics_to_compute_t, detail::empty_data>
+    { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
-    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    template<vkexec_predecessor Sender>
+    [[nodiscard]] auto operator()(Sender &&sender) const
+      -> detail::sender_expr<graphics_to_compute_t, detail::empty_data, std::decay_t<Sender>>
     { return std::forward<Sender>(sender) | (*this)(); }
   };
 
@@ -106,9 +118,12 @@ namespace barrier {
   struct compute_read_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const -> detail::expr_closure<compute_read_t, detail::empty_data>
+    { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
-    template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
+    template<vkexec_predecessor Sender>
+    [[nodiscard]] auto operator()(Sender &&sender) const
+      -> detail::sender_expr<compute_read_t, detail::empty_data, std::decay_t<Sender>>
     { return std::forward<Sender>(sender) | (*this)(); }
   };
 
@@ -124,6 +139,17 @@ namespace barrier {
   inline constexpr compute_read_t compute_read{};
 
 }// namespace barrier
+
+namespace detail {
+
+  template<class Tag, class Env>
+    requires std::same_as<Tag, barrier::transfer_to_compute_t> || std::same_as<Tag, barrier::compute_to_compute_t>
+             || std::same_as<Tag, barrier::compute_to_graphics_t> || std::same_as<Tag, barrier::graphics_to_compute_t>
+             || std::same_as<Tag, barrier::compute_read_t>
+  [[nodiscard]] auto lower_vkexec_pass_step(Tag tag, empty_data /*data*/, Env const & /*env*/) -> barrier_step<Tag>
+  { return make_barrier_step(std::move(tag)); }
+
+}// namespace detail
 
 }// namespace vkexec
 

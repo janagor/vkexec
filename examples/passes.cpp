@@ -8,8 +8,6 @@
 
 #include <stdexec/execution.hpp>
 
-#include <utility>
-
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -89,7 +87,7 @@ static auto run() -> int
                  bound.set,
                  pass_params{ .value = k_scale, .op = k_op_mul },
                  static_cast<std::uint32_t>(k_element_count));
-  vkexec::examples::sync_wait_graph(std::move(graph));
+  vkexec::examples::sync_wait_graph(graph);
 
   float const expected = (k_initial + k_add) * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)

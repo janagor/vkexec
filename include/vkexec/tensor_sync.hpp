@@ -31,6 +31,11 @@ namespace vkexec {
  */
 namespace detail {
 
+  template<typename T> struct tensor_sync_data
+  {
+    owned::tensor<T> *target{ nullptr };
+  };
+
   template<typename T> [[nodiscard]] auto make_sync_to_device_step(owned::tensor<T> *target)
   {
     return make_callback_pass_step(
@@ -158,8 +163,10 @@ namespace detail {
 
 struct sync_to_device_t
 {
-  template<typename T> [[nodiscard]] auto operator()(owned::tensor<T> &values) const
-  { return make_pass_adaptor(detail::make_sync_to_device_step(&values)); }
+  template<typename T>
+  [[nodiscard]] auto operator()(owned::tensor<T> &values) const
+    -> detail::expr_closure<sync_to_device_t, detail::tensor_sync_data<T>>
+  { return detail::make_expr_closure(*this, detail::tensor_sync_data<T>{ .target = &values }); }
 
   template<vkexec_predecessor Sender, typename T>
   [[nodiscard]] auto operator()(Sender &&sender, owned::tensor<T> &values) const
@@ -169,8 +176,10 @@ struct sync_to_device_t
 
 struct sync_to_host_t
 {
-  template<typename T> [[nodiscard]] auto operator()(owned::tensor<T> &values) const
-  { return make_pass_adaptor(detail::make_sync_to_host_step(&values)); }
+  template<typename T>
+  [[nodiscard]] auto operator()(owned::tensor<T> &values) const
+    -> detail::expr_closure<sync_to_host_t, detail::tensor_sync_data<T>>
+  { return detail::make_expr_closure(*this, detail::tensor_sync_data<T>{ .target = &values }); }
 
   template<vkexec_predecessor Sender, typename T>
   [[nodiscard]] auto operator()(Sender &&sender, owned::tensor<T> &values) const
@@ -182,6 +191,20 @@ struct sync_to_host_t
 inline constexpr sync_to_device_t sync_to_device{};
 // NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr sync_to_host_t sync_to_host{};
+
+namespace detail {
+
+  template<typename T, class Env>
+  [[nodiscard]] auto lower_vkexec_pass_step(sync_to_device_t /*tag*/, tensor_sync_data<T> data, Env const & /*env*/)
+    -> decltype(make_sync_to_device_step(data.target))
+  { return make_sync_to_device_step(data.target); }
+
+  template<typename T, class Env>
+  [[nodiscard]] auto lower_vkexec_pass_step(sync_to_host_t /*tag*/, tensor_sync_data<T> data, Env const & /*env*/)
+    -> decltype(make_sync_to_host_step(data.target))
+  { return make_sync_to_host_step(data.target); }
+
+}// namespace detail
 
 }// namespace vkexec
 

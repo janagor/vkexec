@@ -5,6 +5,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
@@ -233,12 +234,13 @@ TEST_CASE("domain-only sender environment advertises vkexec domain", "[vkexec][s
   STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_domain_t{})), vkexec::domain>);
 }
 
-TEST_CASE("deferred pass graph preserves predecessor value completion scheduler", "[vkexec][scheduler]")
+TEST_CASE("semantic pass expression preserves predecessor value completion scheduler", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
   auto pred = sched.schedule() | ex::then([]() -> void {});
   auto const sndr = pred | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
 
+  STATIC_REQUIRE(ex::sender<decltype(sndr)>);
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr));
   REQUIRE(completion == sched);
 }
@@ -252,8 +254,12 @@ TEST_CASE("pass closures compose independently from a sender", "[vkexec][schedul
   auto sndr = sched.schedule() | pipeline;
   auto second = sched.schedule() | pipeline;
   STATIC_REQUIRE(ex::sender<decltype(sndr)>);
-  REQUIRE(sndr.ctx == nullptr);
-  REQUIRE(second.ctx == nullptr);
+  STATIC_REQUIRE(vkexec::detail::is_sender_expr_v<decltype(sndr)>);
+  STATIC_REQUIRE(std::same_as<vkexec::detail::expression_tag_t<decltype(sndr)>, vkexec::compute_pass_t>);
+  auto lowered = ex::transform_sender(sndr, ex::env<>{});
+  auto second_lowered = ex::transform_sender(second, ex::env<>{});
+  REQUIRE(lowered.ctx == nullptr);
+  REQUIRE(second_lowered.ctx == nullptr);
 }
 
 TEST_CASE("compute pass direct and pipe forms produce the same sender", "[vkexec][scheduler]")
@@ -263,19 +269,32 @@ TEST_CASE("compute pass direct and pipe forms produce the same sender", "[vkexec
   auto piped = sched.schedule() | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
 
   STATIC_REQUIRE(std::same_as<decltype(direct), decltype(piped)>);
-  REQUIRE(direct.ctx == piped.ctx);
+  STATIC_REQUIRE(vkexec::detail::is_sender_expr_v<decltype(direct)>);
+  REQUIRE(ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(direct))
+          == ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(piped)));
 }
 
-TEST_CASE("deferred pass adaptors fuse into one typed graph", "[vkexec][scheduler]")
+TEST_CASE("semantic pass expressions fuse into one typed graph", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
-  auto pred = sched.schedule() | ex::then([]() -> void {});
-  auto sndr = pred | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
+  auto expr = sched.schedule() | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
               | vkexec::barrier::compute_to_compute()
               | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
+  auto sndr = ex::transform_sender(expr, ex::env<>{});
 
   STATIC_REQUIRE(std::tuple_size_v<std::remove_cvref_t<decltype(sndr.steps)>> == 3);
   REQUIRE(std::get<0>(sndr.steps).bind.pipeline == VK_NULL_HANDLE);
+}
+
+TEST_CASE("semantic pass expressions materialize across a then boundary", "[vkexec][scheduler]")
+{
+  using expr_t = decltype(ex::schedule(std::declval<vkexec::scheduler>()) | ex::then([]() noexcept -> void {})
+                          | vkexec::make_pass_adaptor(std::declval<counting_pass_step>())
+                          | vkexec::make_pass_adaptor(std::declval<counting_pass_step>()));
+
+  STATIC_REQUIRE(ex::sender<expr_t>);
+  using lowered_t = decltype(ex::transform_sender(std::declval<expr_t>(), ex::env<>{}));
+  STATIC_REQUIRE(ex::sender<lowered_t>);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -471,16 +490,18 @@ TEST_CASE("pass composition retains each concrete step type", "[vkexec][pass]")
 {
   vkexec::scheduler sched{ nullptr };
 
-  auto graph = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  auto graph = ex::transform_sender(
+    ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }), ex::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == 1);
 
-  auto graph2 = std::move(graph) | vkexec::barrier::compute_to_compute();
+  auto graph2 = ex::transform_sender(std::move(graph) | vkexec::barrier::compute_to_compute(), ex::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph2)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph2.steps)> == 2);
   STATIC_REQUIRE(!std::same_as<decltype(graph), decltype(graph2)>);
 
-  auto graph3 = std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  auto graph3 = ex::transform_sender(
+    std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }), ex::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph3)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph3.steps)> == 3);
   STATIC_REQUIRE(!std::same_as<decltype(graph2), decltype(graph3)>);
@@ -492,14 +513,14 @@ TEST_CASE("dynamic pass graph keeps one sender type", "[vkexec][pass]")
   vkexec::scheduler sched{ nullptr };
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
 
-  graph = std::move(graph) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
   STATIC_REQUIRE(std::same_as<decltype(graph), vkexec::dynamic_pass_graph_sender>);
   REQUIRE(graph.steps.size() == 1);
 
-  graph = std::move(graph) | vkexec::barrier::compute_to_compute();
+  graph.append(vkexec::barrier::compute_to_compute());
   REQUIRE(graph.steps.size() == 2);
 
-  graph = std::move(graph) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
   REQUIRE(graph.steps.size() == 3);
 }
 
@@ -508,14 +529,15 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
   constexpr int k_initial_value = 42;
   vkexec::scheduler sched{ nullptr };
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
-  graph = std::move(graph) | vkexec::make_pass_adaptor(move_only_pass_step{ k_initial_value });
+  graph.append(vkexec::make_pass_adaptor(move_only_pass_step{ k_initial_value }));
   REQUIRE(graph.steps.size() == 1);
 }
 
 TEST_CASE("copyable binding graphs defer mutable state to each operation", "[vkexec][pass]")
 {
   vkexec::handles::compute_pipeline const pipe{};
-  auto graph = ex::schedule(vkexec::scheduler{ nullptr }) | vkexec::bind_resources(pipe, vkexec::resource_table{});
+  auto graph = ex::transform_sender(
+    ex::schedule(vkexec::scheduler{ nullptr }) | vkexec::bind_resources(pipe, vkexec::resource_table{}), ex::env<>{});
 
   std::promise<void> first_completed;
   std::promise<void> second_completed;
@@ -556,12 +578,9 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   int skipped_count = 0;
 
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
-  graph = std::move(graph)
-          | vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &first_count, .should_fail = false });
-  graph = std::move(graph)
-          | vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &failing_count, .should_fail = true });
-  graph = std::move(graph)
-          | vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &skipped_count, .should_fail = false });
+  graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &first_count, .should_fail = false }));
+  graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &failing_count, .should_fail = true }));
+  graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &skipped_count, .should_fail = false }));
 
   vkexec::detail::pass_cleanup cleanup{};
   auto recorded = vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, graph.steps);

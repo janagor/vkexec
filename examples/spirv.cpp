@@ -7,8 +7,6 @@
 
 #include <stdexec/execution.hpp>
 
-#include <utility>
-
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -92,7 +90,7 @@ static auto run() -> int
 
   auto graph = ex::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(*bound.pipe, bound.set, push, static_cast<std::uint32_t>(k_element_count));
-  vkexec::examples::sync_wait_graph(std::move(graph));
+  vkexec::examples::sync_wait_graph(graph);
 
   float const expected = k_initial * k_scale;
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)

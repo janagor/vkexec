@@ -1,18 +1,25 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/barrier.hpp>
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/descriptor_schema.hpp>
+#include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/scheduler.hpp>
 #include <vkexec/schema_pass.hpp>
 
+#include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <concepts>
 #include <cstddef>
 #include <span>
+#include <tuple>
 #include <utility>
+
+namespace ex = stdexec;
 
 namespace {
 
@@ -29,6 +36,8 @@ struct typed_push_constants
 };
 
 constexpr std::size_t k_fixed_byte_count = 16;
+constexpr std::size_t k_positions_byte_count = 64;
+constexpr std::size_t k_velocities_byte_count = 128;
 using fixed_byte_span = std::span<std::byte const, k_fixed_byte_count>;
 
 template<class Schema, class... Resources>
@@ -71,14 +80,52 @@ static_assert(!makes_compute_pass<fixed_byte_span>);
 
 TEST_CASE("descriptor_schema builds an ordered resource_table", "[vkexec][descriptor_schema]")
 {
-  auto const table = vkexec::make_resource_table(
-    sim_schema{}, vkexec::buffer_resource(VK_NULL_HANDLE, 64), vkexec::buffer_resource(VK_NULL_HANDLE, 128));
+  auto const table = vkexec::make_resource_table(sim_schema{},
+    vkexec::buffer_resource(VK_NULL_HANDLE, k_positions_byte_count),
+    vkexec::buffer_resource(VK_NULL_HANDLE, k_velocities_byte_count));
 
   REQUIRE(table.size() == sim_schema::binding_count);
   REQUIRE(table.entries().front().slot == positions::slot);
-  REQUIRE(table.entries().front().resource.byte_size == 64);
+  REQUIRE(table.entries().front().resource.byte_size == k_positions_byte_count);
   REQUIRE(table.entries().back().slot == velocities::slot);
-  REQUIRE(table.entries().back().resource.byte_size == 128);
+  REQUIRE(table.entries().back().resource.byte_size == k_velocities_byte_count);
+}
+
+TEST_CASE("schema_pass recursively lowers into one typed pass graph", "[vkexec][descriptor_schema]")
+{
+  vkexec::handles::compute_pipeline const pipe{};
+  auto expr = ex::schedule(vkexec::scheduler{ nullptr })
+              | vkexec::schema_pass(sim_schema{},
+                pipe,
+                typed_push_constants{},
+                1,
+                vkexec::buffer_resource(VK_NULL_HANDLE, k_positions_byte_count),
+                vkexec::buffer_resource(VK_NULL_HANDLE, k_velocities_byte_count));
+
+  STATIC_REQUIRE(vkexec::detail::is_sender_expr_v<decltype(expr)>);
+  STATIC_REQUIRE(std::same_as<vkexec::detail::expression_tag_t<decltype(expr)>, vkexec::schema_pass_t>);
+
+  auto lowered = ex::transform_sender(std::move(expr), ex::env<>{});
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(lowered)>);
+  STATIC_REQUIRE(std::tuple_size_v<decltype(lowered.steps)> == 2);
+}
+
+TEST_CASE("composite semantic passes fuse with surrounding primitive passes", "[vkexec][descriptor_schema]")
+{
+  vkexec::handles::compute_pipeline const pipe{};
+  auto expr = ex::schedule(vkexec::scheduler{ nullptr })
+              | vkexec::schema_pass(sim_schema{},
+                pipe,
+                typed_push_constants{},
+                1,
+                vkexec::buffer_resource(VK_NULL_HANDLE, k_positions_byte_count),
+                vkexec::buffer_resource(VK_NULL_HANDLE, k_velocities_byte_count))
+              | vkexec::barrier::compute_to_compute()
+              | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
+
+  auto lowered = ex::transform_sender(std::move(expr), ex::env<>{});
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(lowered)>);
+  STATIC_REQUIRE(std::tuple_size_v<decltype(lowered.steps)> == 4);
 }
 
 TEST_CASE("descriptor_schema derives explicit compute layout slots", "[vkexec][descriptor_schema]")
