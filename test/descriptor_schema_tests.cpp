@@ -39,14 +39,14 @@ concept makes_resource_table = requires(Schema schema, Resources... resources) {
 template<class Schema, class... Resources>
 concept makes_schema_bind =
   requires(Schema schema, vkexec::handles::compute_pipeline const &pipe, Resources... resources) {
-    { vkexec::schema_bind(schema, pipe, std::move(resources)...) }
-    -> std::same_as<vkexec::bind_resources_step<vkexec::detail::no_push_constants>>;
+    {
+      vkexec::schema_bind(schema, pipe, std::move(resources)...)
+    } -> std::same_as<vkexec::bind_resources_step<vkexec::detail::no_push_constants>>;
   };
 
 template<class Push>
-concept makes_compute_pass = requires(Push push) {
-  vkexec::compute_pass(vkexec::compute_bind{}, push, vkexec::dispatch{});
-};
+concept makes_compute_pass =
+  requires(Push push) { vkexec::compute_pass(vkexec::compute_bind{}, push, vkexec::dispatch{}); };
 
 static_assert(sim_schema::binding_count == 2);
 static_assert(vkexec::detail::descriptor_schema_slots_unique<positions, velocities>());

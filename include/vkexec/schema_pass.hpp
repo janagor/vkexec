@@ -46,8 +46,7 @@ template<detail::static_pass_step Bind, detail::static_pass_step Compute> struct
 namespace detail {
 
   template<class... Steps, static_pass_step Bind, static_pass_step Compute>
-  [[nodiscard]] auto
-    append_schema_pass(pass_graph_sender<Steps...> graph, schema_pass_closure<Bind, Compute> closure)
+  [[nodiscard]] auto append_schema_pass(pass_graph_sender<Steps...> graph, schema_pass_closure<Bind, Compute> closure)
   {
     auto bound = std::move(graph) | std::move(closure.bind);
     return std::move(bound) | std::move(closure.compute);
@@ -125,9 +124,10 @@ template<class Pred, class Closure, class Env>
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
-  return ex::let_value(std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> decltype(auto) {
-    return detail::append_schema_pass(pass_graph_sender<>{ .ctx = ctx, .steps = {} }, std::move(closure));
-  });
+  return ex::let_value(
+    std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> decltype(auto) {
+      return detail::append_schema_pass(pass_graph_sender<>{ .ctx = ctx, .steps = {} }, std::move(closure));
+    });
 }
 
 }// namespace vkexec

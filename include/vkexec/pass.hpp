@@ -107,21 +107,24 @@ namespace detail {
   };
 
   template<class T> struct is_byte_span : std::false_type
-  {};
+  {
+  };
 
   template<std::size_t Extent> struct is_byte_span<std::span<std::byte, Extent>> : std::true_type
-  {};
+  {
+  };
 
   template<std::size_t Extent> struct is_byte_span<std::span<std::byte const, Extent>> : std::true_type
-  {};
+  {
+  };
 
   template<class T>
   // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr bool is_byte_span_v = is_byte_span<std::remove_cvref_t<T>>::value;
 
   template<class T>
-  concept dispatch_kind = std::same_as<std::remove_cvref_t<T>, dispatch>
-                          || std::same_as<std::remove_cvref_t<T>, indirect_dispatch>;
+  concept dispatch_kind =
+    std::same_as<std::remove_cvref_t<T>, dispatch> || std::same_as<std::remove_cvref_t<T>, indirect_dispatch>;
 
   template<class T>
   concept push_constant_type = std::same_as<std::remove_cvref_t<T>, no_push_constants>
@@ -251,18 +254,15 @@ namespace detail {
   template<class Record> [[nodiscard]] auto make_callback_pass_step(Record record)
   { return callback_pass_step<Record>{ .record_fn = std::move(record) }; }
 
-  template<class Record, class AfterGpu>
-  [[nodiscard]] auto make_callback_pass_step(Record record, AfterGpu after_gpu)
+  template<class Record, class AfterGpu> [[nodiscard]] auto make_callback_pass_step(Record record, AfterGpu after_gpu)
   {
     return callback_after_gpu_pass_step<Record, AfterGpu>{ .record_fn = std::move(record),
       .after_gpu_fn = std::move(after_gpu) };
   }
 
   template<class... Steps>
-  [[nodiscard]] auto record_static_steps(context &ctx,
-    VkCommandBuffer cmd,
-    pass_cleanup &cleanup,
-    std::tuple<Steps...> &steps) -> status
+  [[nodiscard]] auto
+    record_static_steps(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, std::tuple<Steps...> &steps) -> status
   {
     status result{};
     auto record_one = [&ctx, cmd, &cleanup, &result](auto &step) -> bool {
@@ -273,8 +273,7 @@ namespace detail {
       }
       return true;
     };
-    bool const success =
-      std::apply([&record_one](auto &...step) -> bool { return (record_one(step) && ...); }, steps);
+    bool const success = std::apply([&record_one](auto &...step) -> bool { return (record_one(step) && ...); }, steps);
     if (!success) { return result; }
     return {};
   }
@@ -453,8 +452,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver>
-  using op_state = detail::pass_graph_op_state<step_storage_t, Receiver>;
+  template<class Receiver> using op_state = detail::pass_graph_op_state<step_storage_t, Receiver>;
 
   template<class Receiver>
     requires(std::copy_constructible<Steps> && ...)
@@ -505,8 +503,7 @@ struct dynamic_pass_graph_sender
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
-  template<class Receiver>
-  using op_state = detail::pass_graph_op_state<step_storage_t, Receiver>;
+  template<class Receiver> using op_state = detail::pass_graph_op_state<step_storage_t, Receiver>;
 
   template<class Receiver>
   [[nodiscard]] auto connect(Receiver receiver) && noexcept(
@@ -529,11 +526,8 @@ struct dynamic_pass_graph_sender
  * @param params Trivially copyable push-constant blob.
  * @param groups Workgroup counts.
  */
-template<detail::push_constant_type Params>
-auto compute_pass(compute_bind bind, Params const &params, dispatch groups)
-{
-  return detail::compute_pass_step<Params, dispatch>{ .bind = bind, .push = params, .dispatch_info = groups };
-}
+template<detail::push_constant_type Params> auto compute_pass(compute_bind bind, Params const &params, dispatch groups)
+{ return detail::compute_pass_step<Params, dispatch>{ .bind = bind, .push = params, .dispatch_info = groups }; }
 
 /**
  * Builds an indirect-dispatch compute pass with push constants `params`.
@@ -606,7 +600,7 @@ namespace detail {
   {
   };
 
-  //NOLINTNEXTLINE(readability-identifier-naming)
+  // NOLINTNEXTLINE(readability-identifier-naming)
   template<class T> inline constexpr bool is_pass_graph_sender_v = is_pass_graph_sender<std::remove_cvref_t<T>>::value;
 
   template<static_pass_step Step> [[nodiscard]] auto make_pass_graph(context *ctx, Step step)
@@ -657,8 +651,8 @@ template<class Pred, detail::static_pass_step Step, class Env>
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   // NOLINTNEXTLINE(misc-const-correctness)
   context *const ctx = sched.get_context();
-  return ex::let_value(std::move(sndr.pred),
-    [ctx, step = std::move(sndr.step)](auto &&...) mutable -> pass_graph_sender<Step> {
+  return ex::let_value(
+    std::move(sndr.pred), [ctx, step = std::move(sndr.step)](auto &&...) mutable -> pass_graph_sender<Step> {
       return detail::make_pass_graph(ctx, std::move(step));
     });
 }
@@ -704,8 +698,7 @@ concept barrier_tag = std::same_as<std::remove_cvref_t<T>, barrier::transfer_to_
                       || std::same_as<std::remove_cvref_t<T>, barrier::graphics_to_compute_t>
                       || std::same_as<std::remove_cvref_t<T>, barrier::compute_read_t>;
 
-template<class... Steps, barrier_tag Tag>
-[[nodiscard]] auto operator|(pass_graph_sender<Steps...> graph, Tag tag)
+template<class... Steps, barrier_tag Tag> [[nodiscard]] auto operator|(pass_graph_sender<Steps...> graph, Tag tag)
 { return detail::append_step(std::move(graph), detail::make_barrier_step(std::move(tag))); }
 
 template<barrier_tag Tag>

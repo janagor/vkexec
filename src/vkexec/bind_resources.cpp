@@ -64,8 +64,8 @@ auto detail::release_bind_resources_step(std::shared_ptr<bind_resources_step_sta
   if (state) { state->release(); }
 }
 
-auto bind_resources_closure::record(
-  context &ctx, VkCommandBuffer cmd, [[maybe_unused]] detail::pass_cleanup &cleanup) -> status
+auto bind_resources_closure::record(context &ctx, VkCommandBuffer cmd, [[maybe_unused]] detail::pass_cleanup &cleanup)
+  -> status
 { return detail::record_bind_resources_step(ctx, cmd, pipe, table, std::span<std::byte const>{ push }, state); }
 
 auto bind_resources_closure::after_gpu() const -> void { detail::release_bind_resources_step(state); }

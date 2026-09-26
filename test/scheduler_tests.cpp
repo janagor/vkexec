@@ -87,9 +87,8 @@ struct counting_pass_step
   int *record_count{ nullptr };
   bool should_fail{ false };
 
-  auto record(vkexec::context & /*ctx*/,
-    VkCommandBuffer /*cmd*/,
-    vkexec::detail::pass_cleanup & /*cleanup*/) const -> vkexec::status
+  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
+    -> vkexec::status
   {
     ++(*record_count);
     if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
@@ -143,14 +142,12 @@ using tensor_pass_adaptor_t = vkexec::tensor_pass_sender<vkexec::schedule_sender
 using move_only_graph_t = vkexec::pass_graph_sender<move_only_pass_step>;
 
 template<class Graph>
-concept rvalue_connectable_graph = requires(Graph graph, completion_probe_receiver receiver) {
-  ex::connect(std::move(graph), std::move(receiver));
-};
+concept rvalue_connectable_graph =
+  requires(Graph graph, completion_probe_receiver receiver) { ex::connect(std::move(graph), std::move(receiver)); };
 
 template<class Graph>
-concept const_lvalue_connectable_graph = requires(Graph const &graph, completion_probe_receiver receiver) {
-  ex::connect(graph, std::move(receiver));
-};
+concept const_lvalue_connectable_graph =
+  requires(Graph const &graph, completion_probe_receiver receiver) { ex::connect(graph, std::move(receiver)); };
 
 static_assert(vkexec::detail::static_pass_step<move_only_pass_step>);
 static_assert(std::move_constructible<move_only_graph_t>);
@@ -346,14 +343,13 @@ TEST_CASE("dynamic pass graph start returns before GPU completion", "[vkexec][sc
   std::promise<void> receiver_completed;
   auto receiver_done = receiver_completed.get_future();
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
-               | make_empty_pass_step([&]() noexcept -> void {
-                   signal_promise(after_gpu_entered);
-                   allow_completion_future.wait();
-                 });
+  auto graph =
+    vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler())) | make_empty_pass_step([&]() noexcept -> void {
+      signal_promise(after_gpu_entered);
+      allow_completion_future.wait();
+    });
 
-  auto operation =
-    ex::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
+  auto operation = ex::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
 
   std::promise<void> start_returned;
   auto start_done = start_returned.get_future();
@@ -525,8 +521,7 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
 TEST_CASE("copyable binding graphs defer mutable state to each operation", "[vkexec][pass]")
 {
   vkexec::handles::compute_pipeline const pipe{};
-  auto graph = ex::schedule(vkexec::scheduler{ nullptr })
-               | vkexec::bind_resources(pipe, vkexec::resource_table{});
+  auto graph = ex::schedule(vkexec::scheduler{ nullptr }) | vkexec::bind_resources(pipe, vkexec::resource_table{});
 
   std::promise<void> first_completed;
   std::promise<void> second_completed;
@@ -567,16 +562,12 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   int skipped_count = 0;
 
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
-  graph = std::move(graph)
-          | counting_pass_step{ .record_count = &first_count, .should_fail = false };
-  graph = std::move(graph)
-          | counting_pass_step{ .record_count = &failing_count, .should_fail = true };
-  graph = std::move(graph)
-          | counting_pass_step{ .record_count = &skipped_count, .should_fail = false };
+  graph = std::move(graph) | counting_pass_step{ .record_count = &first_count, .should_fail = false };
+  graph = std::move(graph) | counting_pass_step{ .record_count = &failing_count, .should_fail = true };
+  graph = std::move(graph) | counting_pass_step{ .record_count = &skipped_count, .should_fail = false };
 
   vkexec::detail::pass_cleanup cleanup{};
-  auto recorded =
-    vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, graph.steps);
+  auto recorded = vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, graph.steps);
 
   REQUIRE_FALSE(recorded);
   REQUIRE(first_count == 1);

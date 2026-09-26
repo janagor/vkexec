@@ -75,20 +75,14 @@ template<std::size_t Extent>
 
 //! Builds a descriptor-set-backed resource-table graph step without push data.
 [[nodiscard]] inline auto bind_resources(handles::compute_pipeline const &pipe, resource_table const &table)
-{
-  return bind_resources_step<detail::no_push_constants>{
-    .pipe = &pipe, .table = table, .push = {}, .state = {} };
-}
+{ return bind_resources_step<detail::no_push_constants>{ .pipe = &pipe, .table = table, .push = {}, .state = {} }; }
 
 //! Typed push-data overload for descriptor-set resource binding.
 template<class Params>
   requires std::is_trivially_copyable_v<Params> && (!detail::is_byte_span_v<Params>)
-[[nodiscard]] auto bind_resources(handles::compute_pipeline const &pipe,
-  resource_table const &table,
-  Params const &params)
-{
-  return bind_resources_step<Params>{ .pipe = &pipe, .table = table, .push = params, .state = {} };
-}
+[[nodiscard]] auto
+  bind_resources(handles::compute_pipeline const &pipe, resource_table const &table, Params const &params)
+{ return bind_resources_step<Params>{ .pipe = &pipe, .table = table, .push = params, .state = {} }; }
 
 }// namespace vkexec
 

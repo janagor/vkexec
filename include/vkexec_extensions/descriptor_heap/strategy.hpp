@@ -95,7 +95,8 @@ template<std::size_t Extent>
   heap_table_lower_env env)
 {
   return descriptor_heap_bind_resources_step<detail::no_push_constants>{
-    .pipe = &pipe, .table = table, .env = env, .push = {}, .state = {} };
+    .pipe = &pipe, .table = table, .env = env, .push = {}, .state = {}
+  };
 }
 
 template<class Params>
@@ -107,7 +108,8 @@ template<class Params>
   Params const &params)
 {
   return descriptor_heap_bind_resources_step<Params>{
-    .pipe = &pipe, .table = table, .env = env, .push = params, .state = {} };
+    .pipe = &pipe, .table = table, .env = env, .push = params, .state = {}
+  };
 }
 
 }// namespace vkexec

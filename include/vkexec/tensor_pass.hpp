@@ -127,9 +127,10 @@ template<class Pred, class Compute, typename... T, class Env>
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr.pred));
   context *const ctx = sched.get_context();
-  return ex::let_value(std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> decltype(auto) {
-    return detail::append_tensor_pass(pass_graph_sender<>{ .ctx = ctx, .steps = {} }, std::move(closure));
-  });
+  return ex::let_value(
+    std::move(sndr.pred), [ctx, closure = std::move(sndr.closure)](auto &&...) mutable -> decltype(auto) {
+      return detail::append_tensor_pass(pass_graph_sender<>{ .ctx = ctx, .steps = {} }, std::move(closure));
+    });
 }
 
 }// namespace vkexec
