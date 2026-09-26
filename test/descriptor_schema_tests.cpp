@@ -37,11 +37,11 @@ concept makes_resource_table = requires(Schema schema, Resources... resources) {
 };
 
 template<class Schema, class... Resources>
-concept makes_schema_bind =
-  requires(Schema schema, vkexec::handles::compute_pipeline const &pipe, Resources... resources) {
-    requires vkexec::detail::sender_adaptor_closure<
-      decltype(vkexec::schema_bind(schema, pipe, std::move(resources)...))>;
-  };
+concept makes_schema_bind = requires(Schema schema,
+  vkexec::handles::compute_pipeline const &pipe,
+  Resources... resources) {
+  requires vkexec::detail::sender_adaptor_closure<decltype(vkexec::schema_bind(schema, pipe, std::move(resources)...))>;
+};
 
 template<class Push>
 concept makes_compute_pass =
@@ -57,13 +57,13 @@ static_assert(!makes_resource_table<sim_schema, vkexec::resource_ref>);
 static_assert(makes_schema_bind<sim_schema, vkexec::resource_ref, vkexec::resource_ref>);
 static_assert(!makes_schema_bind<sim_schema, vkexec::resource_ref>);
 static_assert(vkexec::detail::sender_adaptor_closure<decltype(vkexec::bind_resources(
-  std::declval<vkexec::handles::compute_pipeline const &>(),
-  std::declval<vkexec::resource_table const &>(),
-  typed_push_constants{}))>);
+    std::declval<vkexec::handles::compute_pipeline const &>(),
+    std::declval<vkexec::resource_table const &>(),
+    typed_push_constants{}))>);
 static_assert(vkexec::detail::sender_adaptor_closure<decltype(vkexec::bind_resources(
-  std::declval<vkexec::handles::compute_pipeline const &>(),
-  std::declval<vkexec::resource_table const &>(),
-  std::declval<fixed_byte_span>()))>);
+    std::declval<vkexec::handles::compute_pipeline const &>(),
+    std::declval<vkexec::resource_table const &>(),
+    std::declval<fixed_byte_span>()))>);
 static_assert(makes_compute_pass<typed_push_constants>);
 static_assert(!makes_compute_pass<fixed_byte_span>);
 

@@ -12,7 +12,7 @@
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
-#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp> // NOLINT(misc-include-cleaner)
+#include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>// NOLINT(misc-include-cleaner)
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>

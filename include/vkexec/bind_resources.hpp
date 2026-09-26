@@ -90,8 +90,8 @@ struct bind_resources_t
 
   [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe, resource_table const &table) const
   {
-    return make_pass_adaptor(bind_resources_step<detail::no_push_constants>{
-      .pipe = &pipe, .table = table, .push = {}, .state = {} });
+    return make_pass_adaptor(
+      bind_resources_step<detail::no_push_constants>{ .pipe = &pipe, .table = table, .push = {}, .state = {} });
   }
 
   template<class Params>
@@ -99,8 +99,7 @@ struct bind_resources_t
   [[nodiscard]] auto
     operator()(handles::compute_pipeline const &pipe, resource_table const &table, Params const &params) const
   {
-    return make_pass_adaptor(
-      bind_resources_step<Params>{ .pipe = &pipe, .table = table, .push = params, .state = {} });
+    return make_pass_adaptor(bind_resources_step<Params>{ .pipe = &pipe, .table = table, .push = params, .state = {} });
   }
 
   template<vkexec_predecessor Sender, class... Args>

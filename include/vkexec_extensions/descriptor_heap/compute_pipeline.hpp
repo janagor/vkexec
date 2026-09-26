@@ -22,8 +22,8 @@ auto compute_pass_custom(compute_pass_t const & /*cpo*/,
   Params const &params,
   dispatch groups)
 {
-  auto step = descriptor_compute_pass_step<Params, dispatch>{
-    .inner = detail::make_compute_pass_step(bind, params, groups) };
+  auto step =
+    descriptor_compute_pass_step<Params, dispatch>{ .inner = detail::make_compute_pass_step(bind, params, groups) };
   return make_pass_adaptor(std::move(step));
 }
 
@@ -34,24 +34,30 @@ auto compute_pass_custom(compute_pass_t const & /*cpo*/,
   Params const &params,
   indirect_dispatch groups)
 {
-  auto step = descriptor_compute_pass_step<Params, indirect_dispatch>{
-    .inner = detail::make_compute_pass_step(bind, params, groups) };
+  auto step = descriptor_compute_pass_step<Params, indirect_dispatch>{ .inner = detail::make_compute_pass_step(
+                                                                         bind, params, groups) };
   return make_pass_adaptor(std::move(step));
 }
 
-[[nodiscard]] inline auto compute_pass_custom(
-  compute_pass_t const & /*cpo*/, descriptor_heap_t /*strategy*/, compute_bind bind, dispatch groups)
+[[nodiscard]] inline auto compute_pass_custom(compute_pass_t const & /*cpo*/,
+  descriptor_heap_t /*strategy*/,
+  compute_bind bind,
+  dispatch groups)
 {
   auto step = descriptor_compute_pass_step<detail::no_push_constants, dispatch>{
-    .inner = detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups) };
+    .inner = detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups)
+  };
   return make_pass_adaptor(step);
 }
 
-[[nodiscard]] inline auto compute_pass_custom(
-  compute_pass_t const & /*cpo*/, descriptor_heap_t /*strategy*/, compute_bind bind, indirect_dispatch groups)
+[[nodiscard]] inline auto compute_pass_custom(compute_pass_t const & /*cpo*/,
+  descriptor_heap_t /*strategy*/,
+  compute_bind bind,
+  indirect_dispatch groups)
 {
   auto step = descriptor_compute_pass_step<detail::no_push_constants, indirect_dispatch>{
-    .inner = detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups) };
+    .inner = detail::make_compute_pass_step(bind, detail::no_push_constants{}, groups)
+  };
   return make_pass_adaptor(step);
 }
 

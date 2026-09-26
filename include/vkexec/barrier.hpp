@@ -66,8 +66,7 @@ namespace barrier {
   struct transfer_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const
-    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
 
     template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
     { return std::forward<Sender>(sender) | (*this)(); }
@@ -77,8 +76,7 @@ namespace barrier {
   struct compute_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const
-    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
 
     template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
     { return std::forward<Sender>(sender) | (*this)(); }
@@ -88,8 +86,7 @@ namespace barrier {
   struct compute_to_graphics_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const
-    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
 
     template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
     { return std::forward<Sender>(sender) | (*this)(); }
@@ -99,8 +96,7 @@ namespace barrier {
   struct graphics_to_compute_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const
-    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
 
     template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
     { return std::forward<Sender>(sender) | (*this)(); }
@@ -110,8 +106,7 @@ namespace barrier {
   struct compute_read_t
   {
     auto operator()(VkCommandBuffer cmd) const -> void;
-    [[nodiscard]] auto operator()() const
-    { return make_pass_adaptor(detail::make_barrier_step(*this)); }
+    [[nodiscard]] auto operator()() const { return make_pass_adaptor(detail::make_barrier_step(*this)); }
 
     template<vkexec_predecessor Sender> [[nodiscard]] auto operator()(Sender &&sender) const
     { return std::forward<Sender>(sender) | (*this)(); }

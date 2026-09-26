@@ -30,13 +30,11 @@ struct tensor_pass_t
   [[nodiscard]] auto operator()(Compute compute, owned::tensor<T> &...values) const
   {
     static_assert(sizeof...(T) > 0, "tensor_pass requires at least one tensor");
-    auto adaptors = std::tuple_cat(std::tuple{ sync_to_device(values)... },
-      std::tuple{ std::move(compute) },
-      std::tuple{ sync_to_host(values)... });
+    auto adaptors = std::tuple_cat(
+      std::tuple{ sync_to_device(values)... }, std::tuple{ std::move(compute) }, std::tuple{ sync_to_host(values)... });
     return std::apply(
-      []<class... Adaptors>(Adaptors &&...items) -> decltype(auto) {
-        return detail::compose_adaptors(std::forward<Adaptors>(items)...);
-      },
+      []<class... Adaptors>(
+        Adaptors &&...items) -> decltype(auto) { return detail::compose_adaptors(std::forward<Adaptors>(items)...); },
       std::move(adaptors));
   }
 
