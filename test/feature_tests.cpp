@@ -8,6 +8,7 @@
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
 #include <vkexec_features/timeline_semaphore.hpp>
+#include <vkexec_features/synchronization2.hpp>
 
 #include <memory>
 #include <utility>
@@ -47,4 +48,5 @@ TEST_CASE("feat::configure_vulkan_13 enables registered 1.2 and 1.3 features", "
   REQUIRE(vkexec::feat::available<vkexec::feat::timeline_semaphore>(*ctx));
   REQUIRE(vkexec::feat::available<vkexec::feat::buffer_device_address>(*ctx));
   REQUIRE(vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx));
+  REQUIRE(vkexec::feat::available<vkexec::feat::synchronization2>(*ctx));
 }

@@ -40,7 +40,7 @@ namespace detail {
   template<typename T, readback_buffer_resource B> [[nodiscard]] auto make_sync_to_device_step(tensor<T, B> *target)
   {
     return make_callback_pass_step(
-      [target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
+      [target](context &ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
         if (target == nullptr || target->size() == 0) {
           return fail(errc::invalid_argument, "sync_to_device requires a non-empty tensor");
         }
@@ -84,8 +84,7 @@ namespace detail {
           nullptr);
 
         cmd_copy_buffer(cmd, target->staging().handle(), target->device().handle(), bytes);
-        barrier::transfer_to_compute(cmd);
-        return {};
+        return barrier::transfer_to_compute(ctx, cmd);
       });
   }
 

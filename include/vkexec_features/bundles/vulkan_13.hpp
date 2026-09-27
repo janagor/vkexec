@@ -7,11 +7,12 @@
 #include <vkexec_features/bundles/vulkan_12.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
+#include <vkexec_features/synchronization2.hpp>
 
 namespace vkexec::feat {
 
 /**
- * Configures the Vulkan 1.2 bundle plus dynamic rendering on `req`.
+ * Configures the Vulkan 1.2 bundle plus dynamic rendering and synchronization2 on `req`.
  *
  * @see configure_vulkan_12
  */
@@ -19,6 +20,7 @@ inline auto configure_vulkan_13(vulkan_requirements &req) -> void
 {
   configure_vulkan_12(req);
   configure<dynamic_rendering>(req);
+  configure<synchronization2>(req);
 }
 
 }// namespace vkexec::feat

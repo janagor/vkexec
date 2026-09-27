@@ -170,3 +170,13 @@ the configure line, for example:
 
 The `myproject_` prefix is the placeholder the rename workflow replaces, so
 renaming the project is one search-and-replace.
+
+## Barrier synchronization
+
+Barrier sender expressions describe dependencies. `barrier_step::record` passes the
+execution context to the barrier tag. Context creation enables synchronization2
+when available and resolves the core or KHR `vkCmdPipelineBarrier2` entry point.
+The same Flags2 parameters lower through checked legacy translation when the
+feature is unavailable; unsupported flags return `errc::unsupported` through the
+pass graph's error completion. Adopted contexts use the feature information
+reported by the embedder. Queue submission remains on the existing submit path.

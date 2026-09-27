@@ -33,6 +33,12 @@ namespace owned {
 
 class scheduler;
 class window;
+class context;
+
+namespace detail {
+  enum class synchronization_backend : std::uint8_t;
+  [[nodiscard]] auto synchronization_backend_for(context const &ctx) noexcept -> synchronization_backend;
+}// namespace detail
 
 /**
  * Options passed when creating a `context`.
@@ -64,6 +70,14 @@ struct context_adopt_info
   VkInstance instance{ VK_NULL_HANDLE };
   VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
   VkDevice device{ VK_NULL_HANDLE };
+  //! API version negotiated by the embedder.
+  std::uint32_t api_version{ VK_API_VERSION_1_0 };
+  //! Feature bit enabled when the device was created.
+  bool synchronization2_enabled{ false };
+  //! Required with the feature bit on devices using the KHR command.
+  bool synchronization2_khr_extension_enabled{ false };
+  //! Required for the KHR path on Vulkan 1.0 instances.
+  bool physical_device_properties2_enabled{ false };
 
   VkQueue compute_queue{ VK_NULL_HANDLE };
   std::uint32_t compute_queue_family{ 0 };
@@ -74,8 +88,6 @@ struct context_adopt_info
   VkQueue present_queue{ VK_NULL_HANDLE };
   std::uint32_t present_queue_family{ 0 };
 };
-
-class context;
 
 namespace detail {
 
@@ -153,6 +165,8 @@ namespace factory {
  */
 class context
 {
+  friend auto detail::synchronization_backend_for(context const &ctx) noexcept
+    -> detail::synchronization_backend;
 public:
   ~context();
 
@@ -349,7 +363,7 @@ private:
 
   auto create_command_pool() -> status;
   auto fetch_queues(bool want_present) -> status;
-  auto load_device_procs() -> void;
+  auto load_device_procs() -> status;
   [[nodiscard]] auto
     do_enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, detail::stop_fn stop_requested, detail::done_fn on_done)
       -> status;

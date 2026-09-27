@@ -39,17 +39,17 @@ TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image]
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
-  vkexec::image_barrier(cmd,
+  REQUIRE(vkexec::image_barrier(*ctx, cmd,
     {
       .image = img.handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_GENERAL,
-      .src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      .src_stage = VK_PIPELINE_STAGE_2_NONE,
+      .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
       .src_access = 0,
-      .dst_access = VK_ACCESS_SHADER_WRITE_BIT,
-    });
+      .dst_access = VK_ACCESS_2_SHADER_WRITE_BIT,
+    }));
 
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   REQUIRE(ctx->submit_and_wait(cmd));

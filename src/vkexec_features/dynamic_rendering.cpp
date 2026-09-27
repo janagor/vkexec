@@ -28,10 +28,10 @@ auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> v
 {
   // Prefer core 1.3 feature struct; otherwise require the KHR extension + feature.
   if (api_at_least(req, k_promotion.core_major, k_promotion.core_minor)) {
-    VkPhysicalDeviceVulkan13Features features_13{};
-    features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    features_13.dynamicRendering = VK_TRUE;
-    ::vkexec::detail::require_extension_feature(req, features_13);
+    VkPhysicalDeviceDynamicRenderingFeatures features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    features.dynamicRendering = VK_TRUE;
+    ::vkexec::detail::require_extension_feature(req, features);
     return;
   }
 

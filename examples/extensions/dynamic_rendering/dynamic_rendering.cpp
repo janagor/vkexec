@@ -1,5 +1,6 @@
 #include "../../glfw_presenter.hpp"
 #include <vkexec/barrier.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -39,7 +40,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
   return requirements;
 }
 
-auto record_swapchain_clear(vkexec::owned::swapchain const &chain,
+auto record_swapchain_clear(vkexec::context &ctx, vkexec::owned::swapchain const &chain,
   VkCommandBuffer cmd,
   vkexec::frame const &frame,
   float phase) -> vkexec::status
@@ -52,17 +53,17 @@ auto record_swapchain_clear(vkexec::owned::swapchain const &chain,
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   VkImageView view = chain.image_views()[frame.image_index];
 
-  vkexec::image_barrier(cmd,
+  VKEXEC_TRY(vkexec::image_barrier(ctx, cmd,
     {
       .image = image,
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .src_stage = VK_PIPELINE_STAGE_2_NONE,
+      .dst_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
       .src_access = 0,
-      .dst_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    });
+      .dst_access = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    }));
 
   vkexec::color_attachment color{};
   color.view = view;
@@ -84,17 +85,17 @@ auto record_swapchain_clear(vkexec::owned::swapchain const &chain,
   }
   if (auto ended = vkexec::cmd_end_rendering(cmd); !ended) { return vkexec::fail(std::move(ended.error())); }
 
-  vkexec::image_barrier(cmd,
+  VKEXEC_TRY(vkexec::image_barrier(ctx, cmd,
     {
       .image = image,
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .new_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-      .src_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-      .src_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      .src_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .dst_stage = VK_PIPELINE_STAGE_2_NONE,
+      .src_access = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
       .dst_access = 0,
-    });
+    }));
   return {};
 }
 
@@ -119,7 +120,7 @@ auto run() -> int
     vkexec::owned::swapchain const *const chain = win.borrowed_swapchain();
     if (chain == nullptr) { vkexec::examples::fail_check("window has no swapchain"); }
 
-    if (auto recorded = record_swapchain_clear(*chain, frame.command_buffer, frame, phase); !recorded) {
+    if (auto recorded = record_swapchain_clear(win.ctx(), *chain, frame.command_buffer, frame, phase); !recorded) {
       vkexec::examples::abort_with_error(recorded.error());
     }
     if (vkEndCommandBuffer(frame.command_buffer) != VK_SUCCESS) {

@@ -234,11 +234,8 @@ namespace detail {
   {
     [[no_unique_address]] Tag tag;
 
-    auto record(context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status
-    {
-      tag(cmd);
-      return {};
-    }
+    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status
+    { return tag(ctx, cmd); }
   };
 
   template<class Tag> [[nodiscard]] auto make_barrier_step(Tag tag) -> barrier_step<Tag>

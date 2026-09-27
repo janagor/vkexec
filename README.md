@@ -341,7 +341,7 @@ Vulkan capabilities that were promoted from KHR extensions into core versions (o
 vkexec::vulkan_requirements req{};
 req.api_version_major = 1;
 req.api_version_minor = 3;
-vkexec::feat::configure_vulkan_13(req);  // timeline + BDA + dynamic rendering
+vkexec::feat::configure_vulkan_13(req);  // timeline + BDA + dynamic rendering + synchronization2
 // or: vkexec::feat::configure<vkexec::feat::timeline_semaphore>(req);
 
 auto ctx = vkexec::sync_wait_value(vkexec::factory::make_context({ .requirements = req }));
@@ -465,6 +465,18 @@ ex::schedule(ctx->get_scheduler())
 ```
 
 Example: [`examples/extensions/descriptor_heap/`](examples/extensions/descriptor_heap/) runs a bindless compute dispatch when the extension is available.
+
+**Barriers:** `barrier::*` sender steps use the synchronization backend enabled by the context.
+vkexec enables synchronization2 when supported: the core command on Vulkan 1.3, the KHR
+command on older devices with `VK_KHR_synchronization2`, and checked legacy
+`vkCmdPipelineBarrier` lowering otherwise. To require synchronization2, call
+`feat::configure<feat::synchronization2>(requirements)`; context creation then
+fails if it is unavailable. Low-level `memory_barrier` and `image_barrier` take a
+`context&`, use `VkPipelineStageFlags2` / `VkAccessFlags2`, and return `status`.
+Adopted devices must set `context_adopt_info::api_version` and
+`context_adopt_info::synchronization2_enabled` when the feature was enabled,
+`context_adopt_info::synchronization2_khr_extension_enabled` for a KHR device,
+and `context_adopt_info::physical_device_properties2_enabled` on Vulkan 1.0.
 
 **Dynamic rendering:** enable with `feat::configure<feat::dynamic_rendering>` (or `configure_vulkan_13`), then use free-function helpers from the extensions target:
 

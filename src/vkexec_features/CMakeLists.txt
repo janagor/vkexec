@@ -3,7 +3,8 @@ add_library(
   query.cpp
   timeline_semaphore.cpp
   buffer_device_address.cpp
-  dynamic_rendering.cpp)
+  dynamic_rendering.cpp
+  synchronization2.cpp)
 add_library(vkexec::features ALIAS vkexec_features)
 
 target_include_directories(

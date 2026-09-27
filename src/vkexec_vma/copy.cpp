@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <span>
+#include <utility>
 
 namespace vkexec::vma {
 
@@ -83,7 +84,10 @@ auto upload_to_device(context &ctx,
 
   cmd_copy_buffer(cmd, staging.handle(), device.handle(), bytes.size());
 
-  barrier::transfer_to_compute(cmd);
+  if (auto barrier_status = barrier::transfer_to_compute(ctx, cmd); !barrier_status) {
+    ctx.free_command_buffer(cmd);
+    return fail(std::move(barrier_status.error()));
+  }
 
   if (vkEndCommandBuffer(cmd) != VK_SUCCESS) {
     ctx.free_command_buffer(cmd);

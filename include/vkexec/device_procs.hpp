@@ -16,6 +16,7 @@ namespace vkexec {
 struct device_procs
 {
   PFN_vkGetBufferDeviceAddress get_buffer_device_address{};
+  PFN_vkCmdPipelineBarrier2 cmd_pipeline_barrier2{};
 };
 
 }// namespace vkexec

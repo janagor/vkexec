@@ -14,6 +14,7 @@ struct extension_feature_access
 {
   template<typename Feature> static auto make(Feature feature) -> extension_feature
   {
+    auto const s_type = feature.sType;
     auto state = std::make_shared<Feature>(std::move(feature));
     return extension_feature{ std::move(state),
       [](void const *value, void *selector) -> void {
@@ -23,8 +24,10 @@ struct extension_feature_access
       [](void const *value, void *device) -> bool {
         return static_cast<vkb::PhysicalDevice *>(device)->enable_extension_features_if_present(
           *static_cast<Feature const *>(value));
-      } };
+      }, s_type };
   }
+
+  static auto s_type(extension_feature const &feature) noexcept -> VkStructureType { return feature.s_type_; }
 
   static auto require(extension_feature const &feature, vkb::PhysicalDeviceSelector &selector) -> void
   { feature.require_(feature.state_.get(), &selector); }

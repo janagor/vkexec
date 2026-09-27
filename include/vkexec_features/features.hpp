@@ -9,5 +9,6 @@
 #include <vkexec_features/feature.hpp>
 #include <vkexec_features/registry.hpp>
 #include <vkexec_features/timeline_semaphore.hpp>
+#include <vkexec_features/synchronization2.hpp>
 
 #endif// VKEXEC_FEATURES_FEATURES_HPP

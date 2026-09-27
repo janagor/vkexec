@@ -57,17 +57,17 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
-  vkexec::image_barrier(cmd,
+  REQUIRE(vkexec::image_barrier(*ctx, cmd,
     {
       .image = img.handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .src_stage = VK_PIPELINE_STAGE_2_NONE,
+      .dst_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
       .src_access = 0,
-      .dst_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    });
+      .dst_access = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    }));
 
   vkexec::color_attachment color{};
   color.view = view.handle();

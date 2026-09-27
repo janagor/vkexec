@@ -33,13 +33,14 @@ private:
   friend struct detail::extension_feature_access;
   extension_feature(std::shared_ptr<void const> state,
     void (*require)(void const *, void *),
-    bool (*enable)(void const *, void *)) noexcept
-    : state_(std::move(state)), require_(require), enable_(enable)
+    bool (*enable)(void const *, void *), VkStructureType s_type) noexcept
+    : state_(std::move(state)), require_(require), enable_(enable), s_type_(s_type)
   {}
 
   std::shared_ptr<void const> state_;
   void (*require_)(void const *, void *){};
   bool (*enable_)(void const *, void *){};
+  VkStructureType s_type_{};
 };
 
 /**

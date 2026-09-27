@@ -98,17 +98,17 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
     return vkexec::fail(VK_ERROR_UNKNOWN, "vkBeginCommandBuffer failed (dynamic rendering)");
   }
 
-  vkexec::image_barrier(cmd,
+  VKEXEC_TRY(vkexec::image_barrier(ctx, cmd,
     {
       .image = img.handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .src_stage = VK_PIPELINE_STAGE_2_NONE,
+      .dst_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
       .src_access = 0,
-      .dst_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    });
+      .dst_access = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    }));
 
   vkexec::color_attachment color{};
   color.view = view.handle();
@@ -198,17 +198,20 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
     return false;
   }
 
-  vkexec::image_barrier(cmd,
+  if (!vkexec::image_barrier(ctx, cmd,
     {
       .image = img.handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      .src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .src_stage = VK_PIPELINE_STAGE_2_NONE,
+      .dst_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
       .src_access = 0,
-      .dst_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-    });
+      .dst_access = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+    })) {
+    ctx.free_command_buffer(cmd);
+    return false;
+  }
 
   vkexec::color_attachment color{};
   color.view = view.handle();

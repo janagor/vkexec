@@ -45,6 +45,7 @@ add_executable(
   tests
   tests.cpp
   barrier_header_tests.cpp
+  synchronization_tests.cpp
   sender_tests.cpp
   resource_table_tests.cpp
   resource_allocator_tests.cpp

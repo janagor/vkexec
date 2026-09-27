@@ -14,6 +14,7 @@ namespace vkexec::feat {
 struct timeline_semaphore;
 struct buffer_device_address;
 struct dynamic_rendering;
+struct synchronization2;
 
 /**
  * Traits specialization point for a feature tag `Tag`.

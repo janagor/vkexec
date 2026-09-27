@@ -13,22 +13,23 @@
 
 namespace vkexec {
 
-//! Parameters for a global `VkMemoryBarrier` recorded with `memory_barrier`.
+//! Parameters for a global memory dependency recorded with `memory_barrier`.
 struct memory_barrier_params
 {
-  VkPipelineStageFlags src_stage{};
-  VkPipelineStageFlags dst_stage{};
-  VkAccessFlags src_access{};
-  VkAccessFlags dst_access{};
+  VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
+  VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
+  VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
+  VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
 };
 
 /**
  * Records a global memory barrier on `cmd`.
  *
+ * @param ctx Context whose enabled features select the recording backend.
  * @param cmd Command buffer in the recording state.
  * @param params Source/destination stages and access masks.
  */
-auto memory_barrier(VkCommandBuffer cmd, memory_barrier_params params) -> void;
+[[nodiscard]] auto memory_barrier(context &ctx, VkCommandBuffer cmd, memory_barrier_params const &params) -> status;
 
 //! Parameters for a single-image layout transition recorded with `image_barrier`.
 struct image_barrier_params
@@ -37,35 +38,33 @@ struct image_barrier_params
   VkImageAspectFlags aspect{ VK_IMAGE_ASPECT_COLOR_BIT };
   VkImageLayout old_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
   VkImageLayout new_layout{ VK_IMAGE_LAYOUT_GENERAL };
-  VkPipelineStageFlags src_stage{ VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT };
-  VkPipelineStageFlags dst_stage{ VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT };
-  VkAccessFlags src_access{ 0 };
-  VkAccessFlags dst_access{ 0 };
+  VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
+  VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
+  VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
+  VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
 };
 
 /**
  * Records an image memory barrier / layout transition on `cmd`.
  *
+ * @param ctx Context whose enabled features select the recording backend.
  * @param cmd Command buffer in the recording state.
  * @param params Image, layouts, and stage/access masks.
  */
-auto image_barrier(VkCommandBuffer cmd, image_barrier_params params) -> void;
+[[nodiscard]] auto image_barrier(context &ctx, VkCommandBuffer cmd, image_barrier_params const &params) -> status;
 
 /**
  * Pipeable barrier presets for chaining between compute/graphics pass adaptors.
  *
- * Tag types are invoked as callables on a command buffer, or used as
+ * Tag types are invoked as callables on a context and command buffer, or used as
  * `| barrier::compute_to_compute()` style steps in a pass graph.
  */
 namespace barrier {
 
-  //! Casts bit flags to `VkFlags` for designated-init call sites.
-  [[nodiscard]] inline auto flags(std::uint32_t bits) -> VkFlags { return static_cast<VkFlags>(bits); }
-
   //! Transfer writes -> compute shader reads/writes.
   struct transfer_to_compute_t
   {
-    auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status;
     [[nodiscard]] auto operator()() const -> detail::expr_closure<transfer_to_compute_t, detail::empty_data>
     { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
@@ -78,7 +77,7 @@ namespace barrier {
   //! Compute -> compute (shader write to shader read/write).
   struct compute_to_compute_t
   {
-    auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status;
     [[nodiscard]] auto operator()() const -> detail::expr_closure<compute_to_compute_t, detail::empty_data>
     { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
@@ -91,7 +90,7 @@ namespace barrier {
   //! Compute -> graphics (shader write to vertex/fragment read).
   struct compute_to_graphics_t
   {
-    auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status;
     [[nodiscard]] auto operator()() const -> detail::expr_closure<compute_to_graphics_t, detail::empty_data>
     { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
@@ -104,7 +103,7 @@ namespace barrier {
   //! Graphics -> compute.
   struct graphics_to_compute_t
   {
-    auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status;
     [[nodiscard]] auto operator()() const -> detail::expr_closure<graphics_to_compute_t, detail::empty_data>
     { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
@@ -117,7 +116,7 @@ namespace barrier {
   //! Compute shader write -> compute shader read (read-after-write).
   struct compute_read_t
   {
-    auto operator()(VkCommandBuffer cmd) const -> void;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status;
     [[nodiscard]] auto operator()() const -> detail::expr_closure<compute_read_t, detail::empty_data>
     { return detail::make_expr_closure(*this, detail::empty_data{}); }
 
