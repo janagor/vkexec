@@ -340,7 +340,7 @@ TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler]
     .steps = { step },
   };
 
-  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  auto outcome = vkexec::test::sync_wait_sender(graph);
   REQUIRE(outcome.failed());
   REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::unexpected_exception));
   REQUIRE(after_gpu_thread == ctx->host_agent_thread_id());
@@ -483,7 +483,7 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
     .steps = { step },
   };
 
-  auto operation = ex::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
+  auto operation = ex::connect(graph, completion_probe_receiver{ .completed = &receiver_completed });
 
   std::promise<void> start_returned;
   auto start_done = start_returned.get_future();
@@ -612,7 +612,7 @@ TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][sc
   };
 
   std::jthread waiter{ [&]() -> void {
-    auto const waited = vkexec::test::sync_wait_sender(std::move(graph));
+    auto const waited = vkexec::test::sync_wait_sender(graph);
     completed_successfully.store(vkexec::test::sync_wait_completed(waited), std::memory_order_release);
     sync_wait_returned.store(true, std::memory_order_release);
   } };
