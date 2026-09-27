@@ -23,9 +23,9 @@ namespace vkexec::feat::detail {
   -> bool;
 
 //! Returns whether synchronization2 is supported for `api_version` on `physical_device`.
-[[nodiscard]] auto physical_device_synchronization2(VkInstance instance, VkPhysicalDevice physical_device,
-  std::uint32_t api_version)
-  -> bool;
+[[nodiscard]] auto physical_device_synchronization2(VkInstance instance,
+  VkPhysicalDevice physical_device,
+  std::uint32_t api_version) -> bool;
 
 }// namespace vkexec::feat::detail
 

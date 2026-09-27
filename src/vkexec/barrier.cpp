@@ -15,10 +15,14 @@ namespace detail {
   {
     VkPipelineStageFlags result = 0;
     auto take = [&](VkPipelineStageFlags2 from, VkPipelineStageFlags destination) -> void {
-      if ((value & from) != 0) { result |= destination; value &= ~from; }
+      if ((value & from) != 0) {
+        result |= destination;
+        value &= ~from;
+      }
     };
     take(VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT | VK_PIPELINE_STAGE_2_COPY_BIT | VK_PIPELINE_STAGE_2_BLIT_BIT
-           | VK_PIPELINE_STAGE_2_RESOLVE_BIT | VK_PIPELINE_STAGE_2_CLEAR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+           | VK_PIPELINE_STAGE_2_RESOLVE_BIT | VK_PIPELINE_STAGE_2_CLEAR_BIT,
+      VK_PIPELINE_STAGE_TRANSFER_BIT);
     take(VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT | VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT,
       VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
     // The remaining core 1.0 stage bits have identical values in both flag types.
@@ -28,13 +32,14 @@ namespace detail {
       | VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT | VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT
       | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT
       | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT
-      | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT
-      | VK_PIPELINE_STAGE_2_HOST_BIT | VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT
-      | VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT
-      | VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+      | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_TRANSFER_BIT | VK_PIPELINE_STAGE_2_HOST_BIT
+      | VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT | VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT
+      | VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
     result |= static_cast<VkPipelineStageFlags>(value & k_direct);
     value &= ~k_direct;
-    if (value != 0) { return fail(errc::unsupported, "synchronization2 stage cannot be represented by legacy synchronization"); }
+    if (value != 0) {
+      return fail(errc::unsupported, "synchronization2 stage cannot be represented by legacy synchronization");
+    }
     return result;
   }
 
@@ -42,21 +47,26 @@ namespace detail {
   {
     VkAccessFlags result = 0;
     auto take = [&](VkAccessFlags2 from, VkAccessFlags destination) -> void {
-      if ((value & from) != 0) { result |= destination; value &= ~from; }
+      if ((value & from) != 0) {
+        result |= destination;
+        value &= ~from;
+      }
     };
-    take(VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT
-           | VK_ACCESS_2_SHADER_STORAGE_READ_BIT, VK_ACCESS_SHADER_READ_BIT);
+    take(VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_SHADER_SAMPLED_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_READ_BIT,
+      VK_ACCESS_SHADER_READ_BIT);
     take(VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT);
-    constexpr VkAccessFlags2 k_direct = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT
-      | VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT
-      | VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT
-      | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_TRANSFER_READ_BIT
-      | VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_HOST_READ_BIT | VK_ACCESS_2_HOST_WRITE_BIT
-      | VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+    constexpr VkAccessFlags2 k_direct =
+      VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_INDEX_READ_BIT | VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT
+      | VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT
+      | VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT
+      | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+      | VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT | VK_ACCESS_2_HOST_READ_BIT
+      | VK_ACCESS_2_HOST_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
     result |= static_cast<VkAccessFlags>(value & k_direct);
     value &= ~k_direct;
-    if (value != 0) { return fail(errc::unsupported, "synchronization2 access cannot be represented by legacy synchronization"); }
+    if (value != 0) {
+      return fail(errc::unsupported, "synchronization2 access cannot be represented by legacy synchronization");
+    }
     return result;
   }
 
@@ -161,37 +171,56 @@ auto image_barrier(context &ctx, VkCommandBuffer cmd, image_barrier_params const
 namespace barrier {
 
   auto transfer_to_compute_t::operator()(context &ctx, VkCommandBuffer cmd) const -> status
-  { return memory_barrier(ctx, cmd, { .src_stage = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      .src_access = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-      .dst_access = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT }); }
+  {
+    return memory_barrier(ctx,
+      cmd,
+      { .src_stage = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT,
+        .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .src_access = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+        .dst_access = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT });
+  }
 
   auto compute_to_compute_t::operator()(context &ctx, VkCommandBuffer cmd) const -> status
-  { return memory_barrier(ctx, cmd, { .src_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
-      .src_access = VK_ACCESS_2_SHADER_WRITE_BIT,
-      .dst_access = VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT
-                    | VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT }); }
+  {
+    return memory_barrier(ctx,
+      cmd,
+      { .src_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
+        .src_access = VK_ACCESS_2_SHADER_WRITE_BIT,
+        .dst_access =
+          VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT });
+  }
 
   auto compute_to_graphics_t::operator()(context &ctx, VkCommandBuffer cmd) const -> status
-  { return memory_barrier(ctx, cmd, { .src_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT
-                   | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-      .src_access = VK_ACCESS_2_SHADER_WRITE_BIT,
-      .dst_access = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT }); }
+  {
+    return memory_barrier(ctx,
+      cmd,
+      { .src_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .dst_stage = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT
+                     | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+        .src_access = VK_ACCESS_2_SHADER_WRITE_BIT,
+        .dst_access = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT });
+  }
 
   auto graphics_to_compute_t::operator()(context &ctx, VkCommandBuffer cmd) const -> status
-  { return memory_barrier(ctx, cmd, { .src_stage = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT
-                                                   | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      .src_access = VK_ACCESS_2_SHADER_READ_BIT,
-      .dst_access = VK_ACCESS_2_SHADER_WRITE_BIT }); }
+  {
+    return memory_barrier(ctx,
+      cmd,
+      { .src_stage = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+        .dst_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .src_access = VK_ACCESS_2_SHADER_READ_BIT,
+        .dst_access = VK_ACCESS_2_SHADER_WRITE_BIT });
+  }
 
   auto compute_read_t::operator()(context &ctx, VkCommandBuffer cmd) const -> status
-  { return memory_barrier(ctx, cmd, { .src_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      .dst_stage = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      .src_access = VK_ACCESS_2_SHADER_WRITE_BIT,
-      .dst_access = VK_ACCESS_2_SHADER_READ_BIT }); }
+  {
+    return memory_barrier(ctx,
+      cmd,
+      { .src_stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .dst_stage = VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        .src_access = VK_ACCESS_2_SHADER_WRITE_BIT,
+        .dst_access = VK_ACCESS_2_SHADER_READ_BIT });
+  }
 
 }// namespace barrier
 

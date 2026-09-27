@@ -40,7 +40,8 @@ auto make_requirements() -> vkexec::vulkan_requirements
   return requirements;
 }
 
-auto record_swapchain_clear(vkexec::context &ctx, vkexec::owned::swapchain const &chain,
+auto record_swapchain_clear(vkexec::context &ctx,
+  vkexec::owned::swapchain const &chain,
   VkCommandBuffer cmd,
   vkexec::frame const &frame,
   float phase) -> vkexec::status
@@ -53,7 +54,8 @@ auto record_swapchain_clear(vkexec::context &ctx, vkexec::owned::swapchain const
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
   VkImageView view = chain.image_views()[frame.image_index];
 
-  VKEXEC_TRY(vkexec::image_barrier(ctx, cmd,
+  VKEXEC_TRY(vkexec::image_barrier(ctx,
+    cmd,
     {
       .image = image,
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -85,7 +87,8 @@ auto record_swapchain_clear(vkexec::context &ctx, vkexec::owned::swapchain const
   }
   if (auto ended = vkexec::cmd_end_rendering(cmd); !ended) { return vkexec::fail(std::move(ended.error())); }
 
-  VKEXEC_TRY(vkexec::image_barrier(ctx, cmd,
+  VKEXEC_TRY(vkexec::image_barrier(ctx,
+    cmd,
     {
       .image = image,
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,

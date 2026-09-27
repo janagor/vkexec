@@ -57,7 +57,8 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
 
-  REQUIRE(vkexec::image_barrier(*ctx, cmd,
+  REQUIRE(vkexec::image_barrier(*ctx,
+    cmd,
     {
       .image = img.handle(),
       .aspect = VK_IMAGE_ASPECT_COLOR_BIT,

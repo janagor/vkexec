@@ -35,11 +35,22 @@ add_test(NAME cmake.sanitizers.non_apple_includes_leak
 add_test(
   NAME vkexec.install_consumer
   COMMAND
-    "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${CMAKE_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${CMAKE_BINARY_DIR}"
-    "-DCONSUMER_SOURCE_DIR=${CMAKE_SOURCE_DIR}/test/install_consumer" "-DVKEXEC_CONFIG=$<CONFIG>"
+    "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${vkexec_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${vkexec_BINARY_DIR}"
+    "-DCONSUMER_SOURCE_DIR=${vkexec_SOURCE_DIR}/test/install_consumer" "-DVKEXEC_CONFIG=$<CONFIG>"
     "-DVKEXEC_BOOST_SOURCE_DIR=${Boost_SOURCE_DIR}" "-DVKEXEC_GENERATOR=${CMAKE_GENERATOR}"
     "-DVKEXEC_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}" "-DVKEXEC_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
-    -P "${CMAKE_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
+    -P "${vkexec_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
+
+foreach(parent_standard 17 23)
+  add_test(
+    NAME vkexec.subdirectory_consumer.cxx${parent_standard}
+    COMMAND
+      "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${vkexec_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${vkexec_BINARY_DIR}"
+      "-DVKEXEC_PARENT_STANDARD=${parent_standard}" "-DVKEXEC_CONFIG=$<CONFIG>" "-DVKEXEC_GENERATOR=${CMAKE_GENERATOR}"
+      "-DVKEXEC_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}" "-DVKEXEC_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
+      -P "${vkexec_SOURCE_DIR}/cmake/TestSubdirectoryConsumer.cmake")
+endforeach()
+set_tests_properties(vkexec.subdirectory_consumer.cxx17 vkexec.subdirectory_consumer.cxx23 PROPERTIES RUN_SERIAL TRUE)
 
 add_executable(
   tests

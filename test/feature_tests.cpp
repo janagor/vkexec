@@ -7,8 +7,8 @@
 #include <vkexec_features/bundles/vulkan_13.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
-#include <vkexec_features/timeline_semaphore.hpp>
 #include <vkexec_features/synchronization2.hpp>
+#include <vkexec_features/timeline_semaphore.hpp>
 
 #include <memory>
 #include <utility>

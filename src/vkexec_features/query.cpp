@@ -3,8 +3,8 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include <cstdint>
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
 #include <vector>
@@ -81,22 +81,22 @@ auto physical_device_dynamic_rendering(VkPhysicalDevice physical_device, std::ui
   return features_khr.dynamicRendering == VK_TRUE;
 }
 
-auto physical_device_synchronization2(VkInstance instance, VkPhysicalDevice physical_device,
-  std::uint32_t api_version) -> bool
+auto physical_device_synchronization2(VkInstance instance, VkPhysicalDevice physical_device, std::uint32_t api_version)
+  -> bool
 {
   if (physical_device == VK_NULL_HANDLE || instance == VK_NULL_HANDLE) { return false; }
   std::uint32_t count = 0;
   if (api_version < VK_API_VERSION_1_3) {
-    if (vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, nullptr) != VK_SUCCESS) {
-      return false;
-    }
+    if (vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, nullptr) != VK_SUCCESS) { return false; }
     std::vector<VkExtensionProperties> extensions(count);
     if (vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count, extensions.data()) != VK_SUCCESS) {
       return false;
     }
     if (!std::ranges::any_of(extensions, [](VkExtensionProperties const &extension) -> bool {
           return std::strcmp(std::data(extension.extensionName), VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME) == 0;
-        })) { return false; }
+        })) {
+      return false;
+    }
   }
 
   VkPhysicalDeviceSynchronization2Features features{};

@@ -13,12 +13,13 @@ target_include_directories(
          $<INSTALL_INTERFACE:include>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
-target_compile_features(vkexec_graphics PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
+target_compile_features(vkexec_graphics PUBLIC cxx_std_20)
 
 vkexec_configure_linker(vkexec_graphics)
 
 set_target_properties(
   vkexec_graphics
   PROPERTIES VERSION ${PROJECT_VERSION}
+             CXX_EXTENSIONS OFF
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)

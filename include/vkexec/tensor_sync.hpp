@@ -39,53 +39,52 @@ namespace detail {
 
   template<typename T, readback_buffer_resource B> [[nodiscard]] auto make_sync_to_device_step(tensor<T, B> *target)
   {
-    return make_callback_pass_step(
-      [target](context &ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
-        if (target == nullptr || target->size() == 0) {
-          return fail(errc::invalid_argument, "sync_to_device requires a non-empty tensor");
-        }
+    return make_callback_pass_step([target](context &ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
+      if (target == nullptr || target->size() == 0) {
+        return fail(errc::invalid_argument, "sync_to_device requires a non-empty tensor");
+      }
 
-        auto const bytes = target->byte_size();
-        auto staging_map = target->staging().mapped();
-        if (staging_map.size() < bytes) { return fail(errc::out_of_range, "sync_to_device staging map is too small"); }
-        std::memcpy(staging_map.data(), target->data(), static_cast<std::size_t>(bytes));
-        VKEXEC_TRY(target->staging().flush());
+      auto const bytes = target->byte_size();
+      auto staging_map = target->staging().mapped();
+      if (staging_map.size() < bytes) { return fail(errc::out_of_range, "sync_to_device staging map is too small"); }
+      std::memcpy(staging_map.data(), target->data(), static_cast<std::size_t>(bytes));
+      VKEXEC_TRY(target->staging().flush());
 
-        VkBufferMemoryBarrier staging_barrier{};
-        staging_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        staging_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-        staging_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        staging_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        staging_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        staging_barrier.buffer = target->staging().handle();
-        staging_barrier.offset = 0;
-        staging_barrier.size = bytes;
+      VkBufferMemoryBarrier staging_barrier{};
+      staging_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+      staging_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+      staging_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+      staging_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      staging_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      staging_barrier.buffer = target->staging().handle();
+      staging_barrier.offset = 0;
+      staging_barrier.size = bytes;
 
-        VkBufferMemoryBarrier device_barrier{};
-        device_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        device_barrier.srcAccessMask = 0;
-        device_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        device_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        device_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        device_barrier.buffer = target->device().handle();
-        device_barrier.offset = 0;
-        device_barrier.size = bytes;
+      VkBufferMemoryBarrier device_barrier{};
+      device_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+      device_barrier.srcAccessMask = 0;
+      device_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+      device_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      device_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      device_barrier.buffer = target->device().handle();
+      device_barrier.offset = 0;
+      device_barrier.size = bytes;
 
-        std::array<VkBufferMemoryBarrier, 2> barriers{ staging_barrier, device_barrier };
-        vkCmdPipelineBarrier(cmd,
-          VK_PIPELINE_STAGE_HOST_BIT,
-          VK_PIPELINE_STAGE_TRANSFER_BIT,
-          0,
-          0,
-          nullptr,
-          static_cast<std::uint32_t>(barriers.size()),
-          barriers.data(),
-          0,
-          nullptr);
+      std::array<VkBufferMemoryBarrier, 2> barriers{ staging_barrier, device_barrier };
+      vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0,
+        0,
+        nullptr,
+        static_cast<std::uint32_t>(barriers.size()),
+        barriers.data(),
+        0,
+        nullptr);
 
-        cmd_copy_buffer(cmd, target->staging().handle(), target->device().handle(), bytes);
-        return barrier::transfer_to_compute(ctx, cmd);
-      });
+      cmd_copy_buffer(cmd, target->staging().handle(), target->device().handle(), bytes);
+      return barrier::transfer_to_compute(ctx, cmd);
+    });
   }
 
   template<typename T, readback_buffer_resource B> [[nodiscard]] auto make_sync_to_host_step(tensor<T, B> *target)

@@ -1,8 +1,8 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/synchronization.hpp>
 #include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/detail/worker_callbacks.hpp>
-#include <vkexec/detail/synchronization.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -140,9 +140,8 @@ namespace {
 
   auto contains_extension(std::span<char const *const> extensions, char const *name) -> bool
   {
-    return std::ranges::any_of(extensions, [name](char const *extension) -> bool {
-      return extension != nullptr && std::strcmp(extension, name) == 0;
-    });
+    return std::ranges::any_of(extensions,
+      [name](char const *extension) -> bool { return extension != nullptr && std::strcmp(extension, name) == 0; });
   }
 
   auto instance_extension_available(char const *name) -> bool
@@ -164,8 +163,8 @@ namespace {
                == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
       });
     };
-    bool const feature_requested = has_feature(requirements.required_extension_features)
-                                   || has_feature(requirements.optional_extension_features);
+    bool const feature_requested =
+      has_feature(requirements.required_extension_features) || has_feature(requirements.optional_extension_features);
     if (api_version >= VK_API_VERSION_1_3) {
       if (!feature_requested) {
         VkPhysicalDeviceSynchronization2Features feature{};
@@ -176,7 +175,8 @@ namespace {
       return;
     }
     if (api_version < VK_API_VERSION_1_1
-        && !contains_extension(requirements.instance_extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+        && !contains_extension(
+          requirements.instance_extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
       if (!instance_extension_available(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) { return; }
       requirements.instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     }
@@ -193,26 +193,25 @@ namespace {
   }
 
   auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device,
-    vulkan_requirements const &requirements, std::uint32_t api_version) -> detail::synchronization_backend
+    vulkan_requirements const &requirements,
+    std::uint32_t api_version) -> detail::synchronization_backend
   {
-    bool khr_extension_enabled = contains_extension(requirements.device_extensions,
-      VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+    bool khr_extension_enabled =
+      contains_extension(requirements.device_extensions, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
     for (char const *extension : requirements.optional_device_extensions) {
       if (extension == nullptr) { continue; }
       if (contains_extension(requirements.device_extensions, extension)) { continue; }
       bool const enabled = physical_device.enable_extension_if_present(extension);
-      if (std::strcmp(extension, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME) == 0) {
-        khr_extension_enabled |= enabled;
-      }
+      if (std::strcmp(extension, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME) == 0) { khr_extension_enabled |= enabled; }
     }
-    bool feature_enabled = std::ranges::any_of(requirements.required_extension_features,
-      [](extension_feature const &feature) -> bool {
+    bool feature_enabled =
+      std::ranges::any_of(requirements.required_extension_features, [](extension_feature const &feature) -> bool {
         return detail::extension_feature_access::s_type(feature)
                == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
       });
     for (extension_feature const &feature : requirements.optional_extension_features) {
-      bool const already_required = std::ranges::any_of(requirements.required_extension_features,
-        [&feature](extension_feature const &required) -> bool {
+      bool const already_required = std::ranges::any_of(
+        requirements.required_extension_features, [&feature](extension_feature const &required) -> bool {
           return detail::extension_feature_access::s_type(required)
                  == detail::extension_feature_access::s_type(feature);
         });
@@ -223,7 +222,8 @@ namespace {
       bool const enabled = detail::extension_feature_access::enable_if_present(feature, physical_device);
       if (synchronization2) { feature_enabled |= enabled; }
     }
-    bool const instance_dependency_enabled = api_version >= VK_API_VERSION_1_1
+    bool const instance_dependency_enabled =
+      api_version >= VK_API_VERSION_1_1
       || contains_extension(requirements.instance_extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     return detail::select_synchronization_backend(
       api_version, khr_extension_enabled, feature_enabled, instance_dependency_enabled);
@@ -255,7 +255,8 @@ namespace {
     vulkan_requirements const &requirements,
     std::uint32_t api_version,
     VkSurfaceKHR surface,
-    bool want_present, detail::synchronization_backend &synchronization) -> result<vkb::PhysicalDevice>
+    bool want_present,
+    detail::synchronization_backend &synchronization) -> result<vkb::PhysicalDevice>
   {
     vkb::PhysicalDeviceSelector selector{ instance };
     configure_device_selector(selector, requirements, api_version, want_present);
@@ -346,7 +347,8 @@ auto context::init_headless(scheduler_options const &opts) -> status
   impl_->owns_instance = true;
 
   VKEXEC_TRY_ASSIGN(selected_physical,
-    select_physical_device(impl_->instance, impl_->requirements, impl_->api_version, VK_NULL_HANDLE, false, impl_->synchronization));
+    select_physical_device(
+      impl_->instance, impl_->requirements, impl_->api_version, VK_NULL_HANDLE, false, impl_->synchronization));
   impl_->physical_device = std::move(selected_physical);
 
 
@@ -368,7 +370,8 @@ auto context::init_adopted(context_adopt_info const &info) -> status
 
   impl_->api_version = info.api_version;
   impl_->synchronization = detail::select_synchronization_backend(info.api_version,
-    info.synchronization2_khr_extension_enabled, info.synchronization2_enabled,
+    info.synchronization2_khr_extension_enabled,
+    info.synchronization2_enabled,
     info.physical_device_properties2_enabled);
   impl_->instance.instance = info.instance;
   impl_->physical_device.physical_device = info.physical_device;
@@ -428,8 +431,9 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
   // Second-phase init used by window: instance already exists; select a present-capable device.
   if (surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "complete_for_surface requires a surface"); }
 
-  VKEXEC_TRY_ASSIGN(
-    selected_physical, select_physical_device(impl_->instance, impl_->requirements, impl_->api_version, surface, true, impl_->synchronization));
+  VKEXEC_TRY_ASSIGN(selected_physical,
+    select_physical_device(
+      impl_->instance, impl_->requirements, impl_->api_version, surface, true, impl_->synchronization));
   impl_->physical_device = std::move(selected_physical);
 
 
@@ -493,9 +497,10 @@ auto context::load_device_procs() -> status
 
   if (impl_->synchronization != detail::synchronization_backend::legacy) {
     char const *name = impl_->synchronization == detail::synchronization_backend::synchronization2_core
-                         ? "vkCmdPipelineBarrier2" : "vkCmdPipelineBarrier2KHR";
-    impl_->procs.cmd_pipeline_barrier2 = reinterpret_cast<PFN_vkCmdPipelineBarrier2>(
-      vkGetDeviceProcAddr(impl_->device.device, name));
+                         ? "vkCmdPipelineBarrier2"
+                         : "vkCmdPipelineBarrier2KHR";
+    impl_->procs.cmd_pipeline_barrier2 =
+      reinterpret_cast<PFN_vkCmdPipelineBarrier2>(vkGetDeviceProcAddr(impl_->device.device, name));
     if (impl_->procs.cmd_pipeline_barrier2 == nullptr) {
       return fail(errc::unsupported, "synchronization2 command is unavailable");
     }

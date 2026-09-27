@@ -17,12 +17,13 @@ target_link_libraries(
   PUBLIC vkexec::vkexec "$<BUILD_INTERFACE:Vulkan::Vulkan>" "$<INSTALL_INTERFACE:Vulkan::Vulkan>"
   PRIVATE vk-bootstrap::vk-bootstrap vkexec_warnings)
 
-target_compile_features(vkexec_features PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
+target_compile_features(vkexec_features PUBLIC cxx_std_20)
 
 vkexec_configure_linker(vkexec_features)
 
 set_target_properties(
   vkexec_features
   PROPERTIES VERSION ${PROJECT_VERSION}
+             CXX_EXTENSIONS OFF
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)

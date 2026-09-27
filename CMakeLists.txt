@@ -7,16 +7,6 @@ cmake_policy(SET CMP0155 OLD)
 # so that it works well with tools like CPM or other
 # manual dependency management
 
-# Only set the cxx_standard if it is not set by someone else
-if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 20)
-endif()
-
-# strongly encouraged to enable this globally to avoid conflicts between
-# -Wpedantic being enabled and -std=c++20 and -std=gnu++20 for example
-# when compiling with PCH enabled
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 # Set the project name and language
 project(
   vkexec
@@ -47,8 +37,6 @@ string(
             0
             8
             GIT_SHORT_SHA)
-
-target_compile_features(vkexec_options INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
 
 add_library(vkexec::vkexec_options ALIAS vkexec_options)
 add_library(vkexec::vkexec_warnings ALIAS vkexec_warnings)
@@ -219,6 +207,8 @@ include(CTest)
 if(BUILD_TESTING)
   message(AUTHOR_WARNING "Building Tests. Be sure to check out test/constexpr_tests.cpp for constexpr testing")
   add_subdirectory(test)
+  add_test(NAME vkexec.cxx_standard_policy COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
+                                                   "${PROJECT_SOURCE_DIR}/cmake/CheckCxxStandardPolicy.cmake")
   add_test(NAME vkexec.stdexec_public_api_boundary
            COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
                    "${PROJECT_SOURCE_DIR}/cmake/CheckStdexecPrivateApi.cmake")

@@ -9,8 +9,7 @@
 
 namespace vkexec::detail {
 
-enum class synchronization_backend : std::uint8_t
-{
+enum class synchronization_backend : std::uint8_t {
   legacy,
   synchronization2_khr,
   synchronization2_core,

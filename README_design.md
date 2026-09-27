@@ -23,9 +23,11 @@ when you are a dependency.
 
 ## C++ standard
 
-C++23, set only if a parent project has not chosen one. `CMAKE_CXX_EXTENSIONS`
-is off so the standard flag is `-std=c++23`, not `-std=gnu++23`. This avoids
-`-Wpedantic` conflicts with precompiled headers.
+vkexec requires at least C++20. Each public library target declares
+`target_compile_features(... PUBLIC cxx_std_20)`, so consumers receive the
+requirement through linking. A parent project may choose a newer standard.
+vkexec-owned library targets set `CXX_EXTENSIONS OFF` for their own sources;
+this setting does not propagate to consumers.
 
 ## Warnings
 

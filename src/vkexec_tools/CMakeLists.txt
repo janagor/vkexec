@@ -11,10 +11,11 @@ target_link_libraries(
 target_include_directories(
   vkexec_tools ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
                                        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include> $<INSTALL_INTERFACE:include>)
-target_compile_features(vkexec_tools PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
+target_compile_features(vkexec_tools PUBLIC cxx_std_20)
 vkexec_configure_linker(vkexec_tools)
 set_target_properties(
   vkexec_tools
   PROPERTIES VERSION ${PROJECT_VERSION}
+             CXX_EXTENSIONS OFF
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)

@@ -24,7 +24,8 @@ struct extension_feature_access
       [](void const *value, void *device) -> bool {
         return static_cast<vkb::PhysicalDevice *>(device)->enable_extension_features_if_present(
           *static_cast<Feature const *>(value));
-      }, s_type };
+      },
+      s_type };
   }
 
   static auto s_type(extension_feature const &feature) noexcept -> VkStructureType { return feature.s_type_; }

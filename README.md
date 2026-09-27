@@ -6,7 +6,7 @@
 
 ## About
 
-`vkexec` is a C++23 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, borrowable handles, and backend-neutral Vulkan presentation helpers.
+`vkexec` is a C++20 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, borrowable handles, and backend-neutral Vulkan presentation helpers.
 
 **Execution** — schedule work on a device; record with `compute_bind` / `handles::compute_pipeline`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 

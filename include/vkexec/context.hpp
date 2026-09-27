@@ -165,8 +165,8 @@ namespace factory {
  */
 class context
 {
-  friend auto detail::synchronization_backend_for(context const &ctx) noexcept
-    -> detail::synchronization_backend;
+  friend auto detail::synchronization_backend_for(context const &ctx) noexcept -> detail::synchronization_backend;
+
 public:
   ~context();
 
