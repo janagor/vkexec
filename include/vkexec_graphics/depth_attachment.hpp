@@ -30,12 +30,13 @@ template<image_allocator A, class MakeAllocator>
            && std::is_nothrow_destructible_v<A> && std::is_nothrow_destructible_v<typename A::image_type>
 [[nodiscard]] auto make_depth_attachment_factory(MakeAllocator make_allocator) -> depth_attachment_factory
 {
+  using image_type = A::image_type;
   return [make_allocator = std::move(make_allocator)](
            context &ctx, VkExtent2D extent, VkFormat format) -> result<depth_attachment> {
     struct owned_depth
     {
       std::unique_ptr<A> allocator;
-      A::image_type image;
+      image_type image;
       owned::image_view view;
     };
     auto created = make_allocator(ctx) | stdexec::let_value([&ctx, extent, format](A &created_allocator) -> auto {
@@ -48,7 +49,7 @@ template<image_allocator A, class MakeAllocator>
                  .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                })
              | stdexec::let_value(
-               [&ctx, extent, format, allocator = std::move(allocator)](A::image_type &image) mutable -> auto {
+               [&ctx, extent, format, allocator = std::move(allocator)](image_type &image) mutable -> auto {
                  return factory::make_image_view(ctx, image.handle(), format, VK_IMAGE_ASPECT_DEPTH_BIT)
                         | stdexec::let_value([extent, format, &image, allocator = std::move(allocator)](
                                                owned::image_view &view) mutable -> auto {

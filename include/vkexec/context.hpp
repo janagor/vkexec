@@ -274,11 +274,14 @@ public:
   [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
     using done_t = std::remove_cvref_t<Done>;
+    using token_t = std::remove_cvref_t<StopToken>;
     static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error> &&, bool>,
       "enqueue_fence_wait completion callback must be noexcept");
 
     detail::stop_fn stop_requested;
-    if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
+    if constexpr (stdexec::unstoppable_token<token_t>) {
+      static_cast<void>(token);
+    } else {
       stop_requested = [token = std::move(token)]() noexcept -> bool { return token.stop_requested(); };
     }
     return do_enqueue_fence_wait(
@@ -297,11 +300,14 @@ public:
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
     using done_t = std::remove_cvref_t<Done>;
+    using token_t = std::remove_cvref_t<StopToken>;
     static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error> &&, bool>,
       "enqueue_borrowed_fence_wait completion callback must be noexcept");
 
     detail::stop_fn stop_requested;
-    if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
+    if constexpr (stdexec::unstoppable_token<token_t>) {
+      static_cast<void>(token);
+    } else {
       stop_requested = [token = std::move(token)]() noexcept -> bool { return token.stop_requested(); };
     }
     return do_enqueue_borrowed_fence_wait(
