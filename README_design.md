@@ -1,184 +1,319 @@
-# Design Choices
+# vkexec Architecture
 
-This template starts a C++ project with safe, modern defaults. Each choice
-below explains *why*, so you can keep it, swap it, or turn it off.
+## 1. Purpose
 
-## Goals
+`README_design.md` describes the architecture and design invariants of vkexec. It is for contributors implementing execution algorithms, Vulkan backends, resources, and extensions. User-facing setup and examples belong in `README.md`; build configuration belongs in the build documentation.
 
-1. Catch bugs at compile time, not in production.
-2. Stay portable across GCC, Clang, MSVC, and Emscripten.
-3. Work the same way as a top-level project or as a subdirectory dependency.
+## 2. Design principles
 
-## Layout
+### 2.1 stdexec is the execution vocabulary
 
-| File | Role |
-| --- | --- |
-| `CMakeLists.txt` | Top-level wiring. |
-| `ProjectOptions.cmake` | All `myproject_*` options and setup macros. |
-| `Dependencies.cmake` | CPM package fetch, gated by `if(NOT TARGET ...)`. |
-| `cmake/*.cmake` | One concern per file (warnings, sanitizers, hardening, ...). |
+Vulkan work composes as stdexec senders and sender adaptors. vkexec adds a Vulkan interpretation of that vocabulary, not a separate task system.
 
-`PROJECT_IS_TOP_LEVEL` flips defaults: strict when you own the build, quiet
-when you are a dependency.
+### 2.2 Describe work first, execute later
 
-## C++ standard
+Building a pipeline describes work. It does not record commands or submit to a queue. The sender/receiver protocol controls execution.
 
-vkexec requires at least C++20. Each public library target declares
-`target_compile_features(... PUBLIC cxx_std_20)`, so consumers receive the
-requirement through linking. A parent project may choose a newer standard.
-vkexec-owned library targets set `CXX_EXTENSIONS OFF` for their own sources;
-this setting does not propagate to consumers.
+### 2.3 Typed composition by default
 
-## Warnings
+Semantic expressions and statically known pass graphs preserve concrete types through lowering. Runtime graph construction may use explicit type erasure.
 
-`cmake/CompilerWarnings.cmake` enables a curated set per compiler — `/W4`
-plus extras on MSVC, and `-Wall -Wextra -Wshadow -Wconversion -Wpedantic ...`
-on GCC/Clang. Top-level builds add `-Werror` / `/WX`. Source:
-[cppbestpractices](https://github.com/lefticus/cppbestpractices/blob/master/02-Use_the_Tools_Available.md).
+### 2.4 GPU execution is asynchronous
 
-## Sanitizers
+On successful submission, a pass graph's `start()` returns without waiting for the GPU. Blocking belongs at an explicit synchronous consumer such as `sync_wait`.
 
-ASan and UBSan are on by default for top-level GCC/Clang builds when a link
-probe shows them working. TSan, LSan, and MSan are off — they conflict with
-each other and MSan needs an instrumented standard library. Emscripten and
-MSVC skip the sanitizer pass.
+### 2.5 Backend mechanisms stay behind semantic APIs
 
-## Hardening
+Public algorithm names describe work. Descriptor and Vulkan capability mechanisms are selected during lowering or in their own modules.
 
-`cmake/Hardening.cmake` adds `_FORTIFY_SOURCE=3` (release builds),
-`_GLIBCXX_ASSERTIONS`, `-fstack-protector-strong`, `-fcf-protection`, and
-`-fstack-clash-protection` when supported. MSVC gets `/sdl /DYNAMICBASE
-/guard:cf /NXCOMPAT /CETCOMPAT`. When no full sanitizer is active, the UBSan
-minimal runtime is layered on top.
+### 2.6 Ownership is explicit
 
-## Static analysis
+Execution uses borrowed Vulkan handles. Owning wrappers and allocation protocols are separate layers. A context may own or adopt its instance and device.
 
-clang-tidy and cppcheck run as part of the build, on by default at top level.
-They are separate options because one tool may not be installed in every
-environment.
+Core is not a replacement for stdexec, a universal Vulkan allocator, or a facade that hides Vulkan handles. It does not emulate every descriptor backend through another. Dynamic graphs are available when runtime construction requires them, but typed graphs are preferred for statically known pipelines.
 
-## Link-time optimization
+## 3. Architecture overview
 
-IPO/LTO is on by default at top level. It is gated through
-`check_ipo_supported` so unsupported toolchains skip it.
+### 3.1 Layer diagram
 
-## Dependencies
+```text
+stdexec sender pipeline
+    -> vkexec semantic expressions
+    -> vkexec::domain normalization and lowering
+    -> typed primitive pass steps
+    -> pass_graph_sender<Steps...>
+    -> connect() / operation state
+    -> start() / command recording and queue submission
+    -> GPU / fence completion
+    -> continues_on(context scheduler)
+    -> after_gpu callbacks
+    -> set_value / set_error / set_stopped
+```
 
-[CPM](https://github.com/cpm-cmake/CPM.cmake) fetches sources at configure
-time. Each package is gated by `if(NOT TARGET ...)`, so a parent project can
-supply its own version. `SYSTEM YES` silences warnings from third-party
-headers. Core dependencies are Catch2, Boost.System, stdexec, vk-bootstrap, and VMA.
-glslang is fetched only when `vkexec_BUILD_TOOLS=ON`; GLFW is fetched only for examples.
-`vkexec::vkexec` propagates both `Vulkan::Headers` and `Vulkan::Vulkan` to consumers.
+### 3.2 Module boundaries
 
-## Libraries
+```text
+vkexec                       core execution and allocator-neutral abstractions
+  +-- vkexec_features        promoted/core Vulkan capability helpers
+  +-- vkexec_graphics        graphics and presentation
+  +-- vkexec_ext_descriptor_heap
+  +-- vkexec_ext_dynamic_rendering
+  +-- vkexec_ext_timeline_semaphore
+  +-- vkexec_vma             optional allocation implementation
+  `-- vkexec_tools           optional shader/tooling layer
+```
 
-* `vkexec` — compute runtime (`context`, `buffer`, `compute_pipeline`, `compute_pass`)
-* `vkexec_graphics` — backend-neutral presenter, graphics pipelines, and `draw` senders
-* `vkexec_tools` (`vkexec::tools`) — optional GLSL-to-SPIR-V compilation and GLSL pipeline factories
+Extension entry points and backend state belong in their extension; allocation policy belongs outside core execution.
 
-## Descriptor strategies
+## 4. Execution model
 
-Descriptor handling has three independent layers:
+### 4.1 `context`
 
-1. `descriptor_schema<...>` is the compile-time shader contract. Entries are
-   `storage_buffer<Slot>`, `storage_image<Slot>`, `sampled_image<Slot>`, and
-   `sampler_binding<Slot>` (`sampler` remains the owning Vulkan wrapper). A schema
-   validates sorted, unique logical slots, builds a `resource_table` with checked
-   arity, and derives classic `layout_desc` values through `layout_desc_from_schema`.
-2. `resource_table` is the core, heap-agnostic runtime bag of logical buffer,
-   image-view, and sampler bindings. It contains Vulkan handles, sizes, and layouts,
-   but no descriptor-heap metadata.
-3. Private descriptor backends own pipeline layout/flags, command recording, and
-   lowering into backend-specific bound values. Public callers select only the
-   `descriptor_sets` or `descriptor_heap` strategy.
+`context` coordinates the Vulkan device and queues, command pool, submission synchronization, host agent, and completion agent. It owns its internal machinery. `factory::make_context()` creates an owned instance/device; `factory::adopt_context()` borrows an embedder's handles and queues. A context is an execution resource, not itself a stdexec scheduler.
 
-Schema-derived classic layouts retain explicit descriptor binding slots. Existing
-hand-written `layout_desc` callers leave `binding_slots` empty and continue to use
-positional bindings.
+### 4.2 `scheduler`
 
-Descriptor sets lower with an empty core environment. Descriptor-heap resource and
-sampler indices, mapped bytes, descriptor sizes/strides, and image/sampler create-info
-metadata remain extension-only in `heap_table_lower_env`. `lower_and_bind_push`
-composes the two backend concepts without adding heap knowledge to schema or table
-types. `bind_resources` exposes that operation as a pass-graph step; its default
-backend is descriptor sets, while the extension overload is selected with
-`descriptor_heap`.
+`vkexec::scheduler` is associated with a context. `ex::schedule(ctx->get_scheduler())` produces a sender whose environment advertises both the vkexec domain and the context scheduler for value completion. Its value completion runs on the context's host agent. `schedule()` does not execute GPU commands; the sender environment carries the context information used for lowering subsequent GPU operations.
 
-## Public and private headers
+### 4.3 Scheduler environments
 
-Installed headers live under `include/` and contain the supported API, except
-`include/vkexec/detail/**`: installed template implementation support that is
-explicitly not user-facing API. Template machinery may use a local `detail`
-namespace inside its owning public header, but detail types do not appear in
-public signatures. Shared implementation headers live under `src/**/detail/`,
-are supplied through the non-exported `vkexec_private_headers` target, and are
-never installed.
+`scheduler_env` advertises the vkexec domain and the context scheduler for `set_value`. This is a value-completion guarantee; error and stopped completions need not run on that scheduler. A domain-only environment can advertise vkexec lowering without claiming a completion scheduler. Pass adaptors require a predecessor whose value completion is guaranteed on `vkexec::scheduler`.
 
-vk-bootstrap is an implementation dependency for Vulkan instance and device
-selection and creation. Installed headers expose Vulkan handles, vkexec types,
-and execution abstractions; they do not expose vk-bootstrap headers or types.
-Applications with custom device creation requirements can create the device
-themselves and pass its handles and queues to `factory::adopt_context()`.
-Compiled feature modules create vkexec-owned opaque feature requests through a
-private adapter. Generic feature-structure requests are not part of the public
-requirements API. Removing `vulkan_requirements::require_extension_feature<T>()`
-and `enable_extension_feature_if_present<T>()` is a source-breaking change;
-applications with unusual feature structs should create and adopt their device.
+### 4.4 `vkexec::domain`
 
-vkexec uses the public `<stdexec/execution.hpp>` execution vocabulary. No source
-or public header may name a `stdexec::__*`, `ex::__*`, `exec::__*`, or
-`STDEXEC::__*` identifier, or include `stdexec/__detail/*`, except for
-`include/vkexec/detail/stdexec_compat.hpp`. That header quarantines the current
-root-environment compatibility dependency and must not expose its types in a
-public signature. Any future private compatibility dependency must be added
-there rather than used directly elsewhere.
+`domain::transform_sender()` calls `lower_vkexec_sender` when vkexec has a lowering for the operation. Otherwise it delegates to `stdexec::default_domain`, so ordinary stdexec algorithms remain composable.
 
-Public algorithm verbs are backend-neutral. Compute and dynamic-rendering graphics
-select heap behavior once with `descriptor_heap`, then use `create`,
-`factory::make_compute_pipeline`, `create`, `factory::make_graphics_pipeline`,
-`record_pass`, `record_draw`, and `compute_pass`. Literal heap mechanism APIs such as
-`descriptor_heap_buffer`, `cmd_bind_resource_heap`, `cmd_bind_sampler_heap`, and
-descriptor writers keep their names.
+### 4.5 Semantic sender expressions
 
-The core intentionally provides neither set-to-heap emulation nor a descriptor-heap
-slot allocator. Applications own physical heap indices and pass them explicitly in
-`heap_table_lower_env`.
+An algorithm such as `compute_pass(...)` returns a stdexec sender adaptor closure. Piping it onto a child sender creates an expression shaped as `sender_expr<Tag, Data, Child>`. Environment queries forward to the child until the domain transforms it. Construction does not record or submit Vulkan work.
 
-## Testing
+Public composable algorithms should produce semantic expressions when the vkexec domain can lower them. Use `stdexec::sender_adaptor_closure` rather than a separate `operator|` mechanism.
 
-* `test/tests.cpp` — Catch2 unit tests.
-* `test/constexpr_tests.cpp` — the same checks at compile time, so bugs
-  become build errors.
+### 4.6 Domain lowering
 
-## Targets and packaging
+```text
+algorithm(args...) -> expr_closure<Tag, Data>
+  -> sender_expr<Tag, Data, Child>
+  -> domain::transform_sender()
+  -> normalize_vkexec_expression()
+  -> lower_vkexec_pass_step()
+  -> typed Step -> pass_graph_sender<Steps...>
+```
 
-`myproject_options` and `myproject_warnings` are `INTERFACE` libraries that
-hold flags. Real targets link them to inherit the configuration without
-touching global state. `CPack` package names embed compiler, version, and
-short Git SHA, so a binary maps to one build.
+`lower_vkexec_expression` expands a composite operation into other semantic expressions. Each expansion must make structural progress. Normalization completes before primitive steps are collected, so a composite does not accidentally create a submission boundary. `lower_vkexec_pass_step` turns a primitive operation into one recordable step. A `schedule_sender` predecessor materializes directly into a pass graph without an extra `let_value`; other scheduler-completing predecessors use `let_value` to preserve their completion dependency.
 
-## Defaults for daily use
+### 4.7 Pass graphs
 
-The default build type is `RelWithDebInfo` — debuggable and fast.
-`compile_commands.json` is always exported, for editors and clang tooling.
+A pass graph owns its ordered steps. `connect()` creates an operation state containing those steps and the receiver. It still does not submit work.
 
-## Changing the defaults
+### 4.8 Submission and completion
 
-Every knob is a CMake option named `myproject_ENABLE_<feature>`. Flip it on
-the configure line, for example:
+On `start()`, the operation checks for a requested stop, opens and records a command buffer, then starts the fence-backed submission sender. The successful path submits and returns without waiting for GPU completion. After the fence signals, `ex::continues_on(fence_sender, ctx->get_scheduler())` transfers completion to the context host scheduler. `after_gpu` callbacks run there before the downstream receiver completes. The completion agent observes GPU progress; it is not an arbitrary executor for downstream user code.
 
-    cmake -B build -S . -Dmyproject_ENABLE_CLANG_TIDY=OFF
+`start() != wait for GPU`. `sync_wait(...)` is an explicit blocking boundary.
 
-The `myproject_` prefix is the placeholder the rename workflow replaces, so
-renaming the project is one search-and-replace.
+### 4.9 Cancellation and completion channels
 
-## Barrier synchronization
+The receiver observes `set_value` on success, `set_error(vkexec::error)` on failure, and `set_stopped` on cancellation. A stop requested before submission can prevent work from being submitted. Submitted work still follows the fence completion path; cancellation is not an error.
 
-Barrier sender expressions describe dependencies. `barrier_step::record` passes the
-execution context to the barrier tag. Context creation enables synchronization2
-when available and resolves the core or KHR `vkCmdPipelineBarrier2` entry point.
-The same Flags2 parameters lower through checked legacy translation when the
-feature is unavailable; unsupported flags return `errc::unsupported` through the
-pass graph's error completion. Adopted contexts use the feature information
-reported by the embedder. Queue submission remains on the existing submit path.
+## 5. Pass-graph representation
+
+### 5.1 Primitive pass steps
+
+A static pass step is move-constructible and provides `record(context&, VkCommandBuffer, pass_cleanup&) -> status`. Recording happens while the command buffer is open. Steps may provide `after_gpu()` for work that must occur after GPU completion.
+
+### 5.2 Static pass graphs
+
+`pass_graph_sender<Step0, Step1, ...>` stores a tuple of concrete step types. A statically composed sender chain retains those types and can append to an existing static graph without an extra submission boundary.
+
+### 5.3 Dynamic pass graphs
+
+`dynamic_pass_graph_sender` stores a vector of type-erased `dynamic_pass_step` objects. It is the runtime construction escape hatch. Its `append()` lowers primitive semantic operations; statically known sender composition should remain a typed graph.
+
+### 5.4 Composite operations
+
+A composite operation expands through `lower_vkexec_expression`, for example into binding, a barrier, and dispatch. It is normalized before step collection so its internal operations participate in the surrounding graph.
+
+### 5.5 Post-GPU actions
+
+`after_gpu()` runs after GPU completion and transfer to the context scheduler, but before the downstream receiver's value completion. It is intended for work that must wait until GPU use of the pass resources has ended, including cleanup of temporary state. Exceptions from the callback are converted to `set_error` when exception support is enabled.
+
+## 6. Resource and ownership model
+
+### 6.1 Borrowed execution resources
+
+Core execution consumes Vulkan handles such as `VkBuffer`, `VkImage`, pipelines, layouts, and descriptor sets. Recording does not ask a concrete allocator for memory. Borrowed resources must remain valid through GPU completion and any `after_gpu` work that uses them.
+
+### 6.2 `handles::`
+
+`handles::` types group borrowed Vulkan handles and associated metadata for execution. They do not transfer ownership of the underlying Vulkan objects.
+
+### 6.3 `owned::`
+
+`owned::` types are RAII wrappers where vkexec provides ownership. Their destruction requirements are separate from the borrowed handle types passed to execution algorithms.
+
+### 6.4 Allocation protocol
+
+`allocate_buffer` and `allocate_image` are typed static customizations. An allocator exposes associated `buffer_type` and `image_type` types and returns allocation senders. The `buffer_allocator`, `image_allocator`, and `resource_allocator` concepts describe this contract. Resource values expose Vulkan handles to execution while retaining allocator-specific ownership tokens.
+
+### 6.5 Optional VMA implementation
+
+`vkexec_vma` implements the allocation protocol with VMA. A user allocator may model the same protocol. VMA is an optional module, not the memory model of core execution.
+
+### 6.6 Lifetime rules
+
+The operation state and its context must remain valid until the operation completes. Vulkan objects referenced by submitted commands must remain valid until GPU completion. State referenced by `after_gpu()` must remain valid until that callback has run. Context-dependent owned objects must be destroyed before their context. Adopted instance/device lifetime remains the embedder's responsibility.
+
+## 7. Descriptor architecture
+
+### 7.1 Descriptor schema
+
+`descriptor_schema<...>` is the compile-time shader/resource contract. It validates logical binding slots and can derive classic descriptor-set layouts. It expresses semantics, not physical heap placement.
+
+### 7.2 Resource table
+
+`resource_table` holds logical runtime buffer, image-view, and sampler bindings with Vulkan handles, sizes, and layouts. It has no descriptor-heap indices, strides, or mapped heap bytes.
+
+### 7.3 Descriptor strategy
+
+The strategy selects backend lowering. Core exposes `descriptor_sets`; the descriptor-heap extension supplies `descriptor_heap`. Public operations such as `bind_resources` remain pipeable pass operations.
+
+### 7.4 Descriptor-set lowering
+
+The descriptor-set backend maps schema/table semantics to set layouts, writes, binding commands, and bound values. Schema-derived layouts preserve explicit slots; handwritten layout descriptions may use positional bindings.
+
+### 7.5 Descriptor-heap extension
+
+Heap resource and sampler indices, descriptor sizes and strides, mapped bytes, and heap-specific creation metadata remain in the extension's lowering environment and implementation. Backend-specific commands and procedure loading stay there. The caller or backend supplies physical heap indices.
+
+### 7.6 What core intentionally does not provide
+
+Core provides neither descriptor-set-to-heap emulation nor a global heap slot allocator. Schema and resource tables remain backend-neutral.
+
+## 8. Vulkan capabilities and extensions
+
+### 8.1 Core requirements
+
+Context creation merges library baseline requirements with caller requirements. Callers cannot remove required floors. Adopted contexts report the capabilities enabled by their embedder.
+
+### 8.2 Promoted Vulkan features
+
+`vkexec_features` provides helpers for capabilities available through core Vulkan versions or promoted extension paths. Negotiated API version and enabled features determine the available implementation path.
+
+### 8.3 Optional extensions
+
+Descriptor heap, dynamic rendering, and timeline semaphore support live in their own extension modules. Core semantic types should not acquire extension-specific fields merely to serve one backend.
+
+### 8.4 Backend-specific procedure loading
+
+Core execution loads the procedures needed by core capabilities. Where a capability was promoted from an extension, core may resolve either the core or compatible KHR entry point. Entry points that belong exclusively to an optional vkexec extension are resolved and stored by that extension module.
+
+## 9. Synchronization
+
+### 9.1 Pass-local barriers
+
+Barrier adaptors describe GPU memory and execution dependencies inside a pass graph. A compute/barrier/compute chain records the barrier between the two dispatches in one ordered submission.
+
+### 9.2 synchronization2 versus legacy lowering
+
+A semantic barrier uses synchronization2 Flags2 and `vkCmdPipelineBarrier2` when available. Otherwise it uses checked translation to the legacy barrier command. Unsupported legacy translations fail through the pass graph's error channel. Adopted contexts use feature information supplied by the embedder.
+
+### 9.3 Queue submission
+
+Recording and queue submission are separate from barrier semantics. The context serializes command-pool and queue access as required. A submitted graph uses a fence-backed completion sender.
+
+### 9.4 GPU completion versus host scheduling
+
+The fence establishes GPU completion. `continues_on(ctx->get_scheduler())` then establishes the host context for cleanup and downstream value completion. A pass-local barrier does not serve this host/GPU completion role.
+
+## 10. Error and cancellation model
+
+### 10.1 `vkexec::error`
+
+Expected Vulkan and vkexec failures are normalized into the `vkexec::error` completion channel.
+
+### 10.2 `set_value`
+
+Successful operations complete through `set_value` only after their promised work and required post-GPU cleanup are done.
+
+### 10.3 `set_error`
+
+Validation, recording, submission, completion, or cleanup failures complete through `set_error`. A failure before submission need not wait for the GPU.
+
+### 10.4 `set_stopped`
+
+Cancellation completes through `set_stopped`; it is not an error value. Stop checks occur before work begins where the sender protocol permits them.
+
+### 10.5 Exception containment
+
+Operation `start()` paths remain `noexcept`. Potentially throwing internals are caught when exception support is enabled and translated to the error channel. Exceptions must not escape through a receiver completion path.
+
+### 10.6 Synchronous boundaries
+
+Blocking consumers such as `sync_wait` are explicit synchronous boundaries. They do not change the asynchronous contract of a successfully submitted GPU pass sender.
+
+## 11. Public/private boundaries
+
+### 11.1 Public headers
+
+`include/vkexec/*.hpp` provides the supported core API. Optional modules have their own include trees and namespaces.
+
+### 11.2 `include/vkexec/detail`
+
+Installed detail headers support public template implementation but are not public API. Detail types must not become public signature commitments.
+
+### 11.3 `src/**/detail`
+
+Compiled implementation headers remain private and are not installed.
+
+### 11.4 stdexec private API quarantine
+
+vkexec uses the public `<stdexec/execution.hpp>` vocabulary. Direct `stdexec::__*`, `ex::__*`, `exec::__*`, `STDEXEC::__*`, and `stdexec/__detail/*` dependencies are forbidden outside `include/vkexec/detail/stdexec_compat.hpp`. That compatibility header must not expose private stdexec types in public signatures.
+
+### 11.5 vk-bootstrap boundary
+
+vk-bootstrap is an implementation mechanism for instance/device discovery and creation. Public APIs use Vulkan handles and vkexec types, not vk-bootstrap types. Applications with their own device setup use `factory::adopt_context()`.
+
+### 11.6 Optional dependency boundaries
+
+VMA stays in `vkexec_vma`; extension implementation state and entry points stay in their extension modules. Core allocation and descriptor semantics do not depend on either mechanism.
+
+## 12. Extending vkexec
+
+### 12.1 Adding a new pass algorithm
+
+Define a semantic algorithm/CPO that returns a `stdexec::sender_adaptor_closure` expression with a tag and data. For a primitive operation, define a step satisfying the pass-step recording contract and a `lower_vkexec_pass_step(Tag, Data, Env)` customization. Keep recording mechanics in the step.
+
+### 12.2 Adding a composite semantic operation
+
+Define `lower_vkexec_expression(...)` to expand the operation into other semantic expressions. Expansion must make structural progress and must not introduce an intermediate submission boundary. Let normal pass collection gather the resulting primitives.
+
+### 12.3 Adding a backend lowering
+
+Add backend-specific lowering or customization at the strategy boundary. Keep backend indices, procedure pointers, command details, and bound values out of backend-neutral schema and resource-table types.
+
+### 12.4 Adding an optional Vulkan extension
+
+Put extension-specific public APIs, capability negotiation, procedure loading, and compiled implementation in the extension module. Share core concepts where they already express the same semantics.
+
+### 12.5 When type erasure is appropriate
+
+Use `dynamic_pass_graph_sender` when the graph's structure genuinely depends on runtime construction. A statically composed pipeline should keep `pass_graph_sender<Steps...>` and its concrete step types.
+
+## 13. Architectural invariants
+
+- Public execution APIs use stdexec vocabulary and semantic sender expressions.
+- `vkexec::domain` lowers vkexec operations and delegates unrelated operations to `stdexec::default_domain`.
+- Composite lowering makes structural progress and does not add accidental submission boundaries.
+- Statically known graphs retain concrete step types; runtime type erasure is isolated to dynamic graphs.
+- A successful GPU pass `start()` submits without waiting; blocking is an explicit consumer choice.
+- GPU completion transfers to the context scheduler before `after_gpu` and downstream value completion.
+- Execution uses Vulkan handles and does not depend on a concrete allocator; VMA is optional.
+- Descriptor schema and resource tables do not contain backend-specific heap state.
+- Cancellation uses `set_stopped`, failures use `set_error(vkexec::error)`.
+- Context-dependent resources do not outlive their context.
+- Private stdexec APIs, vk-bootstrap types, and extension-specific entry points remain behind their boundaries.
+
+## 14. Architecture enforcement tests
+
+CTest registers `CheckStdexecPrivateApi.cmake`, `CheckVmaBoundary.cmake`, and `CheckVkBootstrapBoundary.cmake`. These checks guard the stdexec-private, allocator, and device-creation dependency boundaries. They complement ordinary behavioral tests; a passing build alone does not establish those architecture rules.
