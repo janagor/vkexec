@@ -19,7 +19,7 @@ target_include_directories(
 target_link_libraries(
   vkexec_ext_descriptor_heap
   PUBLIC vkexec::vkexec vkexec::features
-  PRIVATE vkexec_warnings Vulkan::Vulkan)
+  PRIVATE vkexec_warnings vk-bootstrap::vk-bootstrap Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_${CMAKE_CXX_STANDARD})
 

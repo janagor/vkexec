@@ -224,6 +224,9 @@ if(BUILD_TESTING)
                    "${PROJECT_SOURCE_DIR}/cmake/CheckStdexecPrivateApi.cmake")
   add_test(NAME vkexec.vma_module_boundary COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
                                                    "${PROJECT_SOURCE_DIR}/cmake/CheckVmaBoundary.cmake")
+  add_test(NAME vkexec.vk_bootstrap_boundary
+           COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
+                   "${PROJECT_SOURCE_DIR}/cmake/CheckVkBootstrapBoundary.cmake")
 endif()
 
 # If MSVC is being used, and ASAN is enabled, we need to set the debugger environment
@@ -253,6 +256,7 @@ set(VKEXEC_PACKAGE_TARGETS
     vkexec_options
     vkexec_warnings
     stdexec
+    # Static vkexec retains a link-only dependency on this private implementation.
     vk-bootstrap
     vk-bootstrap-compiler-warnings)
 if(vkexec_BUILD_VMA)

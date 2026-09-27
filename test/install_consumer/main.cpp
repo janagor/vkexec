@@ -1,4 +1,7 @@
+#include <vkexec/context.hpp>
 #include <vkexec/execution.hpp>
+#include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_features/feature.hpp>
 
 #include <stdexec/execution.hpp>
 

@@ -9,10 +9,10 @@
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 
-#include <VkBootstrap.h>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <vector>
@@ -135,7 +135,7 @@ namespace owned {
       present_options options = {}) -> result<bool>;
 
     //! Vulkan swapchain handle.
-    [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR { return swapchain_.swapchain; }
+    [[nodiscard]] auto handle() const noexcept -> VkSwapchainKHR;
     //! Chosen surface format.
     [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
     //! Current swapchain extent.
@@ -150,7 +150,7 @@ namespace owned {
   private:
     friend struct detail::make_swapchain_factory;
 
-    swapchain() = default;
+    swapchain();
 
     auto create_or_recreate(std::uint32_t width, std::uint32_t height) -> status;
     auto destroy_views() noexcept -> void;
@@ -163,7 +163,8 @@ namespace owned {
     VkPresentModeKHR present_mode_{ VK_PRESENT_MODE_FIFO_KHR };
     VkSwapchainCreateFlagsKHR create_flags_{ 0 };
 
-    vkb::Swapchain swapchain_{};
+    struct impl;
+    std::unique_ptr<impl> impl_;
     VkFormat format_{ VK_FORMAT_B8G8R8A8_SRGB };
     VkExtent2D extent_{};
     std::vector<VkImage> images_;

@@ -20,9 +20,9 @@ add_library(vkexec::vkexec ALIAS vkexec)
 target_link_libraries(
   vkexec
   PUBLIC
-    "$<BUILD_INTERFACE:$<1:Boost::system>;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap>"
-    "$<INSTALL_INTERFACE:$<1:Boost::headers>;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap>"
-  PRIVATE vkexec_warnings)
+    "$<BUILD_INTERFACE:$<1:Boost::system>;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec>"
+    "$<INSTALL_INTERFACE:$<1:Boost::headers>;Vulkan::Vulkan;STDEXEC::stdexec>"
+  PRIVATE vk-bootstrap::vk-bootstrap vkexec_warnings)
 
 target_include_directories(
   vkexec ${WARNING_GUARD}

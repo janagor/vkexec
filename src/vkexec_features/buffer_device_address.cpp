@@ -1,3 +1,4 @@
+#include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_features/buffer_device_address.hpp>
 
 #include <vkexec_features/common.hpp>
@@ -34,7 +35,7 @@ auto feature_traits<buffer_device_address>::configure(vulkan_requirements &req) 
     VkPhysicalDeviceVulkan12Features features_12{};
     features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features_12.bufferDeviceAddress = VK_TRUE;
-    req.require_extension_feature(features_12);
+    ::vkexec::detail::require_extension_feature(req, features_12);
     return;
   }
 
@@ -42,7 +43,7 @@ auto feature_traits<buffer_device_address>::configure(vulkan_requirements &req) 
   VkPhysicalDeviceBufferDeviceAddressFeaturesKHR features_khr{};
   features_khr.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
   features_khr.bufferDeviceAddress = VK_TRUE;
-  req.require_extension_feature(features_khr);
+  ::vkexec::detail::require_extension_feature(req, features_khr);
 }
 
 }// namespace vkexec::feat

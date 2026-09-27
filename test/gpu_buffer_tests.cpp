@@ -5,6 +5,8 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_features/buffer_device_address.hpp>
+#include <vkexec_features/feature.hpp>
 #include <vkexec_vma/copy.hpp>
 #include <vkexec_vma/gpu_buffer.hpp>
 
@@ -61,14 +63,10 @@ TEST_CASE("gpu_buffer staging is host-mapped", "[vkexec][gpu_buffer][gpu]")
 
 TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[vkexec][gpu_buffer][gpu]")
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 2;
-  requirements.require_extension_feature(features_12);
+  vkexec::feat::configure<vkexec::feat::buffer_device_address>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);

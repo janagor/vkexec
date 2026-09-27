@@ -7,6 +7,8 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
 #include <vkexec_vma/gpu_buffer.hpp>
@@ -31,19 +33,11 @@ constexpr std::uint32_t k_image_extent = 64;
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -101,19 +95,11 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
 
 TEST_CASE("write_storage_image_descriptor fills a heap slot", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -149,19 +135,11 @@ TEST_CASE("write_storage_image_descriptor fills a heap slot", "[vkexec][descript
 
 TEST_CASE("write_sampled_image_descriptor fills a heap slot", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -198,19 +176,11 @@ TEST_CASE("write_sampled_image_descriptor fills a heap slot", "[vkexec][descript
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);

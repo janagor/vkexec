@@ -3,12 +3,14 @@
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
 #include "detail/completion_waiter.hpp"
 #include "detail/host_agent.hpp"
+#include "detail/vk_bootstrap_feature.hpp"
 
 #include <VkBootstrap.h>
 
@@ -128,7 +130,7 @@ namespace {
 
     selector.set_required_features(merge_features(requirements));
 
-    for (extension_feature const &feature : requirements.required_extension_features) { feature.require(selector); }
+    for (extension_feature const &feature : requirements.required_extension_features) { detail::extension_feature_access::require(feature, selector); }
   }
 
   auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device, vulkan_requirements const &requirements)
@@ -138,7 +140,7 @@ namespace {
       if (extension != nullptr) { (void)physical_device.enable_extension_if_present(extension); }
     }
     for (extension_feature const &feature : requirements.optional_extension_features) {
-      (void)feature.enable_if_present(physical_device);
+      (void)detail::extension_feature_access::enable_if_present(feature, physical_device);
     }
   }
 
@@ -148,8 +150,8 @@ namespace {
     configure_instance_builder(builder, opts, api_version, {});
     builder.set_headless();
     auto const built = builder.build();
-    if (!built) { return fail(make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
-    return vkb_take(built);
+    if (!built) { return fail(detail::make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
+    return detail::vkb_take(built);
   }
 
   auto build_instance_with_extensions(scheduler_options const &opts,
@@ -160,8 +162,8 @@ namespace {
     configure_instance_builder(builder, opts, api_version, extra_instance_extensions);
     builder.set_headless();
     auto const built = builder.build();
-    if (!built) { return fail(make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
-    return vkb_take(built);
+    if (!built) { return fail(detail::make_error_from_vkb(built, "vk-bootstrap InstanceBuilder")); }
+    return detail::vkb_take(built);
   }
 
   auto select_physical_device(vkb::Instance const &instance,
@@ -174,8 +176,8 @@ namespace {
     configure_device_selector(selector, requirements, api_version, want_present);
     if (surface != VK_NULL_HANDLE) { selector.set_surface(surface); }
     auto const selected = selector.select();
-    if (!selected) { return fail(make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector")); }
-    vkb::PhysicalDevice physical_device = vkb_take(selected);
+    if (!selected) { return fail(detail::make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector")); }
+    vkb::PhysicalDevice physical_device = detail::vkb_take(selected);
     apply_optional_device_requests(physical_device, requirements);
     return physical_device;
   }
@@ -183,8 +185,8 @@ namespace {
   auto build_device_into(vkb::PhysicalDevice const &physical_device, vkb::Device &out) -> status
   {
     auto const built = vkb::DeviceBuilder{ physical_device }.build();
-    if (!built) { return fail(make_error_from_vkb(built, "vk-bootstrap DeviceBuilder")); }
-    out = vkb_take(built);
+    if (!built) { return fail(detail::make_error_from_vkb(built, "vk-bootstrap DeviceBuilder")); }
+    out = detail::vkb_take(built);
     return {};
   }
 
@@ -219,8 +221,6 @@ auto detail::adopt_context_factory::operator()() const -> result<std::unique_ptr
 auto context::instance() const noexcept -> VkInstance { return impl_->instance.instance; }
 auto context::physical_device() const noexcept -> VkPhysicalDevice { return impl_->physical_device.physical_device; }
 auto context::device() const noexcept -> VkDevice { return impl_->device.device; }
-auto context::vkb_device() noexcept -> vkb::Device & { return impl_->device; }
-auto context::vkb_device() const noexcept -> vkb::Device const & { return impl_->device; }
 auto context::compute_queue() const noexcept -> VkQueue { return impl_->compute_queue; }
 auto context::graphics_queue() const noexcept -> VkQueue { return impl_->graphics_queue; }
 auto context::present_queue() const noexcept -> VkQueue { return impl_->present_queue; }

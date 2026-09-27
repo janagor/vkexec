@@ -11,6 +11,8 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>// NOLINT(misc-include-cleaner)
@@ -77,15 +79,11 @@ static_assert(vkexec::detail::sender_adaptor_closure<decltype(vkexec::bind_resou
 
 TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -102,15 +100,11 @@ TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec]
 
 TEST_CASE("descriptor-heap compute_pipeline accepts specialization constants", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -124,15 +118,11 @@ TEST_CASE("descriptor-heap compute_pipeline accepts specialization constants", "
 
 TEST_CASE("compute_pass records push data for descriptor-heap pipelines", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -150,15 +140,11 @@ TEST_CASE("compute_pass records push data for descriptor-heap pipelines", "[vkex
 
 TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -177,19 +163,11 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
 
 TEST_CASE("tagged create draws without owning pipeline", "[vkexec][descriptor_heap][gpu][execution]")
 {
-  VkPhysicalDeviceVulkan12Features features_12{};
-  features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  features_12.bufferDeviceAddress = VK_TRUE;
-
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -243,15 +221,11 @@ TEST_CASE("tagged create draws without owning pipeline", "[vkexec][descriptor_he
 
 TEST_CASE("create builds null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);
@@ -283,15 +257,11 @@ TEST_CASE("create builds null-layout DR pipeline", "[vkexec][descriptor_heap][gp
 
 TEST_CASE("graphics_pipeline tag factory owns null-layout DR pipeline", "[vkexec][descriptor_heap][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   auto allocator = vkexec::test::require_allocator(*ctx);

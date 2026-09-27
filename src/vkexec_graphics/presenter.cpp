@@ -9,8 +9,6 @@
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
-#include <VkBootstrap.h>
-
 #include <vulkan/vulkan_core.h>
 
 #include <array>
@@ -153,7 +151,7 @@ owned::presenter::~presenter()
     if (render_pass_ != VK_NULL_HANDLE) { vkDestroyRenderPass(ctx_->device(), render_pass_, nullptr); }
   }
   if (ctx_ && ctx_->instance() != VK_NULL_HANDLE && surface_ != VK_NULL_HANDLE) {
-    vkb::destroy_surface(ctx_->instance(), surface_);
+    vkDestroySurfaceKHR(ctx_->instance(), surface_, nullptr);
     surface_ = VK_NULL_HANDLE;
   }
   ctx_.reset();

@@ -1,3 +1,4 @@
+#include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 
 #include <vkexec_features/common.hpp>
@@ -30,7 +31,7 @@ auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> v
     VkPhysicalDeviceVulkan13Features features_13{};
     features_13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     features_13.dynamicRendering = VK_TRUE;
-    req.require_extension_feature(features_13);
+    ::vkexec::detail::require_extension_feature(req, features_13);
     return;
   }
 
@@ -38,7 +39,7 @@ auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> v
   VkPhysicalDeviceDynamicRenderingFeaturesKHR features_khr{};
   features_khr.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
   features_khr.dynamicRendering = VK_TRUE;
-  req.require_extension_feature(features_khr);
+  ::vkexec::detail::require_extension_feature(req, features_khr);
 }
 
 }// namespace vkexec::feat

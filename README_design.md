@@ -113,6 +113,17 @@ public signatures. Shared implementation headers live under `src/**/detail/`,
 are supplied through the non-exported `vkexec_private_headers` target, and are
 never installed.
 
+vk-bootstrap is an implementation dependency for Vulkan instance and device
+selection and creation. Installed headers expose Vulkan handles, vkexec types,
+and execution abstractions; they do not expose vk-bootstrap headers or types.
+Applications with custom device creation requirements can create the device
+themselves and pass its handles and queues to `factory::adopt_context()`.
+Compiled feature modules create vkexec-owned opaque feature requests through a
+private adapter. Generic feature-structure requests are not part of the public
+requirements API. Removing `vulkan_requirements::require_extension_feature<T>()`
+and `enable_extension_feature_if_present<T>()` is a source-breaking change;
+applications with unusual feature structs should create and adopt their device.
+
 vkexec uses the public `<stdexec/execution.hpp>` execution vocabulary. No source
 or public header may name a `stdexec::__*`, `ex::__*`, `exec::__*`, or
 `STDEXEC::__*` identifier, or include `stdexec/__detail/*`, except for

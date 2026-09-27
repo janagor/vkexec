@@ -11,7 +11,6 @@
 #include <vkexec/sender.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 
-#include <VkBootstrap.h>
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
@@ -171,10 +170,6 @@ public:
   [[nodiscard]] auto physical_device() const noexcept -> VkPhysicalDevice;
   //! Borrowed logical device handle.
   [[nodiscard]] auto device() const noexcept -> VkDevice;
-  //! Mutable VkBootstrap device wrapper.
-  [[nodiscard]] auto vkb_device() noexcept -> vkb::Device &;
-  //! Const VkBootstrap device wrapper.
-  [[nodiscard]] auto vkb_device() const noexcept -> vkb::Device const &;
   //! Compute queue used for dispatch and most submits.
   [[nodiscard]] auto compute_queue() const noexcept -> VkQueue;
   //! Graphics queue when presentation or graphics work is enabled; may be null.

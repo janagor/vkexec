@@ -1,3 +1,4 @@
+#include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/procs.hpp>
 
@@ -23,7 +24,7 @@ auto extension_traits<descriptor_heap>::configure(vulkan_requirements &req) -> v
   features_heap.descriptorHeap = VK_TRUE;
 
   req.optional_device_extensions.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
-  req.enable_extension_feature_if_present(features_heap);
+  ::vkexec::detail::enable_extension_feature_if_present(req, features_heap);
 }
 
 }// namespace vkexec::ext

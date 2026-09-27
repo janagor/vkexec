@@ -5,6 +5,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
+#include <vkexec_extensions/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/procs.hpp>
 #include <vkexec_extensions/descriptor_heap/push_data.hpp>
 
@@ -26,15 +28,11 @@ struct push_payload
 
 TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][push_data][gpu]")
 {
-  VkPhysicalDeviceDescriptorHeapFeaturesEXT features_heap{};
-  features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
-  features_heap.descriptorHeap = VK_TRUE;
-
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
   requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
-  requirements.require_extension_feature(features_heap);
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
 

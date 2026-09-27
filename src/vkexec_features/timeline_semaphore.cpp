@@ -1,3 +1,4 @@
+#include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_features/timeline_semaphore.hpp>
 
 #include <vkexec_features/common.hpp>
@@ -30,7 +31,7 @@ auto feature_traits<timeline_semaphore>::configure(vulkan_requirements &req) -> 
     VkPhysicalDeviceVulkan12Features features_12{};
     features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features_12.timelineSemaphore = VK_TRUE;
-    req.require_extension_feature(features_12);
+    ::vkexec::detail::require_extension_feature(req, features_12);
     return;
   }
 
@@ -38,7 +39,7 @@ auto feature_traits<timeline_semaphore>::configure(vulkan_requirements &req) -> 
   VkPhysicalDeviceTimelineSemaphoreFeaturesKHR features_khr{};
   features_khr.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
   features_khr.timelineSemaphore = VK_TRUE;
-  req.require_extension_feature(features_khr);
+  ::vkexec::detail::require_extension_feature(req, features_khr);
 }
 
 }// namespace vkexec::feat
