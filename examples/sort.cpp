@@ -63,7 +63,8 @@ struct sort_params
 static auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context({ .validation_layers = true }));
-  auto data = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, 0.0F));
+  auto allocator = vkexec::examples::make_vma_allocator(*ctx);
+  auto data = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_element_count, 0.0F));
 
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 rng{ k_rng_seed };

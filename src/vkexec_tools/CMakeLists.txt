@@ -1,4 +1,4 @@
-add_library(vkexec_tools spirv_compile.cpp pipeline_compile.cpp)
+add_library(vkexec_tools spirv_compile.cpp pipeline_compile.cpp pipeline_compile_heap.cpp)
 add_library(vkexec::tools ALIAS vkexec_tools)
 
 target_link_libraries(

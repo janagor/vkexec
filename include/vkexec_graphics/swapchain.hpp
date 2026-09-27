@@ -53,7 +53,7 @@ namespace detail {
 
   struct make_swapchain_factory
   {
-    context *ctx;
+    context *ctx{};
     swapchain_create_info info;
 
     [[nodiscard]] auto operator()() const -> result<owned::swapchain>;
@@ -73,7 +73,7 @@ namespace factory {
      * @param info Surface, extent, and present preferences.
      */
     [[nodiscard]] auto operator()(context &ctx, swapchain_create_info info) const
-    { return make_sender(detail::make_swapchain_factory{ .ctx = &ctx, .info = info }); }
+    { return make_sender(::vkexec::detail::make_swapchain_factory{ .ctx = &ctx, .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)

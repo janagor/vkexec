@@ -1,6 +1,5 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
@@ -13,6 +12,7 @@
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_extensions/extension.hpp>
+#include <vkexec_vma/gpu_buffer.hpp>
 
 #include "../../sync_wait_helpers.hpp"
 
@@ -55,6 +55,7 @@ auto make_requirements() -> vkexec::vulkan_requirements
 auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context({ .requirements = make_requirements() }));
+  auto allocator = vkexec::examples::make_vma_allocator(*ctx);
 
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
     std::cout << std::format("descriptor_heap: skipped (extension PFNs unavailable)\n");
@@ -65,14 +66,14 @@ auto run() -> int
   if (!layout_result) { vkexec::examples::abort_with_error(layout_result.error()); }
   auto const &layout = vkexec::expected_get(layout_result);
 
-  auto storage = vkexec::examples::sync_wait_value(vkexec::factory::make_gpu_buffer(*ctx,
-    vkexec::gpu_buffer_create_info{
+  auto storage = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator,
+    vkexec::vma::gpu_buffer_create_info{
       .size = k_storage_bytes,
-      .memory = vkexec::gpu_buffer_memory::device_local,
+      .memory = vkexec::vma::buffer_memory::device_local,
       .shader_device_address = true,
     }));
   auto heap = vkexec::examples::sync_wait_value(
-    vkexec::factory::make_descriptor_heap_buffer(*ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+    vkexec::factory::make_descriptor_heap_buffer(allocator, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { vkexec::examples::fail_check("storage buffer device address unavailable"); }

@@ -26,10 +26,10 @@ namespace detail {
 
 struct tensor_pass_t
 {
-  template<detail::sender_adaptor_closure Compute, typename... T>
-  [[nodiscard]] auto operator()(Compute compute, owned::tensor<T> &...values) const
+  template<detail::sender_adaptor_closure Compute, class... Values>
+  [[nodiscard]] auto operator()(Compute compute, Values &...values) const
   {
-    static_assert(sizeof...(T) > 0, "tensor_pass requires at least one tensor");
+    static_assert(sizeof...(Values) > 0, "tensor_pass requires at least one tensor");
     auto adaptors = std::tuple_cat(
       std::tuple{ sync_to_device(values)... }, std::tuple{ std::move(compute) }, std::tuple{ sync_to_host(values)... });
     return std::apply(
@@ -38,17 +38,16 @@ struct tensor_pass_t
       std::move(adaptors));
   }
 
-  template<detail::push_constant_type Params, typename... T>
-  [[nodiscard]] auto
-    operator()(compute_bind bind, Params const &params, dispatch groups, owned::tensor<T> &...values) const
+  template<detail::push_constant_type Params, class... Values>
+  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, dispatch groups, Values &...values) const
   { return (*this)(compute_pass(bind, params, groups), values...); }
 
-  template<detail::push_constant_type Params, typename... T>
+  template<detail::push_constant_type Params, class... Values>
   [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
     VkDescriptorSet set,
     Params const &params,
     std::uint32_t work_count,
-    owned::tensor<T> &...values) const
+    Values &...values) const
   { return (*this)(compute_pass(pipe, set, params, work_count), values...); }
 
   template<vkexec_predecessor Sender, class... Args>

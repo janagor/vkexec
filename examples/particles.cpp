@@ -106,15 +106,16 @@ static auto run() -> int
   auto win = vkexec::examples::glfw_presenter::create(
     { .width = k_window_width, .height = k_window_height, .title = "vkexec particles", .validation_layers = true });
   auto &ctx = win.ctx();
+  auto allocator = vkexec::examples::make_vma_allocator(ctx);
 
-  auto pos_x = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto pos_y = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto vel_x = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto vel_y = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto col_r = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto col_g = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto col_b = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
-  auto col_a = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(ctx, k_particle_count, 0.0F));
+  auto pos_x = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto pos_y = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto vel_x = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto vel_y = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto col_r = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto col_g = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto col_b = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
+  auto col_a = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_particle_count, 0.0F));
 
   {
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)

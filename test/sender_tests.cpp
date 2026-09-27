@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/detail/normalize_errors.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
@@ -217,6 +218,14 @@ TEST_CASE("factory_sender copyable factory supports lvalue connect", "[vkexec][s
 }
 
 #if VKEXEC_ENABLE_EXCEPTIONS
+TEST_CASE("normalized sender maps stdexec exceptions to vkexec error", "[vkexec][sender]")
+{
+  auto composed = stdexec::just(1) | stdexec::then([](int /*value*/) -> int { throw std::runtime_error("boom"); });
+  auto outcome = vkexec::try_sync_wait(vkexec::detail::normalize_errors(composed));
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.take_error().code == vkexec::unexpected_exception_error().code);
+}
+
 TEST_CASE("factory_sender maps factory exceptions to set_error", "[vkexec][sender]")
 {
   auto outcome =

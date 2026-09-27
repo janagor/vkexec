@@ -134,7 +134,7 @@ namespace factory {
       std::span<std::uint32_t const> fragment_spirv,
       heap_graphics_layout_desc const &desc) const
     {
-      return make_sender(detail::make_descriptor_graphics_pipeline_spirv_factory{ .ctx = &ctx,
+      return make_sender(::vkexec::detail::make_descriptor_graphics_pipeline_spirv_factory{ .ctx = &ctx,
         .vertex_spirv = std::vector<std::uint32_t>(vertex_spirv.begin(), vertex_spirv.end()),
         .fragment_spirv = std::vector<std::uint32_t>(fragment_spirv.begin(), fragment_spirv.end()),
         .desc = desc });
@@ -153,7 +153,7 @@ namespace factory {
       std::string_view vertex_name = "heap.vert",
       std::string_view fragment_name = "heap.frag") const
     {
-      return make_sender(detail::make_descriptor_graphics_pipeline_glsl_factory{ .ctx = &ctx,
+      return make_sender(::vkexec::detail::make_descriptor_graphics_pipeline_glsl_factory{ .ctx = &ctx,
         .vertex_glsl = std::string{ vertex_glsl },
         .fragment_glsl = std::string{ fragment_glsl },
         .desc = desc,

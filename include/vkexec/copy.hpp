@@ -2,16 +2,9 @@
 #define VKEXEC_COPY_HPP
 
 //! \file
-//! Buffer copy helpers for command recording and host->device upload.
-
-#include <vkexec/context.hpp>
-#include <vkexec/gpu_buffer.hpp>
-#include <vkexec/result.hpp>
+//! Buffer copy command-recording helpers.
 
 #include <vulkan/vulkan.h>
-
-#include <cstddef>
-#include <span>
 
 namespace vkexec {
 
@@ -38,31 +31,6 @@ inline auto cmd_copy_buffer(VkCommandBuffer cmd,
   region.size = size;
   vkCmdCopyBuffer(cmd, src, dst, 1, &region);
 }
-
-/**
- * Writes `bytes` into host-visible `staging`, copies to `device`, and blocks until complete.
- *
- * @param ctx Context used for submit-and-wait.
- * @param staging Host-visible staging buffer large enough for `bytes`.
- * @param device Device-local destination buffer.
- * @param bytes Host bytes to upload (must fit in both buffers).
- */
-[[nodiscard]] auto upload_to_device(context &ctx,
-  owned::gpu_buffer &staging,
-  owned::gpu_buffer const &device,
-  std::span<std::byte const> bytes) -> status;
-
-/**
- * Copies `device` into host-visible `staging`, waits, then writes bytes into `out`.
- *
- * @param ctx Context used for submit-and-wait.
- * @param staging Host-visible staging buffer large enough for `out`.
- * @param device Device-local source buffer.
- * @param out Host destination (must fit in both buffers).
- */
-[[nodiscard]] auto
-  download_to_host(context &ctx, owned::gpu_buffer &staging, owned::gpu_buffer const &device, std::span<std::byte> out)
-    -> status;
 
 }// namespace vkexec
 

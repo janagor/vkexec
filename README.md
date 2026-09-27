@@ -10,27 +10,47 @@
 
 **Execution** — schedule work on a device; record with `compute_bind` / `handles::compute_pipeline`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
-**Resources** — owning `owned::buffer`, typed `owned::tensor<T>`, `owned::compute_pipeline`, images, and samplers. Prefer `#include <vkexec/resources.hpp>` when you want RAII factories. `#include <vkexec/vkexec.hpp>` pulls both.
+**Resources** — core provides allocator-neutral `owned::` Vulkan RAII types and generic `buffer<T, B>` / `tensor<T, B>` helpers, where `B` is an owning buffer resource. The optional `vma::` module supplies one allocator and its owning `gpu_buffer` / `image` resources.
 
 The same execution / resources split applies to optional extensions (descriptor heap, timeline, dynamic rendering).
 
 ### Ownership
 
-Every public type that carries Vulkan or VMA handles is one of two typed lanes:
+Public resource types fall into three lanes:
 
 - `vkexec::handles::` is a non-owning bag of raw handles. The caller must finish GPU work and call `vkexec::destroy(ctx, handles)` (or the equivalent destroy overload); individual fields must not be destroyed while the bag is live.
 - `vkexec::owned::` is move-only RAII. Its destructor destroys the handles it owns.
+- `vkexec::vma::` is move-only RAII for resources allocated through VMA; it is provided by the optional `vkexec::vma` target.
 
-Pass-graph and binding types such as `compute_bind`, `storage_binding`, `resource_ref`, and schedulers are ephemeral borrows. They never destroy what they name and must not outlive those objects. `context` always owns its command pool and host/completion agents; `owns_instance()`, `owns_device()`, and `owns_allocator()` report whether it also owns the corresponding Vulkan/VMA objects.
+`vkexec::buffer<T, B>` and `vkexec::tensor<T, B>` own buffer resource `B`; they are not tied to the allocator type or to VMA.
 
-The context outlives every `owned::` or `handles::` object created against it. Tear down in this order: finish GPU work, destroy owned objects or handle bags, destroy the context, then let the embedder destroy adopted instance/device/VMA objects.
+Pass-graph and binding types such as `compute_bind`, `storage_binding`, `resource_ref`, and schedulers are ephemeral borrows. They never destroy what they name and must not outlive those objects. `context` owns its command pool and host/completion agents; `owns_instance()` and `owns_device()` report whether it also owns the corresponding Vulkan objects. VMA-backed ownership is optional and lives in `vkexec::vma::allocator`.
+
+## Resource ownership
+
+`vkexec::vkexec` is allocator-neutral: pass and binding APIs consume raw `VkBuffer`, `VkImage`, and `VkImageView` handles. Applications may allocate those objects with Vulkan directly or with any external memory system. Allocation helpers use the `buffer_allocator` / `image_allocator` concepts from `<vkexec/resource_allocator.hpp>`. For VMA:
+
+```cpp
+auto allocator = vkexec::sync_wait_value(vkexec::vma::factory::make_allocator(*ctx));
+auto buffer = vkexec::sync_wait_value(
+  vkexec::factory::make_buffer(allocator, count, 0.0f));
+```
+
+`vkexec::allocate_buffer(allocator, info)` and `vkexec::allocate_image(allocator, info)` return senders whose value completions are exactly the allocator's declared `buffer_type` and `image_type`. Their completion signatures must be determinable under an empty environment (`stdexec::env<>`); they may be infallible or report `vkexec::error`, but not another error type. A custom allocator supplies `tag_invoke` overloads for these CPOs; no `ctx()` method is required. Typed buffers need mapped storage with `flush()`; staging tensors also need `invalidate()`. Allocation helpers compose the returned senders without blocking and normalize stdexec's `std::exception_ptr` completions to `vkexec::unexpected_exception_error()`. Core execution never queries the allocator.
+
+`make_tensor(allocator, span)` borrows the span until its sender starts; keep the source range alive until completion. Count/fill construction and span copying are deferred until sender start, with failures reported through the sender error channel. The vector overload takes ownership of its vector argument when the sender is created; passing an lvalue copies it before that point.
+
+An application with an existing VMA allocator can retain its ownership model with `vkexec::vma::factory::adopt_allocator(*ctx, external_vma)`. The adopted allocator is never destroyed by vkexec.
+
+The context outlives every context-dependent resource. Tear down in this order: finish GPU work, destroy `owned::` and `vma::` resources, destroy the context, then let the embedder destroy adopted instance/device/VMA objects.
 
 ### Public headers
 
 | Header | Role |
 |--------|------|
 | `<vkexec/execution.hpp>` | Scheduler, context, pass graphs, `handles::compute_pipeline`, free functions |
-| `<vkexec/resources.hpp>` | `owned::` buffers, tensors, images, samplers, and pipelines |
+| `<vkexec/resources.hpp>` | Allocator-neutral `owned::` resources and generic buffers/tensors |
+| `<vkexec_vma/resources.hpp>` | Optional VMA allocator and owning buffers/images |
 | `<vkexec/vkexec.hpp>` | Full core umbrella (execution + resources) |
 
 `factory::adopt_context` borrows instance/device/queues; the `context` still owns a command pool and host/completion agents. Destroy the context (and any vkexec-created resources) before tearing down borrowed Vulkan objects.
@@ -39,7 +59,7 @@ The context outlives every `owned::` or `handles::` object created against it. T
 
 ```cpp
 #include <vkexec/execution.hpp>
-#include <vkexec/resources.hpp>  // optional: typed buffer helpers for the sample
+#include <vkexec_vma/resources.hpp>  // optional: VMA-backed typed buffers
 
 #include <stdexec/execution.hpp>
 
@@ -64,9 +84,10 @@ void main() {
 int main() {
   try {
     auto ctx = vkexec::sync_wait_value(vkexec::factory::make_context());
-    // Owning buffer helpers for host-visible storage (or use your own VkBuffers):
-    auto positions = vkexec::sync_wait_value(vkexec::factory::make_buffer(*ctx, 10000, 0.0f));
-    auto velocities = vkexec::sync_wait_value(vkexec::factory::make_buffer(*ctx, 10000, 1.5f));
+    // Optional VMA convenience resources (or use your own VkBuffers):
+    auto allocator = vkexec::sync_wait_value(vkexec::vma::factory::make_allocator(*ctx));
+    auto positions = vkexec::sync_wait_value(vkexec::factory::make_buffer(allocator, 10000, 0.0f));
+    auto velocities = vkexec::sync_wait_value(vkexec::factory::make_buffer(allocator, 10000, 1.5f));
 
     using enum vkexec::buffer_access;
     auto resources = vkexec::expected_take(vkexec::create(*ctx, k_sim_glsl,
@@ -110,18 +131,19 @@ ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(*bound.pipe, bound.set
 
 ### Staging tensors
 
-Staging-backed `owned::tensor<T>` plus `sync_to_device` / `sync_to_host` pipeables give an upload -> dispatch -> download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`examples/tensor_sim.cpp`](examples/tensor_sim.cpp).
+Staging-backed `tensor<T, B>` plus `sync_to_device` / `sync_to_host` pipeables give an upload -> dispatch -> download shape on the same pass graph. Device storage is created with `shader_device_address`, so the context needs `bufferDeviceAddress` (e.g. `feat::configure<feat::buffer_device_address>`). Runnable sample: [`examples/tensor_sim.cpp`](examples/tensor_sim.cpp).
 
 ```cpp
 #include <vkexec/execution.hpp>
-#include <vkexec/resources.hpp>
+#include <vkexec_vma/resources.hpp>
 #include <vkexec_features/buffer_device_address.hpp>
 
 vkexec::feat::configure<vkexec::feat::buffer_device_address>(req);
 // ... create context with req ...
 
-auto positions = vkexec::sync_wait_value(vkexec::factory::make_tensor(*ctx, 10000, 0.0f));
-auto velocities = vkexec::sync_wait_value(vkexec::factory::make_tensor(*ctx, 10000, 1.5f));
+auto allocator = vkexec::sync_wait_value(vkexec::vma::factory::make_allocator(*ctx));
+auto positions = vkexec::sync_wait_value(vkexec::factory::make_tensor(allocator, 10000, 0.0f));
+auto velocities = vkexec::sync_wait_value(vkexec::factory::make_tensor(allocator, 10000, 1.5f));
 // ... create + bind_storage using positions.storage_binding(0), ...
 
 vkexec::sync_wait(
@@ -175,7 +197,7 @@ Public APIs are **senders** (stdexec). Completions follow stdexec semantics:
 - **`set_error(vkexec::error)`** — failure (same error type everywhere async)
 - **`set_stopped()`** — cancellation (not an error)
 
-Factory functions such as `factory::make_context`, `factory::make_buffer`, and `factory::make_compute_pipeline` return `vkexec::sender<T>`; compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait_value`.
+Factory functions such as `factory::make_context` and `factory::make_compute_pipeline` return senders; VMA resource factories are under `vma::factory`. Compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait_value`.
 
 - **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.
 - **`vkexec::errc`** covers library-level failures (`invalid_argument`, `unsupported`, `cancelled`, …).
@@ -186,7 +208,8 @@ Factory functions such as `factory::make_context`, `factory::make_buffer`, and `
 ```cpp
 try {
   auto ctx = vkexec::sync_wait_value(vkexec::factory::make_context({ .requirements = reqs }));
-  auto buf = vkexec::sync_wait_value(vkexec::factory::make_buffer(*ctx, n, fill));
+  auto allocator = vkexec::sync_wait_value(vkexec::vma::factory::make_allocator(*ctx));
+  auto buf = vkexec::sync_wait_value(vkexec::factory::make_buffer(allocator, n, fill));
 } catch (vkexec::error const &err) {
   std::cout << std::format("{}\n", err.message());
 }
@@ -211,7 +234,8 @@ Embedders that do not use stdexec pipes can block on factory senders directly:
 auto ctx = vkexec::sync_wait_value(vkexec::factory::adopt_context({ /* borrowed handles */ }));
 auto pipe = vkexec::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx, spirv, layout));
 
-if (auto buf = vkexec::try_sync_wait_value(vkexec::factory::make_gpu_buffer(*ctx, info)); buf) {
+auto allocator = vkexec::sync_wait_value(vkexec::vma::factory::make_allocator(*ctx));
+if (auto buf = vkexec::try_sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator, info)); buf) {
   // use *buf
 }
 ```
@@ -226,15 +250,14 @@ Common entry points:
 | `create` / `bind_storage` / `free_compute_set` | Borrowable classic pipeline + descriptor set loans |
 | `create(descriptor_heap, …)` / `bind_compute` / `destroy` | Borrowable descriptor-heap compute pipeline bags (`vkexec::ext_descriptor_heap`) |
 | `create(descriptor_heap, …)` / `bind_compute` / `destroy(descriptor_heap, …)` | Borrowable descriptor-heap graphics (DR formats, null layout; compose with `cmd_begin_rendering`) |
-| `factory::make_buffer` | sender -> `set_value(owned::buffer<T>)` |
+| `factory::make_buffer` / `factory::make_tensor` | sender -> resource-typed `buffer<T, B>` / `tensor<T, B>` |
 | `factory::make_compute_pipeline` | sender -> `set_value(owned::compute_pipeline)` |
 | `bind_storage_sender` | sender -> `set_value(bound_compute_pipeline)` |
 | `factory::make_presenter` / `factory::make_headless_presenter` | sender -> `set_value(owned::presenter)` (owning Vulkan present helper) |
 | `create` / `bind_graphics_storage` / `free_graphics_set` | Borrowable classic graphics pipeline + descriptor set loans |
 | `create` / `destroy` | Borrowable vertex/index handle bag |
 | `factory::make_graphics_pipeline` | sender -> `set_value(owned::graphics_pipeline)` (thin owning wrapper) |
-| `factory::make_mesh` | sender -> `set_value(owned::mesh)` (thin owning wrapper) |
-| `factory::make_gpu_buffer`, `factory::make_image`, … | sender -> `set_value(...)` |
+| `vma::factory::make_gpu_buffer`, `vma::factory::make_image`, … | sender -> `set_value(vma-backed resource)` |
 | `sync_wait_value` / `try_sync_wait_value` | blocking single-value completion |
 | `sync_wait` (exceptions ON) | `std::optional<tuple<...>>` — throws on error |
 | `sync_wait` / `try_sync_wait` (exceptions OFF) | `sync_wait_outcome<tuple<...>>` |
@@ -290,7 +313,7 @@ auto ctx = vkexec::sync_wait_value(vkexec::factory::adopt_context({
 
 Core `context::procs()` exposes only baseline device entry points (e.g. buffer device address). Extension-specific PFNs live in each extension target.
 
-Supporting RAII in core (`<vkexec/resources.hpp>`): `gpu_buffer`, staging-backed `tensor<T>`, `image` / `image_view` / `sampler`, owning `compute_pipeline`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `presenter`.
+Supporting RAII in core (`<vkexec/resources.hpp>`): `image_view`, `sampler`, owning `compute_pipeline`, and resource-typed `buffer<T, B>` / `tensor<T, B>`. VMA's concrete `gpu_buffer` and `image` resources are optional in `<vkexec_vma/resources.hpp>`. Optional timeline sync and timeline-based present (`timeline_semaphore`, `frame_ring`, `acquire_present_frame`) live in `vkexec::ext_timeline_semaphore`; see extensions table below. Fence-based present stays in `vkexec_graphics` via `presenter`.
 
 ### Promoted features (`vkexec_features`)
 
@@ -368,10 +391,12 @@ auto sem = vkexec::sync_wait_value(vkexec::factory::make_timeline_semaphore(*ctx
 #include <vkexec_extensions/descriptor_heap.hpp>
 
 auto layout = vkexec::query_descriptor_heap_layout(ctx);
+auto allocator = vkexec::sync_wait_value(vkexec::vma::factory::make_allocator(ctx));
 auto heap = vkexec::sync_wait_value(
-  vkexec::factory::make_descriptor_heap_buffer(ctx, vkexec::descriptor_heap_byte_size(layout, slot_count)));
+  vkexec::factory::make_descriptor_heap_buffer(allocator, vkexec::descriptor_heap_byte_size(layout, slot_count)));
 vkexec::write_storage_buffer_descriptor(ctx, buffer_addr, buffer_size, heap.mapped().subspan(...));
 // also: write_sampled_image_descriptor / write_sampler_descriptor into resource / sampler heaps
+VKEXEC_TRY(heap.flush());  // make descriptor writes visible before GPU consumption
 
 auto resources = vkexec::expected_take(vkexec::create(vkexec::descriptor_heap, ctx, glsl,
   vkexec::heap_layout_desc{ .specialization = {}, .local_size = vkexec::k_default_local_size }));
@@ -395,6 +420,8 @@ vkexec::cmd_push_data(ctx, cmd, push);
 
 vkexec::destroy(ctx, resources);
 ```
+
+Custom allocators may back descriptor heaps with non-coherent mapped memory. Call `heap.flush()` after descriptor writes and before GPU use; VMA's current host-visible allocation is coherent, but generic heap users should not rely on that.
 
 `resource_table` and `descriptor_schema` also support storage images, sampled images, and samplers (`storage_image`, `sampled_image`, and `sampler_binding`). Descriptor-set lowering consumes Vulkan handles directly. Descriptor-heap lowering keeps physical resource/sampler indices, mapped heap spans, strides, and required image/sampler create infos in the extension-only `heap_table_lower_env`; vkexec does not allocate heap slots or emulate descriptor sets. Literal heap object APIs (`descriptor_heap_buffer`, `cmd_bind_*_heap`, `write_*_descriptor`) remain unchanged.
 
@@ -469,10 +496,10 @@ cmake --build out/build/unixlike-clang-release -j12
 | Header | Role |
 |--------|------|
 | `<vkexec_graphics/execution.hpp>` | `handles::graphics_pipeline`, `handles::mesh`, bind/record/draw free functions, swapchain (borrow surface) |
-| `<vkexec_graphics/resources.hpp>` | Owning `owned::presenter`, `owned::graphics_pipeline`, `owned::mesh` |
+| `<vkexec_graphics/resources.hpp>` | Owning `owned::presenter` and `owned::graphics_pipeline`; generic depth attachment helper |
 | `<vkexec_graphics/vkexec_graphics.hpp>` | Full graphics umbrella (execution + resources) |
 
-`owned::presenter` owns its Vulkan context, surface, swapchain, and frame resources without owning a native window or event loop. `owned::swapchain` borrows an embedder-owned context and surface. Pipeline create/bind/record is borrowable; `owned::graphics_pipeline` / `owned::mesh` are thin RAII wrappers.
+`owned::presenter` owns its Vulkan context, surface, swapchain, and frame resources without owning a native window or event loop. `owned::swapchain` borrows an embedder-owned context and surface. Pipeline create/bind/record is borrowable; `owned::graphics_pipeline` is a thin RAII wrapper. Mesh draws use raw Vulkan buffer handles. The presenter depth callback can use `graphics::make_depth_attachment_factory<A>(make_allocator)` for any image allocator; `make_allocator(context&)` returns a sender yielding `A`. Allocation and image-view senders are composed, then waited on at the presenter's synchronous callback boundary. The VMA adapter creates one allocator per attachment because the presenter creates its context internally.
 
 ### User-owned window and surface factory
 

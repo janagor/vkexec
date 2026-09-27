@@ -3,8 +3,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec/gpu_buffer.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -22,6 +20,9 @@
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 #include <vkexec_extensions/extension.hpp>
 #include <vkexec_features/bundles/vulkan_13.hpp>
+#include <vkexec_vma/gpu_buffer.hpp>
+#include <vkexec_vma/graphics.hpp>
+#include <vkexec_vma/image.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -78,13 +79,14 @@ auto make_requirements() -> vkexec::vulkan_requirements
 
 auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 {
-  auto img = vkexec::examples::sync_wait_value(vkexec::factory::make_image(ctx,
-    vkexec::image_create_info{
+  auto allocator = vkexec::examples::make_vma_allocator(ctx);
+  auto img = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{
       .width = k_width,
       .height = k_height,
-      .usage = vkexec::image_usage::color_storage,
+      .usage = vkexec::vma::image_usage::color_storage,
     }));
-  auto view = vkexec::examples::sync_wait_value(vkexec::factory::make_image_view(ctx, img));
+  auto view = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_image_view(ctx, img));
 
   auto cmd_result = ctx.allocate_command_buffer();
   if (!cmd_result) { return vkexec::fail(std::move(cmd_result.error())); }
@@ -162,6 +164,7 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
 
 auto run_heap_graphics(vkexec::context &ctx) -> bool
 {
+  auto allocator = vkexec::examples::make_vma_allocator(ctx);
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
 
   auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::make_graphics_pipeline(vkexec::descriptor_heap,
@@ -175,14 +178,14 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
       .color_formats = { k_heap_graphics_format },
     }));
 
-  auto img = vkexec::examples::sync_wait_value(vkexec::factory::make_image(ctx,
-    vkexec::image_create_info{
+  auto img = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{
       .width = k_width,
       .height = k_height,
-      .usage = vkexec::image_usage::color_storage,
+      .usage = vkexec::vma::image_usage::color_storage,
       .format = k_heap_graphics_format,
     }));
-  auto view = vkexec::examples::sync_wait_value(vkexec::factory::make_image_view(ctx, img));
+  auto view = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_image_view(ctx, img));
 
   auto cmd_result = ctx.allocate_command_buffer();
   if (!cmd_result) { return false; }
@@ -264,20 +267,21 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
 
 auto run_heap_compute(vkexec::context &ctx) -> bool
 {
+  auto allocator = vkexec::examples::make_vma_allocator(ctx);
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(ctx)) { return false; }
 
   auto layout_result = vkexec::query_descriptor_heap_layout(ctx);
   if (!layout_result) { return false; }
   auto const &layout = vkexec::expected_get(layout_result);
 
-  auto storage = vkexec::examples::sync_wait_value(vkexec::factory::make_gpu_buffer(ctx,
-    vkexec::gpu_buffer_create_info{
+  auto storage = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator,
+    vkexec::vma::gpu_buffer_create_info{
       .size = k_storage_bytes,
-      .memory = vkexec::gpu_buffer_memory::device_local,
+      .memory = vkexec::vma::buffer_memory::device_local,
       .shader_device_address = true,
     }));
   auto heap = vkexec::examples::sync_wait_value(
-    vkexec::factory::make_descriptor_heap_buffer(ctx, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+    vkexec::factory::make_descriptor_heap_buffer(allocator, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { return false; }
@@ -320,6 +324,7 @@ static auto run() -> int
       .validation_layers = false,
       .surface_instance_extensions = {},
       .create_surface = {},
+      .create_depth_attachment = vkexec::vma::make_depth_attachment_factory(),
       .requirements = make_requirements(),
     }));
 

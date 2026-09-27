@@ -2,7 +2,7 @@
 #define VKEXEC_TENSOR_SYNC_HPP
 
 //! \file
-//! Pass-graph pipeables that upload/download staging-backed `owned::tensor<T>` storage.
+//! Pass-graph pipeables that upload/download staging-backed `tensor<T, B>` storage.
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/copy.hpp>
@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <span>
 #include <utility>
 
@@ -31,12 +32,12 @@ namespace vkexec {
  */
 namespace detail {
 
-  template<typename T> struct tensor_sync_data
+  template<typename T, readback_buffer_resource B> struct tensor_sync_data
   {
-    owned::tensor<T> *target{ nullptr };
+    tensor<T, B> *target{ nullptr };
   };
 
-  template<typename T> [[nodiscard]] auto make_sync_to_device_step(owned::tensor<T> *target)
+  template<typename T, readback_buffer_resource B> [[nodiscard]] auto make_sync_to_device_step(tensor<T, B> *target)
   {
     return make_callback_pass_step(
       [target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
@@ -48,6 +49,7 @@ namespace detail {
         auto staging_map = target->staging().mapped();
         if (staging_map.size() < bytes) { return fail(errc::out_of_range, "sync_to_device staging map is too small"); }
         std::memcpy(staging_map.data(), target->data(), static_cast<std::size_t>(bytes));
+        VKEXEC_TRY(target->staging().flush());
 
         VkBufferMemoryBarrier staging_barrier{};
         staging_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -87,7 +89,7 @@ namespace detail {
       });
   }
 
-  template<typename T> [[nodiscard]] auto make_sync_to_host_step(owned::tensor<T> *target)
+  template<typename T, readback_buffer_resource B> [[nodiscard]] auto make_sync_to_host_step(tensor<T, B> *target)
   {
     return make_callback_pass_step(
       [target](context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status {
@@ -152,6 +154,7 @@ namespace detail {
       },
       [target]() -> void {
         if (target == nullptr || target->size() == 0) { return; }
+        if (auto invalidated = target->staging().invalidate(); !invalidated) { std::terminate(); }
         auto const bytes = static_cast<std::size_t>(target->byte_size());
         auto staging_map = target->staging().mapped();
         if (staging_map.size() < bytes) { return; }
@@ -163,26 +166,26 @@ namespace detail {
 
 struct sync_to_device_t
 {
-  template<typename T>
-  [[nodiscard]] auto operator()(owned::tensor<T> &values) const
-    -> detail::expr_closure<sync_to_device_t, detail::tensor_sync_data<T>>
-  { return detail::make_expr_closure(*this, detail::tensor_sync_data<T>{ .target = &values }); }
+  template<typename T, readback_buffer_resource B>
+  [[nodiscard]] auto operator()(tensor<T, B> &values) const
+    -> detail::expr_closure<sync_to_device_t, detail::tensor_sync_data<T, B>>
+  { return detail::make_expr_closure(*this, detail::tensor_sync_data<T, B>{ .target = &values }); }
 
-  template<vkexec_predecessor Sender, typename T>
-  [[nodiscard]] auto operator()(Sender &&sender, owned::tensor<T> &values) const
+  template<vkexec_predecessor Sender, typename T, readback_buffer_resource B>
+  [[nodiscard]] auto operator()(Sender &&sender, tensor<T, B> &values) const
     -> decltype(std::forward<Sender>(sender) | (*this)(values))
   { return std::forward<Sender>(sender) | (*this)(values); }
 };
 
 struct sync_to_host_t
 {
-  template<typename T>
-  [[nodiscard]] auto operator()(owned::tensor<T> &values) const
-    -> detail::expr_closure<sync_to_host_t, detail::tensor_sync_data<T>>
-  { return detail::make_expr_closure(*this, detail::tensor_sync_data<T>{ .target = &values }); }
+  template<typename T, readback_buffer_resource B>
+  [[nodiscard]] auto operator()(tensor<T, B> &values) const
+    -> detail::expr_closure<sync_to_host_t, detail::tensor_sync_data<T, B>>
+  { return detail::make_expr_closure(*this, detail::tensor_sync_data<T, B>{ .target = &values }); }
 
-  template<vkexec_predecessor Sender, typename T>
-  [[nodiscard]] auto operator()(Sender &&sender, owned::tensor<T> &values) const
+  template<vkexec_predecessor Sender, typename T, readback_buffer_resource B>
+  [[nodiscard]] auto operator()(Sender &&sender, tensor<T, B> &values) const
     -> decltype(std::forward<Sender>(sender) | (*this)(values))
   { return std::forward<Sender>(sender) | (*this)(values); }
 };
@@ -194,13 +197,13 @@ inline constexpr sync_to_host_t sync_to_host{};
 
 namespace detail {
 
-  template<typename T, class Env>
-  [[nodiscard]] auto lower_vkexec_pass_step(sync_to_device_t /*tag*/, tensor_sync_data<T> data, Env const & /*env*/)
+  template<typename T, readback_buffer_resource B, class Env>
+  [[nodiscard]] auto lower_vkexec_pass_step(sync_to_device_t /*tag*/, tensor_sync_data<T, B> data, Env const & /*env*/)
     -> decltype(make_sync_to_device_step(data.target))
   { return make_sync_to_device_step(data.target); }
 
-  template<typename T, class Env>
-  [[nodiscard]] auto lower_vkexec_pass_step(sync_to_host_t /*tag*/, tensor_sync_data<T> data, Env const & /*env*/)
+  template<typename T, readback_buffer_resource B, class Env>
+  [[nodiscard]] auto lower_vkexec_pass_step(sync_to_host_t /*tag*/, tensor_sync_data<T, B> data, Env const & /*env*/)
     -> decltype(make_sync_to_host_step(data.target))
   { return make_sync_to_host_step(data.target); }
 

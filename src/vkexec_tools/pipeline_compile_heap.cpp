@@ -1,0 +1,60 @@
+#include <vkexec_tools/spirv_compile.hpp>
+
+#include <vkexec/compute_pipeline.hpp>
+#include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
+#include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
+#include <vkexec_extensions/descriptor_heap/strategy.hpp>
+#include <vkexec_graphics/graphics_pipeline_resources.hpp>
+
+#include <memory>
+#include <string_view>
+
+namespace vkexec {
+
+auto create(descriptor_heap_t strategy,
+  context &ctx,
+  std::string_view glsl,
+  heap_layout_desc const &desc,
+  std::string_view name) -> result<handles::compute_pipeline>
+{
+  if (glsl.empty()) { return fail(errc::invalid_argument, "create requires non-empty GLSL"); }
+  VKEXEC_TRY_ASSIGN(spirv, compile_glsl_to_spirv(glsl, name, shader_kind::compute, ctx.api_version()));
+  return create(strategy, ctx, spirv, desc);
+}
+
+auto detail::create_heap_compute_pipeline_glsl_factory::operator()() const -> result<::vkexec::owned::compute_pipeline>
+{
+  VKEXEC_TRY_ASSIGN(owned, create(strategy, *ctx, glsl, desc, name));
+  return owned::compute_pipeline::make(*ctx, std::make_unique<handles::compute_pipeline>(owned));
+}
+
+auto create(descriptor_heap_t strategy,
+  context &ctx,
+  std::string_view vertex_glsl,
+  std::string_view fragment_glsl,
+  heap_graphics_layout_desc const &desc,
+  std::string_view vertex_name,
+  std::string_view fragment_name) -> result<handles::graphics_pipeline>
+{
+  if (vertex_glsl.empty() || fragment_glsl.empty()) {
+    return fail(errc::invalid_argument, "create requires non-empty GLSL");
+  }
+  VKEXEC_TRY_ASSIGN(
+    vert_spirv, compile_glsl_to_spirv(vertex_glsl, vertex_name, shader_kind::vertex, ctx.api_version()));
+  VKEXEC_TRY_ASSIGN(
+    frag_spirv, compile_glsl_to_spirv(fragment_glsl, fragment_name, shader_kind::fragment, ctx.api_version()));
+  return create(strategy, ctx, vert_spirv, frag_spirv, desc);
+}
+
+auto detail::make_descriptor_graphics_pipeline_glsl_factory::operator()() const
+  -> result<::vkexec::owned::descriptor_graphics_pipeline>
+{
+  VKEXEC_TRY_ASSIGN(owned, create(descriptor_heap, *ctx, vertex_glsl, fragment_glsl, desc, vertex_name, fragment_name));
+  return ::vkexec::owned::descriptor_graphics_pipeline::make(*ctx, std::make_unique<handles::graphics_pipeline>(owned));
+}
+
+}// namespace vkexec

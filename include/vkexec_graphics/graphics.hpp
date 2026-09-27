@@ -24,7 +24,6 @@
 namespace vkexec {
 
 namespace owned {
-  class mesh;
   class graphics_pipeline;
 }// namespace owned
 
@@ -78,7 +77,7 @@ namespace factory {
       std::span<std::uint32_t const> fragment_spirv,
       std::span<storage_binding const> buffers = {}) const
     {
-      return make_sender(detail::make_graphics_pipeline_spirv_factory{ .ctx = &ctx,
+      return make_sender(::vkexec::detail::make_graphics_pipeline_spirv_factory{ .ctx = &ctx,
         .render_pass = render_pass,
         .cfg = cfg,
         .vertex_spirv = std::vector<std::uint32_t>(vertex_spirv.begin(), vertex_spirv.end()),
@@ -102,7 +101,7 @@ namespace factory {
       std::string_view fragment_glsl,
       std::span<storage_binding const> buffers = {}) const
     {
-      return make_sender(detail::make_graphics_pipeline_glsl_factory{ .ctx = &ctx,
+      return make_sender(::vkexec::detail::make_graphics_pipeline_glsl_factory{ .ctx = &ctx,
         .render_pass = render_pass,
         .cfg = cfg,
         .vertex_glsl = std::string{ vertex_glsl },
@@ -210,7 +209,7 @@ namespace owned {
     auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void;
 
     //! Records a mesh draw (vertex/index binds + indexed draw) into an open render pass.
-    auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void;
+    auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh_draw const &drawn) const -> void;
 
     /**
      * Begins a render pass, records a non-indexed draw, and ends the pass.
@@ -226,7 +225,7 @@ namespace owned {
       VkRenderPass render_pass,
       VkFramebuffer framebuffer,
       VkExtent2D extent,
-      mesh const &drawn) const -> status;
+      mesh_draw const &drawn) const -> status;
 
   private:
     graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept

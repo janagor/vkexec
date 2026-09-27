@@ -2,7 +2,7 @@
 #define VKEXEC_CONTEXT_HPP
 
 //! \file
-//! Vulkan device context: queues, VMA, command pool, and host/completion agents.
+//! Vulkan device context: queues, command pool, and host/completion agents.
 
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
@@ -13,7 +13,6 @@
 
 #include <VkBootstrap.h>
 #include <stdexec/execution.hpp>
-#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
@@ -30,7 +29,6 @@
 namespace vkexec {
 
 namespace owned {
-  template<typename T> class buffer;
   class presenter;
 }// namespace owned
 
@@ -67,7 +65,6 @@ struct context_adopt_info
   VkInstance instance{ VK_NULL_HANDLE };
   VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
   VkDevice device{ VK_NULL_HANDLE };
-  VmaAllocator allocator{ VK_NULL_HANDLE };
 
   VkQueue compute_queue{ VK_NULL_HANDLE };
   std::uint32_t compute_queue_family{ 0 };
@@ -122,7 +119,7 @@ namespace factory {
   /**
    * Adopts embedder-owned Vulkan handles without taking destruction ownership.
    *
-   * @param info Borrowed instance, device, allocator, and queues.
+   * @param info Borrowed instance, device, and queues.
    * @return Sender that completes with `unique_ptr<context>` on success.
    */
   struct adopt_context_t
@@ -138,9 +135,8 @@ namespace factory {
 
 /**
  * Owns the command pool and host/completion agents. Depending on construction,
- * it either owns or adopts the Vulkan instance/device/queues and owns or adopts
- * the VMA allocator; query the exact mode with `owns_instance()`,
- * `owns_device()`, and `owns_allocator()`.
+ * it either owns or adopts the Vulkan instance/device/queues; query the exact
+ * mode with `owns_instance()` and `owns_device()`.
  *
  * Create with `factory::make_context()` for a compute-only device, or
  * `factory::adopt_context()` to wrap embedder-owned handles. Most GPU work is
@@ -193,14 +189,10 @@ public:
   [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t;
   //! Shared command pool for transient primary command buffers.
   [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool;
-  //! VMA allocator used for buffers and images.
-  [[nodiscard]] auto allocator() const noexcept -> VmaAllocator;
   //! True when this context destroys the Vulkan instance in its destructor.
   [[nodiscard]] auto owns_instance() const noexcept -> bool;
   //! True when this context destroys the Vulkan device in its destructor.
   [[nodiscard]] auto owns_device() const noexcept -> bool;
-  //! True when this context destroys the VMA allocator in its destructor.
-  [[nodiscard]] auto owns_allocator() const noexcept -> bool;
   //! True when graphics/present queues were configured for swapchain use.
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool;
   //! Effective Vulkan requirements after merging library baselines.
@@ -331,7 +323,6 @@ public:
 
 private:
   friend class owned::presenter;
-  template<typename T> friend class owned::buffer;
   // MSVC misparses trailing-return friend decls named like the enclosing class.
   friend struct detail::make_context_factory;
   friend struct detail::adopt_context_factory;
@@ -370,7 +361,6 @@ private:
   auto complete_for_surface(VkSurfaceKHR surface) -> status;
 
   auto create_command_pool() -> status;
-  auto create_allocator() -> status;
   auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> void;
   [[nodiscard]] auto do_enqueue_fence_wait(VkSemaphore semaphore,

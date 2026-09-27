@@ -66,9 +66,10 @@ static auto run() -> int
   vkexec::feat::configure<vkexec::feat::buffer_device_address>(requirements);
   auto ctx = vkexec::examples::sync_wait_value(
     vkexec::factory::make_context({ .validation_layers = true, .requirements = std::move(requirements) }));
-  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_element_count, 0.0F));
+  auto allocator = vkexec::examples::make_vma_allocator(*ctx);
+  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::make_tensor(allocator, k_element_count, 0.0F));
   auto velocities =
-    vkexec::examples::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_element_count, k_initial_velocity));
+    vkexec::examples::sync_wait_value(vkexec::factory::make_tensor(allocator, k_element_count, k_initial_velocity));
 
   using enum vkexec::buffer_access;
   auto resources_result = vkexec::create(*ctx,

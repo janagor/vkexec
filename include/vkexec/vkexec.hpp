@@ -2,10 +2,9 @@
 #define VKEXEC_VKEXEC_HPP
 
 //! \file
-//! Full core umbrella: execution (borrowable) plus resources (owning).
+//! Full allocator-neutral core umbrella.
 //!
-//! Prefer `<vkexec/execution.hpp>` or `<vkexec/resources.hpp>` when you only need
-//! one layer.
+//! VMA-backed owning resources are provided separately by `<vkexec_vma/vma.hpp>`.
 
 #include <vkexec/execution.hpp>
 #include <vkexec/resources.hpp>

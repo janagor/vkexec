@@ -10,6 +10,7 @@
 #include <vkexec_graphics/presenter.hpp>
 #include <vkexec_graphics/submit.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
+#include <vkexec_vma/graphics.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -37,6 +38,7 @@ constexpr int k_post_stop_frames = 4;
     .validation_layers = false,
     .surface_instance_extensions = {},
     .create_surface = {},
+    .create_depth_attachment = vkexec::vma::make_depth_attachment_factory(),
     .requirements = {},
   }));
   if (!outcome) { vkexec::test::skip_if_no_vulkan(outcome.error()); }

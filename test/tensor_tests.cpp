@@ -1,4 +1,5 @@
 #include "test_helpers.hpp"
+#include "vma_test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -64,7 +65,8 @@ struct scale_params
 TEST_CASE("factory::make_tensor allocates staging-backed storage with a host mirror", "[vkexec][tensor][gpu]")
 {
   auto ctx = require_tensor_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_count, k_fill));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, k_count, k_fill));
   REQUIRE(values.size() == k_count);
   REQUIRE(values.vk_buffer() != VK_NULL_HANDLE);
   REQUIRE(values.staging().handle() != VK_NULL_HANDLE);
@@ -81,8 +83,9 @@ TEST_CASE("factory::make_tensor allocates staging-backed storage with a host mir
 TEST_CASE("factory::make_tensor copies a span into the host mirror", "[vkexec][tensor][gpu]")
 {
   auto ctx = require_tensor_context();
+  auto allocator = vkexec::test::require_allocator(*ctx);
   std::vector<std::uint32_t> const host{ 1, 2, 3, 4 };
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, std::span{ host }));
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, std::span{ host }));
   REQUIRE(values.size() == host.size());
   REQUIRE(values.span().front() == 1);
   REQUIRE(values.span().back() == 4);
@@ -91,7 +94,8 @@ TEST_CASE("factory::make_tensor copies a span into the host mirror", "[vkexec][t
 TEST_CASE("tensor::storage_binding exposes the device buffer handle", "[vkexec][tensor][gpu]")
 {
   auto ctx = require_tensor_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_count, k_fill));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, k_count, k_fill));
   vkexec::storage_binding const binding = values.storage_binding(k_binding);
   REQUIRE(binding.buffer == values.vk_buffer());
   REQUIRE(binding.byte_size == values.byte_size());
@@ -101,7 +105,8 @@ TEST_CASE("tensor::storage_binding exposes the device buffer handle", "[vkexec][
 TEST_CASE("tensor upload/download round-trips host mirror through device storage", "[vkexec][tensor][gpu]")
 {
   auto ctx = require_tensor_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_count, k_fill));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, k_count, k_fill));
   std::ranges::fill(values.span(), k_host_write);
 
   REQUIRE(values.upload(*ctx));
@@ -115,7 +120,8 @@ TEST_CASE("tensor upload/download round-trips host mirror through device storage
 TEST_CASE("sync_to_device/sync_to_host round-trip via pass graph", "[vkexec][tensor][gpu]")
 {
   auto ctx = require_tensor_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_count, k_fill));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, k_count, k_fill));
   std::ranges::fill(values.span(), k_host_write);
 
   using upload_pred_t = decltype(ex::schedule(ctx->get_scheduler()) | ex::then([]() noexcept -> void {}));
@@ -137,7 +143,8 @@ TEST_CASE("sync_to_device/sync_to_host round-trip via pass graph", "[vkexec][ten
 TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][tensor][gpu]")
 {
   auto ctx = require_tensor_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(*ctx, k_count, k_fill));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, k_count, k_fill));
 
   auto resources_result = vkexec::create(*ctx,
     k_scale_glsl,

@@ -1,9 +1,10 @@
 #include "test_helpers.hpp"
+#include "vma_test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
+#include <vkexec_vma/image.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -20,11 +21,12 @@ constexpr std::uint32_t k_height = 48;
 TEST_CASE("image color_storage allocates a device-local target", "[vkexec][image][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
-    vkexec::image_create_info{
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto img = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{
       .width = k_width,
       .height = k_height,
-      .usage = vkexec::image_usage::color_storage,
+      .usage = vkexec::vma::image_usage::color_storage,
     }));
   REQUIRE(img.handle() != VK_NULL_HANDLE);
   REQUIRE(img.extent().width == k_width);
@@ -35,11 +37,12 @@ TEST_CASE("image color_storage allocates a device-local target", "[vkexec][image
 TEST_CASE("image depth allocates a depth attachment", "[vkexec][image][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
-    vkexec::image_create_info{
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto img = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{
       .width = k_width,
       .height = k_height,
-      .usage = vkexec::image_usage::depth,
+      .usage = vkexec::vma::image_usage::depth,
     }));
   REQUIRE(img.handle() != VK_NULL_HANDLE);
   REQUIRE(img.format() == VK_FORMAT_D32_SFLOAT);
@@ -48,12 +51,13 @@ TEST_CASE("image depth allocates a depth attachment", "[vkexec][image][gpu]")
 TEST_CASE("image_view wraps a color image", "[vkexec][image][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
-    vkexec::image_create_info{
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto img = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{
       .width = k_width,
       .height = k_height,
-      .usage = vkexec::image_usage::color_storage,
+      .usage = vkexec::vma::image_usage::color_storage,
     }));
-  auto view = vkexec::test::sync_wait_value(vkexec::factory::make_image_view(*ctx, img));
+  auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   REQUIRE(view.handle() != VK_NULL_HANDLE);
 }

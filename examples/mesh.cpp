@@ -5,14 +5,17 @@
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
-#include <vkexec_graphics/mesh.hpp>
+#include <vkexec_vma/gpu_buffer.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <cstdint>
+#include <cstring>
 #include <format>
 #include <iostream>
+#include <span>
 #include <string_view>
+#include <vulkan/vulkan_core.h>
 
 namespace ex = stdexec;
 
@@ -53,8 +56,26 @@ static auto run() -> int
   auto win = vkexec::examples::glfw_presenter::create(
     { .width = k_window_width, .height = k_window_height, .title = "vkexec mesh", .validation_layers = true });
   auto mesh_data = vkexec::examples::sync_wait_value(vkexec::examples::load_gltf_mesh(k_gltf_path));
-  auto drawn =
-    vkexec::examples::sync_wait_value(vkexec::factory::make_mesh(win.ctx(), mesh_data.vertices, mesh_data.indices));
+  auto allocator = vkexec::examples::make_vma_allocator(win.ctx());
+  auto vertices = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator,
+    vkexec::vma::gpu_buffer_create_info{
+      .size = std::as_bytes(std::span{ mesh_data.vertices }).size(),
+      .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      .memory = vkexec::vma::buffer_memory::host_visible,
+    }));
+  auto indices = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator,
+    vkexec::vma::gpu_buffer_create_info{
+      .size = std::as_bytes(std::span{ mesh_data.indices }).size(),
+      .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+      .memory = vkexec::vma::buffer_memory::host_visible,
+    }));
+  std::memcpy(vertices.mapped().data(), mesh_data.vertices.data(), vertices.mapped().size());
+  std::memcpy(indices.mapped().data(), mesh_data.indices.data(), indices.mapped().size());
+  vkexec::mesh_draw const drawn{
+    .vertex_buffer = vertices.handle(),
+    .index_buffer = indices.handle(),
+    .index_count = static_cast<std::uint32_t>(mesh_data.indices.size()),
+  };
 
   vkexec::graphics_pipeline_config const cfg{
     .depth_test = true,

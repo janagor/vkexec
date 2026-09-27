@@ -1,6 +1,5 @@
-#include <vkexec/gpu_buffer.hpp>
+#include <vkexec_vma/gpu_buffer.hpp>
 
-#include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
@@ -14,11 +13,11 @@
 namespace vkexec {
 namespace {
 
-  auto usage_for(gpu_buffer_memory memory, bool shader_device_address) -> result<VkBufferUsageFlags>
+  auto usage_for(vma::gpu_buffer_memory memory, bool shader_device_address) -> result<VkBufferUsageFlags>
   {
     switch (memory) {
-    case gpu_buffer_memory::host_visible:
-    case gpu_buffer_memory::device_local: {
+    case vma::gpu_buffer_memory::host_visible:
+    case vma::gpu_buffer_memory::device_local: {
       // Storage + transfer + indirect covers typical compute/hybrid upload paths.
       // NOLINTBEGIN(hicpp-signed-bitwise)
       VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -27,7 +26,7 @@ namespace {
       return usage;
       // NOLINTEND(hicpp-signed-bitwise)
     }
-    case gpu_buffer_memory::staging:
+    case vma::gpu_buffer_memory::staging:
       // Upload and readback both need copy endpoints on the staging buffer.
       // NOLINTNEXTLINE(hicpp-signed-bitwise)
       return VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -35,21 +34,21 @@ namespace {
     return fail(errc::invalid_argument, "unknown gpu_buffer_memory");
   }
 
-  auto allocation_info_for(gpu_buffer_memory memory) -> VmaAllocationCreateInfo
+  auto allocation_info_for(vma::gpu_buffer_memory memory) -> VmaAllocationCreateInfo
   {
     VmaAllocationCreateInfo aci{};
     switch (memory) {
-    case gpu_buffer_memory::host_visible:
+    case vma::gpu_buffer_memory::host_visible:
       aci.usage = VMA_MEMORY_USAGE_AUTO;
       // NOLINTBEGIN(hicpp-signed-bitwise)
       aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
       aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
       // NOLINTEND(hicpp-signed-bitwise)
       break;
-    case gpu_buffer_memory::device_local:
+    case vma::gpu_buffer_memory::device_local:
       aci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
       break;
-    case gpu_buffer_memory::staging:
+    case vma::gpu_buffer_memory::staging:
       // Readback-friendly mapping: random host access, prefer coherent if available.
       aci.usage = VMA_MEMORY_USAGE_AUTO;
       // NOLINTBEGIN(hicpp-signed-bitwise)
@@ -64,20 +63,21 @@ namespace {
 
 }// namespace
 
-auto detail::make_gpu_buffer_factory::operator()() const -> result<::vkexec::owned::gpu_buffer>
+auto detail::make_gpu_buffer_factory::operator()() const -> result<::vkexec::vma::gpu_buffer>
 {
   if (info.size == 0) { return fail(errc::invalid_argument, "vkexec::gpu_buffer size must be > 0"); }
-  if (ctx->allocator() == VK_NULL_HANDLE) {
+  if (allocator == nullptr || allocator->native_handle() == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "vkexec::gpu_buffer requires a VMA allocator");
   }
 
   bool const want_device_address = info.shader_device_address;
-  if (want_device_address && ctx->procs().get_buffer_device_address == nullptr) {
+  if (want_device_address && allocator->ctx().procs().get_buffer_device_address == nullptr) {
     return fail(errc::unsupported,
       "vkexec::gpu_buffer shader device address requested but vkGetBufferDeviceAddress is unavailable");
   }
 
   VKEXEC_TRY_ASSIGN(usage, usage_for(info.memory, want_device_address));
+  usage |= info.usage;
 
   VkBufferCreateInfo bci{};
   bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -90,41 +90,53 @@ auto detail::make_gpu_buffer_factory::operator()() const -> result<::vkexec::own
   VkBuffer buffer_handle{ VK_NULL_HANDLE };
   VmaAllocation allocation{ VK_NULL_HANDLE };
   VmaAllocationInfo ainfo{};
-  VkResult const create_result = vmaCreateBuffer(ctx->allocator(), &bci, &aci, &buffer_handle, &allocation, &ainfo);
+  VkResult const create_result =
+    info.alignment == 0
+      ? vmaCreateBuffer(allocator->native_handle(), &bci, &aci, &buffer_handle, &allocation, &ainfo)
+      : vmaCreateBufferWithAlignment(
+          allocator->native_handle(), &bci, &aci, info.alignment, &buffer_handle, &allocation, &ainfo);
   if (create_result != VK_SUCCESS) { return fail(create_result, "vmaCreateBuffer failed"); }
 
   void *mapped_ptr = nullptr;
-  if (info.memory == gpu_buffer_memory::host_visible || info.memory == gpu_buffer_memory::staging) {
+  if (info.memory == vma::gpu_buffer_memory::host_visible || info.memory == vma::gpu_buffer_memory::staging) {
     mapped_ptr = ainfo.pMappedData;
     if (mapped_ptr == nullptr) {
-      vmaDestroyBuffer(ctx->allocator(), buffer_handle, allocation);
+      vmaDestroyBuffer(allocator->native_handle(), buffer_handle, allocation);
       return fail(errc::unsupported, "vmaCreateBuffer did not map host-visible memory");
     }
   }
 
-  return ::vkexec::owned::gpu_buffer{
-    ctx, buffer_handle, allocation, mapped_ptr, info.size, info.memory, want_device_address
-  };
+  return ::vkexec::vma::gpu_buffer{ &allocator->ctx(),
+    allocator->native_handle(),
+    buffer_handle,
+    allocation,
+    mapped_ptr,
+    info.size,
+    info.memory,
+    want_device_address };
 }
 
-owned::gpu_buffer::gpu_buffer(context *ctx,
+vma::gpu_buffer::gpu_buffer(context *ctx,
+  VmaAllocator allocator,
   VkBuffer buffer,
   VmaAllocation allocation,
   void *mapped,
   VkDeviceSize size,
   gpu_buffer_memory memory,
   bool shader_device_address) noexcept
-  : ctx_(ctx), buffer_(buffer), allocation_(allocation), mapped_(mapped), size_(size), memory_(memory),
-    shader_device_address_(shader_device_address)
+  : ctx_(ctx), allocator_(allocator), buffer_(buffer), allocation_(allocation), mapped_(mapped), size_(size),
+    memory_(memory), shader_device_address_(shader_device_address)
 {}
 
-owned::gpu_buffer::~gpu_buffer() { destroy(); }
+vma::gpu_buffer::~gpu_buffer() { destroy(); }
 
-owned::gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
-  : ctx_(other.ctx_), buffer_(other.buffer_), allocation_(other.allocation_), mapped_(other.mapped_),
-    size_(other.size_), memory_(other.memory_), shader_device_address_(other.shader_device_address_)
+vma::gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
+  : ctx_(other.ctx_), allocator_(other.allocator_), buffer_(other.buffer_), allocation_(other.allocation_),
+    mapped_(other.mapped_), size_(other.size_), memory_(other.memory_),
+    shader_device_address_(other.shader_device_address_)
 {
   other.ctx_ = nullptr;
+  other.allocator_ = VK_NULL_HANDLE;
   other.buffer_ = VK_NULL_HANDLE;
   other.allocation_ = VK_NULL_HANDLE;
   other.mapped_ = nullptr;
@@ -132,11 +144,12 @@ owned::gpu_buffer::gpu_buffer(gpu_buffer &&other) noexcept
   other.shader_device_address_ = false;
 }
 
-auto owned::gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
+auto vma::gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
 {
   if (this == &other) { return *this; }
   destroy();
   ctx_ = other.ctx_;
+  allocator_ = other.allocator_;
   buffer_ = other.buffer_;
   allocation_ = other.allocation_;
   mapped_ = other.mapped_;
@@ -144,6 +157,7 @@ auto owned::gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
   memory_ = other.memory_;
   shader_device_address_ = other.shader_device_address_;
   other.ctx_ = nullptr;
+  other.allocator_ = VK_NULL_HANDLE;
   other.buffer_ = VK_NULL_HANDLE;
   other.allocation_ = VK_NULL_HANDLE;
   other.mapped_ = nullptr;
@@ -152,13 +166,39 @@ auto owned::gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
   return *this;
 }
 
-auto owned::gpu_buffer::mapped() const noexcept -> std::span<std::byte>
+auto vma::gpu_buffer::mapped() noexcept -> std::span<std::byte>
 {
   if (mapped_ == nullptr) { return {}; }
   return { static_cast<std::byte *>(mapped_), static_cast<std::size_t>(size_) };
 }
 
-auto owned::gpu_buffer::device_address() const -> result<VkDeviceAddress>
+auto vma::gpu_buffer::mapped() const noexcept -> std::span<std::byte const>
+{
+  if (mapped_ == nullptr) { return {}; }
+  return { static_cast<std::byte const *>(mapped_), static_cast<std::size_t>(size_) };
+}
+
+auto vma::gpu_buffer::flush() const -> status
+{
+  if (allocator_ == VK_NULL_HANDLE || allocation_ == VK_NULL_HANDLE || mapped_ == nullptr) {
+    return fail(errc::invalid_argument, "flush requires a mapped VMA buffer");
+  }
+  VkResult const flushed = vmaFlushAllocation(allocator_, allocation_, 0, VK_WHOLE_SIZE);
+  if (flushed != VK_SUCCESS) { return fail(flushed, "vmaFlushAllocation failed"); }
+  return {};
+}
+
+auto vma::gpu_buffer::invalidate() const -> status
+{
+  if (allocator_ == VK_NULL_HANDLE || allocation_ == VK_NULL_HANDLE || mapped_ == nullptr) {
+    return fail(errc::invalid_argument, "invalidate requires a mapped VMA buffer");
+  }
+  VkResult const invalidated = vmaInvalidateAllocation(allocator_, allocation_, 0, VK_WHOLE_SIZE);
+  if (invalidated != VK_SUCCESS) { return fail(invalidated, "vmaInvalidateAllocation failed"); }
+  return {};
+}
+
+auto vma::gpu_buffer::device_address() const -> result<VkDeviceAddress>
 {
   if (!shader_device_address_) {
     return fail(errc::invalid_argument, "vkexec::gpu_buffer was not created with shader_device_address");
@@ -172,12 +212,11 @@ auto owned::gpu_buffer::device_address() const -> result<VkDeviceAddress>
   return ctx_->procs().get_buffer_device_address(ctx_->device(), &info);
 }
 
-auto owned::gpu_buffer::destroy() noexcept -> void
+auto vma::gpu_buffer::destroy() noexcept -> void
 {
-  if (ctx_ != nullptr && ctx_->allocator() != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) {
-    vmaDestroyBuffer(ctx_->allocator(), buffer_, allocation_);
-  }
+  if (allocator_ != VK_NULL_HANDLE && buffer_ != VK_NULL_HANDLE) { vmaDestroyBuffer(allocator_, buffer_, allocation_); }
   ctx_ = nullptr;
+  allocator_ = VK_NULL_HANDLE;
   buffer_ = VK_NULL_HANDLE;
   allocation_ = VK_NULL_HANDLE;
   mapped_ = nullptr;

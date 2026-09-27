@@ -3,7 +3,6 @@ add_library(
   descriptor_heap/descriptor_heap.cpp
   descriptor_heap/extension.cpp
   descriptor_heap/procs.cpp
-  descriptor_heap/buffer.cpp
   descriptor_heap/push_data.cpp
   descriptor_heap/strategy.cpp
   descriptor_heap/pass.cpp
@@ -11,13 +10,6 @@ add_library(
   descriptor_heap/heap_compute_pipeline.cpp
   descriptor_heap/heap_graphics_pipeline.cpp)
 add_library(vkexec::ext_descriptor_heap ALIAS vkexec_ext_descriptor_heap)
-
-add_library(vkexec_ext_dynamic_rendering dynamic_rendering/rendering.cpp)
-add_library(vkexec::ext_dynamic_rendering ALIAS vkexec_ext_dynamic_rendering)
-
-add_library(vkexec_ext_timeline_semaphore timeline_semaphore/timeline_semaphore.cpp timeline_semaphore/frame_ring.cpp
-                                          timeline_semaphore/frame_present.cpp)
-add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
 
 target_include_directories(
   vkexec_ext_descriptor_heap
@@ -38,6 +30,13 @@ set_target_properties(
   PROPERTIES VERSION ${PROJECT_VERSION}
              CXX_VISIBILITY_PRESET default
              VISIBILITY_INLINES_HIDDEN YES)
+
+add_library(vkexec_ext_dynamic_rendering dynamic_rendering/rendering.cpp)
+add_library(vkexec::ext_dynamic_rendering ALIAS vkexec_ext_dynamic_rendering)
+
+add_library(vkexec_ext_timeline_semaphore timeline_semaphore/timeline_semaphore.cpp timeline_semaphore/frame_ring.cpp
+                                          timeline_semaphore/frame_present.cpp)
+add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
 
 target_include_directories(
   vkexec_ext_dynamic_rendering

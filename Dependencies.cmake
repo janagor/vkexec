@@ -188,7 +188,7 @@ function(vkexec_setup_dependencies)
       YES)
   endif()
 
-  if(NOT TARGET GPUOpen::VulkanMemoryAllocator)
+  if(vkexec_BUILD_VMA AND NOT TARGET GPUOpen::VulkanMemoryAllocator)
     cpmaddpackage(
       NAME
       VulkanMemoryAllocator

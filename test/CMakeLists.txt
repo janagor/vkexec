@@ -47,33 +47,37 @@ add_executable(
   barrier_header_tests.cpp
   sender_tests.cpp
   resource_table_tests.cpp
+  resource_allocator_tests.cpp
   descriptor_schema_tests.cpp
   pass_detail_tests.cpp
   dispatch_tests.cpp
   error_tests.cpp
-  buffer_tests.cpp
-  tensor_tests.cpp
-  gpu_buffer_tests.cpp
   timeline_semaphore_tests.cpp
   frame_ring_tests.cpp
   push_data_tests.cpp
-  descriptor_heap_tests.cpp
   extension_tests.cpp
   feature_tests.cpp
-  image_tests.cpp
-  image_barrier_tests.cpp
-  rendering_tests.cpp
   sampler_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp
   vulkan_requirements_tests.cpp)
-if(vkexec_BUILD_TOOLS)
+if(vkexec_BUILD_VMA)
   target_sources(
     tests
-    PRIVATE spirv_compile_tests.cpp
-            descriptor_heap_pipeline_tests.cpp
-            draw_stop_tests.cpp
-            gpu_tests.cpp)
+    PRIVATE buffer_tests.cpp
+            tensor_tests.cpp
+            gpu_buffer_tests.cpp
+            descriptor_heap_tests.cpp
+            image_tests.cpp
+            image_barrier_tests.cpp
+            rendering_tests.cpp)
+  target_link_libraries(tests PRIVATE vkexec::vma)
+endif()
+if(vkexec_BUILD_TOOLS)
+  target_sources(tests PRIVATE spirv_compile_tests.cpp)
+endif()
+if(vkexec_BUILD_TOOLS AND vkexec_BUILD_VMA)
+  target_sources(tests PRIVATE descriptor_heap_pipeline_tests.cpp draw_stop_tests.cpp gpu_tests.cpp)
 endif()
 target_link_libraries(
   tests
@@ -81,8 +85,8 @@ target_link_libraries(
           vkexec::vkexec_options
           vkexec::vkexec
           vkexec::features
-          vkexec::ext_timeline_semaphore
           vkexec::ext_descriptor_heap
+          vkexec::ext_timeline_semaphore
           vkexec::ext_dynamic_rendering
           vkexec::vkexec_graphics
           Catch2::Catch2WithMain)

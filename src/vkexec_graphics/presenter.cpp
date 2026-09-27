@@ -10,7 +10,6 @@
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <VkBootstrap.h>
-#include <vk_mem_alloc.h>
 
 #include <vulkan/vulkan_core.h>
 
@@ -28,8 +27,6 @@ namespace {
   constexpr std::uint32_t k_color_attachment_index = 0;
   constexpr std::uint32_t k_depth_attachment_index = 1;
   constexpr std::uint32_t k_framebuffer_attachment_count = 2;
-  constexpr std::uint32_t k_depth_mip_levels = 1;
-  constexpr std::uint32_t k_depth_array_layers = 1;
 
   auto pick_depth_format(VkPhysicalDevice phys) -> result<VkFormat>
   {
@@ -50,15 +47,6 @@ namespace {
 
   auto format_has_stencil(VkFormat format) -> bool
   { return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT; }
-
-  auto depth_aspect_mask(VkFormat format) -> VkImageAspectFlags
-  {
-    if (format_has_stencil(format)) {
-      // NOLINTNEXTLINE(hicpp-signed-bitwise)
-      return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-    }
-    return VK_IMAGE_ASPECT_DEPTH_BIT;
-  }
 
 }// namespace
 
@@ -96,17 +84,13 @@ auto detail::make_headless_presenter_factory::operator()() -> result<::vkexec::o
 owned::presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
     swapchain_(std::move(other.swapchain_)), depth_format_(other.depth_format_),
-    framebuffers_(std::move(other.framebuffers_)), depth_image_(other.depth_image_),
-    depth_allocation_(other.depth_allocation_), depth_view_(other.depth_view_), render_pass_(other.render_pass_),
+    framebuffers_(std::move(other.framebuffers_)), depth_(std::move(other.depth_)), render_pass_(other.render_pass_),
     frames_(std::move(other.frames_)), command_buffers_(std::move(other.command_buffers_)),
     render_finished_(std::move(other.render_finished_)), images_in_flight_(std::move(other.images_in_flight_)),
     frame_index_(other.frame_index_), current_image_index_(other.current_image_index_),
     resize_required_(other.resize_required_), suspended_(other.suspended_), frame_open_(other.frame_open_)
 {
   other.surface_ = VK_NULL_HANDLE;
-  other.depth_image_ = VK_NULL_HANDLE;
-  other.depth_allocation_ = VK_NULL_HANDLE;
-  other.depth_view_ = VK_NULL_HANDLE;
   other.render_pass_ = VK_NULL_HANDLE;
 }
 
@@ -125,6 +109,9 @@ auto owned::presenter::init(config cfg) -> status
     return fail(errc::invalid_argument, "presenter requires a non-zero initial extent");
   }
   if (!cfg_.create_surface) { return fail(errc::invalid_argument, "presenter requires a surface factory"); }
+  if (!cfg_.create_depth_attachment) {
+    return fail(errc::invalid_argument, "presenter requires a depth attachment factory");
+  }
 
   ctx_ = std::make_unique<::vkexec::context>(context::factory_access{},
     context::instance_only_tag{},
@@ -289,59 +276,16 @@ auto owned::presenter::create_render_pass() -> status
 
 auto owned::presenter::create_depth_resources() -> status
 {
-  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
-  VkImageCreateInfo image_info{};
-  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.format = depth_format_;
-  image_info.extent = { .width = extent().width, .height = extent().height, .depth = 1 };
-  image_info.mipLevels = k_depth_mip_levels;
-  image_info.arrayLayers = k_depth_array_layers;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-  image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-  VmaAllocationCreateInfo alloc_info{};
-  alloc_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-
-  if (VkResult const result =
-        vmaCreateImage(ctx_->allocator(), &image_info, &alloc_info, &depth_image_, &depth_allocation_, nullptr);
-    result != VK_SUCCESS) {
-    return fail(result, "vmaCreateImage failed (depth)");
+  VKEXEC_TRY_ASSIGN(created, cfg_.create_depth_attachment(*ctx_, extent(), depth_format_));
+  if (created.image() == VK_NULL_HANDLE || created.view() == VK_NULL_HANDLE || created.format() != depth_format_
+      || created.extent().width != extent().width || created.extent().height != extent().height) {
+    return fail(errc::invalid_argument, "depth attachment does not match the presenter extent or format");
   }
-
-  VkImageViewCreateInfo view_info{};
-  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_info.image = depth_image_;
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = depth_format_;
-  view_info.subresourceRange.aspectMask = depth_aspect_mask(depth_format_);
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = k_depth_mip_levels;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = k_depth_array_layers;
-  if (VkResult const result = vkCreateImageView(ctx_->device(), &view_info, nullptr, &depth_view_);
-    result != VK_SUCCESS) {
-    return fail(result, "vkCreateImageView failed (depth)");
-  }
+  depth_ = std::move(created);
   return {};
 }
 
-auto owned::presenter::destroy_depth_resources() noexcept -> void
-{
-  if (ctx_ == nullptr || ctx_->device() == VK_NULL_HANDLE) { return; }
-  if (depth_view_ != VK_NULL_HANDLE) {
-    vkDestroyImageView(ctx_->device(), depth_view_, nullptr);
-    depth_view_ = VK_NULL_HANDLE;
-  }
-  if (depth_image_ != VK_NULL_HANDLE) {
-    vmaDestroyImage(ctx_->allocator(), depth_image_, depth_allocation_);
-    depth_image_ = VK_NULL_HANDLE;
-    depth_allocation_ = VK_NULL_HANDLE;
-  }
-}
+auto owned::presenter::destroy_depth_resources() noexcept -> void { depth_ = {}; }
 
 auto owned::presenter::create_framebuffers() -> status
 {
@@ -351,7 +295,7 @@ auto owned::presenter::create_framebuffers() -> status
   framebuffers_.resize(views.size());
   for (std::size_t index = 0; index < views.size(); ++index) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
-    std::array const attachments{ views[index], depth_view_ };
+    std::array const attachments{ views[index], depth_.view() };
     VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_info.renderPass = render_pass_;

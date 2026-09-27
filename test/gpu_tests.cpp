@@ -1,4 +1,5 @@
 #include "test_helpers.hpp"
+#include "vma_test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -8,7 +9,6 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_schema.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -16,6 +16,7 @@
 #include <vkexec/result.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/schema_pass.hpp>
+#include <vkexec_vma/image.hpp>
 
 #include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
@@ -124,8 +125,9 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, 0.0F));
-  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial_velocity));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(allocator, k_count, 0.0F));
+  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(allocator, k_count, k_initial_velocity));
   auto pipe = vkexec::test::sync_wait_value(
     vkexec::factory::make_compute_pipeline(*ctx, k_sim_glsl, make_sim_layout(), "sim.comp"));
 
@@ -161,8 +163,9 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, 0.0F));
-  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial_velocity));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto positions = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(allocator, k_count, 0.0F));
+  auto velocities = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(allocator, k_count, k_initial_velocity));
 
   auto resources_result = vkexec::create(*ctx,
     k_sim_glsl,
@@ -196,9 +199,10 @@ void main() {}
 )";
 
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(
-    *ctx, vkexec::image_create_info{ .width = 1, .height = 1, .usage = vkexec::image_usage::color_storage }));
-  auto view = vkexec::test::sync_wait_value(vkexec::factory::make_image_view(*ctx, img));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto img = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{ .width = 1, .height = 1, .usage = vkexec::vma::image_usage::color_storage }));
+  auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   auto resources_result =
     vkexec::create(*ctx, k_empty_compute_glsl, vkexec::layout_desc_from_schema(image_schema{}), "table_images.comp");
@@ -227,7 +231,8 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(allocator, k_count, k_initial));
   auto add_pipe = vkexec::test::sync_wait_value(
     vkexec::factory::make_compute_pipeline(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
   auto scale_pipe = vkexec::test::sync_wait_value(
@@ -270,7 +275,8 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   constexpr float k_epsilon = 1.0E-4F;
 
   auto ctx = vkexec::test::require_context();
-  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_count, k_initial));
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto values = vkexec::test::sync_wait_value(vkexec::factory::make_buffer(allocator, k_count, k_initial));
   auto add_pipe = vkexec::test::sync_wait_value(
     vkexec::factory::make_compute_pipeline(*ctx, k_add_glsl, make_one_buffer_layout(), "add.comp"));
   auto scale_pipe = vkexec::test::sync_wait_value(

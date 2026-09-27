@@ -11,7 +11,6 @@
 #include "detail/host_agent.hpp"
 
 #include <VkBootstrap.h>
-#include <vk_mem_alloc.h>
 
 #include <vulkan/vulkan_core.h>
 
@@ -38,7 +37,6 @@ struct context::impl
   vkb::Instance instance{};
   vkb::PhysicalDevice physical_device{};
   vkb::Device device{};
-  VmaAllocator allocator{ VK_NULL_HANDLE };
   VkQueue compute_queue{ VK_NULL_HANDLE };
   VkQueue graphics_queue{ VK_NULL_HANDLE };
   VkQueue present_queue{ VK_NULL_HANDLE };
@@ -54,7 +52,6 @@ struct context::impl
   bool has_device{ false };
   bool owns_instance{ false };
   bool owns_device{ false };
-  bool owns_allocator{ false };
 };
 
 namespace {
@@ -231,10 +228,8 @@ auto context::queue_family() const noexcept -> std::uint32_t { return impl_->que
 auto context::graphics_queue_family() const noexcept -> std::uint32_t { return impl_->graphics_family; }
 auto context::present_queue_family() const noexcept -> std::uint32_t { return impl_->present_family; }
 auto context::command_pool() const noexcept -> VkCommandPool { return impl_->command_pool; }
-auto context::allocator() const noexcept -> VmaAllocator { return impl_->allocator; }
 auto context::owns_instance() const noexcept -> bool { return impl_->owns_instance; }
 auto context::owns_device() const noexcept -> bool { return impl_->owns_device; }
-auto context::owns_allocator() const noexcept -> bool { return impl_->owns_allocator; }
 auto context::presentation_enabled() const noexcept -> bool { return impl_->presentation_enabled; }
 auto context::requirements() const noexcept -> vulkan_requirements const & { return impl_->requirements; }
 auto context::api_version() const noexcept -> std::uint32_t { return impl_->api_version; }
@@ -245,7 +240,6 @@ auto context::init_common_resources() -> status
   // Shared path for create() and window surface completion after the device exists.
   load_device_procs();
   VKEXEC_TRY(create_command_pool());
-  VKEXEC_TRY(create_allocator());
   impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
   impl_->host_agent = std::make_unique<detail::host_agent>();
   return {};
@@ -268,7 +262,6 @@ auto context::init_headless(scheduler_options const &opts) -> status
   VKEXEC_TRY(build_device_into(impl_->physical_device, impl_->device));
   impl_->has_device = true;
   impl_->owns_device = true;
-  impl_->owns_allocator = true;
 
   VKEXEC_TRY(fetch_queues(false));
   return init_common_resources();
@@ -276,7 +269,7 @@ auto context::init_headless(scheduler_options const &opts) -> status
 
 auto context::init_adopted(context_adopt_info const &info) -> status
 {
-  // Borrowed handles: never set owns_* for instance/device; allocator only if we create it.
+  // Borrowed handles: never set owns_* for instance/device.
   if (info.device == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "context::adopt requires a VkDevice"); }
   if (info.compute_queue == VK_NULL_HANDLE) {
     return fail(errc::invalid_argument, "context::adopt requires a compute VkQueue");
@@ -309,17 +302,6 @@ auto context::init_adopted(context_adopt_info const &info) -> status
   }
 
   load_device_procs();
-
-  if (info.allocator != VK_NULL_HANDLE) {
-    impl_->allocator = info.allocator;
-  } else {
-    if (info.instance == VK_NULL_HANDLE || info.physical_device == VK_NULL_HANDLE) {
-      return fail(
-        errc::invalid_argument, "context::adopt requires instance and physical_device when allocator is null");
-    }
-    VKEXEC_TRY(create_allocator());
-    impl_->owns_allocator = true;
-  }
 
   VKEXEC_TRY(create_command_pool());
   impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
@@ -355,7 +337,6 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
   VKEXEC_TRY(build_device_into(impl_->physical_device, impl_->device));
   impl_->has_device = true;
   impl_->owns_device = true;
-  impl_->owns_allocator = true;
 
   VKEXEC_TRY(fetch_queues(true));
   VKEXEC_TRY(init_common_resources());
@@ -426,10 +407,6 @@ context::~context()
       vkDestroyCommandPool(impl_->device.device, impl_->command_pool, nullptr);
       impl_->command_pool = VK_NULL_HANDLE;
     }
-    if (impl_->owns_allocator && impl_->allocator != VK_NULL_HANDLE) {
-      vmaDestroyAllocator(impl_->allocator);
-      impl_->allocator = VK_NULL_HANDLE;
-    }
     if (impl_->owns_device) {
       vkb::destroy_device(impl_->device);
       impl_->has_device = false;
@@ -450,22 +427,6 @@ auto context::create_command_pool() -> status
   pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   if (vkCreateCommandPool(impl_->device.device, &pool_info, nullptr, &impl_->command_pool) != VK_SUCCESS) {
     return fail(VK_ERROR_UNKNOWN, "vkCreateCommandPool failed");
-  }
-  return {};
-}
-
-auto context::create_allocator() -> status
-{
-  VmaAllocatorCreateInfo allocator_info{};
-  allocator_info.physicalDevice = impl_->physical_device.physical_device;
-  allocator_info.device = impl_->device.device;
-  allocator_info.instance = impl_->instance.instance;
-  allocator_info.vulkanApiVersion = impl_->api_version;
-  if (impl_->procs.get_buffer_device_address != nullptr) {
-    allocator_info.flags |= static_cast<decltype(allocator_info.flags)>(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT);
-  }
-  if (vmaCreateAllocator(&allocator_info, &impl_->allocator) != VK_SUCCESS) {
-    return fail(VK_ERROR_UNKNOWN, "vmaCreateAllocator failed");
   }
   return {};
 }

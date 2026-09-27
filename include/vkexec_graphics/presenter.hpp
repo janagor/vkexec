@@ -5,6 +5,7 @@
 //! Backend-neutral Vulkan presentation with swapchain and per-frame sync.
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
@@ -14,6 +15,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -24,6 +26,65 @@ constexpr std::uint32_t k_default_presenter_height = 600;
 
 //! Creates a Vulkan surface for an already-created instance.
 using surface_factory = std::function<result<VkSurfaceKHR>(VkInstance)>;
+
+namespace graphics {
+  //! Move-only depth attachment whose cleanup is supplied by its allocator.
+  class depth_attachment
+  {
+  public:
+    depth_attachment() = default;
+    template<class Cleanup>
+      requires std::is_nothrow_invocable_r_v<void, Cleanup &> && std::is_nothrow_destructible_v<std::decay_t<Cleanup>>
+    depth_attachment(VkImage image, VkImageView view, VkFormat format, VkExtent2D extent, Cleanup cleanup)
+      : image_(image), view_(view), format_(format), extent_(extent), cleanup_(std::move(cleanup))
+    {}
+
+    ~depth_attachment() { reset(); }
+    depth_attachment(depth_attachment const &) = delete;
+    auto operator=(depth_attachment const &) -> depth_attachment & = delete;
+    depth_attachment(depth_attachment &&other) noexcept
+      : image_(std::exchange(other.image_, VK_NULL_HANDLE)), view_(std::exchange(other.view_, VK_NULL_HANDLE)),
+        format_(std::exchange(other.format_, VK_FORMAT_UNDEFINED)), extent_(std::exchange(other.extent_, {})),
+        cleanup_(std::move(other.cleanup_))
+    {}
+    auto operator=(depth_attachment &&other) noexcept -> depth_attachment &
+    {
+      if (this == &other) { return *this; }
+      reset();
+      image_ = std::exchange(other.image_, VK_NULL_HANDLE);
+      view_ = std::exchange(other.view_, VK_NULL_HANDLE);
+      format_ = std::exchange(other.format_, VK_FORMAT_UNDEFINED);
+      extent_ = std::exchange(other.extent_, {});
+      cleanup_ = std::move(other.cleanup_);
+      return *this;
+    }
+
+    [[nodiscard]] auto image() const noexcept -> VkImage { return image_; }
+    [[nodiscard]] auto view() const noexcept -> VkImageView { return view_; }
+    [[nodiscard]] auto format() const noexcept -> VkFormat { return format_; }
+    [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
+
+  private:
+    auto reset() noexcept -> void
+    {
+      if (cleanup_) { cleanup_(); }
+      cleanup_ = nullptr;
+      image_ = VK_NULL_HANDLE;
+      view_ = VK_NULL_HANDLE;
+    }
+
+    VkImage image_{ VK_NULL_HANDLE };
+    VkImageView view_{ VK_NULL_HANDLE };
+    VkFormat format_{ VK_FORMAT_UNDEFINED };
+    VkExtent2D extent_{};
+    ::vkexec::detail::move_only_function<void()> cleanup_;
+  };
+
+  //! Creates an owning depth attachment for a presenter extent.
+  using depth_attachment_factory = std::function<result<depth_attachment>(context &, VkExtent2D, VkFormat)>;
+}// namespace graphics
+
+using depth_attachment_factory = graphics::depth_attachment_factory;
 
 /**
  * Per-frame recording handle returned by `presenter::begin_frame()`.
@@ -51,6 +112,7 @@ struct presenter_config
   bool validation_layers{ false };
   std::vector<char const *> surface_instance_extensions;
   surface_factory create_surface;
+  depth_attachment_factory create_depth_attachment;
   vulkan_requirements requirements{};
 };
 
@@ -87,7 +149,7 @@ namespace factory {
      * @param cfg Initial extent, Vulkan options, extensions, and surface factory.
      */
     [[nodiscard]] auto operator()(presenter_config cfg) const
-    { return make_sender(detail::make_presenter_factory{ .cfg = std::move(cfg) }); }
+    { return make_sender(::vkexec::detail::make_presenter_factory{ .cfg = std::move(cfg) }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -101,7 +163,7 @@ namespace factory {
   struct make_headless_presenter_t
   {
     [[nodiscard]] auto operator()(presenter_config cfg) const
-    { return make_sender(detail::make_headless_presenter_factory{ .cfg = std::move(cfg) }); }
+    { return make_sender(::vkexec::detail::make_headless_presenter_factory{ .cfg = std::move(cfg) }); }
     //! Headless presenter with default config.
     [[nodiscard]] auto operator()() const { return (*this)(presenter_config{}); }
   };
@@ -134,7 +196,7 @@ namespace owned {
     presenter(presenter &&other) noexcept;
     auto operator=(presenter &&other) noexcept -> presenter &;
 
-    //! Owned Vulkan context used for queues, device, and VMA.
+    //! Owned Vulkan context used for queues and device procedures.
     [[nodiscard]] auto ctx() noexcept -> context & { return *ctx_; }
     //! Const owned Vulkan context.
     [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
@@ -195,6 +257,7 @@ namespace owned {
     auto init(config cfg) -> status;
     auto create_swapchain() -> status;
     auto create_render_pass() -> status;
+    //! Owns a depth attachment supplied by `config::create_depth_attachment`.
     auto create_depth_resources() -> status;
     auto destroy_depth_resources() noexcept -> void;
     auto create_framebuffers() -> status;
@@ -212,9 +275,7 @@ namespace owned {
     VkFormat depth_format_{ VK_FORMAT_UNDEFINED };
     std::vector<VkFramebuffer> framebuffers_;
 
-    VkImage depth_image_{ VK_NULL_HANDLE };
-    VmaAllocation depth_allocation_{ VK_NULL_HANDLE };
-    VkImageView depth_view_{ VK_NULL_HANDLE };
+    graphics::depth_attachment depth_;
 
     VkRenderPass render_pass_{ VK_NULL_HANDLE };
 

@@ -1,112 +1,91 @@
 #ifndef VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_BUFFER_HPP
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_BUFFER_HPP
 
-#include <vkexec/context.hpp>
+//! \file
+//! Descriptor heap backing storage supplied by a buffer allocator.
+
+#include <vkexec/detail/normalize_errors.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/resource_allocator.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 
-#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include <cstddef>
-#include <cstdint>
 #include <span>
+#include <type_traits>
+#include <utility>
 
 namespace vkexec {
 
-class descriptor_heap_buffer;
+constexpr VkDeviceSize k_descriptor_heap_buffer_alignment = 4096;
 
-namespace detail {
+template<class B>
+  requires flushable_buffer_resource<B> && device_addressable_buffer_resource<B>
+class descriptor_heap_buffer
+{
+public:
+  explicit descriptor_heap_buffer(B resource) noexcept(std::is_nothrow_move_constructible_v<B>)
+    : resource_(std::move(resource))
+  {}
 
-  struct make_descriptor_heap_buffer_factory
-  {
-    context *ctx;
-    VkDeviceSize size;
+  descriptor_heap_buffer(descriptor_heap_buffer const &) = delete;
+  auto operator=(descriptor_heap_buffer const &) -> descriptor_heap_buffer & = delete;
+  descriptor_heap_buffer(descriptor_heap_buffer &&) noexcept(std::is_nothrow_move_constructible_v<B>) = default;
+  auto operator=(descriptor_heap_buffer &&) noexcept(std::is_nothrow_move_assignable_v<B>)
+    -> descriptor_heap_buffer & = default;
+  ~descriptor_heap_buffer() = default;
 
-    [[nodiscard]] auto operator()() const -> result<descriptor_heap_buffer>;
-  };
+  [[nodiscard]] auto handle() const noexcept -> VkBuffer { return resource_.handle(); }
+  [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return resource_.size(); }
+  [[nodiscard]] auto mapped() noexcept -> std::span<std::byte> { return resource_.mapped(); }
+  [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte const> { return resource_.mapped(); }
+  [[nodiscard]] auto device_address() const -> result<VkDeviceAddress> { return resource_.device_address(); }
+  [[nodiscard]] auto flush() -> status { return resource_.flush(); }
 
-}// namespace detail
+private:
+  B resource_;
+};
 
 namespace factory {
-
   struct make_descriptor_heap_buffer_t
   {
-
-    /**
-     * Creates a host-visible, host-coherent descriptor heap buffer of `size` bytes.
-     *
-     * @param ctx Context whose VMA allocator owns the allocation.
-     * @param size Byte size (must accommodate descriptors + reserved range).
-     */
-    [[nodiscard]] auto operator()(context &ctx, VkDeviceSize size) const
-    { return make_sender(detail::make_descriptor_heap_buffer_factory{ .ctx = &ctx, .size = size }); }
+    template<buffer_allocator A>
+      requires flushable_buffer_resource<typename A::buffer_type>
+               && device_addressable_buffer_resource<typename A::buffer_type>
+    [[nodiscard]] auto operator()(A &allocator, VkDeviceSize size) const
+    {
+      using resource_type = A::buffer_type;
+      auto prepared = make_sender([size]() -> result<VkDeviceSize> {
+        if (size == 0) { return fail(errc::invalid_argument, "descriptor heap size must be > 0"); }
+        return size;
+      });
+      auto composed = std::move(prepared) | stdexec::let_value([&allocator](VkDeviceSize &bytes) -> auto {
+        return allocate_buffer(allocator,
+                 buffer_create_info{
+                   .size = bytes,
+                   .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                   .memory = memory_domain::host_visible,
+                   .shader_device_address = true,
+                   .alignment = k_descriptor_heap_buffer_alignment,
+                 })
+               | stdexec::let_value([bytes](resource_type &resource) -> auto {
+                   return make_sender([&resource, bytes]() -> result<descriptor_heap_buffer<resource_type>> {
+                     if (resource.size() < bytes || resource.mapped().size() < bytes) {
+                       return fail(errc::unsupported, "descriptor heap allocation is too small or unmapped");
+                     }
+                     return descriptor_heap_buffer<resource_type>{ std::move(resource) };
+                   });
+                 });
+      });
+      return ::vkexec::detail::normalize_errors(std::move(composed));
+    }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
   inline constexpr make_descriptor_heap_buffer_t make_descriptor_heap_buffer{};
-
 }// namespace factory
-
-/**
- * Host-visible, host-coherent bindless descriptor heap buffer
- * (`VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT`).
- *
- * Persistently mapped for host descriptor writes; coherent memory is required so
- * continuous host writes are GPU-visible without explicit flushes. Use
- * `device_address()` when binding the heap on the GPU. `flush()` is a no-op when
- * the allocation is coherent (belt-and-suspenders for non-coherent fallbacks).
- *
- * @see query_descriptor_heap_layout, cmd_bind_resource_heap, factory::make_descriptor_heap_buffer
- */
-class descriptor_heap_buffer
-{
-public:
-  ~descriptor_heap_buffer();
-
-  descriptor_heap_buffer(descriptor_heap_buffer const &) = delete;
-  auto operator=(descriptor_heap_buffer const &) -> descriptor_heap_buffer & = delete;
-
-  descriptor_heap_buffer(descriptor_heap_buffer &&other) noexcept;
-  auto operator=(descriptor_heap_buffer &&other) noexcept -> descriptor_heap_buffer &;
-
-  //! Vulkan buffer handle (null after move).
-  [[nodiscard]] auto handle() const noexcept -> VkBuffer { return buffer_; }
-  //! Allocated size in bytes.
-  [[nodiscard]] auto size() const noexcept -> VkDeviceSize { return size_; }
-  //! Persistently mapped host bytes for descriptor writes.
-  [[nodiscard]] auto mapped() const noexcept -> std::span<std::byte>;
-  //! Device address for `cmd_bind_resource_heap` (requires buffer device address).
-  [[nodiscard]] auto device_address() const -> result<VkDeviceAddress>;
-
-  /**
-   * Flushes mapped host writes when the allocation is not host-coherent.
-   *
-   * No-op for coherent allocations (the create default). Safe to call after
-   * descriptor writes if an embedder wants an explicit visibility barrier.
-   */
-  [[nodiscard]] auto flush() const -> status;
-
-private:
-  friend struct detail::make_descriptor_heap_buffer_factory;
-
-  descriptor_heap_buffer(context *ctx,
-    VkBuffer buffer,
-    VmaAllocation allocation,
-    void *mapped,
-    VkDeviceSize size,
-    bool host_coherent) noexcept;
-
-  auto destroy() noexcept -> void;
-
-  context *ctx_{ nullptr };
-  VkBuffer buffer_{ VK_NULL_HANDLE };
-  VmaAllocation allocation_{ VK_NULL_HANDLE };
-  void *mapped_{ nullptr };
-  VkDeviceSize size_{ 0 };
-  bool host_coherent_{ true };
-};
 
 }// namespace vkexec
 

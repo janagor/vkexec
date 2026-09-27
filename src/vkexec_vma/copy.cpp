@@ -1,10 +1,11 @@
-#include <vkexec/copy.hpp>
+#include <vkexec_vma/copy.hpp>
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/copy.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/gpu_buffer.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec_vma/gpu_buffer.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -14,11 +15,11 @@
 #include <cstring>
 #include <span>
 
-namespace vkexec {
+namespace vkexec::vma {
 
 auto upload_to_device(context &ctx,
-  owned::gpu_buffer &staging,
-  owned::gpu_buffer const &device,
+  vma::gpu_buffer &staging,
+  vma::gpu_buffer const &device,
   std::span<std::byte const> bytes) -> status
 {
   if (staging.memory() != gpu_buffer_memory::staging && staging.memory() != gpu_buffer_memory::host_visible) {
@@ -94,10 +95,8 @@ auto upload_to_device(context &ctx,
   return submitted;
 }
 
-auto download_to_host(context &ctx,
-  owned::gpu_buffer &staging,
-  owned::gpu_buffer const &device,
-  std::span<std::byte> out) -> status
+auto download_to_host(context &ctx, vma::gpu_buffer &staging, vma::gpu_buffer const &device, std::span<std::byte> out)
+  -> status
 {
   if (staging.memory() != gpu_buffer_memory::staging && staging.memory() != gpu_buffer_memory::host_visible) {
     return fail(errc::invalid_argument, "download_to_host staging buffer must be host-visible");
@@ -182,4 +181,4 @@ auto download_to_host(context &ctx,
   return {};
 }
 
-}// namespace vkexec
+}// namespace vkexec::vma

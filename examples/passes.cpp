@@ -58,7 +58,8 @@ constexpr std::uint32_t k_op_mul = 1;
 static auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context({ .validation_layers = true }));
-  auto values = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, k_initial));
+  auto allocator = vkexec::examples::make_vma_allocator(*ctx);
+  auto values = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_element_count, k_initial));
 
   using enum vkexec::buffer_access;
   auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx,

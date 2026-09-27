@@ -9,6 +9,7 @@
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_graphics/presenter.hpp>
 #include <vkexec_graphics/swapchain.hpp>
+#include <vkexec_vma/graphics.hpp>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -35,7 +36,7 @@ public:
     vulkan_requirements requirements{};
   };
 
-  [[nodiscard]] static auto create(config cfg) -> glfw_presenter
+  [[nodiscard]] static auto create(config const &cfg) -> glfw_presenter
   {
     glfwSetErrorCallback([](int, char const *description) -> void {
       if (description != nullptr) { std::cerr << std::format("GLFW: {}\n", description); }
@@ -78,7 +79,8 @@ public:
         }
         return surface;
       },
-      .requirements = std::move(cfg.requirements),
+      .create_depth_attachment = vma::make_depth_attachment_factory(),
+      .requirements = cfg.requirements,
     })));
     return created;
   }

@@ -88,6 +88,11 @@ function(
     list(APPEND MSVC_WARNINGS /WX)
   endif()
 
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
+    # GCC 16 reports maybe-uninitialized inside stdexec's submit_result teardown for nested let_value chains.
+    list(APPEND GCC_WARNINGS -Wno-error=maybe-uninitialized)
+  endif()
+
   if(MSVC)
     set(PROJECT_WARNINGS_CXX ${MSVC_WARNINGS})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")

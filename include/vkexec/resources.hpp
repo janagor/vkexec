@@ -2,19 +2,20 @@
 #define VKEXEC_RESOURCES_HPP
 
 //! \file
-//! Resources umbrella: owning RAII Vulkan helpers for greenfield apps.
+//! Resources umbrella: allocator-neutral owning Vulkan helpers.
 //!
 //! Prefer `<vkexec/execution.hpp>` for borrow-first dispatch. This header covers
-//! `owned::` typed buffers, tensors, images, samplers, and pipelines.
+//! `owned::` samplers and pipelines, plus allocator-generic buffers and tensors.
+//! Concrete allocation backends such as VMA live in their own modules.
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
-#include <vkexec/factory.hpp>
-#include <vkexec/gpu_buffer.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
+#include <vkexec/resource_allocator.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/tensor.hpp>
+#include <vkexec/tensor_pass.hpp>
+#include <vkexec/tensor_sync.hpp>
 
 namespace vkexec {}// namespace vkexec
 

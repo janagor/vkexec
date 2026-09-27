@@ -3,7 +3,6 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan.h>
@@ -19,7 +18,9 @@ namespace detail {
   struct make_image_view_factory
   {
     context *ctx;
-    owned::image const *img;
+    VkImage image;
+    VkFormat format;
+    VkImageAspectFlags aspect;
 
     [[nodiscard]] auto operator()() const -> result<owned::image_view>;
   };
@@ -32,13 +33,16 @@ namespace factory {
   {
 
     /**
-     * Creates a 2D image view matching `img`'s format and aspect.
+     * Creates a 2D image view for raw Vulkan image facts.
      *
      * @param ctx Context that owns the device.
-     * @param img Image to view (must remain alive while the view is used).
+     * @param image Image to view (must remain alive while the view is used).
      */
-    [[nodiscard]] auto operator()(context &ctx, owned::image const &img) const
-    { return make_sender(detail::make_image_view_factory{ .ctx = &ctx, .img = &img }); }
+    [[nodiscard]] auto operator()(context &ctx, VkImage image, VkFormat format, VkImageAspectFlags aspect) const
+    {
+      return make_sender(
+        detail::make_image_view_factory{ .ctx = &ctx, .image = image, .format = format, .aspect = aspect });
+    }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)
@@ -47,9 +51,9 @@ namespace factory {
 }// namespace factory
 
 /**
- * RAII `VkImageView` for an `owned::image`.
+ * RAII `VkImageView` for a Vulkan image.
  *
- * The view does not own the image; `img` must outlive this view. Destroyed on
+ * The view does not own the image; it must outlive this view. Destroyed on
  * the context device when this object is destroyed or moved-from.
  *
  * @see image, factory::make_image_view

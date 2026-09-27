@@ -1,11 +1,11 @@
 #include "test_helpers.hpp"
+#include "vma_test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/gpu_buffer.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
@@ -21,6 +21,7 @@
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
+#include <vkexec_vma/gpu_buffer.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
@@ -87,6 +88,7 @@ TEST_CASE("compute_pipeline can create a descriptor-heap null layout", "[vkexec]
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_compute_glsl,
@@ -111,6 +113,7 @@ TEST_CASE("descriptor-heap compute_pipeline accepts specialization constants", "
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_spec_glsl,
@@ -132,6 +135,7 @@ TEST_CASE("compute_pass records push data for descriptor-heap pipelines", "[vkex
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
     k_heap_compute_glsl,
@@ -157,6 +161,7 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   vkexec::algorithm const algo =
     vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
       *ctx,
@@ -187,17 +192,18 @@ TEST_CASE("tagged create draws without owning pipeline", "[vkexec][descriptor_he
   requirements.require_extension_feature(features_12).require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
   REQUIRE(layout_result.has_value());
   auto const &layout = vkexec::expected_get(layout_result);
-  auto storage = vkexec::test::sync_wait_value(vkexec::factory::make_gpu_buffer(*ctx,
-    vkexec::gpu_buffer_create_info{
+  auto storage = vkexec::test::sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator,
+    vkexec::vma::gpu_buffer_create_info{
       .size = k_storage_bytes,
-      .memory = vkexec::gpu_buffer_memory::device_local,
+      .memory = vkexec::vma::buffer_memory::device_local,
       .shader_device_address = true,
     }));
   auto heap = vkexec::test::sync_wait_value(
-    vkexec::factory::make_descriptor_heap_buffer(*ctx, vkexec::descriptor_heap_byte_size(layout, 1)));
+    vkexec::factory::make_descriptor_heap_buffer(allocator, vkexec::descriptor_heap_byte_size(layout, 1)));
   auto const table = vkexec::bindings(
     vkexec::resource_binding{ .slot = 0, .resource = vkexec::buffer_resource(storage.handle(), storage.size()) });
   std::array<std::uint32_t, 1> const indices{ 0 };
@@ -248,6 +254,7 @@ TEST_CASE("create builds null-layout DR pipeline", "[vkexec][descriptor_heap][gp
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   auto resources_result = vkexec::create(vkexec::descriptor_heap,
     *ctx,
     vkexec::shaders::k_triangle_vert,
@@ -287,6 +294,7 @@ TEST_CASE("graphics_pipeline tag factory owns null-layout DR pipeline", "[vkexec
   requirements.require_extension_feature(features_heap);
 
   auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+  auto allocator = vkexec::test::require_allocator(*ctx);
   auto pipe = vkexec::test::sync_wait_value(vkexec::factory::make_graphics_pipeline(vkexec::descriptor_heap,
     *ctx,
     vkexec::shaders::k_triangle_vert,

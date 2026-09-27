@@ -1,11 +1,12 @@
 #include "test_helpers.hpp"
+#include "vma_test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec_vma/image.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -22,11 +23,12 @@ constexpr std::uint32_t k_height = 32;
 TEST_CASE("image_barrier transitions a color image to general", "[vkexec][image][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto img = vkexec::test::sync_wait_value(vkexec::factory::make_image(*ctx,
-    vkexec::image_create_info{
+  auto allocator = vkexec::test::require_allocator(*ctx);
+  auto img = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image(allocator,
+    vkexec::vma::image_create_info{
       .width = k_width,
       .height = k_height,
-      .usage = vkexec::image_usage::color_storage,
+      .usage = vkexec::vma::image_usage::color_storage,
     }));
 
   auto cmd_result = ctx->allocate_command_buffer();

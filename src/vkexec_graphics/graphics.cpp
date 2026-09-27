@@ -383,13 +383,8 @@ auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D exten
   -> void
 { vkexec::record_draw(cmd, bind(), extent, vertex_count); }
 
-auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh const &drawn) const -> void
-{
-  mesh_draw const handles{ .vertex_buffer = drawn.vk_vertex_buffer(),
-    .index_buffer = drawn.vk_index_buffer(),
-    .index_count = drawn.index_count() };
-  vkexec::record_draw(cmd, bind(), extent, handles);
-}
+auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh_draw const &drawn) const -> void
+{ vkexec::record_draw(cmd, bind(), extent, drawn); }
 
 auto owned::graphics_pipeline::draw(VkCommandBuffer cmd,
   VkRenderPass render_pass,
@@ -402,12 +397,7 @@ auto owned::graphics_pipeline::draw(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
-  mesh const &drawn) const -> status
-{
-  mesh_draw const handles{ .vertex_buffer = drawn.vk_vertex_buffer(),
-    .index_buffer = drawn.vk_index_buffer(),
-    .index_count = drawn.index_count() };
-  return draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), handles);
-}
+  mesh_draw const &drawn) const -> status
+{ return draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), drawn); }
 
 }// namespace vkexec

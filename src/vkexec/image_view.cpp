@@ -3,30 +3,22 @@
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 namespace vkexec {
-namespace {
-
-  auto aspect_for(image_usage usage) -> VkImageAspectFlags
-  { return usage == image_usage::depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT; }
-
-}// namespace
-
 auto detail::make_image_view_factory::operator()() const -> result<::vkexec::owned::image_view>
 {
   if (ctx->device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
-  if (img->handle() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
+  if (image == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
 
   VkImageViewCreateInfo view_info{};
   view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_info.image = img->handle();
+  view_info.image = image;
   view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = img->format();
-  view_info.subresourceRange.aspectMask = aspect_for(img->usage());
+  view_info.format = format;
+  view_info.subresourceRange.aspectMask = aspect;
   view_info.subresourceRange.baseMipLevel = 0;
   view_info.subresourceRange.levelCount = 1;
   view_info.subresourceRange.baseArrayLayer = 0;

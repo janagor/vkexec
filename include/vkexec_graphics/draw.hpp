@@ -119,7 +119,7 @@ struct draw_mesh_closure
 {
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
-  owned::mesh const *drawn{ nullptr };
+  mesh_draw const *drawn{ nullptr };
 };
 
 //! One layer in a multi-pipeline frame (`draw_layers`).
@@ -148,8 +148,7 @@ inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, std:
 { return draw_closure{ .win = &win, .pipeline = &pipeline, .vertex_count = vertex_count }; }
 
 //! Builds a mesh-draw closure for one presented frame.
-inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, owned::mesh const &drawn)
-  -> draw_mesh_closure
+inline auto draw(owned::presenter &win, owned::graphics_pipeline &pipeline, mesh_draw const &drawn) -> draw_mesh_closure
 { return draw_mesh_closure{ .win = &win, .pipeline = &pipeline, .drawn = &drawn }; }
 
 struct draw_bind_closure
@@ -545,15 +544,15 @@ struct draw_mesh_sender
   context *ctx{ nullptr };
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
-  owned::mesh const *drawn{ nullptr };
+  mesh_draw const *drawn{ nullptr };
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
   template<class Receiver> struct op_state
   {
-    owned::presenter *win;
-    owned::graphics_pipeline *pipeline;
-    owned::mesh const *drawn;
+    owned::presenter *win{ nullptr };
+    owned::graphics_pipeline *pipeline{ nullptr };
+    mesh_draw const *drawn{ nullptr };
     Receiver receiver;
 
     auto start() noexcept -> void
@@ -608,7 +607,7 @@ struct draw_mesh_async_sender
   context *ctx{ nullptr };
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
-  owned::mesh const *drawn{ nullptr };
+  mesh_draw const *drawn{ nullptr };
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
 
@@ -621,7 +620,7 @@ struct draw_mesh_async_sender
     context *ctx{};
     owned::presenter *win{};
     owned::graphics_pipeline *pipeline{};
-    owned::mesh const *drawn{};
+    mesh_draw const *drawn{};
     Receiver receiver;
 
     auto start() noexcept -> void

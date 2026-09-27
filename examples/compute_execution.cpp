@@ -57,10 +57,11 @@ struct sim_params
 static auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context({ .validation_layers = true }));
+  auto allocator = vkexec::examples::make_vma_allocator(*ctx);
   // Host-visible buffers are still convenient owning helpers; dispatch uses borrowable handles only.
-  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, 0.0F));
+  auto positions = vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_element_count, 0.0F));
   auto velocities =
-    vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(*ctx, k_element_count, k_initial_velocity));
+    vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_element_count, k_initial_velocity));
 
   using enum vkexec::buffer_access;
   auto resources_result = vkexec::create(*ctx,

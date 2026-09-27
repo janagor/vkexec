@@ -11,6 +11,7 @@
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/mesh.hpp>
+#include <vkexec_graphics/presenter.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 namespace vkexec {}// namespace vkexec

@@ -72,6 +72,11 @@ file(
   "${PROJECT_SOURCE_DIR}/include/vkexec/*.hpp")
 file(
   GLOB_RECURSE
+  VKEXEC_VMA_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_vma/*.hpp")
+file(
+  GLOB_RECURSE
   VKEXEC_TOOLS_HEADERS
   CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec_tools/*.hpp")
@@ -119,6 +124,18 @@ target_sources(
          "${PROJECT_SOURCE_DIR}/include"
          FILES
          ${VKEXEC_CORE_HEADERS})
+if(vkexec_BUILD_VMA)
+  target_sources(
+    vkexec_vma
+    PUBLIC FILE_SET
+           public_headers
+           TYPE
+           HEADERS
+           BASE_DIRS
+           "${PROJECT_SOURCE_DIR}/include"
+           FILES
+           ${VKEXEC_VMA_HEADERS})
+endif()
 if(vkexec_BUILD_TOOLS)
   target_sources(
     vkexec_tools
@@ -182,8 +199,10 @@ target_sources(
          FILES
          ${VKEXEC_TIMELINE_HEADERS})
 
-if(vkexec_BUILD_EXAMPLES)
+if(vkexec_BUILD_EXAMPLES AND vkexec_BUILD_VMA)
   add_subdirectory(examples)
+elseif(vkexec_BUILD_EXAMPLES)
+  message(STATUS "Examples require the optional VMA backend and will not be built")
 endif()
 
 # Don't even look at tests if we're not top level
@@ -203,6 +222,8 @@ if(BUILD_TESTING)
   add_test(NAME vkexec.stdexec_public_api_boundary
            COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
                    "${PROJECT_SOURCE_DIR}/cmake/CheckStdexecPrivateApi.cmake")
+  add_test(NAME vkexec.vma_module_boundary COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
+                                                   "${PROJECT_SOURCE_DIR}/cmake/CheckVmaBoundary.cmake")
 endif()
 
 # If MSVC is being used, and ASAN is enabled, we need to set the debugger environment
@@ -233,8 +254,14 @@ set(VKEXEC_PACKAGE_TARGETS
     vkexec_warnings
     stdexec
     vk-bootstrap
-    vk-bootstrap-compiler-warnings
+    vk-bootstrap-compiler-warnings)
+if(vkexec_BUILD_VMA)
+  list(
+    APPEND
+    VKEXEC_PACKAGE_TARGETS
+    vkexec_vma
     VulkanMemoryAllocator)
+endif()
 if(vkexec_BUILD_TOOLS)
   list(
     APPEND
@@ -260,7 +287,9 @@ install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION "${CMAKE_INSTALL_DATAD
 install(FILES "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrap.h"
               "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapDispatch.h"
               "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapFeatureChain.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+if(vkexec_BUILD_VMA)
+  install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+endif()
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you

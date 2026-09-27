@@ -2,17 +2,16 @@
 #define VKEXEC_FACTORY_HPP
 
 //! \file
-//! Core sender factories under `vkexec::factory`.
+//! Allocator-neutral sender factories under `vkexec::factory`.
 //!
-//! Prefer this when you only need owning create/allocate entry points. Product
-//! headers also declare their factories; this umbrella pulls the core set.
+//! Product headers also declare their factories. Buffer and tensor factories
+//! accept any allocator modeling the required resource protocol.
 
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
-#include <vkexec/gpu_buffer.hpp>
-#include <vkexec/image.hpp>
 #include <vkexec/image_view.hpp>
+#include <vkexec/resource_allocator.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/tensor.hpp>
 

@@ -12,6 +12,7 @@
 #include <concepts>
 #include <exception>
 #include <optional>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -22,6 +23,13 @@
 namespace vkexec {
 
 namespace ex = stdexec;
+
+template<class Sender, class Value>
+concept vkexec_sender_of = ex::sender<Sender> && requires {
+  requires std::same_as<ex::value_types_of_t<Sender, ex::env<>, std::tuple, std::type_identity_t>, std::tuple<Value>>;
+  requires std::same_as<ex::error_types_of_t<Sender, ex::env<>, std::tuple>, std::tuple<>>
+             || std::same_as<ex::error_types_of_t<Sender, ex::env<>, std::tuple>, std::tuple<error>>;
+};
 
 namespace detail {
 

@@ -430,6 +430,41 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./build/coverage.xml
 
+  vma-off:
+    name: VMA-OFF core and resource allocator
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: llvm-22.1.8
+          cmake: true
+          ninja: true
+          ccache: true
+          clangtidy: false
+          cppcheck: false
+
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure without VMA
+        run: |
+          cmake -S . -B ./build-vma-off -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug -DBUILD_TESTING=ON -Dvkexec_BUILD_VMA=OFF -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
+
+      - name: Build core, graphics, extensions, and tests
+        run: cmake --build ./build-vma-off --target tests
+
+      - name: Test non-VMA allocator and package boundary
+        working-directory: ./build-vma-off
+        run: ctest -R 'generic resources use a non-VMA allocator|vkexec\.vma_module_boundary|vkexec\.install_consumer' --output-on-failure
+
   stdexec-main-compat:
     if: github.event_name == 'schedule'
     name: stdexec main compatibility

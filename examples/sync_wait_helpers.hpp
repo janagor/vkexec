@@ -4,12 +4,16 @@
 #include <vkexec/error.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/sync_wait_outcome.hpp>
+#include <vkexec_vma/resources.hpp>
 
 #include <format>
 #include <iostream>
 #include <utility>
 
 namespace vkexec::examples {
+
+[[nodiscard]] inline auto make_vma_allocator(context &ctx) -> vma::allocator
+{ return sync_wait_value(vma::factory::make_allocator(ctx)); }
 
 [[noreturn]] inline auto abort_with_error(error const &err) -> void
 {

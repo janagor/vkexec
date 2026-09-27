@@ -8,24 +8,20 @@ add_library(
   bind_resources.cpp
   compute_pipeline.cpp
   push.cpp
-  gpu_buffer.cpp
   barrier.cpp
-  copy.cpp
-  image.cpp
   image_view.cpp
   submit_scope.cpp
   pass.cpp
   vulkan_requirements.cpp
-  sampler.cpp
-  vma.cpp)
+  sampler.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
 
 target_link_libraries(
   vkexec
   PUBLIC
-    "$<BUILD_INTERFACE:$<1:Boost::system>;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
-    "$<INSTALL_INTERFACE:$<1:Boost::headers>;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap;GPUOpen::VulkanMemoryAllocator>"
+    "$<BUILD_INTERFACE:$<1:Boost::system>;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap>"
+    "$<INSTALL_INTERFACE:$<1:Boost::headers>;Vulkan::Vulkan;STDEXEC::stdexec;vk-bootstrap::vk-bootstrap>"
   PRIVATE vkexec_warnings)
 
 target_include_directories(
