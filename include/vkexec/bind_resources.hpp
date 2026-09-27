@@ -4,6 +4,7 @@
 //! \file
 //! Pipeable resource-table lowering and descriptor binding.
 
+#include <vkexec/detail/attributes.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
@@ -32,7 +33,7 @@ namespace detail {
   {
     handles::compute_pipeline const *pipe{ nullptr };
     resource_table table;
-    [[no_unique_address]] Push push{};
+    VKEXEC_NO_UNIQUE_ADDRESS Push push{};
   };
 
   [[nodiscard]] auto record_bind_resources_step(context &ctx,
@@ -61,7 +62,7 @@ template<detail::push_constant_type Push> struct bind_resources_step
 {
   handles::compute_pipeline const *pipe{ nullptr };
   resource_table table;
-  [[no_unique_address]] Push push{};
+  VKEXEC_NO_UNIQUE_ADDRESS Push push{};
   std::shared_ptr<detail::bind_resources_step_state> state;
 
   auto record(context &ctx, VkCommandBuffer cmd, detail::pass_cleanup & /*cleanup*/) -> status

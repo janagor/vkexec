@@ -6,6 +6,7 @@
 
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/descriptor_schema.hpp>
+#include <vkexec/detail/attributes.hpp>
 #include <vkexec/pass.hpp>
 
 #include <stdexec/execution.hpp>
@@ -22,7 +23,7 @@ namespace detail {
   {
     handles::compute_pipeline const *pipe{ nullptr };
     resource_table table;
-    [[no_unique_address]] Params params;
+    VKEXEC_NO_UNIQUE_ADDRESS Params params;
     std::uint32_t work_count{ 0 };
   };
 

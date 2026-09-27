@@ -5,6 +5,7 @@
 //! Descriptor-strategy overloads for `compute_pass`.
 
 #include <vkexec/compute_pipeline.hpp>
+#include <vkexec/detail/attributes.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/pass.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
@@ -20,7 +21,7 @@ namespace detail {
   template<push_constant_type Push, dispatch_kind Dispatch> struct descriptor_compute_pass_data
   {
     compute_bind bind{};
-    [[no_unique_address]] Push push{};
+    VKEXEC_NO_UNIQUE_ADDRESS Push push{};
     Dispatch dispatch_info{};
   };
 

@@ -1,6 +1,8 @@
 #ifndef VKEXEC_DETAIL_SENDER_EXPR_HPP
 #define VKEXEC_DETAIL_SENDER_EXPR_HPP
 
+#include <vkexec/detail/attributes.hpp>
+
 #include <stdexec/execution.hpp>
 
 #include <concepts>
@@ -19,9 +21,9 @@ template<class Tag, class Data, class Child> struct sender_expr
 {
   using sender_concept = ex::sender_t;
 
-  [[no_unique_address]] Tag tag;
-  [[no_unique_address]] Data data;
-  [[no_unique_address]] Child child;
+  VKEXEC_NO_UNIQUE_ADDRESS Tag tag;
+  VKEXEC_NO_UNIQUE_ADDRESS Data data;
+  VKEXEC_NO_UNIQUE_ADDRESS Child child;
 
   // Semantic expressions are transparent to scheduler and domain queries
   // until vkexec::domain lowers them into an execution sender.
@@ -61,8 +63,8 @@ template<class T> using expression_tag_t = sender_expr_traits<std::remove_cvref_
 
 template<class Tag, class Data> struct expr_closure : ex::sender_adaptor_closure<expr_closure<Tag, Data>>
 {
-  [[no_unique_address]] Tag tag;
-  [[no_unique_address]] Data data;
+  VKEXEC_NO_UNIQUE_ADDRESS Tag tag;
+  VKEXEC_NO_UNIQUE_ADDRESS Data data;
 
   template<ex::sender Sender>
   [[nodiscard]] auto operator()(Sender &&sender) && noexcept(

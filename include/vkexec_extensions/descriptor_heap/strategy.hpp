@@ -2,6 +2,7 @@
 #define VKEXEC_EXTENSIONS_DESCRIPTOR_HEAP_STRATEGY_HPP
 
 #include <vkexec/bind_resources.hpp>
+#include <vkexec/detail/attributes.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
@@ -33,7 +34,7 @@ namespace detail {
     handles::compute_pipeline const *pipe{ nullptr };
     resource_table table;
     heap_table_lower_env env;
-    [[no_unique_address]] Push push{};
+    VKEXEC_NO_UNIQUE_ADDRESS Push push{};
   };
 
   [[nodiscard]] auto record_descriptor_heap_bind_resources_step(context &ctx,
@@ -72,7 +73,7 @@ template<detail::push_constant_type Push> struct descriptor_heap_bind_resources_
   handles::compute_pipeline const *pipe{ nullptr };
   resource_table table;
   heap_table_lower_env env;
-  [[no_unique_address]] Push push{};
+  VKEXEC_NO_UNIQUE_ADDRESS Push push{};
   std::shared_ptr<detail::descriptor_heap_bind_resources_step_state> state;
 
   auto record(context &ctx, VkCommandBuffer cmd, detail::pass_cleanup & /*cleanup*/) -> status

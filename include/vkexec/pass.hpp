@@ -4,6 +4,7 @@
 //! \file
 //! Compute pass recording, pass graphs, and stdexec pipe adaptors.
 
+#include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
@@ -211,7 +212,7 @@ namespace detail {
   template<push_constant_type Push, dispatch_kind Dispatch> struct compute_pass_step
   {
     compute_bind bind{};
-    [[no_unique_address]] Push push{};
+    VKEXEC_NO_UNIQUE_ADDRESS Push push{};
     Dispatch dispatch_info{};
 
     auto record(context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status
@@ -226,13 +227,13 @@ namespace detail {
   template<push_constant_type Push, dispatch_kind Dispatch> struct compute_pass_data
   {
     compute_bind bind{};
-    [[no_unique_address]] Push push{};
+    VKEXEC_NO_UNIQUE_ADDRESS Push push{};
     Dispatch dispatch_info{};
   };
 
   template<class Tag> struct barrier_step
   {
-    [[no_unique_address]] Tag tag;
+    VKEXEC_NO_UNIQUE_ADDRESS Tag tag;
 
     auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status { return tag(ctx, cmd); }
   };
@@ -242,7 +243,7 @@ namespace detail {
 
   template<class Record> struct callback_pass_step
   {
-    [[no_unique_address]] Record record_fn;
+    VKEXEC_NO_UNIQUE_ADDRESS Record record_fn;
 
     auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
     { return record_fn(ctx, cmd, cleanup); }
@@ -250,8 +251,8 @@ namespace detail {
 
   template<class Record, class AfterGpu> struct callback_after_gpu_pass_step
   {
-    [[no_unique_address]] Record record_fn;
-    [[no_unique_address]] AfterGpu after_gpu_fn;
+    VKEXEC_NO_UNIQUE_ADDRESS Record record_fn;
+    VKEXEC_NO_UNIQUE_ADDRESS AfterGpu after_gpu_fn;
 
     auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
     { return record_fn(ctx, cmd, cleanup); }
@@ -647,7 +648,7 @@ namespace detail {
 
   template<static_pass_step Step> struct raw_pass_step_data
   {
-    [[no_unique_address]] Step step;
+    VKEXEC_NO_UNIQUE_ADDRESS Step step;
   };
 
 }// namespace detail

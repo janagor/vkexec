@@ -4,6 +4,7 @@
 //! \file
 //! Synchronous factory senders that run a `result`-returning callable in `start()`.
 
+#include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -140,11 +141,11 @@ template<factory_callable F> struct factory_sender
   using sender_concept = ex::sender_t;
   using completion_signatures = traits::completion_signatures;
 
-  [[no_unique_address]] F factory;
+  VKEXEC_NO_UNIQUE_ADDRESS F factory;
 
   template<class Receiver> struct op_state
   {
-    [[no_unique_address]] F factory;
+    VKEXEC_NO_UNIQUE_ADDRESS F factory;
     Receiver receiver;
 
     auto start() noexcept -> void
