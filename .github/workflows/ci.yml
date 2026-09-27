@@ -369,7 +369,7 @@ jobs:
             echo "VK_DRIVER_FILES=${VK_DRIVER_FILES:-}"
             echo "VK_ICD_FILENAMES=${VK_ICD_FILENAMES:-}"
           fi
-          ctest -C ${{matrix.build_type}} --output-on-failure -V
+          ctest -C ${{matrix.build_type}} --output-on-failure -V --output-junit junit.xml
 
       - name: Dump Unix CTest log
         if: always() && runner.os != 'Windows'
@@ -383,12 +383,12 @@ jobs:
         if: runner.os != 'Windows' && matrix.build_type == 'Debug'
         working-directory: ./build
         run: |
-          gcovr -j ${{env.nproc}} --root ../ --print-summary --xml-pretty --xml coverage.xml . --gcov-executable '${{ matrix.gcov_executable }}'
+          gcovr -j ${{env.nproc}} --config ../gcovr.cfg --root ../ --xml-pretty --xml coverage.xml . --gcov-executable '${{ matrix.gcov_executable }}'
 
       - name: Windows - Test
         if: runner.os == 'Windows'
         working-directory: ./build
-        run: ctest -C ${{matrix.build_type}} --output-on-failure -V
+        run: ctest -C ${{matrix.build_type}} --output-on-failure -V --output-junit junit.xml
 
       - name: Dump Windows CTest log
         if: always() && runner.os == 'Windows'
@@ -425,10 +425,21 @@ jobs:
         with:
           # Upload when CODECOV_TOKEN is configured; do not fail forks without a token.
           fail_ci_if_error: false
+          disable_search: true
           flags: ${{ runner.os }}
           name: ${{ runner.os }}-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./build/coverage.xml
+
+      - name: Publish test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@v7
+        with:
+          fail_ci_if_error: false
+          disable_search: true
+          files: ./build/junit.xml
+          report_type: test_results
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   vma-off:
     name: VMA-OFF core and resource allocator
