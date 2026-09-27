@@ -1,8 +1,8 @@
 #ifndef VKEXEC_DETAIL_VK_BOOTSTRAP_ERROR_HPP
 #define VKEXEC_DETAIL_VK_BOOTSTRAP_ERROR_HPP
 
-#include <vkexec/error_helpers.hpp>
 #include <VkBootstrap.h>
+#include <vkexec/error_helpers.hpp>
 
 #include <string>
 #include <utility>

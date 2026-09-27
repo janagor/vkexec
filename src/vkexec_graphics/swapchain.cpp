@@ -1,9 +1,9 @@
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/result.hpp>
 
 #include <VkBootstrap.h>
@@ -11,9 +11,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -115,7 +115,7 @@ auto owned::swapchain::present(std::uint32_t image_index,
   present_info.waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size());
   present_info.pWaitSemaphores = wait_semaphores.empty() ? nullptr : wait_semaphores.data();
   present_info.swapchainCount = 1;
-  auto* const swapchain_handle = handle();
+  auto *const swapchain_handle = handle();
   present_info.pSwapchains = &swapchain_handle;
   present_info.pImageIndices = &image_index;
 
@@ -133,13 +133,15 @@ auto owned::swapchain::create_or_recreate(std::uint32_t width, std::uint32_t hei
   images_.clear();
 
   vkb::Swapchain const old_swapchain = impl_ ? impl_->swapchain : vkb::Swapchain{};
-  auto builder = vkb::SwapchainBuilder{ ctx_->physical_device(), ctx_->device(), surface_,
-    ctx_->graphics_queue_family(), ctx_->present_queue_family() }
-                   .set_desired_format({ .format = preferred_format_, .colorSpace = preferred_color_space_ })
-                   .set_desired_present_mode(present_mode_)
-                   .set_desired_extent(width, height)
-                   .set_create_flags(static_cast<VkSwapchainCreateFlagBitsKHR>(create_flags_))
-                   .set_old_swapchain(old_swapchain);
+  auto builder =
+    vkb::SwapchainBuilder{
+      ctx_->physical_device(), ctx_->device(), surface_, ctx_->graphics_queue_family(), ctx_->present_queue_family()
+    }
+      .set_desired_format({ .format = preferred_format_, .colorSpace = preferred_color_space_ })
+      .set_desired_present_mode(present_mode_)
+      .set_desired_extent(width, height)
+      .set_create_flags(static_cast<VkSwapchainCreateFlagBitsKHR>(create_flags_))
+      .set_old_swapchain(old_swapchain);
 
   auto const built = builder.build();
   if (!built) { return fail(detail::make_error_from_vkb(built, "vk-bootstrap SwapchainBuilder")); }

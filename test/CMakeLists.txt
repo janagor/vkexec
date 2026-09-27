@@ -121,7 +121,10 @@ catch_discover_tests(
 add_executable(vk_bootstrap_feature_tests vk_bootstrap_feature_tests.cpp)
 target_link_libraries(
   vk_bootstrap_feature_tests
-  PRIVATE vkexec::vkexec vkexec_private_headers vk-bootstrap::vk-bootstrap Catch2::Catch2WithMain)
+  PRIVATE vkexec::vkexec
+          vkexec_private_headers
+          vk-bootstrap::vk-bootstrap
+          Catch2::Catch2WithMain)
 catch_discover_tests(vk_bootstrap_feature_tests TEST_PREFIX "detail.")
 
 add_executable(constexpr_tests constexpr_tests.cpp)

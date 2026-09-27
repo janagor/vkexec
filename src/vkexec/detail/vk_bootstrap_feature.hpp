@@ -15,8 +15,7 @@ struct extension_feature_access
   template<typename Feature> static auto make(Feature feature) -> extension_feature
   {
     auto state = std::make_shared<Feature>(std::move(feature));
-    return extension_feature{
-      std::move(state),
+    return extension_feature{ std::move(state),
       [](void const *value, void *selector) -> void {
         static_cast<vkb::PhysicalDeviceSelector *>(selector)->add_required_extension_features(
           *static_cast<Feature const *>(value));
@@ -34,8 +33,7 @@ struct extension_feature_access
   { return feature.enable_(feature.state_.get(), &device); }
 };
 
-template<typename Feature>
-auto require_extension_feature(vulkan_requirements &requirements, Feature feature) -> void
+template<typename Feature> auto require_extension_feature(vulkan_requirements &requirements, Feature feature) -> void
 { requirements.required_extension_features.push_back(extension_feature_access::make(std::move(feature))); }
 
 template<typename Feature>

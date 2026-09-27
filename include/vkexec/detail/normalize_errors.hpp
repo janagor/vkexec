@@ -76,8 +76,7 @@ public:
     auto start() noexcept -> void { stdexec::start(child); }
   };
 
-  template<class Receiver>
-  [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver, Sender &>
+  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver, Sender &>
   { return op_state<Receiver, Sender &>{ sender_, std::move(receiver) }; }
 
   template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver, Sender>

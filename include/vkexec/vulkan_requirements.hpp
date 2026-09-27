@@ -73,7 +73,6 @@ struct vulkan_requirements
 
   //! Feature requests enabled when present.
   std::vector<extension_feature> optional_extension_features;
-
 };
 
 /**

@@ -11,16 +11,16 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
-#include <vkexec_extensions/descriptor_heap/extension.hpp>
-#include <vkexec_extensions/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/algorithm.hpp>
 #include <vkexec_extensions/descriptor_heap/buffer.hpp>
 #include <vkexec_extensions/descriptor_heap/compute_pipeline.hpp>// NOLINT(misc-include-cleaner)
 #include <vkexec_extensions/descriptor_heap/descriptor_heap.hpp>
+#include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_compute_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/heap_graphics_pipeline.hpp>
 #include <vkexec_extensions/descriptor_heap/resource_table.hpp>
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
+#include <vkexec_extensions/extension.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 #include <vkexec_vma/gpu_buffer.hpp>

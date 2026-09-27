@@ -1,9 +1,9 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
-#include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -130,7 +130,9 @@ namespace {
 
     selector.set_required_features(merge_features(requirements));
 
-    for (extension_feature const &feature : requirements.required_extension_features) { detail::extension_feature_access::require(feature, selector); }
+    for (extension_feature const &feature : requirements.required_extension_features) {
+      detail::extension_feature_access::require(feature, selector);
+    }
   }
 
   auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device, vulkan_requirements const &requirements)
