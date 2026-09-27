@@ -78,6 +78,24 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
 
+TEST_CASE("blocking draw observes pre-requested stop", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  ex::inplace_stop_source source;
+  source.request_stop();
+
+  auto sender =
+    ex::schedule(fixture.win.ctx().get_scheduler()) | vkexec::draw(fixture.win, fixture.pipeline, k_triangle_vertices);
+  auto stopped_sender = ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() });
+  auto const stopped = vkexec::test::sync_wait_sender(std::move(stopped_sender));
+  REQUIRE(vkexec::test::sync_wait_stopped(stopped));
+
+  auto retry =
+    ex::schedule(fixture.win.ctx().get_scheduler()) | vkexec::draw(fixture.win, fixture.pipeline, k_triangle_vertices);
+  auto const retried = vkexec::test::sync_wait_sender(retry);
+  REQUIRE(vkexec::test::sync_wait_completed(retried));
+}
+
 TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion", "[vkexec][draw][gpu]")
 {
   // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable presenter reference

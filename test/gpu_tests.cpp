@@ -311,12 +311,13 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
 
 TEST_CASE("pass graph completes with set_stopped when stop is already requested", "[vkexec][pass]")
 {
-  // Null scheduler: exercises stop handling without allocating a Vulkan context.
-  vkexec::scheduler const sched{ nullptr };
+  // A direct pass sender verifies its own boundary independently of schedule().
   ex::inplace_stop_source source;
   source.request_stop();
-
-  auto sender = ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  vkexec::pass_graph_sender<> sender{
+    .ctx = nullptr,
+    .steps = {},
+  };
 
   auto const waited =
     vkexec::test::sync_wait_sender(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));

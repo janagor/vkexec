@@ -197,6 +197,21 @@ Public APIs are **senders** (stdexec). Completions follow stdexec semantics:
 - **`set_error(vkexec::error)`** — failure (same error type everywhere async)
 - **`set_stopped()`** — cancellation (not an error)
 
+Cancellation is cooperative. Every vkexec sender that observes a stop token
+advertises `set_stopped()` and checks it before its first externally visible
+effect. Synchronous factory, scope acquisition, blocking submit, and graphics
+draw operations observe stop before starting work. `schedule()` also checks
+when its queued host task begins. A request racing with either check may still
+result in `set_value()`.
+
+Once Vulkan work has been submitted, cancellation does not undo the queue
+submission. Asynchronous fence and presentation operations wait for the work
+to retire, reclaim their resources, and then complete. A real operation error
+takes precedence over an observed stop after work begins. Blocking
+`submit_and_wait` observes cancellation before submission only; later stop
+requests do not interrupt its wait. No completion scheduler is guaranteed for
+`set_error()` or `set_stopped()` from `schedule()`.
+
 Factory functions such as `factory::make_context` and `factory::make_compute_pipeline` return senders; VMA resource factories are under `vma::factory`. Compose them with `stdexec::let_value` or block at the sync boundary with `sync_wait_value`.
 
 - **`vkexec::error`** carries a `boost::system::error_code` plus optional detail text. Use `error.message()` for a human-readable string.

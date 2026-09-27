@@ -4,6 +4,7 @@
 //! \file
 //! stdexec adaptors that present one presenter frame (`draw`, `draw_layers`, `| submit`).
 
+#include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/result.hpp>
@@ -52,6 +53,10 @@ namespace detail {
   template<class Receiver, class Operation>
   auto start_draw_sync(Receiver &receiver, Operation &&operation) noexcept -> void
   {
+    if (receiver_stop_requested(receiver)) {
+      ex::set_stopped(std::move(receiver));
+      return;
+    }
 #if VKEXEC_ENABLE_EXCEPTIONS
     try {
       std::forward<Operation>(operation)();
@@ -70,12 +75,10 @@ namespace detail {
 #if VKEXEC_ENABLE_EXCEPTIONS
     try {
 #endif
-      auto const token = ex::get_stop_token(ex::get_env(receiver));
-      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-        if (token.stop_requested()) {
-          ex::set_stopped(std::move(receiver));
-          return;
-        }
+      auto const token = receiver_stop_token(receiver);
+      if (stop_requested(token)) {
+        ex::set_stopped(std::move(receiver));
+        return;
       }
 
       auto frame_result = try_begin_frame(*win);

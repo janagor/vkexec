@@ -403,12 +403,9 @@ namespace detail {
 
     auto start() noexcept -> void
     {
-      auto const token = ex::get_stop_token(ex::get_env(receiver));
-      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-        if (token.stop_requested()) {
-          ex::set_stopped(std::move(receiver));
-          return;
-        }
+      if (detail::receiver_stop_requested(receiver)) {
+        ex::set_stopped(std::move(receiver));
+        return;
       }
 #if VKEXEC_ENABLE_EXCEPTIONS
       try {

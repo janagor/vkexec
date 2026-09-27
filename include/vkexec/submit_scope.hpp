@@ -6,6 +6,7 @@
 
 #include <stdexec/execution.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -218,12 +219,9 @@ namespace detail {
 
       auto start() noexcept -> void
       {
-        auto const token = ex::get_stop_token(ex::get_env(receiver));
-        if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-          if (token.stop_requested()) {
-            ex::set_stopped(std::move(receiver));
-            return;
-          }
+        if (detail::receiver_stop_requested(receiver)) {
+          ex::set_stopped(std::move(receiver));
+          return;
         }
 
         result<submit_scope> opened;
@@ -269,12 +267,15 @@ namespace detail {
    * then releases command/descriptor loans.
    *
    * Blocks the starting thread and completes inline after the wait.
+   * Observes cancellation before submission only. Once submission begins, it
+   * runs synchronously to value/error completion after releasing the scope.
    * No completion scheduler is advertised.
    */
   struct submit_and_wait_sender
   {
     using sender_concept = ex::sender_t;
-    using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error)>;
+    using completion_signatures =
+      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
     submit_scope scope;
 
@@ -289,6 +290,12 @@ namespace detail {
 
       auto start() noexcept -> void
       {
+        if (detail::receiver_stop_requested(receiver)) {
+          scope.release();
+          ex::set_stopped(std::move(receiver));
+          return;
+        }
+
         context *const host = scope.ctx;
         status submitted;
 #if VKEXEC_ENABLE_EXCEPTIONS
@@ -332,7 +339,8 @@ namespace detail {
    * Sender that submits a recorded scope without blocking `start()`.
    *
    * Completion runs on the context fence agent after reclaiming semaphore/fence
-   * and releasing loans. Honours stop tokens with `set_stopped`.
+   * and releasing loans. A stop after GPU submission does not cancel Vulkan
+   * work: the submission retires and resources are reclaimed before `set_stopped`.
    *
    * The completion agent is not exposed as a stdexec scheduler, so no
    * completion scheduler is advertised.
@@ -356,13 +364,11 @@ namespace detail {
 
       auto start() noexcept -> void
       {
-        auto const token = ex::get_stop_token(ex::get_env(receiver));
-        if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-          if (token.stop_requested()) {
-            scope.release();
-            ex::set_stopped(std::move(receiver));
-            return;
-          }
+        auto const token = detail::receiver_stop_token(receiver);
+        if (detail::stop_requested(token)) {
+          scope.release();
+          ex::set_stopped(std::move(receiver));
+          return;
         }
 
         context *const host = scope.ctx;

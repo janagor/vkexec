@@ -4,6 +4,7 @@
 //! \file
 //! Synchronous factory senders that run a `result`-returning callable in `start()`.
 
+#include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 
@@ -148,12 +149,9 @@ template<factory_callable F> struct factory_sender
 
     auto start() noexcept -> void
     {
-      auto const token = ex::get_stop_token(ex::get_env(receiver));
-      if constexpr (!ex::unstoppable_token<std::remove_cvref_t<decltype(token)>>) {
-        if (token.stop_requested()) {
-          ex::set_stopped(std::move(receiver));
-          return;
-        }
+      if (detail::receiver_stop_requested(receiver)) {
+        ex::set_stopped(std::move(receiver));
+        return;
       }
 
       std::optional<detail::factory_completion<value_type>> completion;

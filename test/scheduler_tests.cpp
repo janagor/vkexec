@@ -15,6 +15,7 @@
 #include <vkexec/submit_scope.hpp>
 
 #include <stdexec/execution.hpp>
+#include <stdexec/stop_token.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <atomic>
@@ -23,6 +24,7 @@
 #include <exception>
 #include <future>
 #include <memory>
+#include <semaphore>
 #include <stdexcept>
 #include <thread>
 #include <tuple>
@@ -61,6 +63,29 @@ struct completion_probe_receiver
   auto set_error(std::exception_ptr const & /*exception*/) const && noexcept -> void { signal_done(); }
 
   auto set_stopped() const && noexcept -> void { signal_done(); }
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> empty_receiver_env { return {}; }
+};
+
+struct schedule_outcome_receiver
+{
+  using receiver_concept = ex::receiver_t;
+
+  std::atomic<int> *outcome{ nullptr };
+  std::binary_semaphore *completed{ nullptr };
+
+  auto complete(int value) const noexcept -> void
+  {
+    int expected = 0;
+    if (!outcome->compare_exchange_strong(expected, value)) { std::terminate(); }
+    completed->release();
+  }
+
+  auto set_value() const && noexcept -> void { complete(1); }
+  auto set_error(vkexec::error const & /*err*/) const && noexcept -> void { complete(2); }
+  auto set_stopped() const && noexcept -> void { complete(3); }
 
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -158,6 +183,11 @@ static_assert(pipeable_with<vkexec::schedule_sender, move_only_closure_t>);
 static_assert(!pipeable_with<vkexec::schedule_sender, move_only_closure_t &>);
 static_assert(advertises_completion_scheduler<vkexec::schedule_sender, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_error_t>);
+static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_stopped_t>);
+static_assert(std::same_as<vkexec::schedule_sender::completion_signatures,
+  ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
+static_assert(std::same_as<vkexec::detail::submit_and_wait_sender::completion_signatures,
+  ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
 
 static_assert(advertises_completion_scheduler<vkexec::pass_graph_sender<>, ex::set_value_t>);
 static_assert(!advertises_completion_scheduler<vkexec::pass_graph_sender<>, ex::set_error_t>);
@@ -180,6 +210,80 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
   REQUIRE(completion == sched);
   REQUIRE(completion.get_context() == nullptr);
+}
+
+TEST_CASE("null schedule observes pre-requested stop", "[vkexec][scheduler]")
+{
+  ex::inplace_stop_source source;
+  source.request_stop();
+  auto sender =
+    ex::write_env(ex::schedule(vkexec::scheduler{ nullptr }), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto const waited = vkexec::test::sync_wait_sender(std::move(sender));
+  REQUIRE(vkexec::test::sync_wait_stopped(waited));
+}
+
+TEST_CASE("schedule observes pre-requested stop", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  ex::inplace_stop_source source;
+  source.request_stop();
+  auto sender = ex::write_env(ex::schedule(ctx->get_scheduler()), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto const waited = vkexec::test::sync_wait_sender(std::move(sender));
+  REQUIRE(vkexec::test::sync_wait_stopped(waited));
+}
+
+TEST_CASE("schedule observes stop while queued", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  std::promise<void> entered;
+  std::promise<void> release;
+  auto entered_future = entered.get_future();
+  auto release_future = release.get_future();
+  auto blocked = ctx->enqueue_host([&]() noexcept -> void {
+    signal_promise(entered);
+    release_future.wait();
+  });
+  REQUIRE(blocked.has_value());
+  auto const entered_status = entered_future.wait_for(std::chrono::seconds(5));
+  if (entered_status != std::future_status::ready) { signal_promise(release); }
+  REQUIRE(entered_status == std::future_status::ready);
+
+  ex::inplace_stop_source source;
+  std::atomic<int> outcome{ 0 };
+  std::binary_semaphore completed{ 0 };
+  auto sender = ex::write_env(ex::schedule(ctx->get_scheduler()), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto operation = ex::connect(std::move(sender),
+    schedule_outcome_receiver{
+      .outcome = &outcome,
+      .completed = &completed,
+    });
+  ex::start(operation);
+  source.request_stop();
+  signal_promise(release);
+
+  REQUIRE(completed.try_acquire_for(std::chrono::seconds(5)));
+  REQUIRE(outcome.load() == 3);
+}
+
+TEST_CASE("submit_and_wait releases a pre-stopped scope", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto opened = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(opened.has_value());
+
+  ex::inplace_stop_source source;
+  source.request_stop();
+  auto stopped_sender = ex::write_env(
+    vkexec::detail::submit_and_wait(vkexec::expected_take(opened)), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto const stopped = vkexec::test::sync_wait_sender(std::move(stopped_sender));
+  REQUIRE(vkexec::test::sync_wait_stopped(stopped));
+
+  auto next = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(next.has_value());
+  auto next_scope = vkexec::expected_take(next);
+  REQUIRE(next_scope.end_recording().has_value());
+  auto const retried = vkexec::test::sync_wait_sender(vkexec::detail::submit_and_wait(std::move(next_scope)));
+  REQUIRE(vkexec::test::sync_wait_completed(retried));
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

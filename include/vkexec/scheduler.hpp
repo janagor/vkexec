@@ -5,6 +5,7 @@
 //! stdexec scheduler that completes on a `context` host agent.
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/stop.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -72,13 +73,16 @@ struct scheduler_env
 /**
  * Sender produced by `scheduler::schedule()`.
  *
- * Completes with `set_value()` on the context host agent, or `set_error` if
- * enqueueing the host task fails. A null `ctx` completes inline with `set_value`.
+ * A pre-requested stop completes inline with `set_stopped`. Otherwise the
+ * queued task checks for stop again before delivering `set_value` on the host
+ * agent. A null `ctx` completes inline. No scheduling guarantee is made for
+ * `set_error` or `set_stopped`.
  */
 struct schedule_sender
 {
   using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error)>;
+  using completion_signatures =
+    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
   context *ctx{ nullptr };
 
@@ -91,6 +95,11 @@ struct schedule_sender
 
     auto start() noexcept -> void
     {
+      if (detail::receiver_stop_requested(receiver)) {
+        ex::set_stopped(std::move(receiver));
+        return;
+      }
+
       if (ctx == nullptr) {
         ex::set_value(std::move(receiver));
         return;
@@ -99,13 +108,25 @@ struct schedule_sender
 #if VKEXEC_ENABLE_EXCEPTIONS
       std::optional<status> enqueued;
       try {
-        enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void { ex::set_value(std::move(receiver)); }));
+        enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void {
+          if (detail::receiver_stop_requested(receiver)) {
+            ex::set_stopped(std::move(receiver));
+          } else {
+            ex::set_value(std::move(receiver));
+          }
+        }));
       } catch (...) {
         ex::set_error(std::move(receiver), unexpected_exception_error());
         return;
       }
 #else
-      auto enqueued = ctx->enqueue_host([this]() noexcept -> void { ex::set_value(std::move(receiver)); });
+      auto enqueued = ctx->enqueue_host([this]() noexcept -> void {
+        if (detail::receiver_stop_requested(receiver)) {
+          ex::set_stopped(std::move(receiver));
+        } else {
+          ex::set_value(std::move(receiver));
+        }
+      });
 #endif
 
 #if VKEXEC_ENABLE_EXCEPTIONS
