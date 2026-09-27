@@ -205,7 +205,6 @@ vkexec_enable_formatting()
 include(CTest)
 
 if(BUILD_TESTING)
-  message(AUTHOR_WARNING "Building Tests. Be sure to check out test/constexpr_tests.cpp for constexpr testing")
   add_subdirectory(test)
   add_test(NAME vkexec.cxx_standard_policy COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
                                                    "${PROJECT_SOURCE_DIR}/cmake/CheckCxxStandardPolicy.cmake")
