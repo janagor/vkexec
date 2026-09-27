@@ -73,6 +73,7 @@ function(vkexec_setup_dependencies)
       "catchorg/Catch2"
       SYSTEM
       YES)
+    target_compile_features(Catch2 PRIVATE cxx_std_17)
   endif()
 
   if(NOT TARGET Boost::system)
