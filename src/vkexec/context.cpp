@@ -1,6 +1,7 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/vk_bootstrap_error.hpp>
+#include <vkexec/detail/worker_callbacks.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -19,7 +20,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -443,8 +443,8 @@ auto context::host_agent_thread_id() -> std::thread::id
 
 auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
   VkFence fence,
-  std::function<bool()> stop_requested,
-  std::function<void(std::optional<error>, bool)> on_done) -> status
+  detail::stop_fn stop_requested,
+  detail::done_fn on_done) -> status
 {
   if (!impl_->completion_waiter && impl_->device.device != VK_NULL_HANDLE) {
     impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
@@ -464,16 +464,11 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
     if (on_done) { on_done(std::move(failure), false); }
     return result;
   }
-  detail::completion_waiter::stop_fn stop;
-  if (stop_requested) { stop = std::move(stop_requested); }
-  detail::completion_waiter::done_fn done;
-  if (on_done) { done = std::move(on_done); }
-  return impl_->completion_waiter->enqueue(semaphore, fence, std::move(stop), std::move(done));
+  return impl_->completion_waiter->enqueue(semaphore, fence, std::move(stop_requested), std::move(on_done));
 }
 
-auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
-  std::function<bool()> stop_requested,
-  std::function<void(std::optional<error>, bool)> on_done) -> status
+auto context::do_enqueue_borrowed_fence_wait(VkFence fence, detail::stop_fn stop_requested, detail::done_fn on_done)
+  -> status
 {
   if (!impl_->completion_waiter && impl_->device.device != VK_NULL_HANDLE) {
     impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
@@ -484,14 +479,10 @@ auto context::do_enqueue_borrowed_fence_wait(VkFence fence,
     if (on_done) { on_done(std::move(failure), false); }
     return result;
   }
-  detail::completion_waiter::stop_fn stop;
-  if (stop_requested) { stop = std::move(stop_requested); }
-  detail::completion_waiter::done_fn done;
-  if (on_done) { done = std::move(on_done); }
-  return impl_->completion_waiter->enqueue_borrowed(fence, std::move(stop), std::move(done));
+  return impl_->completion_waiter->enqueue_borrowed(fence, std::move(stop_requested), std::move(on_done));
 }
 
-auto context::do_enqueue_host(std::function<void()> task) -> status
+auto context::do_enqueue_host(detail::host_task_fn task) -> status
 {
   if (!impl_->host_agent) { impl_->host_agent = std::make_unique<detail::host_agent>(); }
   return impl_->host_agent->enqueue(std::move(task));

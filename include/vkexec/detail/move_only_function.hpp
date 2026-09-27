@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cassert>
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -35,7 +36,8 @@ public:
   move_only_function(std::nullptr_t) noexcept {}
 
   template<typename F>
-    requires std::invocable<F &, Args...> && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
+    requires std::is_invocable_r_v<R, F &, Args...> && std::is_nothrow_destructible_v<std::remove_cvref_t<F>>
+             && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
              && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
   // cppcheck-suppress noExplicitConstructor
   // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
@@ -55,7 +57,8 @@ public:
   }
 
   template<typename F>
-    requires std::invocable<F &, Args...> && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
+    requires std::is_invocable_r_v<R, F &, Args...> && std::is_nothrow_destructible_v<std::remove_cvref_t<F>>
+             && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
              && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
   auto operator=(F &&callable) -> move_only_function &
   {
@@ -85,8 +88,8 @@ public:
 
 private:
   using invoker_fn = R (*)(void *, Args...);
-  using relocator_fn = void (*)(void *, void *);
-  using destructor_fn = void (*)(void *);
+  using relocator_fn = void (*)(void *, void *) noexcept;
+  using destructor_fn = void (*)(void *) noexcept;
 
   static constexpr std::size_t k_buffer_size = 3 * sizeof(void *);
 
@@ -107,14 +110,14 @@ private:
     }
   }
 
-  template<typename F> static void relocate(void *dst, void *src)
+  template<typename F> static auto relocate(void *dst, void *src) noexcept -> void
   {
     auto *from = static_cast<F *>(src);
     new (dst) F(std::move(*from));
     from->~F();
   }
 
-  template<typename F> static void destroy_object(void *slot) { static_cast<F *>(slot)->~F(); }
+  template<typename F> static auto destroy_object(void *slot) noexcept -> void { static_cast<F *>(slot)->~F(); }
 
   template<typename F> void init(F &&callable)
   {
@@ -129,6 +132,151 @@ private:
       using stored = std::unique_ptr<fn>;
       new (storage()) stored(std::make_unique<fn>(std::forward<F>(callable)));
       invoker_ = [](void *slot, Args... args) -> R {
+        if constexpr (std::is_void_v<R>) {
+          std::invoke(**static_cast<stored *>(slot), std::forward<Args>(args)...);
+        } else {
+          return std::invoke(**static_cast<stored *>(slot), std::forward<Args>(args)...);
+        }
+      };
+      relocator_ = relocate<stored>;
+      destructor_ = destroy_object<stored>;
+    }
+  }
+
+  void clear() noexcept
+  {
+    if (invoker_ != nullptr) {
+      destructor_(const_cast<void *>(storage()));
+      invoker_ = nullptr;
+      relocator_ = nullptr;
+      destructor_ = nullptr;
+    }
+  }
+
+  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+  void move_from(move_only_function &&other) noexcept
+  {
+    if (other.invoker_ == nullptr) { return; }
+    invoker_fn const new_invoker = other.invoker_;
+    relocator_fn const new_relocator = other.relocator_;
+    destructor_fn const new_destructor = other.destructor_;
+    new_relocator(storage(), other.storage());
+    invoker_ = new_invoker;
+    relocator_ = new_relocator;
+    destructor_ = new_destructor;
+    other.invoker_ = nullptr;
+    other.relocator_ = nullptr;
+    other.destructor_ = nullptr;
+  }
+};
+
+// Erases only callbacks that can be invoked and destroyed on a worker without throwing.
+template<typename R, typename... Args> class move_only_function<R(Args...) noexcept>
+{
+public:
+  move_only_function() noexcept = default;
+
+  // cppcheck-suppress noExplicitConstructor
+  // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
+  move_only_function(std::nullptr_t) noexcept {}
+
+  template<typename F>
+    requires std::is_nothrow_invocable_r_v<R, F &, Args...> && std::is_nothrow_destructible_v<std::remove_cvref_t<F>>
+             && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
+             && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
+  // cppcheck-suppress noExplicitConstructor
+  // NOLINTNEXTLINE(google-explicit-constructor,hicpp-explicit-conversions)
+  move_only_function(F &&callable)
+  { init(std::forward<F>(callable)); }
+
+  move_only_function(move_only_function &&other) noexcept { move_from(std::move(other)); }
+
+  // cppcheck-suppress operatorEqVarError
+  auto operator=(move_only_function &&other) noexcept -> move_only_function &
+  {
+    if (this != &other) {
+      clear();
+      move_from(std::move(other));
+    }
+    return *this;
+  }
+
+  template<typename F>
+    requires std::is_nothrow_invocable_r_v<R, F &, Args...> && std::is_nothrow_destructible_v<std::remove_cvref_t<F>>
+             && (!std::same_as<std::remove_cvref_t<F>, move_only_function>)
+             && (!std::same_as<std::remove_cvref_t<F>, std::nullptr_t>)
+  auto operator=(F &&callable) -> move_only_function &
+  {
+    clear();
+    init(std::forward<F>(callable));
+    return *this;
+  }
+
+  auto operator=(std::nullptr_t) noexcept -> move_only_function &
+  {
+    clear();
+    return *this;
+  }
+
+  ~move_only_function() noexcept { clear(); }
+
+  move_only_function(move_only_function const &) = delete;
+  auto operator=(move_only_function const &) -> move_only_function & = delete;
+
+  explicit operator bool() const noexcept { return invoker_ != nullptr; }
+
+  auto operator()(Args... args) noexcept -> R
+  {
+    assert(invoker_ != nullptr);
+    return invoker_(storage(), std::forward<Args>(args)...);
+  }
+
+private:
+  using invoker_fn = R (*)(void *, Args...) noexcept;
+  using relocator_fn = void (*)(void *, void *) noexcept;
+  using destructor_fn = void (*)(void *) noexcept;
+
+  static constexpr std::size_t k_buffer_size = 3 * sizeof(void *);
+
+  alignas(std::max_align_t) std::array<std::byte, k_buffer_size> buffer_{};
+  invoker_fn invoker_{ nullptr };
+  relocator_fn relocator_{ nullptr };
+  destructor_fn destructor_{ nullptr };
+
+  [[nodiscard]] auto storage() noexcept -> void * { return buffer_.data(); }
+  [[nodiscard]] auto storage() const noexcept -> void const * { return buffer_.data(); }
+
+  template<typename F> static auto invoke(void *slot, Args... args) noexcept -> R
+  {
+    if constexpr (std::is_void_v<R>) {
+      std::invoke(*static_cast<F *>(slot), std::forward<Args>(args)...);
+    } else {
+      return std::invoke(*static_cast<F *>(slot), std::forward<Args>(args)...);
+    }
+  }
+
+  template<typename F> static auto relocate(void *dst, void *src) noexcept -> void
+  {
+    auto *from = static_cast<F *>(src);
+    new (dst) F(std::move(*from));
+    from->~F();
+  }
+
+  template<typename F> static auto destroy_object(void *slot) noexcept -> void { static_cast<F *>(slot)->~F(); }
+
+  template<typename F> void init(F &&callable)
+  {
+    using fn = std::remove_cvref_t<F>;
+    if constexpr (sizeof(fn) <= k_buffer_size && alignof(fn) <= alignof(std::max_align_t)
+                  && std::is_nothrow_move_constructible_v<fn>) {
+      new (storage()) fn(std::forward<F>(callable));
+      invoker_ = invoke<fn>;
+      relocator_ = relocate<fn>;
+      destructor_ = destroy_object<fn>;
+    } else {
+      using stored = std::unique_ptr<fn>;
+      new (storage()) stored(std::make_unique<fn>(std::forward<F>(callable)));
+      invoker_ = [](void *slot, Args... args) noexcept -> R {
         if constexpr (std::is_void_v<R>) {
           std::invoke(**static_cast<stored *>(slot), std::forward<Args>(args)...);
         } else {

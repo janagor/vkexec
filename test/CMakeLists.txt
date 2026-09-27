@@ -52,6 +52,7 @@ add_executable(
   pass_detail_tests.cpp
   dispatch_tests.cpp
   error_tests.cpp
+  move_only_function_tests.cpp
   timeline_semaphore_tests.cpp
   frame_ring_tests.cpp
   push_data_tests.cpp

@@ -30,7 +30,7 @@ namespace {
     current_agent_guard(current_agent_guard &&) = delete;
     auto operator=(current_agent_guard &&) -> current_agent_guard & = delete;
 
-    ~current_agent_guard() { tls_current_agent = previous; }
+    ~current_agent_guard() noexcept { tls_current_agent = previous; }
   };
 
 }// namespace

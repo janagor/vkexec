@@ -4,6 +4,7 @@
 //! \file
 //! Vulkan device context: queues, command pool, and host/completion agents.
 
+#include <vkexec/detail/worker_callbacks.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
@@ -15,7 +16,6 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -256,24 +256,19 @@ public:
    * @param on_done Callback receiving optional error and a stopped flag.
    */
   template<class StopToken, class Done>
+    requires stdexec::stoppable_token<std::remove_cvref_t<StopToken>>
   [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
     using done_t = std::remove_cvref_t<Done>;
-    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error>, bool>,
+    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error> &&, bool>,
       "enqueue_fence_wait completion callback must be noexcept");
 
-    std::function<bool()> stop_requested;
+    detail::stop_fn stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
-      auto state = std::make_shared<std::remove_cvref_t<StopToken>>(std::move(token));
-      stop_requested = [state]() -> bool { return state->stop_requested(); };
+      stop_requested = [token = std::move(token)]() noexcept -> bool { return token.stop_requested(); };
     }
-    auto done = std::make_shared<done_t>(std::forward<Done>(on_done));
-    return do_enqueue_fence_wait(semaphore,
-      fence,
-      std::move(stop_requested),
-      [done](std::optional<error> failure, bool stopped) mutable noexcept -> void {
-        std::invoke(*done, std::move(failure), stopped);
-      });
+    return do_enqueue_fence_wait(
+      semaphore, fence, std::move(stop_requested), detail::done_fn(std::forward<Done>(on_done)));
   }
 
   /**
@@ -284,22 +279,19 @@ public:
    * @param on_done Callback receiving optional error and a stopped flag.
    */
   template<class StopToken, class Done>
+    requires stdexec::stoppable_token<std::remove_cvref_t<StopToken>>
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
     using done_t = std::remove_cvref_t<Done>;
-    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error>, bool>,
+    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error> &&, bool>,
       "enqueue_borrowed_fence_wait completion callback must be noexcept");
 
-    std::function<bool()> stop_requested;
+    detail::stop_fn stop_requested;
     if constexpr (!stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
-      auto state = std::make_shared<std::remove_cvref_t<StopToken>>(std::move(token));
-      stop_requested = [state]() -> bool { return state->stop_requested(); };
+      stop_requested = [token = std::move(token)]() noexcept -> bool { return token.stop_requested(); };
     }
-    auto done = std::make_shared<done_t>(std::forward<Done>(on_done));
     return do_enqueue_borrowed_fence_wait(
-      fence, std::move(stop_requested), [done](std::optional<error> failure, bool stopped) mutable noexcept -> void {
-        std::invoke(*done, std::move(failure), stopped);
-      });
+      fence, std::move(stop_requested), detail::done_fn(std::forward<Done>(on_done)));
   }
 
   /**
@@ -307,11 +299,11 @@ public:
    *
    * @param task Callable invoked on the host agent thread.
    */
-  template<class Task> [[nodiscard]] auto enqueue_host(Task &&task) -> status
-  {
-    auto state = std::make_shared<std::remove_cvref_t<Task>>(std::forward<Task>(task));
-    return do_enqueue_host([state]() mutable -> void { std::invoke(*state); });
-  }
+  template<class Task>
+    requires std::is_nothrow_invocable_v<std::remove_cvref_t<Task> &>
+             && std::is_nothrow_destructible_v<std::remove_cvref_t<Task>>
+  [[nodiscard]] auto enqueue_host(Task &&task) -> status
+  { return do_enqueue_host(detail::host_task_fn(std::forward<Task>(task))); }
 
   //! Returns the thread id of the host agent, creating it if needed.
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
@@ -358,14 +350,12 @@ private:
   auto create_command_pool() -> status;
   auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> void;
-  [[nodiscard]] auto do_enqueue_fence_wait(VkSemaphore semaphore,
-    VkFence fence,
-    std::function<bool()> stop_requested,
-    std::function<void(std::optional<error>, bool)> on_done) -> status;
-  [[nodiscard]] auto do_enqueue_borrowed_fence_wait(VkFence fence,
-    std::function<bool()> stop_requested,
-    std::function<void(std::optional<error>, bool)> on_done) -> status;
-  [[nodiscard]] auto do_enqueue_host(std::function<void()> task) -> status;
+  [[nodiscard]] auto
+    do_enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, detail::stop_fn stop_requested, detail::done_fn on_done)
+      -> status;
+  [[nodiscard]] auto
+    do_enqueue_borrowed_fence_wait(VkFence fence, detail::stop_fn stop_requested, detail::done_fn on_done) -> status;
+  [[nodiscard]] auto do_enqueue_host(detail::host_task_fn task) -> status;
 
   struct impl;
   std::unique_ptr<impl> impl_;

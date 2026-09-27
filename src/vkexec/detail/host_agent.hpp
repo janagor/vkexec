@@ -1,7 +1,7 @@
 #ifndef VKEXEC_HOST_AGENT_HPP
 #define VKEXEC_HOST_AGENT_HPP
 
-#include <vkexec/detail/move_only_function.hpp>
+#include <vkexec/detail/worker_callbacks.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 
@@ -17,7 +17,7 @@ namespace vkexec::detail {
 class host_agent
 {
 public:
-  using task_fn = move_only_function<void()>;
+  using task_fn = host_task_fn;
 
   host_agent();
   ~host_agent();

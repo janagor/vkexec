@@ -112,7 +112,7 @@ auto completion_waiter::shutdown() -> void
   thread_ = std::jthread{};
 }
 
-auto completion_waiter::finish_job(job item, std::optional<error> const &failure) -> void
+auto completion_waiter::finish_job(job item, std::optional<error> failure) noexcept -> void
 {
   // Reclaim (or wait) before the callback so senders can free command buffers safely.
   if (item.destroy_sync) {
@@ -120,7 +120,7 @@ auto completion_waiter::finish_job(job item, std::optional<error> const &failure
   } else if (item.fence != VK_NULL_HANDLE) {
     (void)vkWaitForFences(device_, 1, &item.fence, VK_TRUE, UINT64_MAX);
   }
-  if (item.on_done) { item.on_done(failure, item.stop_seen); }
+  if (item.on_done) { item.on_done(std::move(failure), item.stop_seen); }
 }
 
 auto completion_waiter::finish_all(std::vector<job> &jobs, std::optional<error> const &failure) -> void
@@ -129,7 +129,7 @@ auto completion_waiter::finish_all(std::vector<job> &jobs, std::optional<error> 
   jobs.clear();
 }
 
-auto completion_waiter::poll_stop_flags(std::vector<job> &jobs) -> void
+auto completion_waiter::poll_stop_flags(std::vector<job> &jobs) noexcept -> void
 {
   for (job &item : jobs) {
     if (item.stop_requested) { item.stop_seen = item.stop_seen || item.stop_requested(); }

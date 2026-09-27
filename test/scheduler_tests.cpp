@@ -23,6 +23,7 @@
 #include <exception>
 #include <future>
 #include <memory>
+#include <stdexcept>
 #include <thread>
 #include <tuple>
 #include <type_traits>
@@ -198,6 +199,65 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
   REQUIRE(completed_on == agent);
   REQUIRE(completed_on != caller);
 }
+
+TEST_CASE("noexcept host task and nested enqueue run on the host agent", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const agent = ctx->host_agent_thread_id();
+  std::promise<void> completed;
+  auto ready = completed.get_future();
+  std::thread::id outer_thread{};
+  std::thread::id inner_thread{};
+  auto enqueued = ctx->enqueue_host([&]() noexcept -> void {
+    outer_thread = std::this_thread::get_id();
+    auto nested = ctx->enqueue_host([&]() noexcept -> void {
+      inner_thread = std::this_thread::get_id();
+      signal_promise(completed);
+    });
+    if (!nested) { signal_promise(completed); }
+  });
+  REQUIRE(enqueued.has_value());
+  REQUIRE(ready.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
+  REQUIRE(outer_thread == agent);
+  REQUIRE(inner_thread == agent);
+}
+
+#if VKEXEC_ENABLE_EXCEPTIONS
+TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  std::thread::id after_gpu_thread{};
+  auto step = make_empty_pass_step([&]() -> void {
+    after_gpu_thread = std::this_thread::get_id();
+    throw std::runtime_error("after_gpu failed");
+  });
+  vkexec::pass_graph_sender<decltype(step)> graph{
+    .ctx = ctx.get(),
+    .steps = { step },
+  };
+
+  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::unexpected_exception));
+  REQUIRE(after_gpu_thread == ctx->host_agent_thread_id());
+}
+
+TEST_CASE("throwing dynamic after_gpu completes with sender error", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  std::thread::id after_gpu_thread{};
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
+               | vkexec::make_pass_adaptor(make_empty_pass_step([&]() -> void {
+                   after_gpu_thread = std::this_thread::get_id();
+                   throw std::runtime_error("after_gpu failed");
+                 }));
+
+  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::unexpected_exception));
+  REQUIRE(after_gpu_thread == ctx->host_agent_thread_id());
+}
+#endif
 
 TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][scheduler][gpu]")
 {
