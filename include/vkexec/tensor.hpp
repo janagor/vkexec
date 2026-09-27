@@ -159,7 +159,7 @@ public:
   [[nodiscard]] static auto
     make_initialized(resource_type staging_buffer, resource_type device_buffer, std::vector<T> host) -> result<tensor>
   {
-    auto const bytes = static_cast<VkDeviceSize>(host.size() * sizeof(T));
+    auto const bytes = static_cast<VkDeviceSize>(host.size()) * sizeof(T);
     auto mapped = staging_buffer.mapped();
     if (staging_buffer.size() < bytes || device_buffer.size() < bytes || mapped.size() < bytes) {
       return fail(errc::unsupported, "tensor allocation is too small");
@@ -193,7 +193,7 @@ namespace factory {
     {
       using resource_type = A::buffer_type;
       auto composed = std::move(prepared) | stdexec::let_value([&allocator](std::vector<T> &host) -> auto {
-        auto const bytes = static_cast<VkDeviceSize>(host.size() * sizeof(T));
+        auto const bytes = static_cast<VkDeviceSize>(host.size()) * sizeof(T);
         return allocate_buffer(allocator,
                  buffer_create_info{
                    .size = bytes,
