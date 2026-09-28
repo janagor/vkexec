@@ -104,23 +104,26 @@ template<static_pass_step... Steps> struct materialize_pass_graph_fn
 };
 
 template<vkexec_predecessor Pred, static_pass_step... Steps>
-[[nodiscard]] auto materialize_pass_chain(pass_chain<Pred, Steps...> chain)
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+[[nodiscard]] auto materialize_pass_chain(pass_chain<Pred, Steps...> &&chain)
   -> decltype(ex::let_value(std::move(chain.pred),
-    materialize_pass_graph_fn<Steps...>{ .ctx = nullptr, .steps = std::forward<std::tuple<Steps...>>(chain.steps) }))
+    materialize_pass_graph_fn<Steps...>{ .ctx = nullptr, .steps = std::move(chain.steps) }))
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(chain.pred));
   // NOLINTNEXTLINE(misc-const-correctness)
   context *const ctx = sched.get_context();
-  return ex::let_value(std::move(chain.pred),
-    materialize_pass_graph_fn<Steps...>{ .ctx = ctx, .steps = std::forward<std::tuple<Steps...>>(chain.steps) });
+  return ex::let_value(
+    std::move(chain.pred), materialize_pass_graph_fn<Steps...>{ .ctx = ctx, .steps = std::move(chain.steps) });
 }
 
 template<static_pass_step... Steps>
-[[nodiscard]] auto materialize_pass_chain(pass_chain<schedule_sender, Steps...> chain) -> pass_graph_sender<Steps...>
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+[[nodiscard]] auto materialize_pass_chain(pass_chain<schedule_sender, Steps...> &&chain) -> pass_graph_sender<Steps...>
 { return { .ctx = chain.pred.ctx, .steps = std::move(chain.steps) }; }
 
 template<static_pass_step... Old, static_pass_step... Steps>
-[[nodiscard]] auto materialize_pass_chain(pass_chain<pass_graph_sender<Old...>, Steps...> chain)
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+[[nodiscard]] auto materialize_pass_chain(pass_chain<pass_graph_sender<Old...>, Steps...> &&chain)
   -> pass_graph_sender<Old..., Steps...>
 {
   context *const ctx = chain.pred.ctx;
@@ -128,7 +131,8 @@ template<static_pass_step... Old, static_pass_step... Steps>
 }
 
 template<static_pass_step... Steps>
-[[nodiscard]] auto materialize_pass_chain(pass_chain<dynamic_pass_graph_sender, Steps...> chain)
+// NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
+[[nodiscard]] auto materialize_pass_chain(pass_chain<dynamic_pass_graph_sender, Steps...> &&chain)
   -> dynamic_pass_graph_sender
 {
   std::apply([&chain](Steps &&...step) -> void { (chain.pred.steps.emplace_back(std::move(step)), ...); },

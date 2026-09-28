@@ -131,25 +131,26 @@ template<class AfterGpu> [[nodiscard]] auto make_empty_pass_step(AfterGpu after_
     std::move(after_gpu));
 }
 
-struct release_promise
+struct release_flag
 {
-  std::promise<void> *gate{ nullptr };
+  std::atomic_bool *gate{ nullptr };
 
-  explicit release_promise(std::promise<void> &promise) noexcept : gate(&promise) {}
+  explicit release_flag(std::atomic_bool &value) noexcept : gate(&value) {}
 
-  release_promise(release_promise const &) = delete;
-  auto operator=(release_promise const &) -> release_promise & = delete;
-  release_promise(release_promise &&) = delete;
-  auto operator=(release_promise &&) -> release_promise & = delete;
+  release_flag(release_flag const &) = delete;
+  auto operator=(release_flag const &) -> release_flag & = delete;
+  release_flag(release_flag &&) = delete;
+  auto operator=(release_flag &&) -> release_flag & = delete;
 
   auto release() noexcept -> void
   {
     if (gate == nullptr) { return; }
-    signal_promise(*gate);
+    gate->store(true, std::memory_order_release);
+    gate->notify_all();
     gate = nullptr;
   }
 
-  ~release_promise() { release(); }
+  ~release_flag() noexcept { release(); }
 };
 
 }// namespace
@@ -268,16 +269,16 @@ TEST_CASE("schedule observes stop while queued", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
   std::promise<void> entered;
-  std::promise<void> release;
   auto entered_future = entered.get_future();
-  auto release_future = release.get_future();
+  std::atomic_bool release{ false };
+  release_flag release_gate{ release };
   auto blocked = ctx->enqueue_host([&]() noexcept -> void {
     signal_promise(entered);
-    release_future.wait();
+    release.wait(false, std::memory_order_acquire);
   });
   REQUIRE(blocked.has_value());
   auto const entered_status = entered_future.wait_for(std::chrono::seconds(5));
-  if (entered_status != std::future_status::ready) { signal_promise(release); }
+  if (entered_status != std::future_status::ready) { release_gate.release(); }
   REQUIRE(entered_status == std::future_status::ready);
 
   ex::inplace_stop_source source;
@@ -291,7 +292,7 @@ TEST_CASE("schedule observes stop while queued", "[vkexec][scheduler][gpu]")
     });
   ex::start(operation);
   source.request_stop();
-  signal_promise(release);
+  release_gate.release();
 
   REQUIRE(completed.try_acquire_for(std::chrono::seconds(5)));
   REQUIRE(outcome.load() == 3);
@@ -500,15 +501,14 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
 
   std::promise<void> after_gpu_entered;
   auto after_gpu_ready = after_gpu_entered.get_future();
-  std::promise<void> allow_completion;
-  auto allow_completion_future = allow_completion.get_future();
-  release_promise release_gate{ allow_completion };
+  std::atomic_bool allow_completion{ false };
+  release_flag release_gate{ allow_completion };
   std::promise<void> receiver_completed;
   auto receiver_done = receiver_completed.get_future();
 
   auto step = make_empty_pass_step([&]() noexcept -> void {
     signal_promise(after_gpu_entered);
-    allow_completion_future.wait();
+    allow_completion.wait(false, std::memory_order_acquire);
   });
   vkexec::pass_graph_sender<decltype(step)> graph{
     .ctx = ctx.get(),
@@ -546,16 +546,15 @@ TEST_CASE("dynamic pass graph start returns before GPU completion", "[vkexec][sc
 
   std::promise<void> after_gpu_entered;
   auto after_gpu_ready = after_gpu_entered.get_future();
-  std::promise<void> allow_completion;
-  auto allow_completion_future = allow_completion.get_future();
-  release_promise release_gate{ allow_completion };
+  std::atomic_bool allow_completion{ false };
+  release_flag release_gate{ allow_completion };
   std::promise<void> receiver_completed;
   auto receiver_done = receiver_completed.get_future();
 
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
                | vkexec::make_pass_adaptor(make_empty_pass_step([&]() noexcept -> void {
                    signal_promise(after_gpu_entered);
-                   allow_completion_future.wait();
+                   allow_completion.wait(false, std::memory_order_acquire);
                  }));
 
   auto operation = ex::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
@@ -628,15 +627,14 @@ TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][sc
 
   std::promise<void> after_gpu_entered;
   auto after_gpu_ready = after_gpu_entered.get_future();
-  std::promise<void> allow_completion;
-  auto allow_completion_future = allow_completion.get_future();
-  release_promise release_gate{ allow_completion };
+  std::atomic_bool allow_completion{ false };
+  release_flag release_gate{ allow_completion };
   std::atomic_bool sync_wait_returned{ false };
   std::atomic_bool completed_successfully{ false };
 
   auto step = make_empty_pass_step([&]() noexcept -> void {
     signal_promise(after_gpu_entered);
-    allow_completion_future.wait();
+    allow_completion.wait(false, std::memory_order_acquire);
   });
   vkexec::pass_graph_sender<decltype(step)> graph{
     .ctx = ctx.get(),

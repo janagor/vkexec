@@ -44,6 +44,7 @@ TEST_CASE("swapchain create info carries Vulkan create flags", "[vkexec][graphic
   REQUIRE(configured.flags == VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR);
 }
 
+// NOLINTBEGIN(cppcoreguidelines-pro-type-union-access)
 TEST_CASE("make_clear_values maps pipeline config to Vulkan clears", "[vkexec][graphics]")
 {
   vkexec::graphics_pipeline_config cfg{};
@@ -72,6 +73,7 @@ TEST_CASE("make_clear_values uses default clear color from config", "[vkexec][gr
   REQUIRE(clears.at(0).color.float32[2] == Catch::Approx(vkexec::k_default_clear_b));
   REQUIRE(clears.at(0).color.float32[3] == Catch::Approx(vkexec::k_default_clear_a));
 }
+// NOLINTEND(cppcoreguidelines-pro-type-union-access)
 
 TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][scheduler]")
 {
