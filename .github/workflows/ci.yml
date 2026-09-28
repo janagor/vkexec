@@ -139,6 +139,7 @@ jobs:
           swiftshader_destination: C:\SwiftShader
           install_runtime: false
           cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Select SwiftShader Vulkan ICD
         if: runner.os == 'Windows'
@@ -405,6 +406,7 @@ jobs:
           swiftshader_destination: C:\SwiftShader
           install_runtime: false
           cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Select SwiftShader Vulkan ICD
         if: runner.os == 'Windows'
