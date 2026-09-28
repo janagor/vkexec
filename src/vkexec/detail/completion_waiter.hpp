@@ -71,7 +71,7 @@ private:
   std::condition_variable cv_;
   std::vector<job> pending_;
   bool shutting_down_{ false };
-  std::jthread thread_;
+  std::thread thread_;
 };
 
 }// namespace vkexec::detail

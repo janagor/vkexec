@@ -39,7 +39,7 @@ host_agent::host_agent()
 {
   // Publish thread_id_ before the constructor returns so enqueue can detect the agent thread.
   std::latch ready{ 1 };
-  thread_ = std::jthread([this, &ready]() noexcept -> void {
+  thread_ = std::thread([this, &ready]() noexcept -> void {
     thread_id_ = std::this_thread::get_id();
     ready.count_down();
 #if VKEXEC_ENABLE_EXCEPTIONS
@@ -90,8 +90,7 @@ auto host_agent::shutdown() -> void
     shutting_down_ = true;
   }
   cv_.notify_all();
-  // Assigning an empty jthread joins the previous worker after it observes shutting_down_.
-  thread_ = std::jthread{};
+  if (thread_.joinable()) { thread_.join(); }
 }
 
 auto host_agent::run() -> void

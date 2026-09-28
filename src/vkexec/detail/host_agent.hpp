@@ -48,7 +48,7 @@ private:
   std::vector<task_fn> pending_;
   bool shutting_down_{ false };
   std::thread::id thread_id_;
-  std::jthread thread_;
+  std::thread thread_;
 };
 
 }// namespace vkexec::detail

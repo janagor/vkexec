@@ -5,8 +5,8 @@
 #include <cstdlib>
 
 // Clang-only attribute used to silence false positives in checked-take helpers.
-// GCC treats unknown scoped attributes as errors under -Werror=attributes.
-#ifdef __clang__
+// Feature-test it because older supported Clang versions do not provide it.
+#if defined(__clang__) && __has_cpp_attribute(clang::suppress)
 #define VKEXEC_CLANG_SUPPRESS , clang::suppress
 #else
 #define VKEXEC_CLANG_SUPPRESS

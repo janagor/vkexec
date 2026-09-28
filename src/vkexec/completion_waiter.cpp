@@ -109,7 +109,7 @@ auto completion_waiter::shutdown() -> void
     shutting_down_ = true;
   }
   cv_.notify_all();
-  thread_ = std::jthread{};
+  if (thread_.joinable()) { thread_.join(); }
 }
 
 auto completion_waiter::finish_job(job item, std::optional<error> failure) noexcept -> void
