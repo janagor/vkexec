@@ -184,8 +184,8 @@ namespace detail {
   public:
     dynamic_pass_step() = delete;
 
-    template<static_pass_step Step>
-      requires(!std::same_as<std::remove_cvref_t<Step>, dynamic_pass_step>)
+    template<class Step>
+      requires(!std::same_as<std::remove_cvref_t<Step>, dynamic_pass_step>) && static_pass_step<Step>
     explicit dynamic_pass_step(Step step) : impl_(std::make_unique<model<Step>>(std::move(step)))
     {}
 
@@ -200,6 +200,9 @@ namespace detail {
 
     auto after_gpu() -> void { impl_->after_gpu(); }
   };
+
+  static_assert(std::move_constructible<dynamic_pass_step>);
+  static_assert(!std::copy_constructible<dynamic_pass_step>);
 
   [[nodiscard]] inline auto push_bytes(no_push_constants const & /*unused*/) noexcept -> std::span<std::byte const>
   { return {}; }
