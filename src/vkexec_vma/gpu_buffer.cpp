@@ -170,13 +170,13 @@ auto vma::gpu_buffer::operator=(gpu_buffer &&other) noexcept -> gpu_buffer &
 auto vma::gpu_buffer::mapped() noexcept -> std::span<std::byte>
 {
   if (mapped_ == nullptr) { return {}; }
-  return { static_cast<std::byte *>(mapped_), static_cast<std::size_t>(size_) };
+  return { static_cast<std::byte *>(mapped_), size_ };
 }
 
 auto vma::gpu_buffer::mapped() const noexcept -> std::span<std::byte const>
 {
   if (mapped_ == nullptr) { return {}; }
-  return { static_cast<std::byte const *>(mapped_), static_cast<std::size_t>(size_) };
+  return { static_cast<std::byte const *>(mapped_), size_ };
 }
 
 auto vma::gpu_buffer::flush() const -> status
