@@ -75,7 +75,7 @@ namespace detail {
     std::optional<error> failure;
   };
 
-#if defined(_MSC_VER)
+#ifdef _MSC_VER
   // MSVC may diagnose generic completion branches as unreachable during LTCG
   // after fully specializing/inlining a factory and receiver.
 #pragma warning(push)
@@ -119,7 +119,7 @@ namespace detail {
     }
   }
 
-#if defined(_MSC_VER)
+#ifdef _MSC_VER
 #pragma warning(pop)
 #endif
 
