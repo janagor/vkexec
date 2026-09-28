@@ -481,8 +481,13 @@ jobs:
           cmake --version
           cmake -S . -B ./build -G "${{matrix.generator}}" -D${{ env.PROJECT_NAME }}_ENABLE_IPO=${{matrix.enable_ipo }} -DCMAKE_BUILD_TYPE:STRING=${{matrix.build_type}} -D${{ env.PROJECT_NAME }}_PACKAGING_MAINTAINER_MODE:BOOL=${{matrix.packaging_maintainer_mode}} -D${{ env.PROJECT_NAME }}_ENABLE_COVERAGE:BOOL=${{ matrix.build_type == 'Debug' }} -DGIT_SHA:STRING=${{ github.sha }}
 
+      - name: Build (Ninja)
+        if: startsWith(matrix.generator, 'Ninja')
+        run: |
+          cmake --build ./build --config ${{matrix.build_type}} -- -k 0
+
       - name: Build
-        # Execute the build.  You can specify a specific target with "--target <NAME>"
+        if: ${{ !startsWith(matrix.generator, 'Ninja') }}
         run: |
           cmake --build ./build --config ${{matrix.build_type}}
 
