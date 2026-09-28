@@ -70,14 +70,14 @@ auto query_descriptor_heap_layout(context const &ctx) -> result<descriptor_heap_
   vkGetPhysicalDeviceProperties2(ctx.physical_device(), &props2);
 
   descriptor_heap_layout layout{};
-  layout.buffer_descriptor_size = static_cast<std::size_t>(heap_props.bufferDescriptorSize);
-  layout.image_descriptor_size = static_cast<std::size_t>(heap_props.imageDescriptorSize);
+  layout.buffer_descriptor_size = heap_props.bufferDescriptorSize;
+  layout.image_descriptor_size = heap_props.imageDescriptorSize;
   // Mixed heaps use the larger descriptor size as the uniform slot stride.
   layout.descriptor_stride =
     static_cast<std::size_t>(std::max(heap_props.bufferDescriptorSize, heap_props.imageDescriptorSize));
   layout.resource_heap_alignment = heap_props.resourceHeapAlignment;
   layout.min_resource_heap_reserved_range = heap_props.minResourceHeapReservedRange;
-  layout.sampler_descriptor_size = static_cast<std::size_t>(heap_props.samplerDescriptorSize);
+  layout.sampler_descriptor_size = heap_props.samplerDescriptorSize;
   layout.sampler_heap_alignment = heap_props.samplerHeapAlignment;
   layout.min_sampler_heap_reserved_range = heap_props.minSamplerHeapReservedRange;
 
