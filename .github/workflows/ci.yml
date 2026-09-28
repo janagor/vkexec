@@ -564,6 +564,16 @@ jobs:
             Get-Content Testing/Temporary/LastTest.log
           }
 
+      - name: Windows - Coverage baseline
+        if: runner.os == 'Windows' && matrix.build_type == 'Debug' && matrix.compiler == 'msvc' && matrix.packaging_maintainer_mode == 'Off'
+        working-directory: ./build
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe" `
+            "graphics_pipeline tag factory owns null-layout DR pipeline" `
+            -s
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Windows - Coverage
         if: runner.os == 'Windows' && matrix.build_type == 'Debug' && matrix.compiler == 'msvc' && matrix.packaging_maintainer_mode == 'Off'
         working-directory: ./build
@@ -575,7 +585,9 @@ jobs:
             --sources "$env:GITHUB_WORKSPACE\src" `
             --working_dir "$env:GITHUB_WORKSPACE\build\test" `
             --export_type cobertura:coverage.xml `
-            -- "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe"
+            -- "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe" `
+              "graphics_pipeline tag factory owns null-layout DR pipeline" `
+              -s
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: CPack
