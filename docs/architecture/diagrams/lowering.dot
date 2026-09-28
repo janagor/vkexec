@@ -1,0 +1,4 @@
+digraph lowering {
+  rankdir=LR;
+  "sender pipeline" -> "semantic expressions" -> "vkexec::domain" -> normalization -> "typed primitive steps" -> pass_graph_sender -> "Vulkan submission" -> completion;
+}

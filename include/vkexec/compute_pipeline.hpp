@@ -239,14 +239,6 @@ struct bound_compute_pipeline
     .pipe = &pipe, .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
 }
 
-/**
- * Builds a prebuilt compute pass with push constants and automatic group counts.
- *
- * @param pipe Compute pipeline.
- * @param set Descriptor set matching the pipeline layout (may be null if unused).
- * @param params Trivially copyable push-constant blob.
- * @param work_count Invocation count along X (converted via `groups_for`).
- */
 //! Uploads push constants using `pipe.resources().pipeline_layout`.
 template<typename T>
 auto upload_push_constants(VkCommandBuffer cmd, owned::compute_pipeline const &pipe, T const &params) -> void

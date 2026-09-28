@@ -609,12 +609,6 @@ struct compute_pass_t
 // NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr compute_pass_t compute_pass{};
 
-/**
- * Builds an indirect-dispatch compute pass with push constants `params`.
- *
- * @param groups Buffer containing `VkDispatchIndirectCommand` at `offset`.
- */
-
 //! Returns the specialized local workgroup size as a `dispatch`.
 [[nodiscard]] inline auto local_size(handles::compute_pipeline const &pipe) noexcept -> dispatch
 {

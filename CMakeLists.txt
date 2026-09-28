@@ -206,6 +206,8 @@ include(CTest)
 
 if(BUILD_TESTING)
   add_subdirectory(test)
+  add_test(NAME vkexec.documentation_consistency COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
+                                                  "${PROJECT_SOURCE_DIR}/cmake/CheckDocumentation.cmake")
   add_test(NAME vkexec.cxx_standard_policy COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
                                                    "${PROJECT_SOURCE_DIR}/cmake/CheckCxxStandardPolicy.cmake")
   add_test(NAME vkexec.stdexec_public_api_boundary

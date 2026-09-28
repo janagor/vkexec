@@ -28,6 +28,7 @@ constexpr VkDeviceSize k_heap_bytes = 64;
 constexpr float k_buffer_fill = 1.5F;
 constexpr float k_tensor_fill = 2.0F;
 
+// docs: custom allocator resource types begin
 struct test_buffer
 {
   std::vector<std::byte> bytes;
@@ -54,6 +55,7 @@ struct test_allocator
   int buffer_allocations{};
   vkexec::buffer_create_info last_buffer_info{};
 };
+// docs: custom allocator resource types end
 
 struct foreign_error_sender
 {
@@ -101,6 +103,7 @@ struct wrong_image_allocator
   vkexec::image_create_info /*info*/)
 { return stdexec::just(k_wrong_value); }
 
+// docs: custom allocator customizations begin
 [[nodiscard]] auto
   tag_invoke(vkexec::allocate_buffer_t /*tag*/, test_allocator &allocator, vkexec::buffer_create_info info)
 {
@@ -118,6 +121,7 @@ struct wrong_image_allocator
 }
 
 static_assert(vkexec::resource_allocator<test_allocator>);
+// docs: custom allocator customizations end
 static_assert(vkexec::mapped_buffer_allocator<test_allocator>);
 static_assert(std::same_as<decltype(std::declval<test_buffer const &>().mapped()), std::span<std::byte const>>);
 static_assert(!vkexec::buffer_allocator<wrong_buffer_allocator>);

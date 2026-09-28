@@ -27,16 +27,16 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -f .devcontainer/Dockerfile --target ${{ matrix.target }} --tag cmake_template:${{ matrix.target }} .
+          docker build -f .devcontainer/Dockerfile --target ${{ matrix.target }} --tag vkexec:${{ matrix.target }} .
 
       - name: Configure, build, and test
         run: |
           docker run --rm \
-            -v "$PWD:/workspaces/cmake_template" \
-            -w /workspaces/cmake_template \
+            -v "$PWD:/workspaces/vkexec" \
+            -w /workspaces/vkexec \
             -e VK_DRIVER_FILES \
             -e VK_ICD_FILENAMES \
-            cmake_template:${{ matrix.target }} \
+            vkexec:${{ matrix.target }} \
             bash -c "
               ICD=\$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -1)
               if [[ -n \"\$ICD\" ]]; then

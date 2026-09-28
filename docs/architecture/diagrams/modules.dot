@@ -1,0 +1,8 @@
+digraph modules {
+  rankdir=LR;
+  vkexec -> vkexec_features;
+  vkexec -> vkexec_graphics;
+  vkexec -> vkexec_vma;
+  vkexec -> vkexec_tools;
+  vkexec -> vkexec_extensions;
+}

@@ -1,0 +1,8 @@
+digraph ownership {
+  rankdir=LR;
+  context -> scheduler;
+  context -> "owning resources" [label="must outlive"];
+  "owning resources" -> "borrowed handles" -> "pass graph" -> "GPU completion";
+  "VMA allocator" -> "VMA resources";
+  "embedder Vulkan objects" -> "adopted context";
+}

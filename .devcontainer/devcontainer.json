@@ -1,5 +1,5 @@
 {
-  "name": "cmake_template",
+  "name": "vkexec",
   "build": {
     "dockerfile": "Dockerfile",
     "target": "clang",

@@ -1,0 +1,4 @@
+digraph lifecycle {
+  rankdir=LR;
+  "sender expression" -> "operation state" -> "start()" -> "Vulkan submission" -> "GPU fence" -> "completion agent" -> "host scheduler" -> "receiver";
+}
