@@ -8,6 +8,14 @@
 
 `vkexec` is a C++20 **stdexec Vulkan compute backend**: a scheduler, pass/barrier graphs, borrowable handles, and backend-neutral Vulkan presentation helpers.
 
+### Compiler support
+
+vkexec requires C++20.
+
+The CI-enforced compiler floors are GCC 12, Clang 16, and MSVC 14.43 (compiler 19.43). Each floor is tested in both Debug and Release.
+
+The pinned stdexec dependency additionally supports Xcode 16 (Apple Clang); a dedicated Apple Clang floor lane for vkexec has not yet been added.
+
 **Execution** — schedule work on a device; record with `compute_bind` / `handles::compute_pipeline`; compose `compute_pass` and barriers. Prefer `#include <vkexec/execution.hpp>`.
 
 **Resources** — core provides allocator-neutral `owned::` Vulkan RAII types and generic `buffer<T, B>` / `tensor<T, B>` helpers, where `B` is an owning buffer resource. The optional `vma::` module supplies one allocator and its owning `gpu_buffer` / `image` resources.

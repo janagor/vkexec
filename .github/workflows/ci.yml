@@ -23,6 +23,166 @@ env:
 
 
 jobs:
+  compiler-floor:
+    if: github.event_name != 'schedule'
+    name: compiler floor ${{ matrix.compiler }} ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, compiler: gcc-12, build_type: Debug }
+          - { os: ubuntu-24.04, compiler: gcc-12, build_type: Release }
+          - { os: ubuntu-24.04, compiler: clang-16, build_type: Debug }
+          - { os: ubuntu-24.04, compiler: clang-16, build_type: Release }
+          - { os: windows-2022, compiler: msvc-14.43, build_type: Debug }
+          - { os: windows-2022, compiler: msvc-14.43, build_type: Release }
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup CMake and Ninja
+        uses: aminya/setup-cpp@v1
+        with:
+          cmake: true
+          ninja: true
+          vcpkg: false
+          ccache: false
+          clangtidy: false
+          cppcheck: false
+
+      - name: Install Linux compiler and Vulkan runtime
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build gcc-12 g++-12 clang-16 libc++-16-dev libc++abi-16-dev \
+            libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev \
+            libffi-dev mesa-vulkan-drivers
+          ICD="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' | head -1)"
+          test -n "$ICD"
+          echo "VK_DRIVER_FILES=$ICD" >> "$GITHUB_ENV"
+          echo "VK_ICD_FILENAMES=$ICD" >> "$GITHUB_ENV"
+
+      - name: Select Linux compiler and verify version
+        if: runner.os == 'Linux'
+        env:
+          COMPILER: ${{ matrix.compiler }}
+        run: |
+          if [[ "$COMPILER" == gcc-12 ]]; then
+            echo 'CC=/usr/bin/gcc-12' >> "$GITHUB_ENV"
+            echo 'CXX=/usr/bin/g++-12' >> "$GITHUB_ENV"
+            /usr/bin/g++-12 --version
+            test "$(/usr/bin/g++-12 -dumpversion | cut -d. -f1)" = 12
+          else
+            echo 'CC=/usr/bin/clang-16' >> "$GITHUB_ENV"
+            echo 'CXX=/usr/bin/clang++-16' >> "$GITHUB_ENV"
+            echo 'CXXFLAGS=-stdlib=libc++' >> "$GITHUB_ENV"
+            /usr/bin/clang++-16 --version
+            test "$(/usr/bin/clang++-16 -dumpversion | cut -d. -f1)" = 16
+          fi
+
+      - name: Setup Linux Vulkan SDK
+        if: runner.os == 'Linux'
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Install MSVC 14.43 toolset
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -version '[17.0,18.0)' -products '*' -property installationPath
+          if (-not $vsPath) { throw 'Visual Studio 2022 was not found' }
+          $toolset = Get-ChildItem "$vsPath\VC\Tools\MSVC" -Directory -Filter '14.43.*' -ErrorAction SilentlyContinue
+          if (-not $toolset) {
+            $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
+            $args = @('modify', '--installPath', "`"$vsPath`"", '--add', 'Microsoft.VisualStudio.Component.VC.14.43.17.13.x86.x64', '--quiet', '--norestart')
+            $process = Start-Process -FilePath $installer -ArgumentList $args -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Visual Studio installer failed: $($process.ExitCode)" }
+          }
+          if (-not (Get-ChildItem "$vsPath\VC\Tools\MSVC" -Directory -Filter '14.43.*')) {
+            throw 'MSVC 14.43 was not installed'
+          }
+
+      - name: Activate MSVC 14.43
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: '14.43'
+
+      - name: Verify MSVC compiler version
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $banner = (& cl 2>&1 | Out-String)
+          Write-Host $banner
+          if ($banner -notmatch 'Version 19\.43\.') { throw 'Expected MSVC compiler 19.43' }
+
+      - name: Install Windows Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: humbletim/install-vulkan-sdk@033219e2d69dd4d3e873e217eb385fdd4b4438f4
+        with:
+          version: 1.4.350.0
+          cache: true
+
+      - name: Install SwiftShader
+        if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.4.350.0
+          install_swiftshader: true
+          swiftshader_destination: C:\SwiftShader
+          install_runtime: false
+          cache: true
+
+      - name: Select SwiftShader Vulkan ICD
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $icd = 'C:\SwiftShader\vk_swiftshader_icd.json'
+          if (-not (Test-Path $icd)) { throw "SwiftShader ICD was not found: $icd" }
+          "VK_DRIVER_FILES=$icd" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Configure Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          BUILD_TYPE: ${{ matrix.build_type }}
+        run: |
+          cmake -S . -B build-floor -G Ninja \
+            -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF \
+            -DBUILD_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF \
+            -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON \
+            -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF \
+            -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF \
+            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF
+
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          BUILD_TYPE: ${{ matrix.build_type }}
+        run: |
+          cmake -S . -B build-floor -G Ninja `
+            -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF `
+            -DBUILD_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF `
+            -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON `
+            -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF `
+            -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF `
+            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF
+
+      - name: Build
+        run: cmake --build build-floor
+
+      - name: Test
+        working-directory: build-floor
+        run: ctest --output-on-failure
+
   Test:
     if: github.event_name != 'schedule'
     name: ${{matrix.os}} ${{matrix.compiler}} ${{matrix.build_type}} ${{matrix.packaging_maintainer_mode == 'ON' && '(maintainer mode)' || ''}}
