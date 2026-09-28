@@ -94,6 +94,8 @@ function(
   endif()
 
   if(MSVC)
+    # stdexec's __forceinline coroutine helpers can trigger C4714 when MSVC declines to inline them.
+    list(APPEND MSVC_WARNINGS /wd4714)
     set(PROJECT_WARNINGS_CXX ${MSVC_WARNINGS})
   elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
     set(PROJECT_WARNINGS_CXX ${CLANG_WARNINGS})
