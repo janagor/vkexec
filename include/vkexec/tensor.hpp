@@ -72,7 +72,10 @@ namespace detail {
     VkBufferMemoryBarrier after{};
     after.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     after.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    after.dstAccessMask = upload ? VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT : VK_ACCESS_HOST_READ_BIT;
+    auto constexpr k_shader_access =
+      static_cast<VkAccessFlags>(VK_ACCESS_SHADER_READ_BIT) | static_cast<VkAccessFlags>(VK_ACCESS_SHADER_WRITE_BIT);
+    auto constexpr k_host_access = static_cast<VkAccessFlags>(VK_ACCESS_HOST_READ_BIT);
+    after.dstAccessMask = upload ? k_shader_access : k_host_access;
     after.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     after.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     after.buffer = upload ? device : staging;
@@ -197,7 +200,8 @@ namespace factory {
         return allocate_buffer(allocator,
                  buffer_create_info{
                    .size = bytes,
-                   .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                   .usage = static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+                            | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_DST_BIT),
                    .memory = memory_domain::staging,
                  })
                | stdexec::let_value([&allocator, &host, bytes](resource_type &staging) -> auto {

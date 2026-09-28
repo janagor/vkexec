@@ -69,17 +69,22 @@ public:
 
     // Forwarding preserves lvalue connections; an unconditional move would break them.
     // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
-    explicit op_state(Source &&source, Receiver receiver)
+    explicit op_state(Source &&source, Receiver receiver) noexcept(
+      noexcept(stdexec::connect(std::forward<Source>(source), child_receiver_type{ std::move(receiver) })))
       : child(stdexec::connect(std::forward<Source>(source), child_receiver_type{ std::move(receiver) }))
     {}
 
     auto start() noexcept -> void { stdexec::start(child); }
   };
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) & -> op_state<Receiver, Sender &>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) & noexcept(
+    noexcept(op_state<Receiver, Sender &>{ sender_, std::move(receiver) })) -> op_state<Receiver, Sender &>
   { return op_state<Receiver, Sender &>{ sender_, std::move(receiver) }; }
 
-  template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver, Sender>
+  template<class Receiver>
+  [[nodiscard]] auto connect(Receiver receiver) && noexcept(
+    noexcept(op_state<Receiver, Sender>{ std::move(sender_), std::move(receiver) })) -> op_state<Receiver, Sender>
   { return op_state<Receiver, Sender>{ std::move(sender_), std::move(receiver) }; }
 
 private:
