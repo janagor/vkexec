@@ -33,7 +33,10 @@ struct throwing_destructor_task
   auto operator=(throwing_destructor_task const &) -> throwing_destructor_task & = default;
   throwing_destructor_task(throwing_destructor_task &&) = default;
   auto operator=(throwing_destructor_task &&) -> throwing_destructor_task & = default;
-  ~throwing_destructor_task() noexcept(false) = default;
+  // Intentionally non-trivial: GCC 12 can treat a defaulted noexcept(false)
+  // destructor as nothrow.
+  // NOLINTNEXTLINE(hicpp-use-equals-default,modernize-use-equals-default)
+  ~throwing_destructor_task() noexcept(false) {}
   auto operator()() noexcept -> void {}
 };
 
@@ -42,7 +45,10 @@ struct throwing_move_task
   throwing_move_task() = default;
   throwing_move_task(throwing_move_task const &) = delete;
   auto operator=(throwing_move_task const &) -> throwing_move_task & = delete;
-  throwing_move_task(throwing_move_task &&) noexcept(false) = default;
+  // Intentionally non-trivial: keep the noexcept(false) move observable on
+  // older compilers.
+  // NOLINTNEXTLINE(hicpp-use-equals-default,modernize-use-equals-default)
+  throwing_move_task([[maybe_unused]] throwing_move_task &&other) noexcept(false) {}
   auto operator=(throwing_move_task &&) -> throwing_move_task & = delete;
   ~throwing_move_task() noexcept = default;
   auto operator()() noexcept -> void {}
@@ -105,6 +111,7 @@ using value_fn = vkexec::detail::move_only_function<int()>;
 
 static_assert(std::constructible_from<task_fn, nothrow_task>);
 static_assert(!std::constructible_from<task_fn, throwing_task>);
+static_assert(!std::is_nothrow_destructible_v<throwing_destructor_task>);
 static_assert(!std::constructible_from<task_fn, throwing_destructor_task>);
 static_assert(!std::constructible_from<value_fn, nothrow_task>);
 static_assert(!std::is_nothrow_move_constructible_v<throwing_move_task>);
