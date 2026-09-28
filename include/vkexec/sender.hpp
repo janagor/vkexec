@@ -103,16 +103,11 @@ namespace detail {
   {
     if (completion.failure) {
       ex::set_error(std::forward<Receiver>(receiver), std::move(*completion.failure));
-      return;
-    }
-
-    if constexpr (std::is_void_v<T>) {
+    } else if constexpr (std::is_void_v<T>) {
       ex::set_value(std::forward<Receiver>(receiver));
+    } else if (completion.value) {
+      ex::set_value(std::forward<Receiver>(receiver), std::move(*completion.value));
     } else {
-      if (completion.value) {
-        ex::set_value(std::forward<Receiver>(receiver), std::move(*completion.value));
-        return;
-      }
       std::terminate();
     }
   }
