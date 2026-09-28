@@ -11,7 +11,6 @@
 #include <array>
 #include <concepts>
 #include <optional>
-#include <stop_token>
 #include <type_traits>
 #include <utility>
 
@@ -51,7 +50,7 @@ struct throwing_move_task
 
 struct throwing_stop_token
 {
-  template<class Callback> using callback_type = std::stop_callback<Callback>;
+  template<class Callback> using callback_type = stdexec::inplace_stop_callback<Callback>;
 
   bool requested{ false };
   bool possible{ true };
@@ -123,7 +122,8 @@ static_assert(!host_enqueuable<throwing_destructor_task>);
 static_assert(!stdexec::stoppable_token<throwing_stop_token>);
 static_assert(throwing_stop_token{} == throwing_stop_token{});
 static_assert(!fence_enqueuable<throwing_stop_token>);
-static_assert(fence_enqueuable<std::stop_token>);
+static_assert(stdexec::stoppable_token<stdexec::inplace_stop_token>);
+static_assert(fence_enqueuable<stdexec::inplace_stop_token>);
 
 TEST_CASE("noexcept move-only callback moves and invokes", "[vkexec][callback]")
 {
