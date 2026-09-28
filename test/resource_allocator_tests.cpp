@@ -79,7 +79,7 @@ struct infallible_allocator
 
 [[nodiscard]] auto
   tag_invoke(vkexec::allocate_buffer_t /*tag*/, infallible_allocator & /*allocator*/, vkexec::buffer_create_info info)
-{ return stdexec::just(test_buffer{ std::vector<std::byte>(static_cast<std::size_t>(info.size)) }); }
+{ return stdexec::just(test_buffer{ std::vector<std::byte>(info.size) }); }
 
 struct wrong_buffer_allocator
 {
