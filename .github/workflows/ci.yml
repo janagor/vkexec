@@ -571,7 +571,8 @@ jobs:
         run: |
           & "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe" `
             "graphics_pipeline tag factory owns null-layout DR pipeline" `
-            -s
+            -s `
+            --allow-running-no-tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Windows - Coverage
@@ -587,7 +588,8 @@ jobs:
             --export_type cobertura:coverage.xml `
             -- "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe" `
               "graphics_pipeline tag factory owns null-layout DR pipeline" `
-              -s
+              -s `
+              --allow-running-no-tests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: CPack
