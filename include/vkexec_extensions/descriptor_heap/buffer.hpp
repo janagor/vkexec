@@ -65,7 +65,8 @@ namespace factory {
         return allocate_buffer(allocator,
                  buffer_create_info{
                    .size = bytes,
-                   .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                   .usage = static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT)
+                            | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT),
                    .memory = memory_domain::host_visible,
                    .shader_device_address = true,
                    .alignment = k_descriptor_heap_buffer_alignment,

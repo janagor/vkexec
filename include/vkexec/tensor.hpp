@@ -208,10 +208,9 @@ namespace factory {
                    return allocate_buffer(allocator,
                             buffer_create_info{
                               .size = bytes,
-                              // NOLINTBEGIN(hicpp-signed-bitwise)
-                              .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-                                       | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                              // NOLINTEND(hicpp-signed-bitwise)
+                              .usage = static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+                                       | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+                                       | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_DST_BIT),
                               .memory = memory_domain::device_local,
                               .shader_device_address = true,
                             })

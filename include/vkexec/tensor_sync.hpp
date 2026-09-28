@@ -99,9 +99,8 @@ namespace detail {
 
         VkBufferMemoryBarrier device_barrier{};
         device_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        // NOLINTBEGIN(hicpp-signed-bitwise)
-        device_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-        // NOLINTEND(hicpp-signed-bitwise)
+        device_barrier.srcAccessMask = static_cast<VkAccessFlags>(VK_ACCESS_SHADER_WRITE_BIT)
+                                       | static_cast<VkAccessFlags>(VK_ACCESS_TRANSFER_WRITE_BIT);
         device_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
         device_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         device_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -120,9 +119,8 @@ namespace detail {
         staging_barrier.size = bytes;
 
         std::array<VkBufferMemoryBarrier, 2> before{ device_barrier, staging_barrier };
-        // NOLINTBEGIN(hicpp-signed-bitwise)
-        auto const src_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
-        // NOLINTEND(hicpp-signed-bitwise)
+        auto const src_stage = static_cast<VkPipelineStageFlags>(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT)
+                               | static_cast<VkPipelineStageFlags>(VK_PIPELINE_STAGE_TRANSFER_BIT);
         vkCmdPipelineBarrier(cmd,
           src_stage,
           VK_PIPELINE_STAGE_TRANSFER_BIT,

@@ -237,12 +237,11 @@ auto owned::presenter::create_render_pass() -> status
     .pPreserveAttachments = nullptr,
   };
 
-  // NOLINTBEGIN(hicpp-signed-bitwise)
-  auto const attachment_stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-                                 | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-                                 | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-  auto const attachment_access = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-  // NOLINTEND(hicpp-signed-bitwise)
+  auto const attachment_stages = static_cast<VkPipelineStageFlags>(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                                 | static_cast<VkPipelineStageFlags>(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+                                 | static_cast<VkPipelineStageFlags>(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+  auto const attachment_access = static_cast<VkAccessFlags>(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                                 | static_cast<VkAccessFlags>(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
 
   VkSubpassDependency const dependency{
     .srcSubpass = VK_SUBPASS_EXTERNAL,

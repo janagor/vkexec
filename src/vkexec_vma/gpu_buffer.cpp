@@ -19,17 +19,19 @@ namespace {
     case vma::gpu_buffer_memory::host_visible:
     case vma::gpu_buffer_memory::device_local: {
       // Storage + transfer + indirect covers typical compute/hybrid upload paths.
-      // NOLINTBEGIN(hicpp-signed-bitwise)
-      VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
-                                 | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-      if (shader_device_address) { usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT; }
+      VkBufferUsageFlags usage = static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+                                 | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+                                 | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+                                 | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+      if (shader_device_address) {
+        usage |= static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
+      }
       return usage;
-      // NOLINTEND(hicpp-signed-bitwise)
     }
     case vma::gpu_buffer_memory::staging:
       // Upload and readback both need copy endpoints on the staging buffer.
-      // NOLINTNEXTLINE(hicpp-signed-bitwise)
-      return VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+      return static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+             | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_TRANSFER_DST_BIT);
     }
     return fail(errc::invalid_argument, "unknown gpu_buffer_memory");
   }
@@ -40,10 +42,10 @@ namespace {
     switch (memory) {
     case vma::gpu_buffer_memory::host_visible:
       aci.usage = VMA_MEMORY_USAGE_AUTO;
-      // NOLINTBEGIN(hicpp-signed-bitwise)
-      aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-      aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-      // NOLINTEND(hicpp-signed-bitwise)
+      aci.flags = static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
+                  | static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_MAPPED_BIT);
+      aci.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+                          | static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
       break;
     case vma::gpu_buffer_memory::device_local:
       aci.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
@@ -51,9 +53,8 @@ namespace {
     case vma::gpu_buffer_memory::staging:
       // Readback-friendly mapping: random host access, prefer coherent if available.
       aci.usage = VMA_MEMORY_USAGE_AUTO;
-      // NOLINTBEGIN(hicpp-signed-bitwise)
-      aci.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-      // NOLINTEND(hicpp-signed-bitwise)
+      aci.flags = static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT)
+                  | static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_MAPPED_BIT);
       aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
       aci.preferredFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
       break;

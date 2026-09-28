@@ -27,10 +27,10 @@ namespace {
   {
     switch (usage) {
     case vma::image_usage::color_storage:
-      // NOLINTBEGIN(hicpp-signed-bitwise)
-      return VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-             | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-      // NOLINTEND(hicpp-signed-bitwise)
+      return static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_STORAGE_BIT)
+             | static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+             | static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+             | static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     case vma::image_usage::depth:
       return VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     }

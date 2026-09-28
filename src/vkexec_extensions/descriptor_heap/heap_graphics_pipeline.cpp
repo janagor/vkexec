@@ -28,10 +28,10 @@ namespace {
 
   auto apply_blend(blend_mode mode, VkPipelineColorBlendAttachmentState &attachment) -> void
   {
-    // NOLINTBEGIN(hicpp-signed-bitwise)
-    attachment.colorWriteMask =
-      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    // NOLINTEND(hicpp-signed-bitwise)
+    attachment.colorWriteMask = static_cast<VkColorComponentFlags>(VK_COLOR_COMPONENT_R_BIT)
+                                | static_cast<VkColorComponentFlags>(VK_COLOR_COMPONENT_G_BIT)
+                                | static_cast<VkColorComponentFlags>(VK_COLOR_COMPONENT_B_BIT)
+                                | static_cast<VkColorComponentFlags>(VK_COLOR_COMPONENT_A_BIT);
     switch (mode) {
     case blend_mode::none:
       attachment.blendEnable = VK_FALSE;
