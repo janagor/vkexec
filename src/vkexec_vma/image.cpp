@@ -112,8 +112,9 @@ auto detail::make_generic_image_factory::operator()() const -> result<::vkexec::
   VkResult const created =
     vmaCreateImage(allocator->native_handle(), &create_info, &allocation_info, &image_handle, &allocation, nullptr);
   if (created != VK_SUCCESS) { return fail(created, "vmaCreateImage failed"); }
-  auto const usage = (info.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0 ? vma::image_usage::depth
-                                                                                     : vma::image_usage::color_storage;
+  auto const depth_stencil_bit = static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+  auto const usage =
+    (info.usage & depth_stencil_bit) != VkImageUsageFlags{} ? vma::image_usage::depth : vma::image_usage::color_storage;
   return vma::image{ allocator->native_handle(),
     image_handle,
     allocation,
