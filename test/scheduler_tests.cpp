@@ -222,6 +222,38 @@ TEST_CASE("null schedule observes pre-requested stop", "[vkexec][scheduler]")
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
 
+TEST_CASE("null schedule reports invalid argument", "[vkexec][scheduler]")
+{
+  auto outcome = vkexec::test::sync_wait_sender(ex::schedule(vkexec::scheduler{ nullptr }));
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+}
+
+TEST_CASE("null static pass graph reports invalid argument", "[vkexec][scheduler][pass]")
+{
+  auto graph = ex::schedule(vkexec::scheduler{ nullptr })
+               | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
+  auto outcome = vkexec::test::sync_wait_sender(graph);
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+}
+
+TEST_CASE("null dynamic pass graph reports invalid argument", "[vkexec][scheduler][pass]")
+{
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(vkexec::scheduler{ nullptr }));
+  graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
+  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+}
+
+TEST_CASE("null submit scope reports invalid argument", "[vkexec][scheduler][pass]")
+{
+  auto outcome = vkexec::test::sync_wait_sender(vkexec::detail::enter_submit_scope(nullptr));
+  REQUIRE(outcome.failed());
+  REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+}
+
 TEST_CASE("schedule observes pre-requested stop", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();

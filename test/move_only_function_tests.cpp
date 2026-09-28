@@ -95,13 +95,29 @@ struct throwing_done
   }
 };
 
+struct throwing_destructor_done
+{
+  throwing_destructor_done() = default;
+  throwing_destructor_done(throwing_destructor_done const &) = default;
+  auto operator=(throwing_destructor_done const &) -> throwing_destructor_done & = default;
+  throwing_destructor_done(throwing_destructor_done &&) = default;
+  auto operator=(throwing_destructor_done &&) -> throwing_destructor_done & = default;
+  // NOLINTNEXTLINE(hicpp-use-equals-default,modernize-use-equals-default)
+  ~throwing_destructor_done() noexcept(false) {}
+  auto operator()(std::optional<vkexec::error> &&failure, bool /*stopped*/) noexcept -> void
+  {
+    auto consumed = std::move(failure);
+    (void)consumed;
+  }
+};
+
 template<class Task>
 concept host_enqueuable = requires(vkexec::context &ctx, Task task) { ctx.enqueue_host(std::move(task)); };
 
-template<class Token>
-concept fence_enqueuable = requires(vkexec::context &ctx, Token token, nothrow_done done) {
-  ctx.enqueue_fence_wait(VK_NULL_HANDLE, VK_NULL_HANDLE, std::move(token), done);
-  ctx.enqueue_borrowed_fence_wait(VK_NULL_HANDLE, std::move(token), done);
+template<class Token, class Done>
+concept fence_enqueuable = requires(vkexec::context &ctx, Token token, Done done) {
+  ctx.enqueue_fence_wait(VK_NULL_HANDLE, VK_NULL_HANDLE, std::move(token), std::move(done));
+  ctx.enqueue_borrowed_fence_wait(VK_NULL_HANDLE, std::move(token), std::move(done));
 };
 
 using task_fn = vkexec::detail::host_task_fn;
@@ -122,15 +138,18 @@ static_assert(!std::constructible_from<stop_fn, throwing_stop>);
 static_assert(noexcept(std::declval<stop_fn &>()()));
 static_assert(std::constructible_from<done_fn, nothrow_done>);
 static_assert(!std::constructible_from<done_fn, throwing_done>);
+static_assert(!std::constructible_from<done_fn, throwing_destructor_done>);
 static_assert(noexcept(std::declval<done_fn &>()(std::declval<std::optional<vkexec::error> &&>(), false)));
 static_assert(host_enqueuable<nothrow_task>);
 static_assert(!host_enqueuable<throwing_task>);
 static_assert(!host_enqueuable<throwing_destructor_task>);
 static_assert(!stdexec::stoppable_token<throwing_stop_token>);
 static_assert(throwing_stop_token{} == throwing_stop_token{});
-static_assert(!fence_enqueuable<throwing_stop_token>);
+static_assert(!fence_enqueuable<throwing_stop_token, nothrow_done>);
 static_assert(stdexec::stoppable_token<stdexec::inplace_stop_token>);
-static_assert(fence_enqueuable<stdexec::inplace_stop_token>);
+static_assert(fence_enqueuable<stdexec::inplace_stop_token, nothrow_done>);
+static_assert(!fence_enqueuable<stdexec::inplace_stop_token, throwing_done>);
+static_assert(!fence_enqueuable<stdexec::inplace_stop_token, throwing_destructor_done>);
 
 TEST_CASE("noexcept move-only callback moves and invokes", "[vkexec][callback]")
 {

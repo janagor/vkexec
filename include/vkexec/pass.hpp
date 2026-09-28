@@ -322,6 +322,7 @@ namespace detail {
   template<class StepStorage>
   [[nodiscard]] auto open_and_record_pass(context *ctx, StepStorage &steps) -> result<submit_scope>
   {
+    if (ctx == nullptr) { return fail(errc::invalid_argument, "pass graph requires a context"); }
     auto opened = submit_scope::open(*ctx);
     if (!opened) { return fail(opened); }
     submit_scope scope = expected_take(opened);

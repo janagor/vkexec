@@ -15,6 +15,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <concepts>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -271,12 +272,10 @@ public:
    */
   template<class StopToken, class Done>
     requires stdexec::stoppable_token<std::remove_cvref_t<StopToken>>
+             && std::constructible_from<detail::done_fn, Done &&>
   [[nodiscard]] auto enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, StopToken token, Done &&on_done) -> status
   {
-    using done_t = std::remove_cvref_t<Done>;
     using token_t = std::remove_cvref_t<StopToken>;
-    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error> &&, bool>,
-      "enqueue_fence_wait completion callback must be noexcept");
 
     detail::stop_fn stop_requested;
     if constexpr (stdexec::unstoppable_token<token_t>) {
@@ -297,12 +296,10 @@ public:
    */
   template<class StopToken, class Done>
     requires stdexec::stoppable_token<std::remove_cvref_t<StopToken>>
+             && std::constructible_from<detail::done_fn, Done &&>
   [[nodiscard]] auto enqueue_borrowed_fence_wait(VkFence fence, StopToken token, Done &&on_done) -> status
   {
-    using done_t = std::remove_cvref_t<Done>;
     using token_t = std::remove_cvref_t<StopToken>;
-    static_assert(std::is_nothrow_invocable_v<done_t &, std::optional<error> &&, bool>,
-      "enqueue_borrowed_fence_wait completion callback must be noexcept");
 
     detail::stop_fn stop_requested;
     if constexpr (stdexec::unstoppable_token<token_t>) {
@@ -320,8 +317,7 @@ public:
    * @param task Callable invoked on the host agent thread.
    */
   template<class Task>
-    requires std::is_nothrow_invocable_v<std::remove_cvref_t<Task> &>
-             && std::is_nothrow_destructible_v<std::remove_cvref_t<Task>>
+    requires std::constructible_from<detail::host_task_fn, Task &&>
   [[nodiscard]] auto enqueue_host(Task &&task) -> status
   { return do_enqueue_host(detail::host_task_fn(std::forward<Task>(task))); }
 

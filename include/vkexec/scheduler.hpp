@@ -75,7 +75,8 @@ struct scheduler_env
  *
  * A pre-requested stop completes inline with `set_stopped`. Otherwise the
  * queued task checks for stop again before delivering `set_value` on the host
- * agent. A null `ctx` completes inline. No scheduling guarantee is made for
+ * agent. A null `ctx` completes inline with `set_error(errc::invalid_argument)`.
+ * A pre-requested stop takes precedence. No scheduling guarantee is made for
  * `set_error` or `set_stopped`.
  */
 struct schedule_sender
@@ -101,7 +102,7 @@ struct schedule_sender
       }
 
       if (ctx == nullptr) {
-        ex::set_value(std::move(receiver));
+        ex::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
         return;
       }
 
@@ -162,7 +163,7 @@ struct schedule_sender
 class scheduler
 {
 public:
-  //! Constructs a scheduler for `ctx` (may be null for a no-op schedule).
+  //! A null context is representable for composition; executing it reports invalid_argument.
   explicit scheduler(context *ctx) noexcept : ctx_(ctx) {}
 
   //! Returns a sender that completes on this scheduler's host agent.

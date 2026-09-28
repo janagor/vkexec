@@ -16,6 +16,12 @@ using host_task_fn = move_only_function<void() noexcept>;
 using stop_fn = move_only_function<bool() noexcept>;
 using done_fn = move_only_function<void(std::optional<error> &&, bool) noexcept>;
 
+static_assert(std::is_nothrow_move_constructible_v<host_task_fn>);
+static_assert(std::is_nothrow_move_constructible_v<stop_fn>);
+static_assert(std::is_nothrow_move_constructible_v<done_fn>);
+static_assert(std::is_nothrow_destructible_v<host_task_fn>);
+static_assert(std::is_nothrow_destructible_v<stop_fn>);
+static_assert(std::is_nothrow_destructible_v<done_fn>);
 static_assert(std::is_nothrow_move_constructible_v<std::optional<error>>);
 
 }// namespace vkexec::detail

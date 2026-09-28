@@ -224,6 +224,11 @@ namespace detail {
           return;
         }
 
+        if (ctx == nullptr) {
+          ex::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
+          return;
+        }
+
         result<submit_scope> opened;
 #if VKEXEC_ENABLE_EXCEPTIONS
         try {
@@ -256,7 +261,7 @@ namespace detail {
     { return op_state<Receiver>{ ctx, std::move(receiver) }; }
   };
 
-  //! Returns a sender that opens a `submit_scope` on `ctx` (must be non-null).
+  //! Returns a sender that opens a `submit_scope` on `ctx`; null completes with invalid_argument.
   [[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
 
   //! Returns a sender that opens a `submit_scope` on `ctx`.
