@@ -165,11 +165,9 @@ jobs:
       - name: Configure Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        env:
-          BUILD_TYPE: ${{ matrix.build_type }}
         run: |
           cmake -S . -B build-floor -G Ninja `
-            -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF `
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF `
             -DBUILD_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF `
             -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON `
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF `
