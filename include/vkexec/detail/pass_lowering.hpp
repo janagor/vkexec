@@ -106,8 +106,7 @@ template<static_pass_step... Steps> struct materialize_pass_graph_fn
 template<vkexec_predecessor Pred, static_pass_step... Steps>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
 [[nodiscard]] auto materialize_pass_chain(pass_chain<Pred, Steps...> &&chain)
-  -> decltype(ex::let_value(std::move(chain.pred),
-    materialize_pass_graph_fn<Steps...>{ .ctx = nullptr, .steps = std::move(chain.steps) }))
+  -> decltype(ex::let_value(std::declval<Pred>(), std::declval<materialize_pass_graph_fn<Steps...>>()))
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(chain.pred));
   // NOLINTNEXTLINE(misc-const-correctness)
