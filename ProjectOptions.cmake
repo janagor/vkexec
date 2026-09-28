@@ -121,7 +121,7 @@ endmacro()
 macro(vkexec_global_options)
   if(vkexec_ENABLE_IPO)
     include(cmake/InterproceduralOptimization.cmake)
-    vkexec_enable_ipo()
+    vkexec_enable_ipo(${vkexec_ENABLE_SANITIZER_ADDRESS})
   endif()
 
   vkexec_supports_sanitizers()

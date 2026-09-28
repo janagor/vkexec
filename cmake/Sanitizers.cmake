@@ -84,10 +84,10 @@ function(
               "Using MSVC sanitizers requires setting the MSVC environment before building the project. Please manually open the MSVC command prompt and rebuild the project."
           )
         endif()
-        target_compile_options(${project_name} INTERFACE /fsanitize=${LIST_OF_SANITIZERS} /Zi /INCREMENTAL:NO)
+        target_compile_options(${project_name} INTERFACE /fsanitize=${LIST_OF_SANITIZERS} /Zi)
         target_compile_definitions(${project_name} INTERFACE _DISABLE_VECTOR_ANNOTATION _DISABLE_STRING_ANNOTATION
                                                              _DISABLE_OPTIONAL_ANNOTATION)
-        target_link_options(${project_name} INTERFACE /INCREMENTAL:NO)
+        target_link_options(${project_name} INTERFACE /INCREMENTAL:NO /DEBUG)
       endif()
     endif()
   endif()
