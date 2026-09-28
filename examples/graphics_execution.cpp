@@ -10,7 +10,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
-#include <format>
 #include <iostream>
 
 namespace ex = stdexec;
@@ -37,7 +36,7 @@ static auto run() -> int
   if (!resources_result) { vkexec::examples::abort_with_error(resources_result.error()); }
   auto resources = vkexec::expected_take(resources_result);
 
-  std::cout << std::format("vkexec graphics execution (borrowed pipeline handles) - close the window to exit\n");
+  std::cout << "vkexec graphics execution (borrowed pipeline handles) - close the window to exit\n";
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler())

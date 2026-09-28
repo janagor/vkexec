@@ -6,7 +6,6 @@
 #include <vkexec/sync_wait_outcome.hpp>
 #include <vkexec_vma/resources.hpp>
 
-#include <format>
 #include <iostream>
 #include <utility>
 
@@ -17,7 +16,7 @@ namespace vkexec::examples {
 
 [[noreturn]] inline auto abort_with_error(error const &err) -> void
 {
-  std::cerr << std::format("{}\n", err.message());
+  std::cerr << err.message() << '\n';
   std::abort();
 }
 
@@ -72,7 +71,7 @@ template<class RunFunc> auto run_example(RunFunc &&run_func) -> int
   try {
     return std::forward<RunFunc>(run_func)();
   } catch (error const &err) {
-    std::cerr << std::format("vkexec example failed: {}\n", err.message());
+    std::cerr << "vkexec example failed: " << err.message() << '\n';
     return 1;
   }
 #else

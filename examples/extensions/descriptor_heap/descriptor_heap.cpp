@@ -21,7 +21,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <string_view>
 
@@ -58,7 +57,7 @@ auto run() -> int
   auto allocator = vkexec::examples::make_vma_allocator(*ctx);
 
   if (!vkexec::ext::available<vkexec::ext::descriptor_heap>(*ctx)) {
-    std::cout << std::format("descriptor_heap: skipped (extension PFNs unavailable)\n");
+    std::cout << "descriptor_heap: skipped (extension PFNs unavailable)\n";
     return 0;
   }
 
@@ -97,7 +96,7 @@ auto run() -> int
     vkexec::examples::fail_check("bindless compute dispatch failed");
   }
 
-  std::cout << std::format("descriptor_heap: bindless compute ok\n");
+  std::cout << "descriptor_heap: bindless compute ok\n";
   return 0;
 }
 

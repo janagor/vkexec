@@ -39,7 +39,7 @@ public:
   [[nodiscard]] static auto create(config const &cfg) -> glfw_presenter
   {
     glfwSetErrorCallback([](int, char const *description) -> void {
-      if (description != nullptr) { std::cerr << std::format("GLFW: {}\n", description); }
+      if (description != nullptr) { std::cerr << "GLFW: " << description << '\n'; }
     });
     if (glfwInit() != GLFW_TRUE) { fail_check("glfwInit failed"); }
 

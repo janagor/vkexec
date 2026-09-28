@@ -15,7 +15,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <string_view>
 #include <utility>
@@ -108,17 +107,13 @@ static auto run() -> int
   for (std::size_t const index : { std::size_t{ 0 }, k_element_count / 2, k_element_count - 1 }) {
     if (std::fabs(velocities.data()[index] - expected_v) > k_epsilon
         || std::fabs(positions.data()[index] - expected_p) > k_epsilon) {
-      std::cerr << std::format("mismatch at {}: p={} v={} (expected p={} v={})\n",
-        index,
-        positions.data()[index],
-        velocities.data()[index],
-        expected_p,
-        expected_v);
+      std::cerr << "mismatch at " << index << ": p=" << positions.data()[index] << " v=" << velocities.data()[index]
+                << " (expected p=" << expected_p << " v=" << expected_v << ")\n";
       vkexec::examples::fail_check("tensor sim result mismatch");
     }
   }
 
-  std::cout << std::format("vkexec tensor_sim ok: p[0]={} v[0]={}\n", positions.data()[0], velocities.data()[0]);
+  std::cout << "vkexec tensor_sim ok: p[0]=" << positions.data()[0] << " v[0]=" << velocities.data()[0] << '\n';
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
   vkexec::free_compute_set(*ctx, resources, bound.set);

@@ -18,7 +18,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <random>
 #include <string_view>
@@ -189,7 +188,7 @@ static auto run() -> int
     ctx, win.render_pass(), graphics_cfg, k_particle_vert, k_particle_frag, draw_buffers));
 
   auto last = std::chrono::steady_clock::now();
-  std::cout << std::format("vkexec particles (compute update + point sprites) - close the window to exit\n");
+  std::cout << "vkexec particles (compute update + point sprites) - close the window to exit\n";
 
   while (!win.should_close()) {
     win.poll_events();

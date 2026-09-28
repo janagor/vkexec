@@ -13,7 +13,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <format>
 #include <iterator>
 #include <numbers>
 #include <span>
@@ -565,7 +564,7 @@ auto detail::load_gltf_mesh_factory::operator()() const -> vkexec::result<gltf_m
   tg3_error_code const parse_error =
     tg3_parse_file(model.get(), errors.get(), path.c_str(), static_cast<std::uint32_t>(path.size()), &options);
   if (parse_error != TG3_OK || errors.has_error()) {
-    return fail(errc::io_error, std::format("tinygltf failed to load {}: {}", path, format_tg3_errors(errors.get())));
+    return fail(errc::io_error, "tinygltf failed to load " + path + ": " + format_tg3_errors(errors.get()));
   }
 
   tg3_model const &gltf = *model.get();

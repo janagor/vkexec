@@ -37,7 +37,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <string_view>
 #include <utility>
@@ -333,20 +332,20 @@ static auto run() -> int
       .requirements = make_requirements(),
     }));
 
-  std::cout << std::format("heap_present: window ready\n");
+  std::cout << "heap_present: window ready\n";
   if (auto rendered = run_dynamic_rendering(win.ctx()); !rendered) {
     vkexec::examples::abort_with_error(rendered.error());
   }
-  std::cout << std::format("heap_present: dynamic rendering ok\n");
+  std::cout << "heap_present: dynamic rendering ok\n";
   if (run_heap_graphics(win.ctx())) {
-    std::cout << std::format("heap_present: heap graphics draw ok\n");
+    std::cout << "heap_present: heap graphics draw ok\n";
   } else {
-    std::cout << std::format("heap_present: skipped heap graphics (extension PFNs unavailable)\n");
+    std::cout << "heap_present: skipped heap graphics (extension PFNs unavailable)\n";
   }
   if (run_heap_compute(win.ctx())) {
-    std::cout << std::format("heap_present: bindless heap compute ok\n");
+    std::cout << "heap_present: bindless heap compute ok\n";
   } else {
-    std::cout << std::format("heap_present: skipped bindless heap compute (extension PFNs unavailable)\n");
+    std::cout << "heap_present: skipped bindless heap compute (extension PFNs unavailable)\n";
   }
 
   auto pipeline = vkexec::examples::sync_wait_value(vkexec::factory::make_graphics_pipeline(
@@ -354,7 +353,7 @@ static auto run() -> int
 
   present_frames(win, pipeline);
   win.wait_idle();
-  std::cout << std::format("heap_present: completed ({} headless frames)\n", k_present_frames);
+  std::cout << "heap_present: completed (" << k_present_frames << " headless frames)\n";
   return 0;
 }
 

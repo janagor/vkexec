@@ -17,7 +17,6 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <utility>
 
@@ -109,7 +108,7 @@ auto run() -> int
     .title = "vkexec dynamic_rendering",
     .requirements = make_requirements() });
 
-  std::cout << std::format("dynamic_rendering: close the window to exit\n");
+  std::cout << "dynamic_rendering: close the window to exit\n";
 
   float phase = 0.0F;
   while (!win.should_close()) {

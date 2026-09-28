@@ -11,7 +11,6 @@
 
 #include <cstdint>
 #include <cstring>
-#include <format>
 #include <iostream>
 #include <span>
 #include <string_view>
@@ -84,7 +83,7 @@ static auto run() -> int
   auto pipeline = vkexec::examples::sync_wait_value(
     vkexec::factory::make_graphics_pipeline(win.ctx(), win.render_pass(), cfg, k_mesh_vert, k_mesh_frag));
 
-  std::cout << std::format("vkexec indexed mesh (gltf: {}) - close the window to exit\n", k_gltf_path);
+  std::cout << "vkexec indexed mesh (gltf: " << k_gltf_path << ") - close the window to exit\n";
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(

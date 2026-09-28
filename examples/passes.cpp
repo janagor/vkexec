@@ -12,7 +12,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <format>
 #include <iostream>
 #include <string_view>
 
@@ -94,11 +93,11 @@ static auto run() -> int
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   for (std::size_t index = 0; index < k_element_count; ++index) {
     if (std::fabs(values.data()[index] - expected) > k_epsilon) {
-      std::cerr << std::format("pass mismatch at {}: got {} expected {}\n", index, values.data()[index], expected);
+      std::cerr << "pass mismatch at " << index << ": got " << values.data()[index] << " expected " << expected << '\n';
       vkexec::examples::fail_check("pass result mismatch");
     }
   }
-  std::cout << std::format("vkexec passes ok: N={} result={}\n", k_element_count, values.data()[0]);
+  std::cout << "vkexec passes ok: N=" << k_element_count << " result=" << values.data()[0] << '\n';
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
   return 0;
 }
