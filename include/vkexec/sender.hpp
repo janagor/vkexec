@@ -75,6 +75,13 @@ namespace detail {
     std::optional<error> failure;
   };
 
+#if defined(_MSC_VER)
+  // MSVC may diagnose generic completion branches as unreachable during LTCG
+  // after fully specializing/inlining a factory and receiver.
+#pragma warning(push)
+#pragma warning(disable : 4702)
+#endif
+
   template<class F> auto invoke_factory(F &factory) -> factory_completion<factory_value_t<F>>
   {
     using value_type = factory_value_t<F>;
@@ -111,6 +118,10 @@ namespace detail {
       std::terminate();
     }
   }
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 }// namespace detail
 

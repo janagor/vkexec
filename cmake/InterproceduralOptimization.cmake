@@ -5,6 +5,13 @@ macro(vkexec_enable_ipo ENABLE_ASAN)
     message(SEND_ERROR "IPO is not supported: ${output}")
   elseif(MSVC AND ENABLE_ASAN)
     # Visual Studio's IPO property selects incremental LTCG, which is incompatible with ASan.
+    # Clear inherited IPO settings before targets are created; /GL and /LTCG
+    # below provide full LTCG without the generator's /LTCG:incremental.
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+    foreach(config IN LISTS CMAKE_CONFIGURATION_TYPES)
+      string(TOUPPER "${config}" config_upper)
+      set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_${config_upper} OFF)
+    endforeach()
     add_compile_options(/GL)
     add_link_options(/LTCG /INCREMENTAL:NO)
     message(STATUS "MSVC AddressSanitizer + IPO: using non-incremental /GL + /LTCG")
