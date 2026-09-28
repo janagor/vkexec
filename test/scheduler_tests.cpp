@@ -488,7 +488,7 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
   std::promise<void> start_returned;
   auto start_done = start_returned.get_future();
 
-  std::jthread starter{ [&]() -> void {
+  std::thread starter{ [&]() -> void {
     ex::start(operation);
     signal_promise(start_returned);
   } };
@@ -531,7 +531,7 @@ TEST_CASE("dynamic pass graph start returns before GPU completion", "[vkexec][sc
   std::promise<void> start_returned;
   auto start_done = start_returned.get_future();
 
-  std::jthread starter{ [&]() -> void {
+  std::thread starter{ [&]() -> void {
     ex::start(operation);
     signal_promise(start_returned);
   } };
@@ -611,7 +611,7 @@ TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][sc
     .steps = { step },
   };
 
-  std::jthread waiter{ [&]() -> void {
+  std::thread waiter{ [&]() -> void {
     auto const waited = vkexec::test::sync_wait_sender(graph);
     completed_successfully.store(vkexec::test::sync_wait_completed(waited), std::memory_order_release);
     sync_wait_returned.store(true, std::memory_order_release);
