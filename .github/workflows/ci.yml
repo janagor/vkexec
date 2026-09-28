@@ -315,7 +315,7 @@ jobs:
             build_type: Debug
             packaging_maintainer_mode: Off
             build_shared: OFF
-            enable_ipo: On
+            enable_ipo: Off
 
           - os: windows-latest
             compiler: msvc
