@@ -671,8 +671,8 @@ jobs:
       - name: Configure package
         run: cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_VMA=${{ matrix.vma }} -Dvkexec_BUILD_TOOLS=${{ matrix.tools }} -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
 
-      - name: Build public libraries
-        run: cmake --build build-package --target ${{ matrix.vma == 'ON' && 'vkexec_vma' || 'vkexec' }} ${{ matrix.tools == 'ON' && 'vkexec_tools' || 'vkexec' }} vkexec_features vkexec_graphics vkexec_ext_descriptor_heap vkexec_ext_dynamic_rendering vkexec_ext_timeline_semaphore
+      - name: Build package tree
+        run: cmake --build build-package --config Release --parallel
 
       - name: Consume relocated package
         working-directory: build-package

@@ -32,6 +32,8 @@ if(NOT DEFINED VKEXEC_CONFIG
    OR "${VKEXEC_CONFIG}" STREQUAL "$<CONFIG>")
   set(VKEXEC_CONFIG Release)
 endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" --build "${VKEXEC_BINARY_DIR}" --config "${VKEXEC_CONFIG}" --parallel
+                        COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${stage_prefix}" --config
                         "${VKEXEC_CONFIG}" COMMAND_ERROR_IS_FATAL ANY)
 file(RENAME "${stage_prefix}" "${relocated_prefix}")
