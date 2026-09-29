@@ -56,7 +56,7 @@ namespace detail {
 
     //! Frees all tracked descriptor sets on `ctx`'s device.
     //!
-    //! May throw if host synchronization (`lock_host`) fails. Callers that need a
+    //! May throw if descriptor-pool synchronization fails. Callers that need a
     //! noexcept RAII boundary should catch at `submit_scope::release()`.
     auto release(context const &ctx) -> void;
 
@@ -98,9 +98,10 @@ namespace detail {
     descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
 
   /**
-   * Command buffer and descriptor loans for one GPU submit.
+   * Exclusive command-pool lease and descriptor loans for one GPU submit.
    *
-   * Exit (destructor or `release`) always frees both. Open with `open`, record
+   * Exit (destructor or `release`) always frees both. The pool remains leased
+   * until the submit sender observes GPU completion. Open with `open`, record
    * into `cmd`, then submit via `submit_and_wait` or `submit_fence` senders.
    *
    * @see enter_submit_scope, submit_and_wait, submit_fence
@@ -108,6 +109,7 @@ namespace detail {
   struct submit_scope
   {
     context *ctx{ nullptr };
+    VkCommandPool pool{ VK_NULL_HANDLE };
     VkCommandBuffer cmd{ VK_NULL_HANDLE };
     descriptor_cleanup cleanup{};
 
@@ -115,9 +117,11 @@ namespace detail {
     submit_scope(submit_scope const &) = delete;
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
-    submit_scope(submit_scope &&other) noexcept : ctx(other.ctx), cmd(other.cmd), cleanup(std::move(other.cleanup))
+    submit_scope(submit_scope &&other) noexcept
+      : ctx(other.ctx), pool(other.pool), cmd(other.cmd), cleanup(std::move(other.cleanup))
     {
       other.ctx = nullptr;
+      other.pool = VK_NULL_HANDLE;
       other.cmd = VK_NULL_HANDLE;
     }
 
@@ -126,9 +130,11 @@ namespace detail {
       if (this == &other) { return *this; }
       release();
       ctx = other.ctx;
+      pool = other.pool;
       cmd = other.cmd;
       cleanup = std::move(other.cleanup);
       other.ctx = nullptr;
+      other.pool = VK_NULL_HANDLE;
       other.cmd = VK_NULL_HANDLE;
       return *this;
     }
@@ -136,7 +142,7 @@ namespace detail {
     ~submit_scope() { release(); }
 
     /**
-     * Allocates a command buffer from `host`, begins recording, and returns an open scope.
+     * Checks out a compute-family command pool, begins recording, and returns an open scope.
      *
      * @param host Context that owns the command pool.
      */
@@ -152,7 +158,7 @@ namespace detail {
 
     //! Frees the command buffer and descriptor loans; safe to call more than once.
     //!
-    //! Host-mutex failure during cleanup is unrecoverable and calls `std::terminate()`.
+    //! Synchronization failure during cleanup is unrecoverable and calls `std::terminate()`.
     auto release() noexcept -> void;
   };
 
@@ -161,7 +167,8 @@ namespace detail {
    *
    * Safe when handles are null. Uses `fallback_queue` only if a queue wait is required.
    */
-  auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+  auto
+    reclaim_submission_sync(context const &ctx, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
     -> void;
 
   /**
@@ -384,7 +391,7 @@ namespace detail {
         try {
 #endif
           if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
-            reclaim_submission_sync(host->device(), host->compute_queue(), done, fence);
+            reclaim_submission_sync(*host, host->compute_queue(), done, fence);
             scope.release();
             ex::set_error(std::move(receiver), std::move(submitted.error()));
             return;
@@ -401,7 +408,7 @@ namespace detail {
           }
 #if VKEXEC_ENABLE_EXCEPTIONS
         } catch (...) {
-          if (submitted_to_gpu) { reclaim_submission_sync(host->device(), host->compute_queue(), done, fence); }
+          if (submitted_to_gpu) { reclaim_submission_sync(*host, host->compute_queue(), done, fence); }
           scope.release();
           ex::set_error(std::move(receiver), unexpected_exception_error());
         }

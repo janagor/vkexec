@@ -1,6 +1,7 @@
 #ifndef VKEXEC_COMPLETION_WAITER_HPP
 #define VKEXEC_COMPLETION_WAITER_HPP
 
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/worker_callbacks.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -9,6 +10,7 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -25,7 +27,7 @@ public:
   using done_fn = vkexec::detail::done_fn;
   using stop_fn = vkexec::detail::stop_fn;
 
-  completion_waiter(VkDevice device, VkQueue fallback_queue);
+  completion_waiter(VkDevice device, VkQueue fallback_queue, std::shared_ptr<queue_synchronization_state> queue_state);
   ~completion_waiter();
 
   completion_waiter(completion_waiter const &) = delete;
@@ -67,6 +69,7 @@ private:
   VkDevice device_{ VK_NULL_HANDLE };
   // Used when a job has no fence (legacy path / reclaim without a fence).
   VkQueue fallback_queue_{ VK_NULL_HANDLE };
+  std::shared_ptr<queue_synchronization_state> queue_state_;
   std::mutex mutex_;
   std::condition_variable cv_;
   std::vector<job> pending_;

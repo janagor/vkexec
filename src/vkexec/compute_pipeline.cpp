@@ -2,6 +2,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/compute_create.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -81,6 +82,7 @@ auto allocate_compute_set(context const &ctx, handles::compute_pipeline const &p
   dsai.descriptorSetCount = 1;
   dsai.pSetLayouts = &pipe.set_layout;
   VkDescriptorSet set{ VK_NULL_HANDLE };
+  auto const lock = detail::descriptor_pool_access::lock(ctx, pipe.descriptor_pool);
   VkResult const allocate_result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set);
   if (allocate_result != VK_SUCCESS) { return fail(allocate_result, "vkAllocateDescriptorSets failed"); }
   return set;
@@ -100,6 +102,7 @@ auto bind_storage(context &ctx, handles::compute_pipeline const &pipe, std::span
 auto free_compute_set(context const &ctx, handles::compute_pipeline const &pipe, VkDescriptorSet set) noexcept -> void
 {
   if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
+  auto const lock = detail::descriptor_pool_access::lock(ctx, pipe.descriptor_pool);
   vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
 }
 

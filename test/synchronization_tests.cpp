@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
 #include <vkexec/queue_submit.hpp>
@@ -11,7 +12,41 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstring>
+#include <mutex>
+#include <thread>
+
+TEST_CASE("object synchronization shares state for aliased handles", "[vkexec][sync]")
+{
+  vkexec::detail::object_synchronization_registry<int, vkexec::detail::queue_synchronization_state> registry;
+  auto first = registry.state(1);
+  auto alias = registry.state(1);
+  auto independent = registry.state(2);
+  REQUIRE(first == alias);
+  REQUIRE(first != independent);
+}
+
+TEST_CASE("object synchronization blocks one handle without blocking another", "[vkexec][sync]")
+{
+  vkexec::detail::object_synchronization_registry<int> registry;
+  auto held = registry.state(1);
+  std::unique_lock const lock(*held);
+  std::atomic<bool> same_acquired{ true };
+  std::atomic<bool> other_acquired{ false };
+  std::thread same([&]() -> void {
+    std::unique_lock const attempt(*registry.state(1), std::try_to_lock);
+    same_acquired.store(attempt.owns_lock());
+  });
+  std::thread other([&]() -> void {
+    std::unique_lock const attempt(*registry.state(2), std::try_to_lock);
+    other_acquired.store(attempt.owns_lock());
+  });
+  same.join();
+  other.join();
+  REQUIRE_FALSE(same_acquired.load());
+  REQUIRE(other_acquired.load());
+}
 
 TEST_CASE("synchronization2 stages lower to legacy stages", "[vkexec][sync]")
 {

@@ -202,10 +202,12 @@ namespace owned {
     [[nodiscard]] auto ctx() const noexcept -> context const & { return *ctx_; }
     //! Owned presentation surface.
     [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
-    //! Waits for the device to become idle.
+    //! Waits for the device to become idle. Do not call concurrently with any
+    //! queue operation on this device, including direct embedder queue access.
     auto wait_idle() -> void;
 
     //! Recreates presentation resources, or suspends acquisition for a zero extent.
+    //! Do not call concurrently with other device or queue activity.
     auto resize(std::uint32_t width, std::uint32_t height) -> status;
     //! True when presentation is suspended until the application supplies an extent.
     [[nodiscard]] auto needs_resize() const noexcept -> bool { return resize_required_; }
@@ -281,6 +283,7 @@ namespace owned {
 
     static constexpr int k_frames = 2;
     std::vector<frame_sync> frames_;
+    std::vector<VkCommandPool> command_pools_;
     std::vector<VkCommandBuffer> command_buffers_;
     std::vector<VkSemaphore> render_finished_;
     std::vector<VkFence> images_in_flight_;

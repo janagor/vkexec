@@ -5,6 +5,7 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/domain.hpp>
 #include <vkexec/error.hpp>
@@ -18,6 +19,7 @@
 #include <stdexec/stop_token.hpp>
 #include <vulkan/vulkan_core.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <concepts>
@@ -317,6 +319,133 @@ TEST_CASE("submit_and_wait releases a pre-stopped scope", "[vkexec][scheduler][g
   REQUIRE(next_scope.end_recording().has_value());
   auto const retried = vkexec::test::sync_wait_sender(vkexec::detail::submit_and_wait(std::move(next_scope)));
   REQUIRE(vkexec::test::sync_wait_completed(retried));
+}
+
+TEST_CASE("compute submit scopes check out distinct pools and reuse released pools", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  auto first_result = vkexec::detail::submit_scope::open(*ctx);
+  auto second_result = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(first_result.has_value());
+  REQUIRE(second_result.has_value());
+  auto first = vkexec::expected_take(first_result);
+  auto second = vkexec::expected_take(second_result);
+  REQUIRE(first.pool != second.pool);
+  auto *const released = first.pool;
+  REQUIRE(first.end_recording().has_value());
+  first.release();
+  auto third_result = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(third_result.has_value());
+  auto third = vkexec::expected_take(third_result);
+  REQUIRE(third.pool == released);
+  REQUIRE(second.end_recording().has_value());
+  REQUIRE(third.end_recording().has_value());
+}
+
+TEST_CASE("compute submit scopes record concurrently", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  std::atomic<int> completed{ 0 };
+  auto record = [&]() -> void {
+    auto opened = vkexec::detail::submit_scope::open(*ctx);
+    if (!opened) { return; }
+    auto scope = vkexec::expected_take(opened);
+    if (!scope.end_recording()) { return; }
+    auto outcome = vkexec::test::sync_wait_sender(vkexec::detail::submit_and_wait(std::move(scope)));
+    if (vkexec::test::sync_wait_completed(outcome)) { completed.fetch_add(1); }
+  };
+  std::thread first(record);
+  std::thread second(record);
+  first.join();
+  second.join();
+  REQUIRE(completed.load() == 2);
+}
+
+TEST_CASE("direct command buffers record concurrently with exclusive pools", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  std::atomic<int> completed{ 0 };
+  auto record = [&]() -> void {
+    auto allocated = ctx->allocate_command_buffer();
+    if (!allocated) { return; }
+    VkCommandBuffer cmd = vkexec::expected_take(allocated);
+    VkCommandBufferBeginInfo begin{};
+    begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    if (vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS && vkEndCommandBuffer(cmd) == VK_SUCCESS
+        && ctx->submit_and_wait(cmd).has_value()) {
+      completed.fetch_add(1);
+    }
+    ctx->free_command_buffer(cmd);
+  };
+  std::thread first(record);
+  std::thread second(record);
+  first.join();
+  second.join();
+  REQUIRE(completed.load() == 2);
+}
+
+TEST_CASE("queue guard move assignment releases the old state after its context is gone", "[vkexec][scheduler][gpu]")
+{
+  auto first_context = vkexec::test::require_context();
+  auto second_context = vkexec::test::require_context();
+  // Null keys are only used to exercise guard ownership; no Vulkan queue call
+  // is made while either context is destroyed.
+  auto old_guard = first_context->lock_queue(VK_NULL_HANDLE);
+  auto replacement = second_context->lock_queue(VK_NULL_HANDLE);
+  first_context.reset();
+  second_context.reset();
+  old_guard = std::move(replacement);
+  SUCCEED();
+}
+
+TEST_CASE("descriptor sets allocate concurrently from distinct pools", "[vkexec][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  VkDescriptorSetLayoutBinding binding{};
+  binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  binding.descriptorCount = 1;
+  binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+  VkDescriptorSetLayoutCreateInfo layout_info{};
+  layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layout_info.bindingCount = 1;
+  layout_info.pBindings = &binding;
+  VkDescriptorSetLayout layout{ VK_NULL_HANDLE };
+  REQUIRE(vkCreateDescriptorSetLayout(ctx->device(), &layout_info, nullptr, &layout) == VK_SUCCESS);
+
+  VkDescriptorPoolSize const size{ .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 1 };
+  VkDescriptorPoolCreateInfo pool_info{};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.maxSets = 1;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &size;
+  std::array<VkDescriptorPool, 2> pools{ VK_NULL_HANDLE, VK_NULL_HANDLE };
+  for (VkDescriptorPool &pool : pools) {
+    REQUIRE(vkCreateDescriptorPool(ctx->device(), &pool_info, nullptr, &pool) == VK_SUCCESS);
+    REQUIRE(vkexec::detail::descriptor_pool_access::register_owned(*ctx, pool).has_value());
+  }
+
+  std::atomic<int> allocated{ 0 };
+  auto allocate = [&](VkDescriptorPool pool) -> void {
+    VkDescriptorSetAllocateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    info.descriptorPool = pool;
+    info.descriptorSetCount = 1;
+    info.pSetLayouts = &layout;
+    VkDescriptorSet set{ VK_NULL_HANDLE };
+    auto const guard = vkexec::detail::descriptor_pool_access::lock(*ctx, pool);
+    if (vkAllocateDescriptorSets(ctx->device(), &info, &set) == VK_SUCCESS) { allocated.fetch_add(1); }
+  };
+  std::thread first(allocate, pools.at(0));
+  std::thread second(allocate, pools.at(1));
+  first.join();
+  second.join();
+
+  for (VkDescriptorPool pool : pools) {
+    auto const guard = vkexec::detail::descriptor_pool_access::lock(*ctx, pool);
+    vkDestroyDescriptorPool(ctx->device(), pool, nullptr);
+  }
+  vkDestroyDescriptorSetLayout(ctx->device(), layout, nullptr);
+  REQUIRE(allocated.load() == 2);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

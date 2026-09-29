@@ -2,8 +2,9 @@
 #define VKEXEC_CONTEXT_HPP
 
 //! \file
-//! Vulkan device context: queues, command pool, and host/completion agents.
+//! Vulkan device context: queues, command-pool cache, and host/completion agents.
 
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/worker_callbacks.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
@@ -28,6 +29,31 @@
 
 namespace vkexec {
 
+class queue_guard
+{
+public:
+  ~queue_guard() = default;
+  queue_guard(queue_guard const &) = delete;
+  auto operator=(queue_guard const &) -> queue_guard & = delete;
+  queue_guard(queue_guard &&) noexcept = default;
+  auto operator=(queue_guard &&other) noexcept -> queue_guard &
+  {
+    if (this == &other) { return *this; }
+    guard_ = std::move(other.guard_);
+    state_ = std::move(other.state_);
+    return *this;
+  }
+
+private:
+  friend class context;
+  explicit queue_guard(std::shared_ptr<detail::queue_synchronization_state> state)
+    : state_(std::move(state)), guard_(state_->lock())
+  {}
+
+  std::shared_ptr<detail::queue_synchronization_state> state_;
+  detail::queue_synchronization_state::guard guard_;
+};
+
 namespace owned {
   class presenter;
 }// namespace owned
@@ -38,6 +64,7 @@ class context;
 
 namespace detail {
   enum class synchronization_backend : std::uint8_t;
+  struct submit_scope;
   [[nodiscard]] auto synchronization_backend_for(context const &ctx) noexcept -> synchronization_backend;
 }// namespace detail
 
@@ -62,7 +89,9 @@ struct scheduler_options
  *
  * vkexec never destroys these objects. Queues and family indices must be valid
  * for the provided device; optional graphics/present queues may be null when
- * presentation is unused.
+ * presentation is unused. Direct queue operations by the embedder must use
+ * `context::lock_queue` so they share vkexec's queue synchronization. One
+ * VkQueue must not be managed by two vkexec contexts at the same time.
  *
  * @see factory::adopt_context
  */
@@ -149,7 +178,7 @@ namespace factory {
 }// namespace factory
 
 /**
- * Owns the command pool and host/completion agents. Depending on construction,
+ * Owns command pools and host/completion agents. Depending on construction,
  * it either owns or adopts the Vulkan instance/device/queues; query the exact
  * mode with `owns_instance()` and `owns_device()`.
  *
@@ -157,8 +186,13 @@ namespace factory {
  * `factory::adopt_context()` to wrap embedder-owned handles. Most GPU work is
  * scheduled via `get_scheduler()` and completed with `sync_wait`.
  *
- * Thread safety: command-pool, descriptor-pool, and queue submits must be
- * serialized with `lock_host()` (or use the provided sender adaptors).
+ * Queue operations are serialized per actual VkQueue, including aliases.
+ * Descriptor allocation and free are serialized per VkDescriptorPool.
+ * Concurrent host access to the same descriptor set, including update and
+ * free, remains the caller's responsibility.
+ * A command pool and recording of its command buffers require exclusive use.
+ * Destruction requires all users and queue operations on the device to have
+ * stopped; it may call `vkDeviceWaitIdle` before releasing owned resources.
  *
  * ~~~~~~~~~~~{.cpp}
  * auto ctx = vkexec::sync_wait_value(vkexec::factory::make_context());
@@ -200,8 +234,6 @@ public:
   [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t;
   //! Queue family index for `present_queue()`.
   [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t;
-  //! Shared command pool for transient primary command buffers.
-  [[nodiscard]] auto command_pool() const noexcept -> VkCommandPool;
   //! True when this context destroys the Vulkan instance in its destructor.
   [[nodiscard]] auto owns_instance() const noexcept -> bool;
   //! True when this context destroys the Vulkan device in its destructor.
@@ -216,21 +248,18 @@ public:
   [[nodiscard]] auto procs() const noexcept -> device_procs const &;
 
   /**
-   * Allocates a primary command buffer from the context command pool.
-   *
-   * Caller must return it with `free_command_buffer`. Hold `lock_host()` across
-   * allocate/record/submit when sharing the context across threads.
+   * Allocates a primary command buffer with an exclusive compute-family pool.
+   * Caller must return it with `free_command_buffer` after GPU use completes.
+   * Recording separate returned buffers may proceed concurrently.
    */
   [[nodiscard]] auto allocate_command_buffer() -> result<VkCommandBuffer>;
 
-  //! Returns `cmd` to the context command pool.
+  //! Frees `cmd` and returns its exclusive pool to the cache. `cmd` must have
+  //! been returned by this context's `allocate_command_buffer()`.
   auto free_command_buffer(VkCommandBuffer cmd) -> void;
 
-  /**
-   * Locks the host mutex that serializes command-pool, descriptor-pool, and
-   * queue submits across host threads.
-   */
-  [[nodiscard]] auto lock_host() const -> std::unique_lock<std::mutex>;
+  //! Locks the actual queue for direct embedder queue operations.
+  [[nodiscard]] auto lock_queue(VkQueue queue) const -> queue_guard;
 
   /**
    * Submits `cmd` and blocks until the GPU finishes.
@@ -255,6 +284,9 @@ public:
   /**
    * Submits work described by `info` (command buffers plus optional wait/signal
    * binary or timeline semaphores).
+   *
+   * Caller-owned `info.fence` requires caller synchronization for concurrent
+   * host operations on that fence.
    *
    * @param info Queue submit description.
    * @return Failure if validation, lowering, or Vulkan queue submission fails.
@@ -329,6 +361,8 @@ public:
 
 private:
   friend class owned::presenter;
+  friend struct detail::submit_scope;
+  friend class detail::descriptor_pool_access;
   // MSVC misparses trailing-return friend decls named like the enclosing class.
   friend struct detail::make_context_factory;
   friend struct detail::adopt_context_factory;
@@ -366,7 +400,8 @@ private:
   auto init_common_resources() -> status;
   auto complete_for_surface(VkSurfaceKHR surface) -> status;
 
-  auto create_command_pool() -> status;
+  [[nodiscard]] auto acquire_command_pool(std::uint32_t family) -> result<VkCommandPool>;
+  auto release_command_pool(std::uint32_t family, VkCommandPool pool) noexcept -> void;
   auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> status;
   [[nodiscard]] auto

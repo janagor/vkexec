@@ -1,3 +1,4 @@
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
 #include <vkexec/device_procs.hpp>
@@ -11,7 +12,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <mutex>
 #include <vector>
 
 namespace vkexec::detail {
@@ -127,7 +127,7 @@ auto submit(queue_submit const &info,
   synchronization_backend backend,
   bool legacy_timeline_submit_info_available,
   device_procs const &procs,
-  std::mutex &host_mutex) -> status
+  queue_synchronization_state &queue_state) -> status
 {
   if (info.command_buffers.empty()) {
     return fail(errc::invalid_argument, "queue_submit requires at least one command buffer");
@@ -145,7 +145,7 @@ auto submit(queue_submit const &info,
   if (backend != synchronization_backend::legacy) {
     synchronization2_submission const lowered = lower_synchronization2_submit(info);
     VkSubmitInfo2 const submission = lowered.submit_info();
-    std::scoped_lock const lock(host_mutex);
+    auto const guard = queue_state.lock();
     if (VkResult const result = procs.queue_submit2(queue, 1, &submission, info.fence); result != VK_SUCCESS) {
       return fail(result, "vkQueueSubmit2 failed");
     }
@@ -154,7 +154,7 @@ auto submit(queue_submit const &info,
 
   VKEXEC_TRY_ASSIGN(lowered, lower_legacy_submit(info, legacy_timeline_submit_info_available));
   legacy_submission_view const view = lowered.make_submit_info(info);
-  std::scoped_lock const lock(host_mutex);
+  auto const guard = queue_state.lock();
   if (VkResult const result = vkQueueSubmit(queue, 1, &view.submit, info.fence); result != VK_SUCCESS) {
     return fail(result, "vkQueueSubmit failed");
   }

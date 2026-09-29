@@ -4,6 +4,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
 #include <vkexec/detail/shader_module.hpp>
 #include <vkexec/detail/viewport.hpp>
@@ -184,7 +185,13 @@ auto destroy(context const &ctx, handles::graphics_pipeline &resources) noexcept
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
-  detail::set_descriptor_backend::destroy_binding_objects(device, resources);
+  if (resources.descriptor_pool != VK_NULL_HANDLE) {
+    VkDescriptorPool pool = resources.descriptor_pool;
+    auto const lock = detail::descriptor_pool_access::lock(ctx, pool);
+    detail::set_descriptor_backend::destroy_binding_objects(device, resources);
+  } else {
+    detail::set_descriptor_backend::destroy_binding_objects(device, resources);
+  }
   resources = {};
 }
 
@@ -226,6 +233,12 @@ auto create(context &ctx,
     destroy(ctx, owned);
     return fail(created);
   }
+  if (auto registered = detail::descriptor_pool_access::register_owned(ctx, owned.descriptor_pool); !registered) {
+    vkDestroyDescriptorPool(device, owned.descriptor_pool, nullptr);
+    owned.descriptor_pool = VK_NULL_HANDLE;
+    destroy(ctx, owned);
+    return fail(registered);
+  }
 
   auto vert = detail::create_shader_module(device, vertex_spirv);
   if (!vert) {
@@ -263,6 +276,7 @@ auto allocate_graphics_set(context const &ctx, handles::graphics_pipeline const 
   dsai.descriptorSetCount = 1;
   dsai.pSetLayouts = &pipe.set_layout;
   VkDescriptorSet set{ VK_NULL_HANDLE };
+  auto const lock = detail::descriptor_pool_access::lock(ctx, pipe.descriptor_pool);
   if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
     return fail(result, "vkAllocateDescriptorSets failed (graphics)");
   }
@@ -285,6 +299,7 @@ auto bind_graphics_storage(context &ctx,
 auto free_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe, VkDescriptorSet set) noexcept -> void
 {
   if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
+  auto const lock = detail::descriptor_pool_access::lock(ctx, pipe.descriptor_pool);
   vkFreeDescriptorSets(ctx.device(), pipe.descriptor_pool, 1, &set);
 }
 

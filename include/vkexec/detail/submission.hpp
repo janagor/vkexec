@@ -1,13 +1,13 @@
 #ifndef VKEXEC_DETAIL_SUBMISSION_HPP
 #define VKEXEC_DETAIL_SUBMISSION_HPP
 
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/synchronization.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 
 #include <cstdint>
-#include <mutex>
 #include <vector>
 
 namespace vkexec::detail {
@@ -60,7 +60,7 @@ struct synchronization2_submission
   synchronization_backend backend,
   bool legacy_timeline_submit_info_available,
   device_procs const &procs,
-  std::mutex &host_mutex) -> status;
+  queue_synchronization_state &queue_state) -> status;
 
 }// namespace vkexec::detail
 

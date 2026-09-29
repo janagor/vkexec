@@ -1,6 +1,7 @@
 #include <vkexec/submit_scope.hpp>
 
 #include <vkexec/context.hpp>
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -13,7 +14,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <mutex>
 #include <span>
 #include <utility>
 #include <vector>
@@ -89,9 +89,10 @@ namespace detail {
 
   auto descriptor_cleanup::release(context const &ctx) -> void
   {
-    // Host lock matches allocate path; pool frees must be serialized with submits.
-    std::unique_lock const lock = ctx.lock_host();
-    for (allocated_set const &item : allocated) { vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set); }
+    for (allocated_set const &item : allocated) {
+      auto const lock = descriptor_pool_access::lock(ctx, item.pool);
+      vkFreeDescriptorSets(ctx.device(), item.pool, 1, &item.set);
+    }
     allocated.clear();
     sets.clear();
   }
@@ -111,15 +112,17 @@ namespace detail {
     handles::compute_pipeline &pipe,
     std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
   {
-    std::unique_lock const lock = ctx.lock_host();
     VkDescriptorSetAllocateInfo dsai{};
     dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     dsai.descriptorPool = pipe.descriptor_pool;
     dsai.descriptorSetCount = 1;
     dsai.pSetLayouts = &pipe.set_layout;
     VkDescriptorSet set{ VK_NULL_HANDLE };
-    if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
-      return fail(result, "vkAllocateDescriptorSets failed");
+    {
+      auto const lock = descriptor_pool_access::lock(ctx, pipe.descriptor_pool);
+      if (VkResult const result = vkAllocateDescriptorSets(ctx.device(), &dsai, &set); result != VK_SUCCESS) {
+        return fail(result, "vkAllocateDescriptorSets failed");
+      }
     }
     write_storage_descriptors(ctx.device(), set, buffers);
     return set;
@@ -160,20 +163,31 @@ namespace detail {
 
   auto submit_scope::open(context &host) -> result<submit_scope>
   {
-    auto cmd = host.allocate_command_buffer();
-    if (!cmd) { return fail(cmd); }
-    auto *cmd_buf = expected_take(cmd);
+    VKEXEC_TRY_ASSIGN(pool, host.acquire_command_pool(host.queue_family()));
+    VkCommandBufferAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.commandPool = pool;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = 1;
+    VkCommandBuffer cmd_buf{ VK_NULL_HANDLE };
+    if (VkResult const result = vkAllocateCommandBuffers(host.device(), &allocate_info, &cmd_buf);
+      result != VK_SUCCESS) {
+      host.release_command_pool(host.queue_family(), pool);
+      return fail(result, "vkAllocateCommandBuffers failed");
+    }
 
     VkCommandBufferBeginInfo begin{};
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
-      host.free_command_buffer(cmd_buf);
+      vkFreeCommandBuffers(host.device(), pool, 1, &cmd_buf);
+      host.release_command_pool(host.queue_family(), pool);
       return fail(result, "vkBeginCommandBuffer failed");
     }
 
     submit_scope scope;
     scope.ctx = &host;
+    scope.pool = pool;
     scope.cmd = cmd_buf;
     return scope;
   }
@@ -197,15 +211,17 @@ namespace detail {
     try {
 #endif
       if (cmd != VK_NULL_HANDLE) {
-        ctx->free_command_buffer(cmd);
+        vkFreeCommandBuffers(ctx->device(), pool, 1, &cmd);
         cmd = VK_NULL_HANDLE;
       }
+      ctx->release_command_pool(ctx->queue_family(), pool);
+      pool = VK_NULL_HANDLE;
 
       cleanup.release(*ctx);
       ctx = nullptr;
 #if VKEXEC_ENABLE_EXCEPTIONS
     } catch (...) {
-      // Cleanup is an RAII/noexcept boundary. If host synchronization fails,
+      // Cleanup is an RAII/noexcept boundary. If object synchronization fails,
       // Vulkan loans cannot be safely reclaimed or propagated to the caller.
       std::terminate();
     }
@@ -213,16 +229,18 @@ namespace detail {
   }
 
   // Same reclaim order as completion_waiter: wait, then destroy owned sync objects.
-  auto reclaim_submission_sync(VkDevice device, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+  auto
+    reclaim_submission_sync(context const &ctx, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
     -> void
   {
     if (fence != VK_NULL_HANDLE) {
-      (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+      (void)vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX);
     } else if (fallback_queue != VK_NULL_HANDLE) {
+      auto const lock = ctx.lock_queue(fallback_queue);
       (void)vkQueueWaitIdle(fallback_queue);
     }
-    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
-    if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+    if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
+    if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
   }
 
   auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender { return enter_submit_scope_sender{ .ctx = ctx }; }

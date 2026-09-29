@@ -119,6 +119,7 @@ auto owned::swapchain::present(std::uint32_t image_index,
   present_info.pSwapchains = &swapchain_handle;
   present_info.pImageIndices = &image_index;
 
+  auto const lock = ctx_->lock_queue(ctx_->present_queue());
   VkResult const result = vkQueuePresentKHR(ctx_->present_queue(), &present_info);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return false; }
   if (result != VK_SUCCESS) { return fail(result, "vkQueuePresentKHR failed"); }

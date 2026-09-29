@@ -4,6 +4,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/compute_specialization.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/shader_module.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -35,7 +36,13 @@ auto destroy_compute_resources_with(context const &ctx, handles::compute_pipelin
 {
   VkDevice device = ctx.device();
   if (resources.pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, resources.pipeline, nullptr); }
-  Backend::destroy_binding_objects(device, resources);
+  if (resources.descriptor_pool != VK_NULL_HANDLE) {
+    VkDescriptorPool pool = resources.descriptor_pool;
+    auto const lock = descriptor_pool_access::lock(ctx, pool);
+    Backend::destroy_binding_objects(device, resources);
+  } else {
+    Backend::destroy_binding_objects(device, resources);
+  }
   if (resources.shader != VK_NULL_HANDLE) { vkDestroyShaderModule(device, resources.shader, nullptr); }
   resources = {};
 }
@@ -93,6 +100,12 @@ template<descriptor_backend Backend>
   if (auto created = Backend::create_descriptor_pool(device, resources, layout_info); !created) {
     destroy_compute_resources_with<Backend>(ctx, resources);
     return fail(created);
+  }
+  if (auto registered = descriptor_pool_access::register_owned(ctx, resources.descriptor_pool); !registered) {
+    vkDestroyDescriptorPool(device, resources.descriptor_pool, nullptr);
+    resources.descriptor_pool = VK_NULL_HANDLE;
+    destroy_compute_resources_with<Backend>(ctx, resources);
+    return fail(registered);
   }
   return resources;
 }

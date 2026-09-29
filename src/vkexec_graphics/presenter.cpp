@@ -84,10 +84,11 @@ owned::presenter::presenter(presenter &&other) noexcept
   : cfg_(std::move(other.cfg_)), ctx_(std::move(other.ctx_)), surface_(other.surface_),
     swapchain_(std::move(other.swapchain_)), depth_format_(other.depth_format_),
     framebuffers_(std::move(other.framebuffers_)), depth_(std::move(other.depth_)), render_pass_(other.render_pass_),
-    frames_(std::move(other.frames_)), command_buffers_(std::move(other.command_buffers_)),
-    render_finished_(std::move(other.render_finished_)), images_in_flight_(std::move(other.images_in_flight_)),
-    frame_index_(other.frame_index_), current_image_index_(other.current_image_index_),
-    resize_required_(other.resize_required_), suspended_(other.suspended_), frame_open_(other.frame_open_)
+    frames_(std::move(other.frames_)), command_pools_(std::move(other.command_pools_)),
+    command_buffers_(std::move(other.command_buffers_)), render_finished_(std::move(other.render_finished_)),
+    images_in_flight_(std::move(other.images_in_flight_)), frame_index_(other.frame_index_),
+    current_image_index_(other.current_image_index_), resize_required_(other.resize_required_),
+    suspended_(other.suspended_), frame_open_(other.frame_open_)
 {
   other.surface_ = VK_NULL_HANDLE;
   other.render_pass_ = VK_NULL_HANDLE;
@@ -142,11 +143,8 @@ owned::presenter::~presenter()
       if (sync.image_available != VK_NULL_HANDLE) { vkDestroySemaphore(ctx_->device(), sync.image_available, nullptr); }
     }
     destroy_swapchain_sync();
-    if (!command_buffers_.empty()) {
-      vkFreeCommandBuffers(ctx_->device(),
-        ctx_->command_pool(),
-        static_cast<std::uint32_t>(command_buffers_.size()),
-        command_buffers_.data());
+    for (VkCommandPool pool : command_pools_) {
+      if (pool != VK_NULL_HANDLE) { vkDestroyCommandPool(ctx_->device(), pool, nullptr); }
     }
     cleanup_swapchain();
     if (render_pass_ != VK_NULL_HANDLE) { vkDestroyRenderPass(ctx_->device(), render_pass_, nullptr); }
@@ -314,6 +312,7 @@ auto owned::presenter::create_framebuffers() -> status
 auto owned::presenter::create_frame_resources() -> status
 {
   frames_.resize(static_cast<std::size_t>(k_frames));
+  command_pools_.resize(static_cast<std::size_t>(k_frames));
   command_buffers_.resize(static_cast<std::size_t>(k_frames));
   for (int index = 0; index < k_frames; ++index) {
     auto const frame_index = static_cast<std::size_t>(index);
@@ -333,9 +332,25 @@ auto owned::presenter::create_frame_resources() -> status
       return fail(result, "vkCreateFence failed");
     }
 
-    auto cmd = ctx_->allocate_command_buffer();
-    if (!cmd) { return fail(cmd); }
-    command_buffers_.at(frame_index) = expected_take(cmd);
+    VkCommandPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.queueFamilyIndex = ctx_->graphics_queue_family();
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    if (VkResult const result =
+          vkCreateCommandPool(ctx_->device(), &pool_info, nullptr, &command_pools_.at(frame_index));
+      result != VK_SUCCESS) {
+      return fail(result, "vkCreateCommandPool failed (graphics)");
+    }
+    VkCommandBufferAllocateInfo allocate_info{};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.commandPool = command_pools_.at(frame_index);
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = 1;
+    if (VkResult const result =
+          vkAllocateCommandBuffers(ctx_->device(), &allocate_info, &command_buffers_.at(frame_index));
+      result != VK_SUCCESS) {
+      return fail(result, "vkAllocateCommandBuffers failed (graphics)");
+    }
   }
   return {};
 }

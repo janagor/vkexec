@@ -1,5 +1,6 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
 #include <vkexec/detail/vk_bootstrap_error.hpp>
@@ -30,6 +31,7 @@
 #include <span>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -51,15 +53,39 @@ struct context::impl
   std::uint32_t queue_family{ 0 };
   std::uint32_t graphics_family{ 0 };
   std::uint32_t present_family{ 0 };
-  VkCommandPool command_pool{ VK_NULL_HANDLE };
   std::unique_ptr<detail::completion_waiter> completion_waiter;
   std::unique_ptr<detail::host_agent> host_agent;
-  mutable std::mutex host_mutex;
+  mutable detail::queue_synchronization_registry queue_synchronization;
+  mutable detail::descriptor_pool_synchronization_registry descriptor_pool_synchronization;
+  // A checked-out pool has exactly one host owner; only returned pools appear here.
+  std::mutex command_pool_cache_mutex;
+  std::vector<std::pair<std::uint32_t, VkCommandPool>> available_command_pools;
+  std::mutex command_buffer_mutex;
+  std::unordered_map<VkCommandBuffer, VkCommandPool> command_buffer_pools;
   bool presentation_enabled{ false };
   bool has_instance{ false };
   bool has_device{ false };
   bool owns_instance{ false };
   bool owns_device{ false };
+
+  auto register_known_queues() -> status
+  {
+#if VKEXEC_ENABLE_EXCEPTIONS
+    try {
+#endif
+      auto register_queue = [this](VkQueue queue) -> void {
+        if (queue != VK_NULL_HANDLE) { (void)queue_synchronization.state(queue); }
+      };
+      register_queue(compute_queue);
+      register_queue(graphics_queue);
+      register_queue(present_queue);
+#if VKEXEC_ENABLE_EXCEPTIONS
+    } catch (...) {
+      return fail(unexpected_exception_error());
+    }
+#endif
+    return {};
+  }
 };
 
 namespace {
@@ -325,7 +351,6 @@ auto context::present_queue() const noexcept -> VkQueue { return impl_->present_
 auto context::queue_family() const noexcept -> std::uint32_t { return impl_->queue_family; }
 auto context::graphics_queue_family() const noexcept -> std::uint32_t { return impl_->graphics_family; }
 auto context::present_queue_family() const noexcept -> std::uint32_t { return impl_->present_family; }
-auto context::command_pool() const noexcept -> VkCommandPool { return impl_->command_pool; }
 auto context::owns_instance() const noexcept -> bool { return impl_->owns_instance; }
 auto context::owns_device() const noexcept -> bool { return impl_->owns_device; }
 auto context::presentation_enabled() const noexcept -> bool { return impl_->presentation_enabled; }
@@ -339,8 +364,9 @@ auto context::init_common_resources() -> status
 {
   // Shared path for create() and window surface completion after the device exists.
   VKEXEC_TRY(load_device_procs());
-  VKEXEC_TRY(create_command_pool());
-  impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
+  VKEXEC_TRY(impl_->register_known_queues());
+  impl_->completion_waiter = std::make_unique<detail::completion_waiter>(
+    impl_->device.device, impl_->compute_queue, impl_->queue_synchronization.state(impl_->compute_queue));
   impl_->host_agent = std::make_unique<detail::host_agent>();
   return {};
 }
@@ -420,8 +446,9 @@ auto context::init_adopted(context_adopt_info const &info) -> status
 
   VKEXEC_TRY(load_device_procs());
 
-  VKEXEC_TRY(create_command_pool());
-  impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
+  VKEXEC_TRY(impl_->register_known_queues());
+  impl_->completion_waiter = std::make_unique<detail::completion_waiter>(
+    impl_->device.device, impl_->compute_queue, impl_->queue_synchronization.state(impl_->compute_queue));
   impl_->host_agent = std::make_unique<detail::host_agent>();
   return {};
 }
@@ -549,9 +576,13 @@ context::~context()
 
   if (impl_->device.device != VK_NULL_HANDLE) {
     if (impl_->owns_device) { vkDeviceWaitIdle(impl_->device.device); }
-    if (impl_->command_pool != VK_NULL_HANDLE) {
-      vkDestroyCommandPool(impl_->device.device, impl_->command_pool, nullptr);
-      impl_->command_pool = VK_NULL_HANDLE;
+    for (auto const &[cmd, pool] : impl_->command_buffer_pools) {
+      (void)cmd;
+      vkDestroyCommandPool(impl_->device.device, pool, nullptr);
+    }
+    for (auto const &[family, pool] : impl_->available_command_pools) {
+      (void)family;
+      vkDestroyCommandPool(impl_->device.device, pool, nullptr);
     }
     if (impl_->owns_device) {
       vkb::destroy_device(impl_->device);
@@ -565,19 +596,68 @@ context::~context()
   }
 }
 
-auto context::create_command_pool() -> status
+auto context::lock_queue(VkQueue queue) const -> queue_guard
+{ return queue_guard{ impl_->queue_synchronization.state(queue) }; }
+
+auto detail::descriptor_pool_access::lock(context const &ctx, VkDescriptorPool pool) -> std::unique_lock<std::mutex>
+{ return std::unique_lock{ *ctx.impl_->descriptor_pool_synchronization.state(pool) }; }
+
+auto detail::descriptor_pool_access::register_owned(context const &ctx, VkDescriptorPool pool) -> status
 {
-  VkCommandPoolCreateInfo pool_info{};
-  pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  pool_info.queueFamilyIndex = impl_->queue_family;
-  pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-  if (vkCreateCommandPool(impl_->device.device, &pool_info, nullptr, &impl_->command_pool) != VK_SUCCESS) {
-    return fail(VK_ERROR_UNKNOWN, "vkCreateCommandPool failed");
+  if (pool == VK_NULL_HANDLE) { return {}; }
+#if VKEXEC_ENABLE_EXCEPTIONS
+  try {
+#endif
+    (void)ctx.impl_->descriptor_pool_synchronization.state(pool);
+#if VKEXEC_ENABLE_EXCEPTIONS
+  } catch (...) {
+    return fail(unexpected_exception_error());
   }
+#endif
   return {};
 }
 
-auto context::lock_host() const -> std::unique_lock<std::mutex> { return std::unique_lock{ impl_->host_mutex }; }
+auto context::acquire_command_pool(std::uint32_t family) -> result<VkCommandPool>
+{
+  {
+    std::scoped_lock const lock(impl_->command_pool_cache_mutex);
+    auto found = std::ranges::find_if(
+      impl_->available_command_pools, [family](auto const &entry) -> bool { return entry.first == family; });
+    if (found != impl_->available_command_pools.end()) {
+      VkCommandPool pool = found->second;
+      impl_->available_command_pools.erase(found);
+      return pool;
+    }
+  }
+  VkCommandPoolCreateInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  info.queueFamilyIndex = family;
+  info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+  VkCommandPool pool{ VK_NULL_HANDLE };
+  if (VkResult const result = vkCreateCommandPool(device(), &info, nullptr, &pool); result != VK_SUCCESS) {
+    return fail(result, "vkCreateCommandPool failed");
+  }
+  return pool;
+}
+
+auto context::release_command_pool(std::uint32_t family, VkCommandPool pool) noexcept -> void
+{
+  if (pool == VK_NULL_HANDLE) { return; }
+  if (vkResetCommandPool(device(), pool, 0) != VK_SUCCESS) {
+    vkDestroyCommandPool(device(), pool, nullptr);
+    return;
+  }
+#if VKEXEC_ENABLE_EXCEPTIONS
+  try {
+#endif
+    std::scoped_lock const lock(impl_->command_pool_cache_mutex);
+    impl_->available_command_pools.emplace_back(family, pool);
+#if VKEXEC_ENABLE_EXCEPTIONS
+  } catch (...) {
+    vkDestroyCommandPool(device(), pool, nullptr);
+  }
+#endif
+}
 
 auto context::host_agent_thread_id() -> std::thread::id
 {
@@ -591,7 +671,8 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
   detail::done_fn on_done) -> status
 {
   if (!impl_->completion_waiter && impl_->device.device != VK_NULL_HANDLE) {
-    impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
+    impl_->completion_waiter = std::make_unique<detail::completion_waiter>(
+      impl_->device.device, impl_->compute_queue, impl_->queue_synchronization.state(impl_->compute_queue));
   }
   if (!impl_->completion_waiter) {
     error failure = make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
@@ -601,6 +682,7 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
     if (fence != VK_NULL_HANDLE) {
       (void)vkWaitForFences(device(), 1, &fence, VK_TRUE, UINT64_MAX);
     } else if (compute_queue() != VK_NULL_HANDLE) {
+      auto const lock = lock_queue(compute_queue());
       (void)vkQueueWaitIdle(compute_queue());
     }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device(), semaphore, nullptr); }
@@ -615,7 +697,8 @@ auto context::do_enqueue_borrowed_fence_wait(VkFence fence, detail::stop_fn stop
   -> status
 {
   if (!impl_->completion_waiter && impl_->device.device != VK_NULL_HANDLE) {
-    impl_->completion_waiter = std::make_unique<detail::completion_waiter>(impl_->device.device, impl_->compute_queue);
+    impl_->completion_waiter = std::make_unique<detail::completion_waiter>(
+      impl_->device.device, impl_->compute_queue, impl_->queue_synchronization.state(impl_->compute_queue));
   }
   if (!impl_->completion_waiter) {
     error failure = make_error(errc::invalid_argument, "completion waiter requires a VkDevice");
@@ -634,23 +717,45 @@ auto context::do_enqueue_host(detail::host_task_fn task) -> status
 
 auto context::allocate_command_buffer() -> result<VkCommandBuffer>
 {
-  std::scoped_lock const lock(impl_->host_mutex);
+  VKEXEC_TRY_ASSIGN(pool, acquire_command_pool(queue_family()));
   VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  alloc_info.commandPool = impl_->command_pool;
+  alloc_info.commandPool = pool;
   alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   alloc_info.commandBufferCount = 1;
   VkCommandBuffer cmd{ VK_NULL_HANDLE };
   if (VkResult const result = vkAllocateCommandBuffers(impl_->device.device, &alloc_info, &cmd); result != VK_SUCCESS) {
+    release_command_pool(queue_family(), pool);
     return fail(result, "vkAllocateCommandBuffers failed");
   }
+#if VKEXEC_ENABLE_EXCEPTIONS
+  try {
+#endif
+    std::scoped_lock const lock(impl_->command_buffer_mutex);
+    impl_->command_buffer_pools.emplace(cmd, pool);
+#if VKEXEC_ENABLE_EXCEPTIONS
+  } catch (...) {
+    vkFreeCommandBuffers(device(), pool, 1, &cmd);
+    release_command_pool(queue_family(), pool);
+    return fail(unexpected_exception_error());
+  }
+#endif
   return cmd;
 }
 
 auto context::free_command_buffer(VkCommandBuffer cmd) -> void
 {
-  std::scoped_lock const lock(impl_->host_mutex);
-  vkFreeCommandBuffers(impl_->device.device, impl_->command_pool, 1, &cmd);
+  if (cmd == VK_NULL_HANDLE) { return; }
+  VkCommandPool pool{ VK_NULL_HANDLE };
+  {
+    std::scoped_lock const lock(impl_->command_buffer_mutex);
+    auto found = impl_->command_buffer_pools.find(cmd);
+    if (found == impl_->command_buffer_pools.end()) { return; }
+    pool = found->second;
+    impl_->command_buffer_pools.erase(found);
+  }
+  vkFreeCommandBuffers(device(), pool, 1, &cmd);
+  release_command_pool(queue_family(), pool);
 }
 
 auto context::submit_and_wait(VkCommandBuffer cmd) -> status
@@ -718,8 +823,12 @@ auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFe
 auto context::submit(queue_submit const &info) const -> status
 {
   auto *queue = info.queue != VK_NULL_HANDLE ? info.queue : impl_->compute_queue;
-  return detail::submit(
-    info, queue, impl_->synchronization, impl_->legacy_timeline_submit_info_available, impl_->procs, impl_->host_mutex);
+  return detail::submit(info,
+    queue,
+    impl_->synchronization,
+    impl_->legacy_timeline_submit_info_available,
+    impl_->procs,
+    *impl_->queue_synchronization.state(queue));
 }
 
 }// namespace vkexec
