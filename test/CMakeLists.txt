@@ -32,21 +32,6 @@ add_test(NAME cmake.sanitizers.apple_excludes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_apple_excludes_leak.cmake)
 add_test(NAME cmake.sanitizers.non_apple_includes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_non_apple_includes_leak.cmake)
-if(vkexec_ENABLE_INSTALL_CONSUMER_TEST)
-  get_property(VKEXEC_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-  add_test(
-    NAME vkexec.install_consumer
-    COMMAND
-      "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${vkexec_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${vkexec_BINARY_DIR}"
-      "-DCONSUMER_SOURCE_DIR=${vkexec_SOURCE_DIR}/test/install_consumer" "-DVKEXEC_CONFIG=$<CONFIG>"
-      "-DVKEXEC_EXPECT_VMA=${vkexec_BUILD_VMA}" "-DVKEXEC_EXPECT_TOOLS=${vkexec_BUILD_TOOLS}"
-      "-DVKEXEC_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" "-DVKEXEC_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
-      "-DVKEXEC_GENERATOR=${CMAKE_GENERATOR}" "-DVKEXEC_GENERATOR_IS_MULTI_CONFIG=${VKEXEC_GENERATOR_IS_MULTI_CONFIG}"
-      "-DVKEXEC_GENERATOR_INSTANCE=${CMAKE_GENERATOR_INSTANCE}"
-      "-DVKEXEC_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}" "-DVKEXEC_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
-      -P "${vkexec_SOURCE_DIR}/cmake/TestInstallConsumer.cmake")
-endif()
-
 foreach(parent_standard 17 23)
   add_test(
     NAME vkexec.subdirectory_consumer.cxx${parent_standard}

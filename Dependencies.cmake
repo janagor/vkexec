@@ -72,7 +72,7 @@ function(vkexec_setup_dependencies)
     unset(_vkexec_vulkan_aliased)
   endif()
 
-  if(NOT TARGET Catch2::Catch2WithMain)
+  if((NOT DEFINED BUILD_TESTING OR BUILD_TESTING) AND NOT TARGET Catch2::Catch2WithMain)
     cpmaddpackage(
       NAME
       Catch2
