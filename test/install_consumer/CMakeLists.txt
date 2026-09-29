@@ -37,7 +37,10 @@ foreach(target IN LISTS vkexec_required_targets)
   get_target_property(include_directories ${target} INTERFACE_INCLUDE_DIRECTORIES)
   foreach(include_directory IN LISTS include_directories)
     string(FIND "${include_directory}" "${VKEXEC_PREFIX}/" prefix_position)
-    if(prefix_position EQUAL 0)
+    if(NOT
+       prefix_position
+       EQUAL
+       -1)
       continue()
     endif()
     foreach(

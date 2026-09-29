@@ -1,7 +1,11 @@
 #include <vkexec/detail/submission.hpp>
+#include <vkexec/detail/synchronization.hpp>
+#include <vkexec/device_procs.hpp>
 
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -129,11 +133,12 @@ auto submit(queue_submit const &info,
     return fail(errc::invalid_argument, "queue_submit requires at least one command buffer");
   }
   if (queue == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "queue_submit requires a VkQueue"); }
-  if (std::ranges::any_of(info.waits, [](semaphore_submit const &wait) { return wait.semaphore == VK_NULL_HANDLE; })) {
+  if (std::ranges::any_of(
+        info.waits, [](semaphore_submit const &wait) -> bool { return wait.semaphore == VK_NULL_HANDLE; })) {
     return fail(errc::invalid_argument, "queue_submit wait semaphore is null");
   }
   if (std::ranges::any_of(
-        info.signals, [](semaphore_submit const &signal) { return signal.semaphore == VK_NULL_HANDLE; })) {
+        info.signals, [](semaphore_submit const &signal) -> bool { return signal.semaphore == VK_NULL_HANDLE; })) {
     return fail(errc::invalid_argument, "queue_submit signal semaphore is null");
   }
 

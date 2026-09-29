@@ -717,7 +717,7 @@ auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFe
 
 auto context::submit(queue_submit const &info) const -> status
 {
-  VkQueue const queue = info.queue != VK_NULL_HANDLE ? info.queue : impl_->compute_queue;
+  auto *queue = info.queue != VK_NULL_HANDLE ? info.queue : impl_->compute_queue;
   return detail::submit(
     info, queue, impl_->synchronization, impl_->legacy_timeline_submit_info_available, impl_->procs, impl_->host_mutex);
 }

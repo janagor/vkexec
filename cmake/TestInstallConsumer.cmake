@@ -7,7 +7,18 @@ if(NOT DEFINED VKEXEC_SOURCE_DIR
   message(FATAL_ERROR "Required test paths were not provided")
 endif()
 
-set(test_root "${VKEXEC_BINARY_DIR}/package-contract")
+string(SHA256 package_contract_id "${VKEXEC_BINARY_DIR}")
+string(
+  SUBSTRING "${package_contract_id}"
+            0
+            12
+            package_contract_id)
+cmake_path(
+  GET
+  VKEXEC_SOURCE_DIR
+  PARENT_PATH
+  package_contract_parent)
+set(test_root "${package_contract_parent}/package-contract-${package_contract_id}")
 set(stage_prefix "${test_root}/stage")
 set(relocated_prefix "${test_root}/relocated")
 set(consumer_source "${test_root}/consumer-src")
