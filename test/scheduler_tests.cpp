@@ -735,8 +735,8 @@ TEST_CASE("copyable binding graphs defer mutable state to each operation", "[vke
 
   std::promise<void> first_completed;
   std::promise<void> second_completed;
-  auto first = ex::connect(graph, completion_probe_receiver{ .completed = &first_completed });
-  auto second = ex::connect(graph, completion_probe_receiver{ .completed = &second_completed });
+  auto first = graph.connect(completion_probe_receiver{ .completed = &first_completed });
+  auto second = graph.connect(completion_probe_receiver{ .completed = &second_completed });
 
   REQUIRE(std::get<0>(graph.steps).state == nullptr);
   REQUIRE(std::get<0>(first.steps).state == nullptr);
