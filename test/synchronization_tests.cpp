@@ -2,6 +2,7 @@
 
 #include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_features/feature.hpp>
 #include <vkexec_features/synchronization2.hpp>
@@ -124,7 +125,8 @@ TEST_CASE("legacy submission attaches timeline values only when supported", "[vk
   REQUIRE(binary_only);
   auto const binary_view = binary_only->make_submit_info(request);
   REQUIRE(binary_view.submit.pNext == nullptr);
-  REQUIRE(binary_view.submit.pWaitDstStageMask[0] == VK_PIPELINE_STAGE_TRANSFER_BIT);
+  REQUIRE(binary_only->wait_stages.at(0) == VK_PIPELINE_STAGE_TRANSFER_BIT);
+  REQUIRE(binary_view.submit.pWaitDstStageMask == binary_only->wait_stages.data());
   REQUIRE(binary_view.submit.pWaitSemaphores != nullptr);
 
   auto timeline_enabled = vkexec::detail::lower_legacy_submit(request, true);
@@ -132,7 +134,8 @@ TEST_CASE("legacy submission attaches timeline values only when supported", "[vk
   auto const view = timeline_enabled->make_submit_info(request);
   REQUIRE(view.submit.pNext == &view.timeline);
   REQUIRE(view.timeline.waitSemaphoreValueCount == 1);
-  REQUIRE(view.timeline.pWaitSemaphoreValues[0] == 0);
+  REQUIRE(timeline_enabled->wait_values.at(0) == 0);
+  REQUIRE(view.timeline.pWaitSemaphoreValues == timeline_enabled->wait_values.data());
   REQUIRE(view.timeline.signalSemaphoreValueCount == 0);
   REQUIRE(view.timeline.pSignalSemaphoreValues == nullptr);
 }
@@ -148,11 +151,11 @@ TEST_CASE("synchronization2 submission lowering preserves stages and values", "[
 
   auto const lowered = vkexec::detail::lower_synchronization2_submit(request);
   REQUIRE(lowered.commands.size() == 1);
-  REQUIRE(lowered.commands[0].deviceMask == 1);
-  REQUIRE(lowered.waits[0].stageMask == VK_PIPELINE_STAGE_2_COPY_BIT);
-  REQUIRE(lowered.waits[0].value == 17);
-  REQUIRE(lowered.signals[0].stageMask == VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-  REQUIRE(lowered.signals[0].value == 23);
+  REQUIRE(lowered.commands.at(0).deviceMask == 1);
+  REQUIRE(lowered.waits.at(0).stageMask == VK_PIPELINE_STAGE_2_COPY_BIT);
+  REQUIRE(lowered.waits.at(0).value == 17);
+  REQUIRE(lowered.signals.at(0).stageMask == VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  REQUIRE(lowered.signals.at(0).value == 23);
   auto const submission = lowered.submit_info();
   REQUIRE(submission.commandBufferInfoCount == 1);
   REQUIRE(submission.pCommandBufferInfos == lowered.commands.data());

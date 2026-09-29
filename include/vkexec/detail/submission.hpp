@@ -34,6 +34,7 @@ struct legacy_submission_view
   VkSubmitInfo submit{};
 
   legacy_submission_view(legacy_submission const &lowered, queue_submit const &info) noexcept;
+  ~legacy_submission_view() = default;
   legacy_submission_view(legacy_submission_view const &) = delete;
   auto operator=(legacy_submission_view const &) -> legacy_submission_view & = delete;
   legacy_submission_view(legacy_submission_view &&) = delete;

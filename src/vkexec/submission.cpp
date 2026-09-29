@@ -5,6 +5,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <mutex>
 #include <vector>
@@ -58,23 +59,22 @@ auto legacy_submission::make_submit_info(queue_submit const &info) const noexcep
 { return legacy_submission_view{ *this, info }; }
 
 legacy_submission_view::legacy_submission_view(legacy_submission const &lowered, queue_submit const &info) noexcept
-{
-  timeline = VkTimelineSemaphoreSubmitInfo{ .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
-    .pNext = nullptr,
-    .waitSemaphoreValueCount = static_cast<std::uint32_t>(lowered.wait_values.size()),
-    .pWaitSemaphoreValues = lowered.wait_values.empty() ? nullptr : lowered.wait_values.data(),
-    .signalSemaphoreValueCount = static_cast<std::uint32_t>(lowered.signal_values.size()),
-    .pSignalSemaphoreValues = lowered.signal_values.empty() ? nullptr : lowered.signal_values.data() };
-  submit = VkSubmitInfo{ .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .pNext = lowered.legacy_timeline_submit_info_available ? &timeline : nullptr,
-    .waitSemaphoreCount = static_cast<std::uint32_t>(lowered.wait_semaphores.size()),
-    .pWaitSemaphores = lowered.wait_semaphores.empty() ? nullptr : lowered.wait_semaphores.data(),
-    .pWaitDstStageMask = lowered.wait_stages.empty() ? nullptr : lowered.wait_stages.data(),
-    .commandBufferCount = static_cast<std::uint32_t>(info.command_buffers.size()),
-    .pCommandBuffers = info.command_buffers.data(),
-    .signalSemaphoreCount = static_cast<std::uint32_t>(lowered.signal_semaphores.size()),
-    .pSignalSemaphores = lowered.signal_semaphores.empty() ? nullptr : lowered.signal_semaphores.data() };
-}
+  : timeline{ .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
+      .pNext = nullptr,
+      .waitSemaphoreValueCount = static_cast<std::uint32_t>(lowered.wait_values.size()),
+      .pWaitSemaphoreValues = lowered.wait_values.empty() ? nullptr : lowered.wait_values.data(),
+      .signalSemaphoreValueCount = static_cast<std::uint32_t>(lowered.signal_values.size()),
+      .pSignalSemaphoreValues = lowered.signal_values.empty() ? nullptr : lowered.signal_values.data() },
+    submit{ .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .pNext = lowered.legacy_timeline_submit_info_available ? &timeline : nullptr,
+      .waitSemaphoreCount = static_cast<std::uint32_t>(lowered.wait_semaphores.size()),
+      .pWaitSemaphores = lowered.wait_semaphores.empty() ? nullptr : lowered.wait_semaphores.data(),
+      .pWaitDstStageMask = lowered.wait_stages.empty() ? nullptr : lowered.wait_stages.data(),
+      .commandBufferCount = static_cast<std::uint32_t>(info.command_buffers.size()),
+      .pCommandBuffers = info.command_buffers.data(),
+      .signalSemaphoreCount = static_cast<std::uint32_t>(lowered.signal_semaphores.size()),
+      .pSignalSemaphores = lowered.signal_semaphores.empty() ? nullptr : lowered.signal_semaphores.data() }
+{}
 
 auto lower_synchronization2_submit(queue_submit const &info) -> synchronization2_submission
 {
@@ -129,15 +129,12 @@ auto submit(queue_submit const &info,
     return fail(errc::invalid_argument, "queue_submit requires at least one command buffer");
   }
   if (queue == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "queue_submit requires a VkQueue"); }
-  for (semaphore_submit const &wait : info.waits) {
-    if (wait.semaphore == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "queue_submit wait semaphore is null");
-    }
+  if (std::ranges::any_of(info.waits, [](semaphore_submit const &wait) { return wait.semaphore == VK_NULL_HANDLE; })) {
+    return fail(errc::invalid_argument, "queue_submit wait semaphore is null");
   }
-  for (semaphore_submit const &signal : info.signals) {
-    if (signal.semaphore == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "queue_submit signal semaphore is null");
-    }
+  if (std::ranges::any_of(
+        info.signals, [](semaphore_submit const &signal) { return signal.semaphore == VK_NULL_HANDLE; })) {
+    return fail(errc::invalid_argument, "queue_submit signal semaphore is null");
   }
 
   if (backend != synchronization_backend::legacy) {
