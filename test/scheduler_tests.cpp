@@ -323,7 +323,7 @@ TEST_CASE("submit_and_wait releases a pre-stopped scope", "[vkexec][scheduler][g
 
 TEST_CASE("compute submit scopes check out distinct pools and reuse released pools", "[vkexec][scheduler][gpu]")
 {
-  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  auto ctx = vkexec::test::require_context();
   auto first_result = vkexec::detail::submit_scope::open(*ctx);
   auto second_result = vkexec::detail::submit_scope::open(*ctx);
   REQUIRE(first_result.has_value());
@@ -344,7 +344,7 @@ TEST_CASE("compute submit scopes check out distinct pools and reuse released poo
 
 TEST_CASE("compute submit scopes record concurrently", "[vkexec][scheduler][gpu]")
 {
-  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  auto ctx = vkexec::test::require_context();
   std::atomic<int> completed{ 0 };
   auto record = [&]() -> void {
     auto opened = vkexec::detail::submit_scope::open(*ctx);
@@ -363,7 +363,7 @@ TEST_CASE("compute submit scopes record concurrently", "[vkexec][scheduler][gpu]
 
 TEST_CASE("direct command buffers record concurrently with exclusive pools", "[vkexec][scheduler][gpu]")
 {
-  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  auto ctx = vkexec::test::require_context();
   std::atomic<int> completed{ 0 };
   auto record = [&]() -> void {
     auto allocated = ctx->allocate_command_buffer();
@@ -400,7 +400,7 @@ TEST_CASE("queue guard move assignment releases the old state after its context 
 
 TEST_CASE("descriptor sets allocate concurrently from distinct pools", "[vkexec][scheduler][gpu]")
 {
-  auto ctx = vkexec::test::require_context({ .validation_layers = true });
+  auto ctx = vkexec::test::require_context();
   VkDescriptorSetLayoutBinding binding{};
   binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
   binding.descriptorCount = 1;

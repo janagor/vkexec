@@ -7,6 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -39,7 +40,24 @@ template<class Sender> [[nodiscard]] auto sync_wait_sender(Sender &&sender)
 { return try_sync_wait(std::forward<Sender>(sender)); }
 
 [[nodiscard]] inline auto require_context(scheduler_options const &opts = {}) -> std::unique_ptr<context>
-{ return sync_wait_value(factory::make_context(opts)); }
+{
+  auto configured = opts;
+  bool const require_validation =
+#ifdef VKEXEC_TEST_VALIDATION
+    true;
+#else
+    false;
+#endif
+  if (require_validation) { configured.validation_layers = true; }
+  auto outcome = vkexec::try_sync_wait_value(factory::make_context(configured));
+  if (!outcome) {
+    if (require_validation) {
+      throw std::runtime_error(std::string("Validation context unavailable: ") + outcome.error().message());
+    }
+    skip_if_no_vulkan(outcome.error());
+  }
+  return std::move(*outcome);
+}
 
 }// namespace vkexec::test
 

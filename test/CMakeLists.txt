@@ -65,6 +65,10 @@ add_executable(
   scheduler_tests.cpp
   graphics_tests.cpp
   vulkan_requirements_tests.cpp)
+option(vkexec_TEST_VALIDATION "Require Vulkan validation layers for unit tests" OFF)
+if(vkexec_TEST_VALIDATION)
+  target_compile_definitions(tests PRIVATE VKEXEC_TEST_VALIDATION)
+endif()
 if(vkexec_BUILD_VMA)
   target_sources(
     tests
