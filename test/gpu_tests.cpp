@@ -13,6 +13,7 @@
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_allocator.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sampler.hpp>
@@ -216,8 +217,10 @@ void main() {}
 
   auto ctx = vkexec::test::require_context();
   auto allocator = vkexec::test::require_allocator(*ctx);
-  auto img = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image(allocator,
-    vkexec::vma::image_create_info{ .width = 1, .height = 1, .usage = vkexec::vma::image_usage::color_storage }));
+  auto img = vkexec::test::sync_wait_value(vkexec::allocate_image(allocator,
+    vkexec::image_create_info{ .extent = { .width = 1, .height = 1, .depth = 1 },
+      .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+      .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT }));
   auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   auto resources_result =
