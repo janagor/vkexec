@@ -79,6 +79,9 @@ struct context_adopt_info
   bool synchronization2_khr_extension_enabled{ false };
   //! Required for the KHR path on Vulkan 1.0 instances.
   bool physical_device_properties2_enabled{ false };
+  //! True if VK_KHR_timeline_semaphore was enabled when creating an adopted
+  //! Vulkan 1.0/1.1 VkDevice.
+  bool timeline_semaphore_khr_extension_enabled{ false };
 
   VkQueue compute_queue{ VK_NULL_HANDLE };
   std::uint32_t compute_queue_family{ 0 };
@@ -254,7 +257,7 @@ public:
    * binary or timeline semaphores).
    *
    * @param info Queue submit description.
-   * @return Failure if `vkQueueSubmit` fails.
+   * @return Failure if validation, lowering, or Vulkan queue submission fails.
    */
   [[nodiscard]] auto submit(queue_submit const &info) const -> status;
 

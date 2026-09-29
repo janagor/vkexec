@@ -174,7 +174,7 @@ namespace owned {
     [[nodiscard]] auto make_submit_sync(std::size_t slot,
       std::size_t image_index,
       std::uint64_t signal_value,
-      VkPipelineStageFlags acquire_wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT) const
+      VkPipelineStageFlags2 acquire_wait_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT) const
       -> result<frame_ring_submit_sync>;
 
   private:

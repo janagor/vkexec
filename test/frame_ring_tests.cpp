@@ -141,7 +141,7 @@ TEST_CASE("frame_ring reset preserves live timeline sequence", "[vkexec][frame_r
   std::array<vkexec::semaphore_submit, 1> const signals{ vkexec::semaphore_submit{
     .semaphore = ring.timeline().handle(),
     .value = signal_value,
-    .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    .stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
   } };
   auto *cmd = record_empty(*ctx);
   std::array<VkCommandBuffer, 1> const commands{ cmd };

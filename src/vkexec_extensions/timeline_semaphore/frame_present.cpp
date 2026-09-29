@@ -18,7 +18,7 @@ namespace vkexec {
 auto acquire_present_frame(owned::frame_ring &ring,
   owned::swapchain &chain,
   std::size_t slot,
-  VkPipelineStageFlags acquire_wait_stage) -> result<present_acquire_result>
+  VkPipelineStageFlags2 acquire_wait_stage) -> result<present_acquire_result>
 {
   VKEXEC_TRY(ring.wait_slot(slot));
 

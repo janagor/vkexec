@@ -155,7 +155,7 @@ auto owned::frame_ring::mark_submitted(std::size_t slot, std::size_t image_index
 auto owned::frame_ring::make_submit_sync(std::size_t slot,
   std::size_t image_index,
   std::uint64_t signal_value,
-  VkPipelineStageFlags acquire_wait_stage) const -> result<frame_ring_submit_sync>
+  VkPipelineStageFlags2 acquire_wait_stage) const -> result<frame_ring_submit_sync>
 {
   VKEXEC_TRY(check_slot(slot));
   VKEXEC_TRY(check_image(image_index));
@@ -174,12 +174,12 @@ auto owned::frame_ring::make_submit_sync(std::size_t slot,
     semaphore_submit{
       .semaphore = render_finished_.at(image_index),
       .value = 0,
-      .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      .stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
     },
     semaphore_submit{
       .semaphore = timeline_.handle(),
       .value = signal_value,
-      .stage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+      .stage = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
     },
   };
   return sync;

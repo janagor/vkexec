@@ -3,6 +3,7 @@
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/sync_wait_outcome.hpp>
@@ -481,20 +482,16 @@ auto owned::presenter::end_frame(frame const &drawn, present_options options) ->
   auto &sync = frames_.at(frame_index_);
   VkCommandBuffer cmd = command_buffers_.at(frame_index_);
 
-  VkPipelineStageFlags const wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = &sync.image_available;
-  submit_info.pWaitDstStageMask = &wait_stage;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &cmd;
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &render_finished_.at(current_image_index_);
-  if (VkResult const submit_result = vkQueueSubmit(ctx_->graphics_queue(), 1, &submit_info, sync.in_flight);
-    submit_result != VK_SUCCESS) {
-    return fail(submit_result, "vkQueueSubmit failed");
-  }
+  std::array<VkCommandBuffer, 1> const commands{ cmd };
+  std::array<semaphore_submit, 1> const waits{ semaphore_submit{
+    .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT } };
+  std::array<semaphore_submit, 1> const signals{ semaphore_submit{
+    .semaphore = render_finished_.at(current_image_index_) } };
+  VKEXEC_TRY(ctx_->submit(queue_submit{ .command_buffers = commands,
+    .waits = waits,
+    .signals = signals,
+    .fence = sync.in_flight,
+    .queue = ctx_->graphics_queue() }));
 
   std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
   auto present_result = active_swapchain.present(current_image_index_, wait_semaphores, options);

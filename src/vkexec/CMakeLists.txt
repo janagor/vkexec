@@ -3,6 +3,7 @@ add_library(
   error.cpp
   error_helpers.cpp
   context.cpp
+  submission.cpp
   completion_waiter.cpp
   host_agent.cpp
   bind_resources.cpp

@@ -2,7 +2,7 @@
 #define VKEXEC_QUEUE_SUBMIT_HPP
 
 //! \file
-//! Mixed binary / timeline queue submit description for `context::submit`.
+//! Synchronization2 queue submit description for `context::submit`.
 
 #include <vulkan/vulkan.h>
 
@@ -14,18 +14,24 @@ namespace vkexec {
 /**
  * Wait or signal entry for `queue_submit`.
  *
- * `value` is used when any entry in the submit needs a timeline semaphore;
- * binary semaphores ignore `value`.
+ * Timeline semaphores use `value`; binary semaphores ignore it.
  */
 struct semaphore_submit
 {
   VkSemaphore semaphore{ VK_NULL_HANDLE };
   std::uint64_t value{ 0 };
-  VkPipelineStageFlags stage{ VK_PIPELINE_STAGE_ALL_COMMANDS_BIT };
+  VkPipelineStageFlags2 stage{ VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT };
 };
 
 /**
- * Description of a `vkQueueSubmit` with optional binary and timeline sync.
+ * Description of one Vulkan queue submission with optional binary and
+ * timeline synchronization.
+ *
+ * Stage masks use synchronization2 semantics. On devices without
+ * synchronization2, vkexec lowers waits that are representable by legacy
+ * queue submission. NONE or HOST wait stages, stage masks with no legacy
+ * representation, and non-ALL_COMMANDS signal stages fail with
+ * `errc::unsupported`.
  *
  * When `queue` is null, `context::submit` uses the context compute queue.
  *

@@ -1,5 +1,6 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
 #include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/detail/worker_callbacks.hpp>
@@ -19,6 +20,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -39,6 +41,7 @@ struct context::impl
   std::uint32_t api_version{ VK_API_VERSION_1_0 };
   device_procs procs{};
   detail::synchronization_backend synchronization{ detail::synchronization_backend::legacy };
+  bool legacy_timeline_submit_info_available{ false };
   vkb::Instance instance{};
   vkb::PhysicalDevice physical_device{};
   vkb::Device device{};
@@ -194,15 +197,22 @@ namespace {
 
   auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device,
     vulkan_requirements const &requirements,
-    std::uint32_t api_version) -> detail::synchronization_backend
+    std::uint32_t api_version,
+    bool &legacy_timeline_submit_info_available) -> detail::synchronization_backend
   {
     bool khr_extension_enabled =
       contains_extension(requirements.device_extensions, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+    legacy_timeline_submit_info_available =
+      api_version >= VK_API_VERSION_1_2
+      || contains_extension(requirements.device_extensions, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
     for (char const *extension : requirements.optional_device_extensions) {
       if (extension == nullptr) { continue; }
       if (contains_extension(requirements.device_extensions, extension)) { continue; }
       bool const enabled = physical_device.enable_extension_if_present(extension);
       if (std::strcmp(extension, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME) == 0) { khr_extension_enabled |= enabled; }
+      if (std::strcmp(extension, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME) == 0) {
+        legacy_timeline_submit_info_available |= enabled;
+      }
     }
     bool feature_enabled =
       std::ranges::any_of(requirements.required_extension_features, [](extension_feature const &feature) -> bool {
@@ -256,7 +266,8 @@ namespace {
     std::uint32_t api_version,
     VkSurfaceKHR surface,
     bool want_present,
-    detail::synchronization_backend &synchronization) -> result<vkb::PhysicalDevice>
+    detail::synchronization_backend &synchronization,
+    bool &legacy_timeline_submit_info_available) -> result<vkb::PhysicalDevice>
   {
     vkb::PhysicalDeviceSelector selector{ instance };
     configure_device_selector(selector, requirements, api_version, want_present);
@@ -264,7 +275,8 @@ namespace {
     auto const selected = selector.select();
     if (!selected) { return fail(detail::make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector")); }
     vkb::PhysicalDevice physical_device = detail::vkb_take(selected);
-    synchronization = apply_optional_device_requests(physical_device, requirements, api_version);
+    synchronization =
+      apply_optional_device_requests(physical_device, requirements, api_version, legacy_timeline_submit_info_available);
     return physical_device;
   }
 
@@ -347,8 +359,13 @@ auto context::init_headless(scheduler_options const &opts) -> status
   impl_->owns_instance = true;
 
   VKEXEC_TRY_ASSIGN(selected_physical,
-    select_physical_device(
-      impl_->instance, impl_->requirements, impl_->api_version, VK_NULL_HANDLE, false, impl_->synchronization));
+    select_physical_device(impl_->instance,
+      impl_->requirements,
+      impl_->api_version,
+      VK_NULL_HANDLE,
+      false,
+      impl_->synchronization,
+      impl_->legacy_timeline_submit_info_available));
   impl_->physical_device = std::move(selected_physical);
 
 
@@ -373,6 +390,8 @@ auto context::init_adopted(context_adopt_info const &info) -> status
     info.synchronization2_khr_extension_enabled,
     info.synchronization2_enabled,
     info.physical_device_properties2_enabled);
+  impl_->legacy_timeline_submit_info_available =
+    info.api_version >= VK_API_VERSION_1_2 || info.timeline_semaphore_khr_extension_enabled;
   impl_->instance.instance = info.instance;
   impl_->physical_device.physical_device = info.physical_device;
   impl_->device.device = info.device;
@@ -432,8 +451,13 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
   if (surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "complete_for_surface requires a surface"); }
 
   VKEXEC_TRY_ASSIGN(selected_physical,
-    select_physical_device(
-      impl_->instance, impl_->requirements, impl_->api_version, surface, true, impl_->synchronization));
+    select_physical_device(impl_->instance,
+      impl_->requirements,
+      impl_->api_version,
+      surface,
+      true,
+      impl_->synchronization,
+      impl_->legacy_timeline_submit_info_available));
   impl_->physical_device = std::move(selected_physical);
 
 
@@ -503,6 +527,14 @@ auto context::load_device_procs() -> status
       reinterpret_cast<PFN_vkCmdPipelineBarrier2>(vkGetDeviceProcAddr(impl_->device.device, name));
     if (impl_->procs.cmd_pipeline_barrier2 == nullptr) {
       return fail(errc::unsupported, "synchronization2 command is unavailable");
+    }
+    char const *submit_name = impl_->synchronization == detail::synchronization_backend::synchronization2_core
+                                ? "vkQueueSubmit2"
+                                : "vkQueueSubmit2KHR";
+    impl_->procs.queue_submit2 =
+      reinterpret_cast<PFN_vkQueueSubmit2>(vkGetDeviceProcAddr(impl_->device.device, submit_name));
+    if (impl_->procs.queue_submit2 == nullptr) {
+      return fail(errc::unsupported, "synchronization2 queue submission is unavailable");
     }
   }
   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -631,17 +663,11 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> status
     return fail(create_result, "vkCreateFence failed");
   }
 
-  {
-    std::scoped_lock const lock(impl_->host_mutex);
-    VkSubmitInfo submit_info{};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &cmd;
-    if (VkResult const submit_result = vkQueueSubmit(impl_->compute_queue, 1, &submit_info, fence);
-      submit_result != VK_SUCCESS) {
-      vkDestroyFence(impl_->device.device, fence, nullptr);
-      return fail(submit_result, "vkQueueSubmit failed");
-    }
+  std::array<VkCommandBuffer, 1> const commands{ cmd };
+  auto submitted = submit(queue_submit{ .command_buffers = commands, .fence = fence });
+  if (!submitted) {
+    vkDestroyFence(impl_->device.device, fence, nullptr);
+    return submitted;
   }
   if (VkResult const wait_result = vkWaitForFences(impl_->device.device, 1, &fence, VK_TRUE, UINT64_MAX);
     wait_result != VK_SUCCESS) {
@@ -676,20 +702,14 @@ auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFe
     *out_fence = fence;
   }
 
-  {
-    std::scoped_lock const lock(impl_->host_mutex);
-    VkSubmitInfo submit_info{};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &cmd;
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &sem;
-    if (VkResult const submit_result = vkQueueSubmit(impl_->compute_queue, 1, &submit_info, fence);
-      submit_result != VK_SUCCESS) {
-      vkDestroySemaphore(impl_->device.device, sem, nullptr);
-      if (fence != VK_NULL_HANDLE) { vkDestroyFence(impl_->device.device, fence, nullptr); }
-      return fail(submit_result, "vkQueueSubmit failed");
-    }
+  std::array<VkCommandBuffer, 1> const commands{ cmd };
+  std::array<semaphore_submit, 1> const signals{ semaphore_submit{ .semaphore = sem } };
+  auto submitted = submit(queue_submit{ .command_buffers = commands, .signals = signals, .fence = fence });
+  if (!submitted) {
+    vkDestroySemaphore(impl_->device.device, sem, nullptr);
+    if (fence != VK_NULL_HANDLE) { vkDestroyFence(impl_->device.device, fence, nullptr); }
+    if (out_fence != nullptr) { *out_fence = VK_NULL_HANDLE; }
+    return submitted;
   }
   *out_semaphore = sem;
   return {};
@@ -697,70 +717,9 @@ auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFe
 
 auto context::submit(queue_submit const &info) const -> status
 {
-  if (info.command_buffers.empty()) {
-    return fail(errc::invalid_argument, "queue_submit requires at least one command buffer");
-  }
-
-  VkQueue queue = info.queue != VK_NULL_HANDLE ? info.queue : impl_->compute_queue;
-  if (queue == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "queue_submit requires a VkQueue"); }
-
-  std::vector<VkSemaphore> wait_semaphores;
-  std::vector<VkPipelineStageFlags> wait_stages;
-  std::vector<std::uint64_t> wait_values;
-  wait_semaphores.reserve(info.waits.size());
-  wait_stages.reserve(info.waits.size());
-  wait_values.reserve(info.waits.size());
-  for (semaphore_submit const &wait : info.waits) {
-    if (wait.semaphore == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "queue_submit wait semaphore is null");
-    }
-    wait_semaphores.push_back(wait.semaphore);
-    wait_stages.push_back(wait.stage);
-    wait_values.push_back(wait.value);
-  }
-
-  std::vector<VkSemaphore> signal_semaphores;
-  std::vector<std::uint64_t> signal_values;
-  signal_semaphores.reserve(info.signals.size());
-  signal_values.reserve(info.signals.size());
-  for (semaphore_submit const &signal : info.signals) {
-    if (signal.semaphore == VK_NULL_HANDLE) {
-      return fail(errc::invalid_argument, "queue_submit signal semaphore is null");
-    }
-    signal_semaphores.push_back(signal.semaphore);
-    signal_values.push_back(signal.value);
-  }
-
-  bool const use_timeline =
-    std::ranges::any_of(info.waits, [](semaphore_submit const &entry) -> bool { return entry.value != 0; })
-    || std::ranges::any_of(info.signals, [](semaphore_submit const &entry) -> bool { return entry.value != 0; });
-
-  // Any non-zero value implies timeline; binary-only submits omit the pNext chain.
-  VkTimelineSemaphoreSubmitInfo timeline_info{};
-  timeline_info.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-  if (use_timeline) {
-    timeline_info.waitSemaphoreValueCount = static_cast<std::uint32_t>(wait_values.size());
-    timeline_info.pWaitSemaphoreValues = wait_values.empty() ? nullptr : wait_values.data();
-    timeline_info.signalSemaphoreValueCount = static_cast<std::uint32_t>(signal_values.size());
-    timeline_info.pSignalSemaphoreValues = signal_values.empty() ? nullptr : signal_values.data();
-  }
-
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.pNext = use_timeline ? &timeline_info : nullptr;
-  submit_info.waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size());
-  submit_info.pWaitSemaphores = wait_semaphores.empty() ? nullptr : wait_semaphores.data();
-  submit_info.pWaitDstStageMask = wait_stages.empty() ? nullptr : wait_stages.data();
-  submit_info.commandBufferCount = static_cast<std::uint32_t>(info.command_buffers.size());
-  submit_info.pCommandBuffers = info.command_buffers.data();
-  submit_info.signalSemaphoreCount = static_cast<std::uint32_t>(signal_semaphores.size());
-  submit_info.pSignalSemaphores = signal_semaphores.empty() ? nullptr : signal_semaphores.data();
-
-  std::scoped_lock const lock(impl_->host_mutex);
-  if (VkResult const submit_result = vkQueueSubmit(queue, 1, &submit_info, info.fence); submit_result != VK_SUCCESS) {
-    return fail(submit_result, "vkQueueSubmit failed");
-  }
-  return {};
+  VkQueue const queue = info.queue != VK_NULL_HANDLE ? info.queue : impl_->compute_queue;
+  return detail::submit(
+    info, queue, impl_->synchronization, impl_->legacy_timeline_submit_info_available, impl_->procs, impl_->host_mutex);
 }
 
 }// namespace vkexec

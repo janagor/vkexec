@@ -57,7 +57,7 @@ struct present_acquire_result
 [[nodiscard]] auto acquire_present_frame(owned::frame_ring &ring,
   owned::swapchain &chain,
   std::size_t slot,
-  VkPipelineStageFlags acquire_wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+  VkPipelineStageFlags2 acquire_wait_stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT)
   -> result<present_acquire_result>;
 
 /**
