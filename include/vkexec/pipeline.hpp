@@ -69,21 +69,24 @@ struct layout_desc
 
 static_assert(std::is_nothrow_move_constructible_v<layout_desc>);
 
-/**
- * Vulkan objects for one classic compute pipeline.
- *
- * Non-owning handle bag: fill via `create` or an embedder's
- * own objects. Destroy with `destroy` (or use owning
- * `compute_pipeline`). Do not destroy individual handles while this struct is
- * still considered live.
- *
- * `descriptor_pool` backs `allocate_compute_set` / `bind_storage` (classic
- * pipelines only). The pool holds a fixed number of sets; free unused sets with
- * `free_compute_set`, or destroy the pool via `destroy`.
- * Rebinding every frame without freeing will exhaust the pool.
- */
 namespace handles {
 
+  /**
+   * Vulkan objects for one compute pipeline.
+   *
+   * Non-owning handle bag: fill via `create` or an embedder's
+   * own objects. Destroy with `destroy` (or use owning
+   * `compute_pipeline`). Do not destroy individual handles while this struct is
+   * still considered live.
+   *
+   * `descriptor_pool` backs `allocate_compute_set` / `bind_storage` (classic
+   * pipelines only). The pool holds a fixed number of sets; free unused sets with
+   * `free_compute_set`, or destroy the pool via `destroy`.
+   * Rebinding every frame without freeing will exhaust the pool.
+   *
+   * @note When constructed manually, every `local_size` dimension must be
+   * greater than zero.
+   */
   struct compute_pipeline
   {
     VkShaderModule shader{ VK_NULL_HANDLE };

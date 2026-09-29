@@ -9,6 +9,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_schema.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -114,6 +115,21 @@ auto make_sim_layout() -> vkexec::layout_desc
 }
 
 }// namespace
+
+TEST_CASE("compute pipeline rejects zero local size dimensions", "[vkexec][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  std::array<std::uint32_t, 1> const spirv{ 0U };
+
+  for (std::size_t dimension = 0; dimension < 3; ++dimension) {
+    vkexec::layout_desc desc{};
+    desc.local_size.at(dimension) = 0U;
+    auto result = vkexec::create(*ctx, spirv, desc);
+    REQUIRE(!result.has_value());
+    REQUIRE(result.error().code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+    REQUIRE(result.error().message() == "compute local size dimensions must be greater than zero");
+  }
+}
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")

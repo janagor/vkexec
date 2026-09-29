@@ -19,6 +19,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 namespace vkexec::detail {
 
@@ -54,6 +55,9 @@ template<descriptor_backend Backend>
   std::string_view empty_message) -> result<handles::compute_pipeline>
 {
   if (spirv.empty()) { return fail(errc::invalid_argument, std::string(empty_message)); }
+  if (std::get<0>(info.local_size) == 0U || std::get<1>(info.local_size) == 0U || std::get<2>(info.local_size) == 0U) {
+    return fail(errc::invalid_argument, "compute local size dimensions must be greater than zero");
+  }
 
   handles::compute_pipeline resources{};
   resources.binding_count = static_cast<std::uint32_t>(info.bindings.size());

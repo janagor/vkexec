@@ -43,13 +43,12 @@ struct dispatch
 /**
  * Computes workgroup count X covering `work_count` invocations for local size `local_x`.
  *
- * Y and Z remain 1. A zero `local_x` is treated as 1.
+ * Y and Z remain 1.
+ *
+ * @pre local_x > 0
  */
 [[nodiscard]] constexpr auto dispatch_groups_for(std::uint32_t work_count, std::uint32_t local_x) noexcept -> dispatch
-{
-  std::uint32_t const group_size = local_x == 0U ? 1U : local_x;
-  return dispatch{ .x = (work_count + group_size - 1U) / group_size };
-}
+{ return dispatch{ .x = (work_count / local_x) + static_cast<std::uint32_t>(work_count % local_x != 0U) }; }
 
 //! Arguments for `vkCmdDispatchIndirect`.
 struct indirect_dispatch
