@@ -168,11 +168,10 @@ auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> st
 auto completion_waiter::complete_without_fences(std::vector<job> &jobs) -> void
 {
   // Jobs without fences fall back to queue idle (should be rare after submit_async).
-  VkResult result = VK_SUCCESS;
-  {
+  VkResult const result = [&]() -> VkResult {
     auto const guard = queue_state_->lock();
-    result = vkQueueWaitIdle(fallback_queue_);
-  }
+    return vkQueueWaitIdle(fallback_queue_);
+  }();
   if (result != VK_SUCCESS) {
     finish_all(jobs, make_vk_error(VK_ERROR_UNKNOWN, "vkQueueWaitIdle failed"));
     return;
