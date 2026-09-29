@@ -10,16 +10,17 @@ add_library(
   descriptor_heap/heap_compute_pipeline.cpp
   descriptor_heap/heap_graphics_pipeline.cpp)
 add_library(vkexec::ext_descriptor_heap ALIAS vkexec_ext_descriptor_heap)
+set_target_properties(vkexec_ext_descriptor_heap PROPERTIES EXPORT_NAME ext_descriptor_heap)
 
 target_include_directories(
   vkexec_ext_descriptor_heap
-  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_link_libraries(
   vkexec_ext_descriptor_heap
   PUBLIC vkexec::vkexec vkexec::features
-  PRIVATE vkexec_warnings vk-bootstrap::vk-bootstrap Vulkan::Vulkan)
+  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" vk-bootstrap::vk-bootstrap Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_20)
 
@@ -34,20 +35,22 @@ set_target_properties(
 
 add_library(vkexec_ext_dynamic_rendering dynamic_rendering/rendering.cpp)
 add_library(vkexec::ext_dynamic_rendering ALIAS vkexec_ext_dynamic_rendering)
+set_target_properties(vkexec_ext_dynamic_rendering PROPERTIES EXPORT_NAME ext_dynamic_rendering)
 
 add_library(vkexec_ext_timeline_semaphore timeline_semaphore/timeline_semaphore.cpp timeline_semaphore/frame_ring.cpp
                                           timeline_semaphore/frame_present.cpp)
 add_library(vkexec::ext_timeline_semaphore ALIAS vkexec_ext_timeline_semaphore)
+set_target_properties(vkexec_ext_timeline_semaphore PROPERTIES EXPORT_NAME ext_timeline_semaphore)
 
 target_include_directories(
   vkexec_ext_dynamic_rendering
-  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_link_libraries(
   vkexec_ext_dynamic_rendering
   PUBLIC vkexec::vkexec vkexec::features
-  PRIVATE vkexec_warnings Vulkan::Vulkan)
+  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_dynamic_rendering PUBLIC cxx_std_20)
 
@@ -62,13 +65,13 @@ set_target_properties(
 
 target_include_directories(
   vkexec_ext_timeline_semaphore
-  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
+  PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_link_libraries(
   vkexec_ext_timeline_semaphore
   PUBLIC vkexec::vkexec vkexec::features vkexec::vkexec_graphics
-  PRIVATE vkexec_warnings Vulkan::Vulkan)
+  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" Vulkan::Vulkan)
 
 target_compile_features(vkexec_ext_timeline_semaphore PUBLIC cxx_std_20)
 

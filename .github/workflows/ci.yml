@@ -628,6 +628,56 @@ jobs:
           report_type: test_results
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  package-consumer:
+    name: Installed package / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-full, os: ubuntu-latest, compiler: gcc-12, vma: 'ON', tools: 'ON' }
+          - { name: linux-minimal, os: ubuntu-latest, compiler: gcc-12, vma: 'OFF', tools: 'OFF' }
+          - { name: windows-full, os: windows-2022, compiler: msvc-14.43, vma: 'ON', tools: 'ON' }
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Cpp
+        uses: aminya/setup-cpp@v1
+        with:
+          compiler: ${{ matrix.compiler }}
+          vcvarsall: ${{ runner.os == 'Windows' }}
+          cmake: true
+          ninja: true
+          ccache: true
+          clangtidy: false
+          cppcheck: false
+
+      - name: Setup Vulkan SDK
+        if: runner.os != 'Windows'
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Install Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: humbletim/install-vulkan-sdk@033219e2d69dd4d3e873e217eb385fdd4b4438f4
+        with:
+          version: 1.4.350.0
+          cache: true
+
+      - name: Configure package
+        run: cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_VMA=${{ matrix.vma }} -Dvkexec_BUILD_TOOLS=${{ matrix.tools }} -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
+
+      - name: Build public libraries
+        run: cmake --build build-package --target ${{ matrix.vma == 'ON' && 'vkexec_vma' || 'vkexec' }} ${{ matrix.tools == 'ON' && 'vkexec_tools' || 'vkexec' }} vkexec_features vkexec_graphics vkexec_ext_descriptor_heap vkexec_ext_dynamic_rendering vkexec_ext_timeline_semaphore
+
+      - name: Consume relocated package
+        working-directory: build-package
+        run: ctest -R '^vkexec\.install_consumer$' --output-on-failure
+
   vma-off:
     name: VMA-OFF core and resource allocator
     runs-on: ubuntu-latest

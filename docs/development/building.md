@@ -59,7 +59,7 @@ add_executable(app main.cpp)
 target_link_libraries(app PRIVATE vkexec::vkexec)
 ```
 
-Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/vkexec-prefix`. The package also resolves its public dependencies, so their CMake packages must be discoverable in the consumer environment. The checked-in [`test/install_consumer/CMakeLists.txt`](https://github.com/janagor/vkexec/blob/main/test/install_consumer/CMakeLists.txt) is the exact consumer fixture; `vkexec.install_consumer` in CTest builds and installs vkexec, configures that fixture against the installed prefix, and links it.
+Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/vkexec-prefix`. Fetched dependencies are installed alongside vkexec when their upstream projects provide install rules. Dependencies supplied externally remain external and must be discoverable by the consumer. The platform Vulkan SDK or loader development files must also be available. The source-tree and installed package expose the same `vkexec::*` target names listed in the README. The checked-in [`test/install_consumer/CMakeLists.txt`](https://github.com/janagor/vkexec/blob/main/test/install_consumer/CMakeLists.txt) is the consumer fixture; `vkexec.install_consumer` installs the built project, relocates its prefix, then configures and links independent consumers for each installed module.
 
 ## Consume the source tree
 

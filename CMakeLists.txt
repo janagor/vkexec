@@ -16,6 +16,7 @@ project(
   LANGUAGES CXX C)
 
 include(cmake/PreventInSourceBuilds.cmake)
+include(GNUInstallDirs)
 include(ProjectOptions.cmake)
 
 vkexec_setup_options()
@@ -234,56 +235,57 @@ if(CMAKE_SKIP_INSTALL_RULES)
   return()
 endif()
 
-include(cmake/PackageProject.cmake)
+include(CMakePackageConfigHelpers)
 
-set(VKEXEC_PACKAGE_TARGETS
+set(VKEXEC_INSTALL_TARGETS
     vkexec
     vkexec_features
     vkexec_ext_descriptor_heap
     vkexec_ext_dynamic_rendering
     vkexec_ext_timeline_semaphore
-    vkexec_graphics
-    vkexec_options
-    vkexec_warnings
-    stdexec
-    # Static vkexec retains a link-only dependency on this private implementation.
-    vk-bootstrap
-    vk-bootstrap-compiler-warnings)
+    vkexec_graphics)
 if(vkexec_BUILD_VMA)
-  list(
-    APPEND
-    VKEXEC_PACKAGE_TARGETS
-    vkexec_vma
-    VulkanMemoryAllocator)
+  list(APPEND VKEXEC_INSTALL_TARGETS vkexec_vma)
 endif()
 if(vkexec_BUILD_TOOLS)
-  list(
-    APPEND
-    VKEXEC_PACKAGE_TARGETS
-    vkexec_tools
-    glslang
-    SPIRV
-    glslang-default-resource-limits)
+  list(APPEND VKEXEC_INSTALL_TARGETS vkexec_tools)
 endif()
-vkexec_package_project(
-  TARGETS
-  ${VKEXEC_PACKAGE_TARGETS}
-  PUBLIC_DEPENDENCIES
-  "Boost 1.86 CONFIG"
-  Vulkan
-  Threads)
 
-# Static libraries pull CPM targets that are not themselves exported. Install the
-# archives and public headers so consumers can still stage a prefix; prefer
-# add_subdirectory / CPM for full target propagation until deps are packaged.
-include(GNUInstallDirs)
-install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
-install(FILES "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrap.h"
-              "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapDispatch.h"
-              "${VulkanBootstrap_SOURCE_DIR}/src/VkBootstrapFeatureChain.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-if(vkexec_BUILD_VMA)
-  install(FILES "${VMA_SOURCE_DIR}/include/vk_mem_alloc.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+# The vkexec export contains only vkexec-owned public targets. Third-party
+# dependencies are restored by vkexecConfig.cmake through their own packages.
+set(VKEXEC_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/vkexec")
+set(VKEXEC_PACKAGE_NEEDS_VK_BOOTSTRAP OFF)
+set(VKEXEC_PACKAGE_NEEDS_GLSLANG OFF)
+if(NOT BUILD_SHARED_LIBS)
+  set(VKEXEC_PACKAGE_NEEDS_VK_BOOTSTRAP ON)
+  if(vkexec_BUILD_TOOLS)
+    set(VKEXEC_PACKAGE_NEEDS_GLSLANG ON)
+  endif()
 endif()
+install(
+  TARGETS ${VKEXEC_INSTALL_TARGETS}
+  EXPORT vkexecTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+          FILE_SET public_headers
+          DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+  EXPORT vkexecTargets
+  FILE vkexecTargets.cmake
+  NAMESPACE vkexec::
+  DESTINATION "${VKEXEC_INSTALL_CMAKEDIR}")
+configure_package_config_file(
+  "${PROJECT_SOURCE_DIR}/cmake/vkexecConfig.cmake.in" "${PROJECT_BINARY_DIR}/vkexecConfig.cmake"
+  INSTALL_DESTINATION "${VKEXEC_INSTALL_CMAKEDIR}")
+write_basic_package_version_file(
+  "${PROJECT_BINARY_DIR}/vkexecConfigVersion.cmake"
+  VERSION "${PROJECT_VERSION}"
+  COMPATIBILITY SameMajorVersion)
+install(FILES "${PROJECT_BINARY_DIR}/vkexecConfig.cmake" "${PROJECT_BINARY_DIR}/vkexecConfigVersion.cmake"
+        DESTINATION "${VKEXEC_INSTALL_CMAKEDIR}")
+
+install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}")
 
 # Experience shows that explicit package naming can help make it easier to sort
 # out potential ABI related issues before they start, while helping you

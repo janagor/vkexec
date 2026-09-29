@@ -17,17 +17,20 @@ add_library(
   sampler.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
+set_target_properties(vkexec PROPERTIES EXPORT_NAME vkexec)
 
 target_link_libraries(
   vkexec
-  PUBLIC "$<BUILD_INTERFACE:$<1:Boost::system>;Vulkan::Headers;Vulkan::Vulkan;STDEXEC::stdexec>"
-         "$<INSTALL_INTERFACE:$<1:Boost::headers>;Vulkan::Vulkan;STDEXEC::stdexec>"
-  PRIVATE vk-bootstrap::vk-bootstrap vkexec_warnings)
+  PUBLIC Boost::system
+         Vulkan::Headers
+         Vulkan::Vulkan
+         STDEXEC::stdexec
+  PRIVATE vk-bootstrap::vk-bootstrap "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>")
 
 target_include_directories(
   vkexec ${WARNING_GUARD}
   PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
-         $<INSTALL_INTERFACE:include>
+         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_compile_features(vkexec PUBLIC cxx_std_20)

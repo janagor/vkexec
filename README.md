@@ -47,6 +47,15 @@ The pipeline and bindings come from the [compiled compute example](examples/comp
 
 The [module architecture](docs/architecture/modules.md) explains their boundaries; CMake target definitions are authoritative for build options and dependencies.
 
+The same `vkexec::*` target names are available from a source checkout and an installed prefix. For an installed package:
+
+```cmake
+find_package(vkexec CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE vkexec::vkexec)
+```
+
+The `vma` and `tools` targets are present when those modules were enabled at installation. Fetched dependencies with upstream install rules are installed alongside vkexec. Externally supplied dependencies remain external; consumers also need the ordinary platform Vulkan SDK or loader development files.
+
 ## Requirements
 
 CMake 3.29+, C++20, and a Vulkan loader are required. CI checks GCC 12, Clang 16, and MSVC 19.43 floor lanes. GPU examples need a Vulkan-capable device or software driver. The [build guide](docs/development/building.md) and [compiler support](docs/development/compiler-support.md) give details.

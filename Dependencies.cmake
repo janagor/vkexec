@@ -8,6 +8,15 @@ set(VKEXEC_STDEXEC_GIT_TAG
 # CMAKE_CXX_FLAGS don't propagate out to other
 # targets
 function(vkexec_setup_dependencies)
+  set(_vkexec_install_dependencies OFF)
+  if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_SKIP_INSTALL_RULES)
+    set(_vkexec_install_dependencies ON)
+  endif()
+  if(_vkexec_install_dependencies)
+    set(_vkexec_skip_boost_install OFF)
+  else()
+    set(_vkexec_skip_boost_install ON)
+  endif()
 
   # For each dependency, see if it's
   # already been provided to us by a parent project
@@ -77,6 +86,14 @@ function(vkexec_setup_dependencies)
   endif()
 
   if(NOT TARGET Boost::system)
+    find_package(
+      Boost
+      1.86
+      CONFIG
+      QUIET
+      COMPONENTS system)
+  endif()
+  if(NOT TARGET Boost::system)
     cpmaddpackage(
       NAME
       Boost
@@ -90,11 +107,14 @@ function(vkexec_setup_dependencies)
       YES
       OPTIONS
       "BOOST_ENABLE_CMAKE ON"
-      "BOOST_SKIP_INSTALL_RULES ON"
+      "BOOST_SKIP_INSTALL_RULES ${_vkexec_skip_boost_install}"
       "BUILD_SHARED_LIBS OFF"
       "BOOST_INCLUDE_LIBRARIES system")
   endif()
 
+  if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
+    find_package(glslang CONFIG QUIET)
+  endif()
   if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
     cpmaddpackage(
       NAME
@@ -110,7 +130,7 @@ function(vkexec_setup_dependencies)
       "ENABLE_HLSL OFF"
       "ENABLE_GLSLANG_BINARIES OFF"
       "ENABLE_SPVREMAPPER OFF"
-      "GLSLANG_ENABLE_INSTALL OFF"
+      "GLSLANG_ENABLE_INSTALL ${_vkexec_install_dependencies}"
       "GLSLANG_TESTS OFF"
       "BUILD_EXTERNAL OFF"
       "ENABLE_PCH OFF")
@@ -142,6 +162,9 @@ function(vkexec_setup_dependencies)
   endif()
 
   if(NOT TARGET STDEXEC::stdexec)
+    find_package(stdexec CONFIG QUIET)
+  endif()
+  if(NOT TARGET STDEXEC::stdexec)
     cpmaddpackage(
       NAME
       stdexec
@@ -154,6 +177,7 @@ function(vkexec_setup_dependencies)
       OPTIONS
       "STDEXEC_BUILD_EXAMPLES OFF"
       "STDEXEC_BUILD_TESTS OFF"
+      "STDEXEC_INSTALL ${_vkexec_install_dependencies}"
       "STDEXEC_ENABLE_CUDA OFF"
       "STDEXEC_ENABLE_IO_URING OFF")
   endif()
@@ -178,6 +202,9 @@ function(vkexec_setup_dependencies)
   endif()
 
   if(NOT TARGET vk-bootstrap::vk-bootstrap)
+    find_package(vk-bootstrap CONFIG QUIET)
+  endif()
+  if(NOT TARGET vk-bootstrap::vk-bootstrap)
     cpmaddpackage(
       NAME
       vk-bootstrap
@@ -186,9 +213,14 @@ function(vkexec_setup_dependencies)
       GIT_TAG
       "v1.4.352"
       SYSTEM
-      YES)
+      YES
+      OPTIONS
+      "VK_BOOTSTRAP_INSTALL ${_vkexec_install_dependencies}")
   endif()
 
+  if(vkexec_BUILD_VMA AND NOT TARGET GPUOpen::VulkanMemoryAllocator)
+    find_package(VulkanMemoryAllocator CONFIG QUIET)
+  endif()
   if(vkexec_BUILD_VMA AND NOT TARGET GPUOpen::VulkanMemoryAllocator)
     cpmaddpackage(
       NAME
@@ -198,7 +230,9 @@ function(vkexec_setup_dependencies)
       GIT_TAG
       "v3.4.0"
       SYSTEM
-      YES)
+      YES
+      OPTIONS
+      "VMA_ENABLE_INSTALL ${_vkexec_install_dependencies}")
   endif()
 
   if(vkexec_BUILD_EXAMPLES AND NOT TARGET tinygltf::tinygltf)

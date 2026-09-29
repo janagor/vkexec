@@ -3,180 +3,114 @@ cmake_minimum_required(VERSION 3.29)
 if(NOT DEFINED VKEXEC_SOURCE_DIR
    OR NOT DEFINED VKEXEC_BINARY_DIR
    OR NOT DEFINED CONSUMER_SOURCE_DIR
-   OR NOT DEFINED VKEXEC_BOOST_SOURCE_DIR
    OR NOT DEFINED VKEXEC_GENERATOR)
   message(FATAL_ERROR "Required test paths were not provided")
 endif()
 
-function(
-  vkexec_read_cache_entry
-  _cache_file
-  _var
-  _out)
-  if(NOT EXISTS "${_cache_file}")
-    return()
-  endif()
+set(test_root "${VKEXEC_BINARY_DIR}/package-contract")
+set(stage_prefix "${test_root}/stage")
+set(relocated_prefix "${test_root}/relocated")
+set(consumer_source "${test_root}/consumer-src")
+set(consumer_build "${test_root}/consumer-build")
+file(REMOVE_RECURSE "${test_root}")
+file(MAKE_DIRECTORY "${test_root}")
+file(COPY "${CONSUMER_SOURCE_DIR}/" DESTINATION "${consumer_source}")
 
-  file(STRINGS "${_cache_file}" _cache_lines)
-  foreach(_line IN LISTS _cache_lines)
-    if(_line MATCHES "^${_var}:([^=]+)=(.+)$")
-      set(${_out}
-          "${CMAKE_MATCH_2}"
-          PARENT_SCOPE)
-      return()
-    endif()
-  endforeach()
-endfunction()
-
-set(prefix "${VKEXEC_BINARY_DIR}/install-consumer/prefix")
-set(build "${VKEXEC_BINARY_DIR}/install-consumer/build")
-set(boost_prefix "${VKEXEC_BINARY_DIR}/install-consumer/boost-prefix")
-set(boost_build "${VKEXEC_BINARY_DIR}/install-consumer/boost-build")
-set(parent_cache "${VKEXEC_BINARY_DIR}/CMakeCache.txt")
-
-# Multi-config generators place archives under $<CONFIG>/; cmake --install must
-# select the same configuration that ctest/-C and the parent build used.
 if(NOT DEFINED VKEXEC_CONFIG
    OR "${VKEXEC_CONFIG}" STREQUAL ""
    OR "${VKEXEC_CONFIG}" STREQUAL "$<CONFIG>")
-  vkexec_read_cache_entry("${parent_cache}" "CMAKE_BUILD_TYPE" _build_type)
-  vkexec_read_cache_entry("${parent_cache}" "CMAKE_DEFAULT_BUILD_TYPE" _default_build_type)
-  if(_build_type)
-    set(VKEXEC_CONFIG "${_build_type}")
-  elseif(_default_build_type)
-    set(VKEXEC_CONFIG "${_default_build_type}")
-  else()
-    set(VKEXEC_CONFIG "Release")
-  endif()
+  set(VKEXEC_CONFIG Release)
 endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${stage_prefix}" --config
+                        "${VKEXEC_CONFIG}" COMMAND_ERROR_IS_FATAL ANY)
+file(RENAME "${stage_prefix}" "${relocated_prefix}")
 
-file(
-  REMOVE_RECURSE
-  "${prefix}"
-  "${build}"
-  "${boost_prefix}"
-  "${boost_build}")
+file(GLOB_RECURSE package_metadata "${relocated_prefix}/*/cmake/vkexec/*.cmake")
+if(NOT package_metadata)
+  message(FATAL_ERROR "vkexec package metadata was not installed")
+endif()
+foreach(metadata_file IN LISTS package_metadata)
+  file(READ "${metadata_file}" metadata)
+  foreach(
+    forbidden IN
+    ITEMS "${VKEXEC_SOURCE_DIR}"
+          "${VKEXEC_BINARY_DIR}"
+          "/_deps/"
+          "CPM")
+    string(FIND "${metadata}" "${forbidden}" leak_position)
+    if(NOT
+       leak_position
+       EQUAL
+       -1)
+      message(FATAL_ERROR "${metadata_file} contains a source, build, or CPM path: ${forbidden}")
+    endif()
+  endforeach()
+endforeach()
 
-set(generator_args "-G" "${VKEXEC_GENERATOR}")
-if(DEFINED VKEXEC_GENERATOR_PLATFORM
-   AND NOT
-       "${VKEXEC_GENERATOR_PLATFORM}"
-       STREQUAL
-       "")
+set(configure_args
+    -S
+    "${consumer_source}"
+    -B
+    "${consumer_build}"
+    -G
+    "${VKEXEC_GENERATOR}"
+    "-DCMAKE_PREFIX_PATH=${relocated_prefix}"
+    "-DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF"
+    "-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF"
+    "-DVKEXEC_PREFIX=${relocated_prefix}"
+    "-DVKEXEC_FORBIDDEN_SOURCE=${VKEXEC_SOURCE_DIR}"
+    "-DVKEXEC_FORBIDDEN_BUILD=${VKEXEC_BINARY_DIR}"
+    "-DVKEXEC_EXPECT_VMA=${VKEXEC_EXPECT_VMA}"
+    "-DVKEXEC_EXPECT_TOOLS=${VKEXEC_EXPECT_TOOLS}")
+if(VKEXEC_GENERATOR_PLATFORM)
   list(
     APPEND
-    generator_args
-    "-A"
+    configure_args
+    -A
     "${VKEXEC_GENERATOR_PLATFORM}")
 endif()
-if(DEFINED VKEXEC_GENERATOR_TOOLSET
-   AND NOT
-       "${VKEXEC_GENERATOR_TOOLSET}"
-       STREQUAL
-       "")
+if(VKEXEC_GENERATOR_TOOLSET)
   list(
     APPEND
-    generator_args
-    "-T"
+    configure_args
+    -T
     "${VKEXEC_GENERATOR_TOOLSET}")
 endif()
-
-vkexec_read_cache_entry("${parent_cache}" "CMAKE_CONFIGURATION_TYPES" _configuration_types)
-vkexec_read_cache_entry("${parent_cache}" "CMAKE_TOOLCHAIN_FILE" _toolchain_file)
-vkexec_read_cache_entry("${parent_cache}" "CMAKE_GENERATOR_INSTANCE" _generator_instance)
-vkexec_read_cache_entry("${parent_cache}" "CMAKE_CXX_COMPILER" _cxx_compiler)
-
-if(_toolchain_file AND NOT IS_ABSOLUTE "${_toolchain_file}")
-  if(EXISTS "${VKEXEC_BINARY_DIR}/${_toolchain_file}")
+if(VKEXEC_GENERATOR_INSTANCE)
+  list(APPEND configure_args "-DCMAKE_GENERATOR_INSTANCE=${VKEXEC_GENERATOR_INSTANCE}")
+endif()
+if(NOT VKEXEC_GENERATOR_IS_MULTI_CONFIG)
+  list(APPEND configure_args "-DCMAKE_BUILD_TYPE=${VKEXEC_CONFIG}")
+endif()
+set(vkexec_consumer_toolchain "${VKEXEC_TOOLCHAIN_FILE}")
+if(vkexec_consumer_toolchain AND NOT IS_ABSOLUTE "${vkexec_consumer_toolchain}")
+  if(EXISTS "${VKEXEC_BINARY_DIR}/${vkexec_consumer_toolchain}")
     cmake_path(
       ABSOLUTE_PATH
-      _toolchain_file
+      vkexec_consumer_toolchain
       BASE_DIRECTORY
       "${VKEXEC_BINARY_DIR}")
-  elseif(EXISTS "${VKEXEC_SOURCE_DIR}/${_toolchain_file}")
+  elseif(EXISTS "${VKEXEC_SOURCE_DIR}/${vkexec_consumer_toolchain}")
     cmake_path(
       ABSOLUTE_PATH
-      _toolchain_file
+      vkexec_consumer_toolchain
       BASE_DIRECTORY
       "${VKEXEC_SOURCE_DIR}")
   else()
-    message(FATAL_ERROR "Could not resolve parent CMAKE_TOOLCHAIN_FILE: ${_toolchain_file}")
+    message(FATAL_ERROR "Could not resolve toolchain file: ${vkexec_consumer_toolchain}")
   endif()
 endif()
-
-set(boost_configure_args
-    "-S"
-    "${VKEXEC_BOOST_SOURCE_DIR}"
-    "-B"
-    "${boost_build}"
-    ${generator_args}
-    "-DBOOST_ENABLE_CMAKE=ON"
-    "-DBOOST_INCLUDE_LIBRARIES=system"
-    "-DBOOST_SKIP_INSTALL_RULES=OFF"
-    "-DBUILD_TESTING=OFF"
-    "-DCMAKE_INSTALL_PREFIX=${boost_prefix}")
-
-set(consumer_configure_args
-    "-S"
-    "${CONSUMER_SOURCE_DIR}"
-    "-B"
-    "${build}"
-    ${generator_args}
-    "-DCMAKE_PREFIX_PATH=${prefix}"
-    "-DBoost_ROOT=${boost_prefix}")
-
-if(NOT _configuration_types)
-  list(APPEND boost_configure_args "-DCMAKE_BUILD_TYPE=${VKEXEC_CONFIG}")
-  list(APPEND consumer_configure_args "-DCMAKE_BUILD_TYPE=${VKEXEC_CONFIG}")
+if(vkexec_consumer_toolchain)
+  list(APPEND configure_args "-DCMAKE_TOOLCHAIN_FILE=${vkexec_consumer_toolchain}")
 endif()
-
-if(_toolchain_file)
-  list(APPEND boost_configure_args "-DCMAKE_TOOLCHAIN_FILE=${_toolchain_file}")
-  list(APPEND consumer_configure_args "-DCMAKE_TOOLCHAIN_FILE=${_toolchain_file}")
-endif()
-
-if(_generator_instance)
-  list(APPEND boost_configure_args "-DCMAKE_GENERATOR_INSTANCE=${_generator_instance}")
-  list(APPEND consumer_configure_args "-DCMAKE_GENERATOR_INSTANCE=${_generator_instance}")
-endif()
-
-if(NOT _toolchain_file
-   AND _cxx_compiler
+if(NOT vkexec_consumer_toolchain
+   AND VKEXEC_CXX_COMPILER
    AND NOT
        VKEXEC_GENERATOR
        MATCHES
-       "Visual Studio"
-   AND NOT
-       VKEXEC_GENERATOR
-       MATCHES
-       "Xcode")
-  list(APPEND boost_configure_args "-DCMAKE_CXX_COMPILER=${_cxx_compiler}")
-  list(APPEND consumer_configure_args "-DCMAKE_CXX_COMPILER=${_cxx_compiler}")
+       "Visual Studio|Xcode")
+  list(APPEND configure_args "-DCMAKE_CXX_COMPILER=${VKEXEC_CXX_COMPILER}")
 endif()
-
-execute_process(COMMAND "${CMAKE_COMMAND}" ${boost_configure_args} COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND "${CMAKE_COMMAND}" --build "${boost_build}" --config "${VKEXEC_CONFIG}" --parallel 10
-                        COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND "${CMAKE_COMMAND}" --install "${boost_build}" --config "${VKEXEC_CONFIG}"
-                        COMMAND_ERROR_IS_FATAL ANY)
-
-execute_process(COMMAND "${CMAKE_COMMAND}" --install "${VKEXEC_BINARY_DIR}" --prefix "${prefix}" --config
-                        "${VKEXEC_CONFIG}" COMMAND_ERROR_IS_FATAL ANY)
-
-if(NOT EXISTS "${prefix}/include/vkexec/detail/stdexec_compat.hpp")
-  message(FATAL_ERROR "Installed vkexec package is missing stdexec compatibility support header")
-endif()
-
-vkexec_read_cache_entry("${parent_cache}" "Vulkan_INCLUDE_DIR" _vulkan_include_dir)
-vkexec_read_cache_entry("${parent_cache}" "Vulkan_LIBRARY" _vulkan_library)
-if(_vulkan_include_dir)
-  list(APPEND consumer_configure_args "-DVulkan_INCLUDE_DIR=${_vulkan_include_dir}")
-endif()
-if(_vulkan_library)
-  list(APPEND consumer_configure_args "-DVulkan_LIBRARY=${_vulkan_library}")
-endif()
-
-execute_process(COMMAND "${CMAKE_COMMAND}" ${consumer_configure_args} COMMAND_ERROR_IS_FATAL ANY)
-
-execute_process(COMMAND "${CMAKE_COMMAND}" --build "${build}" --config "${VKEXEC_CONFIG}" --parallel 10
+execute_process(COMMAND "${CMAKE_COMMAND}" ${configure_args} COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CMAKE_COMMAND}" --build "${consumer_build}" --config "${VKEXEC_CONFIG}" --parallel 10
                         COMMAND_ERROR_IS_FATAL ANY)
