@@ -669,7 +669,7 @@ jobs:
           cache: true
 
       - name: Configure package
-        run: cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_VMA=${{ matrix.vma }} -Dvkexec_BUILD_TOOLS=${{ matrix.tools }} -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
+        run: cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -Dvkexec_ENABLE_INSTALL_CONSUMER_TEST=ON -Dvkexec_ENABLE_IPO=OFF -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_VMA=${{ matrix.vma }} -Dvkexec_BUILD_TOOLS=${{ matrix.tools }} -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
 
       - name: Build package tree
         run: cmake --build build-package --config Release --parallel
@@ -709,9 +709,9 @@ jobs:
       - name: Build core, graphics, extensions, and tests
         run: cmake --build ./build-vma-off --target tests
 
-      - name: Test non-VMA allocator and package boundary
+      - name: Test non-VMA allocator and module boundary
         working-directory: ./build-vma-off
-        run: ctest -R 'generic resources use a non-VMA allocator|vkexec\.vma_module_boundary|vkexec\.install_consumer' --output-on-failure
+        run: ctest -R 'generic resources use a non-VMA allocator|vkexec\.vma_module_boundary' --output-on-failure
 
   stdexec-main-compat:
     if: github.event_name == 'schedule'
