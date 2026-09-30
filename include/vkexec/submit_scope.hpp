@@ -387,8 +387,8 @@ namespace detail {
         context *const host = scope.ctx;
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done{ VK_NULL_HANDLE };
-        bool submitted_to_gpu = false;
 #if VKEXEC_HAS_EXCEPTIONS
+        bool submitted_to_gpu = false;
         try {
 #endif
           if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
@@ -397,7 +397,11 @@ namespace detail {
             ex::set_error(std::move(receiver), std::move(submitted.error()));
             return;
           }
+#if VKEXEC_HAS_EXCEPTIONS
+          // The false state is needed when submit_async throws before submission.
+          // cppcheck-suppress redundantAssignment
           submitted_to_gpu = true;
+#endif
 
           auto enqueued = host->enqueue_fence_wait(
             done, fence, token, [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
