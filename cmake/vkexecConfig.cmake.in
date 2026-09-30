@@ -2,12 +2,6 @@
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(
-  Boost
-  1.86
-  CONFIG
-  COMPONENTS
-  system)
 find_dependency(Vulkan)
 find_dependency(stdexec CONFIG)
 if(@VKEXEC_PACKAGE_NEEDS_VK_BOOTSTRAP@)

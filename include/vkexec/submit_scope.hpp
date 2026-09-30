@@ -5,6 +5,7 @@
 //! Command-buffer and descriptor loans for one GPU submit, plus enter/submit senders.
 
 #include <stdexec/execution.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
@@ -237,7 +238,7 @@ namespace detail {
         }
 
         result<submit_scope> opened;
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
         try {
           opened = submit_scope::open(*ctx);
         } catch (...) {
@@ -310,7 +311,7 @@ namespace detail {
 
         context *const host = scope.ctx;
         status submitted;
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
         try {
           submitted = host->submit_and_wait(scope.cmd);
         } catch (...) {
@@ -387,7 +388,7 @@ namespace detail {
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done{ VK_NULL_HANDLE };
         bool submitted_to_gpu = false;
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
         try {
 #endif
           if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
@@ -406,7 +407,7 @@ namespace detail {
             // enqueue_fence_wait has already reclaimed the submission and synchronously completed the receiver.
             return;
           }
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
         } catch (...) {
           if (submitted_to_gpu) { reclaim_submission_sync(*host, host->compute_queue(), done, fence); }
           scope.release();

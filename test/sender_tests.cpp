@@ -2,20 +2,34 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/config.hpp>
 #include <vkexec/detail/normalize_errors.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec/sync_wait_outcome.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <concepts>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <system_error>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+
+#if !VKEXEC_HAS_EXCEPTIONS && defined(__unix__)
+#include <exception>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+
+#ifdef VKEXEC_EXPECT_NO_EXCEPTIONS
+static_assert(VKEXEC_HAS_EXCEPTIONS == 0);
+#endif
 
 namespace {
 
@@ -128,6 +142,18 @@ static_assert(stdexec::sender_in<sync_wait_int_sender, vkexec::detail::sync_wait
 static_assert(stdexec::sender_to<sync_wait_int_sender, vkexec::detail::sync_wait_receiver_t<sync_wait_int_sender>>);
 static_assert(!sync_wait_value_tuple_well_formed<multiple_value_sender>);
 static_assert(!sync_wait_value_tuple_well_formed<no_value_sender>);
+static_assert(
+  std::same_as<decltype(vkexec::sync_wait(std::declval<sync_wait_int_sender>())), std::optional<std::tuple<int>>>);
+static_assert(
+  std::same_as<decltype(vkexec::try_sync_wait(std::declval<sync_wait_int_sender>())), vkexec::sync_wait_outcome<int>>);
+
+TEST_CASE("sync_wait returns values with a stable return type", "[vkexec][sender]")
+{
+  auto values = vkexec::sync_wait(stdexec::just(k_expected_value));
+  REQUIRE(values.has_value());
+  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
+  REQUIRE(std::get<0>(*values) == k_expected_value);
+}
 
 TEST_CASE("factory_sender preserves concrete callable type", "[vkexec][sender]")
 {
@@ -217,7 +243,32 @@ TEST_CASE("factory_sender copyable factory supports lvalue connect", "[vkexec][s
   REQUIRE(vkexec::expected_take(again) == k_expected_value);
 }
 
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
+TEST_CASE("sync_wait converts sender errors to system_error", "[vkexec][sender]")
+{
+  auto sndr = vkexec::make_sender(
+    []() -> vkexec::result<int> { return vkexec::fail(vkexec::errc::unsupported, "unsupported test operation"); });
+  REQUIRE_THROWS_AS(vkexec::sync_wait(sndr), std::system_error);
+}
+#elif defined(__unix__)
+TEST_CASE("sync_wait terminates on sender error without exceptions", "[vkexec][sender]")
+{
+  auto const child = fork();
+  REQUIRE(child >= 0);
+  if (child == 0) {
+    std::set_terminate([]() -> void { _exit(86); });
+    auto sndr = vkexec::make_sender([]() -> vkexec::result<int> { return vkexec::fail(vkexec::errc::unsupported); });
+    (void)vkexec::sync_wait(sndr);
+    _exit(0);
+  }
+  int status = 0;
+  REQUIRE(waitpid(child, &status, 0) == child);
+  REQUIRE(WIFEXITED(status));
+  REQUIRE(WEXITSTATUS(status) == 86);
+}
+#endif
+
+#if VKEXEC_HAS_EXCEPTIONS
 TEST_CASE("normalized sender maps stdexec exceptions to vkexec error", "[vkexec][sender]")
 {
   auto composed = stdexec::just(1) | stdexec::then([](int /*value*/) -> int { throw std::runtime_error("boom"); });

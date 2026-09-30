@@ -70,7 +70,7 @@ struct context::impl
 
   auto register_known_queues() -> status
   {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     try {
 #endif
       auto register_queue = [this](VkQueue queue) -> void {
@@ -79,7 +79,7 @@ struct context::impl
       register_queue(compute_queue);
       register_queue(graphics_queue);
       register_queue(present_queue);
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
       return fail(unexpected_exception_error());
     }
@@ -605,11 +605,11 @@ auto detail::descriptor_pool_access::lock(context const &ctx, VkDescriptorPool p
 auto detail::descriptor_pool_access::register_owned(context const &ctx, VkDescriptorPool pool) -> status
 {
   if (pool == VK_NULL_HANDLE) { return {}; }
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   try {
 #endif
     (void)ctx.impl_->descriptor_pool_synchronization.state(pool);
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   } catch (...) {
     return fail(unexpected_exception_error());
   }
@@ -647,12 +647,12 @@ auto context::release_command_pool(std::uint32_t family, VkCommandPool pool) noe
     vkDestroyCommandPool(device(), pool, nullptr);
     return;
   }
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   try {
 #endif
     std::scoped_lock const lock(impl_->command_pool_cache_mutex);
     impl_->available_command_pools.emplace_back(family, pool);
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   } catch (...) {
     vkDestroyCommandPool(device(), pool, nullptr);
   }
@@ -728,12 +728,12 @@ auto context::allocate_command_buffer() -> result<VkCommandBuffer>
     release_command_pool(queue_family(), pool);
     return fail(result, "vkAllocateCommandBuffers failed");
   }
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   try {
 #endif
     std::scoped_lock const lock(impl_->command_buffer_mutex);
     impl_->command_buffer_pools.emplace(cmd, pool);
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   } catch (...) {
     vkFreeCommandBuffers(device(), pool, 1, &cmd);
     release_command_pool(queue_family(), pool);

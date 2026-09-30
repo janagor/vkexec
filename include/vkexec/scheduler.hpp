@@ -4,6 +4,7 @@
 //! \file
 //! stdexec scheduler that completes on a `context` host agent.
 
+#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/stop.hpp>
 #include <vkexec/domain.hpp>
@@ -106,7 +107,7 @@ struct schedule_sender
         return;
       }
 
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       std::optional<status> enqueued;
       try {
         enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void {
@@ -130,7 +131,7 @@ struct schedule_sender
       });
 #endif
 
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       auto &enqueue_status = *enqueued;
 #else
       auto &enqueue_status = enqueued;

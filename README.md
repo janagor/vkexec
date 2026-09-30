@@ -17,7 +17,7 @@ auto graph = ex::schedule(ctx->get_scheduler())
 auto completion = vkexec::sync_wait(std::move(graph));
 ```
 
-The pipeline and bindings come from the [compiled compute example](examples/compute_execution.cpp). The public `sync_wait` call is an explicit host blocking boundary; its return type depends on the exception configuration. The [first program](docs/getting-started/first-program.md) walks through the setup and result check.
+The pipeline and bindings come from the [compiled compute example](examples/compute_execution.cpp). The public `sync_wait` call is an explicit host blocking boundary and always returns an optional value tuple. On sender error it throws `std::system_error` when exceptions are available and terminates otherwise; use `try_sync_wait` to inspect an error value. The [first program](docs/getting-started/first-program.md) walks through the setup and result check.
 
 ## Execution model
 

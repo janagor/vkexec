@@ -4,6 +4,7 @@
 //! \file
 //! Blocking wait helpers for vkexec senders (`sync_wait`, `try_sync_wait`, …).
 
+#include <vkexec/config.hpp>
 #include <vkexec/detail/stdexec_compat.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -14,19 +15,24 @@
 #include <cstdlib>
 #include <exception>
 #include <optional>
+#include <system_error>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-
-#ifndef VKEXEC_ENABLE_EXCEPTIONS
-#define VKEXEC_ENABLE_EXCEPTIONS 1
-#endif
 
 namespace vkexec {
 
 namespace ex = stdexec;
 
 namespace detail {
+
+#if VKEXEC_HAS_EXCEPTIONS
+  [[noreturn]] inline auto throw_error(error const &err) -> void
+  {
+    if (err.detail.empty()) { throw std::system_error(err.code); }
+    throw std::system_error(err.code, err.detail);
+  }
+#endif
 
   struct sync_wait_env
   {
@@ -65,7 +71,7 @@ namespace detail {
 
     template<class... As> auto set_value(As &&...args) noexcept -> void
     {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       try {
         values->emplace(std::forward<As>(args)...);
       } catch (...) {
@@ -85,7 +91,7 @@ namespace detail {
 
     auto set_error(error const &err) noexcept -> void
     {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       try {
         state->wait_error.emplace(err);
       } catch (...) {
@@ -120,6 +126,20 @@ namespace detail {
   template<class CvSender>
   using sync_wait_value_tuple_t = ex::value_types_of_t<CvSender, sync_wait_env, decayed_tuple_t, std::type_identity_t>;
 
+  template<class Tuple> struct sync_wait_outcome_from_tuple;
+
+  template<class... Values> struct sync_wait_outcome_from_tuple<std::tuple<Values...>>
+  {
+    using type = sync_wait_outcome<Values...>;
+  };
+
+  // The dependent ::type names the outcome; without typename this aliases the trait itself.
+  // NOLINTNEXTLINE(readability-redundant-typename)
+  template<class Tuple> using sync_wait_outcome_from_tuple_t = typename sync_wait_outcome_from_tuple<Tuple>::type;
+
+  template<class CvSender>
+  using sync_wait_outcome_t = sync_wait_outcome_from_tuple_t<sync_wait_value_tuple_t<CvSender>>;
+
   template<class CvSender>
   using sync_wait_receiver_t =
     ex::value_types_of_t<CvSender, sync_wait_env, decayed_sync_wait_receiver_t, std::type_identity_t>;
@@ -129,7 +149,7 @@ namespace detail {
     ex::sender_in<CvSender, sync_wait_env> && ex::sender_to<CvSender, sync_wait_receiver_t<CvSender>>;
 
   template<sync_waitable_sender CvSender>
-  auto sync_wait_outcome_impl(CvSender &&sender) -> sync_wait_outcome<sync_wait_value_tuple_t<CvSender>>
+  auto sync_wait_outcome_impl(CvSender &&sender) -> sync_wait_outcome_t<CvSender>
   {
     sync_wait_state state{};
     std::optional<sync_wait_value_tuple_t<CvSender>> values{};
@@ -153,44 +173,37 @@ namespace detail {
 
 }// namespace detail
 
-#if VKEXEC_ENABLE_EXCEPTIONS
-
 /**
- * Blocks until `sender` completes using stdexec semantics.
+ * Blocks until `sender` completes.
  *
- * Throws `vkexec::error` on `set_error`. Returns a disengaged optional on
- * `set_stopped`. Otherwise returns the value completion tuple.
+ * Throws `std::system_error` on `set_error` when exceptions are available,
+ * otherwise terminates. Returns a disengaged optional on `set_stopped`.
  *
  * @param sender Sender to start and wait for.
- */
-template<ex::sender Sender>
-  requires ex::sender_to<Sender, detail::sync_wait_receiver_t<Sender>>
-[[nodiscard]] auto sync_wait(Sender &&sender) -> std::optional<detail::sync_wait_value_tuple_t<Sender>>
-{ return ex::sync_wait(std::forward<Sender>(sender)); }
-
-#else
-
-/**
- * Blocks until `sender` completes without throwing (for `-fno-exceptions` builds).
- *
- * @param sender Sender to start and wait for.
- * @return Outcome with values, error, or stopped.
  */
 template<detail::sync_waitable_sender Sender>
-[[nodiscard]] auto sync_wait(Sender &&sender) -> sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
-{ return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
-
+[[nodiscard]] auto sync_wait(Sender &&sender) -> std::optional<detail::sync_wait_value_tuple_t<Sender>>
+{
+  auto outcome = detail::sync_wait_outcome_impl(std::forward<Sender>(sender));
+  if (outcome.failed()) {
+#if VKEXEC_HAS_EXCEPTIONS
+    detail::throw_error(outcome.take_error());
+#else
+    std::terminate();
 #endif
+  }
+  return std::move(outcome.values);
+}
 
 /**
- * Blocks until `sender` completes and always returns a non-throwing outcome.
+ * Blocks until `sender` completes and returns sender error completion as an outcome.
  *
  * Prefer this in tests and `-fno-exceptions` call sites that must inspect errors.
  *
  * @param sender Sender to start and wait for.
  */
 template<detail::sync_waitable_sender Sender>
-[[nodiscard]] auto try_sync_wait(Sender &&sender) -> sync_wait_outcome<detail::sync_wait_value_tuple_t<Sender>>
+[[nodiscard]] auto try_sync_wait(Sender &&sender) -> detail::sync_wait_outcome_t<Sender>
 { return detail::sync_wait_outcome_impl(std::forward<Sender>(sender)); }
 
 /**
@@ -214,7 +227,7 @@ template<detail::sync_waitable_sender Sender>
 /**
  * Blocks until `sender` completes and returns its single value.
  *
- * Throws `vkexec::error` on failure/stop when exceptions are enabled; otherwise
+ * Throws `std::system_error` on failure/stop when exceptions are enabled; otherwise
  * calls `std::terminate`.
  *
  * @param sender Sender that completes with exactly one value type.
@@ -225,9 +238,8 @@ template<detail::sync_waitable_sender Sender>
 {
   auto outcome = try_sync_wait_value(std::forward<Sender>(sender));
   if (!outcome) {
-#if VKEXEC_ENABLE_EXCEPTIONS
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    throw std::move(outcome.error());
+#if VKEXEC_HAS_EXCEPTIONS
+    detail::throw_error(outcome.error());
 #else
     std::terminate();
 #endif

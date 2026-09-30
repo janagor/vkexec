@@ -1,4 +1,5 @@
 #include "detail/completion_waiter.hpp"
+#include <vkexec/config.hpp>
 
 #include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/error.hpp>
@@ -45,7 +46,7 @@ completion_waiter::completion_waiter(VkDevice device,
   std::shared_ptr<queue_synchronization_state> queue_state)
   : device_(device), fallback_queue_(fallback_queue), queue_state_(std::move(queue_state)),
     thread_([this]() noexcept -> void {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       try {
         run();
       } catch (...) {

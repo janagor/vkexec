@@ -7,6 +7,7 @@
 #include <vkexec_vma/resources.hpp>
 
 #include <iostream>
+#include <system_error>
 #include <utility>
 
 namespace vkexec::examples {
@@ -23,9 +24,18 @@ namespace vkexec::examples {
 [[noreturn]] inline auto abort_stopped() -> void
 { abort_with_error(make_error(errc::cancelled, "sender completed with set_stopped")); }
 
-template<class Sender> [[nodiscard]] auto sync_wait_value(Sender &&sender)
+#if VKEXEC_HAS_EXCEPTIONS
+[[noreturn]] inline auto throw_example_error(error const &err) -> void
 {
-#if VKEXEC_ENABLE_EXCEPTIONS
+  if (err.detail.empty()) { throw std::system_error(err.code); }
+  throw std::system_error(err.code, err.detail);
+}
+#endif
+
+template<class Sender>
+[[nodiscard]] auto sync_wait_value(Sender &&sender) -> decltype(vkexec::sync_wait_value(std::forward<Sender>(sender)))
+{
+#if VKEXEC_HAS_EXCEPTIONS
   return vkexec::sync_wait_value(std::forward<Sender>(sender));
 #else
   auto outcome = vkexec::try_sync_wait_value(std::forward<Sender>(sender));
@@ -38,17 +48,15 @@ template<class Sender> auto sync_wait_graph(Sender &&sender) -> void
 {
   auto outcome = try_sync_wait(std::forward<Sender>(sender));
   if (outcome.failed()) {
-#if VKEXEC_ENABLE_EXCEPTIONS
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    throw outcome.take_error();
+#if VKEXEC_HAS_EXCEPTIONS
+    throw_example_error(outcome.take_error());
 #else
     abort_with_error(outcome.take_error());
 #endif
   }
   if (outcome.stopped || !outcome.values.has_value()) {
-#if VKEXEC_ENABLE_EXCEPTIONS
-    // NOLINTNEXTLINE(hicpp-exception-baseclass)
-    throw make_error(errc::cancelled, "pipeline was stopped");
+#if VKEXEC_HAS_EXCEPTIONS
+    throw_example_error(make_error(errc::cancelled, "pipeline was stopped"));
 #else
     abort_stopped();
 #endif
@@ -57,9 +65,8 @@ template<class Sender> auto sync_wait_graph(Sender &&sender) -> void
 
 [[noreturn]] inline auto fail_check(char const *message) -> void
 {
-#if VKEXEC_ENABLE_EXCEPTIONS
-  // NOLINTNEXTLINE(hicpp-exception-baseclass)
-  throw make_error(errc::unsupported, message);
+#if VKEXEC_HAS_EXCEPTIONS
+  throw_example_error(make_error(errc::unsupported, message));
 #else
   abort_with_error(make_error(errc::unsupported, message));
 #endif
@@ -67,11 +74,11 @@ template<class Sender> auto sync_wait_graph(Sender &&sender) -> void
 
 template<class RunFunc> auto run_example(RunFunc &&run_func) -> int
 {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
   try {
     return std::forward<RunFunc>(run_func)();
-  } catch (error const &err) {
-    std::cerr << "vkexec example failed: " << err.message() << '\n';
+  } catch (std::system_error const &err) {
+    std::cerr << "vkexec example failed: " << err.what() << '\n';
     return 1;
   }
 #else

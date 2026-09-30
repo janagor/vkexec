@@ -25,7 +25,7 @@ env:
 jobs:
   compiler-floor:
     if: github.event_name != 'schedule'
-    name: compiler floor ${{ matrix.compiler }} ${{ matrix.build_type }}
+    name: compiler floor ${{ matrix.compiler }} ${{ matrix.build_type }} exceptions ${{ matrix.exceptions || 'ON' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -35,7 +35,9 @@ jobs:
           - { os: ubuntu-24.04, compiler: gcc-12, build_type: Release }
           - { os: ubuntu-24.04, compiler: clang-16, build_type: Debug }
           - { os: ubuntu-24.04, compiler: clang-16, build_type: Release }
+          - { os: ubuntu-24.04, compiler: clang-16, build_type: Debug, exceptions: OFF }
           - { os: windows-2022, compiler: msvc-14.43, build_type: Debug }
+          - { os: windows-2022, compiler: msvc-14.43, build_type: Debug, exceptions: OFF }
           - { os: windows-2022, compiler: msvc-14.43, build_type: Release }
 
     steps:
@@ -154,6 +156,7 @@ jobs:
         shell: bash
         env:
           BUILD_TYPE: ${{ matrix.build_type }}
+          EXCEPTIONS: ${{ matrix.exceptions || 'ON' }}
         run: |
           cmake -S . -B build-floor -G Ninja \
             -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF \
@@ -161,7 +164,8 @@ jobs:
             -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON \
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF \
             -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF \
-            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF
+            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF \
+            -DVKEXEC_ENABLE_EXCEPTIONS="$EXCEPTIONS"
 
       - name: Configure Windows
         if: runner.os == 'Windows'
@@ -173,7 +177,8 @@ jobs:
             -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON `
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF `
             -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF `
-            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF
+            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF `
+            -DVKEXEC_ENABLE_EXCEPTIONS=${{ matrix.exceptions || 'ON' }}
 
       - name: Build
         run: cmake --build build-floor

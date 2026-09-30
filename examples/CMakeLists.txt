@@ -101,7 +101,7 @@ foreach(
   particles
   layers
   mesh)
-  target_link_libraries(${example} PRIVATE vkexec::vma)
+  target_link_libraries(${example} PRIVATE vkexec::vma vkexec_exception_options)
 endforeach()
 
 if(vkexec_BUILD_TOOLS)

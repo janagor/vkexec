@@ -4,6 +4,7 @@
 
 #include <vkexec/barrier.hpp>
 #include <vkexec/bind_resources.hpp>
+#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/sender_expr.hpp>
@@ -488,7 +489,7 @@ TEST_CASE("noexcept host task and nested enqueue run on the host agent", "[vkexe
   REQUIRE(inner_thread == agent);
 }
 
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
 TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();

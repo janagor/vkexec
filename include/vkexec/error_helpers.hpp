@@ -17,7 +17,7 @@ namespace vkexec {
 /**
  * Builds an `error` from a failed `VkResult` and a short context string.
  *
- * @param result Vulkan result (typically not `VK_SUCCESS`).
+ * @param result Failed Vulkan result (negative `VkResult`).
  * @param context Prefix describing the failing call (e.g. `"vkCreateBuffer"`).
  */
 [[nodiscard]] auto make_vk_error(VkResult result, std::string_view context) -> error;

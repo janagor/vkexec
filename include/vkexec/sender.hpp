@@ -4,6 +4,7 @@
 //! \file
 //! Synchronous factory senders that run a `result`-returning callable in `start()`.
 
+#include <vkexec/config.hpp>
 #include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
@@ -17,10 +18,6 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-
-#ifndef VKEXEC_ENABLE_EXCEPTIONS
-#define VKEXEC_ENABLE_EXCEPTIONS 1
-#endif
 
 namespace vkexec {
 
@@ -162,11 +159,11 @@ template<factory_callable F> struct factory_sender
       }
 
       std::optional<detail::factory_completion<value_type>> completion;
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       try {
 #endif
         completion.emplace(detail::invoke_factory(factory));
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         ex::set_error(std::move(receiver), unexpected_exception_error());
         return;

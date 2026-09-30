@@ -1,3 +1,4 @@
+#include <vkexec/config.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vkexec/context.hpp>
@@ -207,7 +208,7 @@ namespace detail {
     // Always free cmd before descriptors so a failed submit still returns loans.
     if (ctx == nullptr) { return; }
 
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     try {
 #endif
       if (cmd != VK_NULL_HANDLE) {
@@ -219,7 +220,7 @@ namespace detail {
 
       cleanup.release(*ctx);
       ctx = nullptr;
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
       // Cleanup is an RAII/noexcept boundary. If object synchronization fails,
       // Vulkan loans cannot be safely reclaimed or propagated to the caller.

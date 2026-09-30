@@ -1,4 +1,5 @@
 #include "detail/host_agent.hpp"
+#include <vkexec/config.hpp>
 
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
@@ -42,7 +43,7 @@ host_agent::host_agent()
   thread_ = std::thread([this, &ready]() noexcept -> void {
     thread_id_ = std::this_thread::get_id();
     ready.count_down();
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     try {
       run();
     } catch (...) {

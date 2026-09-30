@@ -34,7 +34,7 @@ A preset can enable more tooling than the minimal command above. Inspect its cac
 | `vkexec_BUILD_EXAMPLES` | Compile the programs in `examples/` |
 | `vkexec_BUILD_TOOLS` | Build optional GLSL/SPIR-V tooling; requires glslang |
 | `vkexec_BUILD_VMA` | Build VMA-backed allocation helpers |
-| `VKEXEC_ENABLE_EXCEPTIONS` | Select exception or outcome based `sync_wait` behavior |
+| `VKEXEC_ENABLE_EXCEPTIONS` | Enable or disable compiler exceptions; `sync_wait` keeps the same return type in both modes |
 | `vkexec_ENABLE_CLANG_TIDY`, `vkexec_ENABLE_CPPCHECK` | Run static analysis during the build |
 | `vkexec_ENABLE_COVERAGE` | Enable coverage instrumentation |
 

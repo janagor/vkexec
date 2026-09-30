@@ -21,10 +21,7 @@ set_target_properties(vkexec PROPERTIES EXPORT_NAME vkexec)
 
 target_link_libraries(
   vkexec
-  PUBLIC Boost::system
-         Vulkan::Headers
-         Vulkan::Vulkan
-         STDEXEC::stdexec
+  PUBLIC Vulkan::Headers Vulkan::Vulkan STDEXEC::stdexec
   PRIVATE vk-bootstrap::vk-bootstrap "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>")
 
 target_include_directories(
@@ -34,7 +31,6 @@ target_include_directories(
   PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
 
 target_compile_features(vkexec PUBLIC cxx_std_20)
-target_compile_definitions(vkexec PUBLIC VKEXEC_ENABLE_EXCEPTIONS=$<BOOL:${VKEXEC_ENABLE_EXCEPTIONS}>)
 
 vkexec_configure_linker(vkexec)
 

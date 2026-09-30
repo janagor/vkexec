@@ -14,7 +14,15 @@
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <type_traits>
 #include <utility>
+
+#ifdef __unix__
+#include <csignal>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
 {
@@ -25,7 +33,9 @@ TEST_CASE("vkexec error category maps errc values", "[vkexec][error]")
   REQUIRE(vkexec::make_error_code(vkexec::errc::unsupported).message() == "unsupported operation");
   REQUIRE(vkexec::make_error_code(vkexec::errc::out_of_range).message() == "out of range");
   REQUIRE(vkexec::make_error_code(vkexec::errc::empty_result).message() == "empty result");
-  REQUIRE(boost::system::error_code(999, vkexec::category()).message() == "unknown vkexec error");
+  REQUIRE(std::error_code(999, vkexec::category()).message() == "unknown vkexec error");
+  std::error_code const converted = vkexec::errc::invalid_argument;
+  REQUIRE(converted == vkexec::make_error_code(vkexec::errc::invalid_argument));
 }
 
 TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
@@ -40,12 +50,33 @@ TEST_CASE("make_error prefers detail over category message", "[vkexec][error]")
 TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]")
 {
   REQUIRE(std::string_view(vkexec::vulkan_category().name()) == "vkexec.vulkan");
-  REQUIRE(vkexec::make_vk_error_code(VK_SUCCESS).message() == "success");
   REQUIRE(vkexec::make_vk_error_code(VK_ERROR_DEVICE_LOST).message() == "device lost");
   REQUIRE(vkexec::make_vk_error_code(VK_ERROR_OUT_OF_DEVICE_MEMORY).message() == "out of device memory");
   REQUIRE(vkexec::make_vk_error_code(VK_ERROR_VALIDATION_FAILED_EXT).message() == "validation failed");
-  REQUIRE(vkexec::make_vk_error_code(999).message() == "vulkan error");
+  REQUIRE(vkexec::make_vk_error_code(VK_ERROR_UNKNOWN).message() == "unknown error");
+  REQUIRE(vkexec::make_vk_error_code(-123456789).message() == "vulkan error");
 }
+
+#ifdef __unix__
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) -- Catch2 assertion macros inflate the count.
+TEST_CASE("nonfailure Vulkan results violate the error-code contract", "[vkexec][error][vulkan]")
+{
+  for (int const value : { VK_SUCCESS, VK_TIMEOUT }) {
+    auto const child = fork();
+    REQUIRE(child >= 0);
+    if (child == 0) {
+      auto const code = vkexec::make_vk_error_code(value);
+      _exit(code ? 0 : 1);
+    }
+    int status = 0;
+    REQUIRE(waitpid(child, &status, 0) == child);
+    // NOLINTNEXTLINE(misc-include-cleaner) -- WIFSIGNALED is provided by sys/wait.h.
+    REQUIRE(WIFSIGNALED(status));
+    // NOLINTNEXTLINE(misc-include-cleaner) -- WTERMSIG is provided by sys/wait.h.
+    REQUIRE(WTERMSIG(status) == SIGABRT);
+  }
+}
+#endif
 
 TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vulkan]")
 {

@@ -18,7 +18,6 @@ target_include_directories(vkexec_vma ${WARNING_GUARD} PUBLIC $<BUILD_INTERFACE:
                                                               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 target_compile_features(vkexec_vma PUBLIC cxx_std_20)
-target_compile_definitions(vkexec_vma PUBLIC VKEXEC_ENABLE_EXCEPTIONS=$<BOOL:${VKEXEC_ENABLE_EXCEPTIONS}>)
 vkexec_configure_linker(vkexec_vma)
 
 set_target_properties(

@@ -4,6 +4,7 @@
 //! \file
 //! stdexec adaptors that present one presenter frame (`draw`, `draw_layers`, `| submit`).
 
+#include <vkexec/config.hpp>
 #include <vkexec/detail/stop.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -57,7 +58,7 @@ namespace detail {
       ex::set_stopped(std::move(receiver));
       return;
     }
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     try {
       std::forward<Operation>(operation)();
     } catch (...) {
@@ -72,7 +73,7 @@ namespace detail {
   auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver &receiver) noexcept
     -> void
   {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     try {
 #endif
       auto const token = receiver_stop_token(receiver);
@@ -102,7 +103,7 @@ namespace detail {
         *fence_result, token, [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
           complete_draw(std::move(*rcvr), std::move(wait_error), stopped);
         });
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
       ex::set_error(std::move(receiver), unexpected_exception_error());
     }

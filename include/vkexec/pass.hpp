@@ -4,6 +4,7 @@
 //! \file
 //! Compute pass recording, pass graphs, and stdexec pipe adaptors.
 
+#include <vkexec/config.hpp>
 #include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/error.hpp>
@@ -357,11 +358,11 @@ namespace detail {
 
     auto set_value() && noexcept -> void
     {
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       try {
 #endif
         detail::run_after_gpu(*steps);
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         ex::set_error(std::move(*rcvr), unexpected_exception_error());
         return;
@@ -407,7 +408,7 @@ namespace detail {
         ex::set_stopped(std::move(receiver));
         return;
       }
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       try {
 #endif
         auto prepared = detail::open_and_record_pass(ctx, steps);
@@ -419,7 +420,7 @@ namespace detail {
           ctx->get_scheduler(),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
-#if VKEXEC_ENABLE_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         ex::set_error(std::move(receiver), unexpected_exception_error());
       }

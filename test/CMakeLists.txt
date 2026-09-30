@@ -91,6 +91,7 @@ target_link_libraries(
   tests
   PRIVATE vkexec::vkexec_warnings
           vkexec::vkexec_options
+          vkexec_exception_options
           vkexec::vkexec
           vkexec::features
           vkexec::ext_descriptor_heap
@@ -129,7 +130,8 @@ catch_discover_tests(
 add_executable(vk_bootstrap_feature_tests vk_bootstrap_feature_tests.cpp)
 target_link_libraries(
   vk_bootstrap_feature_tests
-  PRIVATE vkexec::vkexec
+  PRIVATE vkexec_exception_options
+          vkexec::vkexec
           vkexec_private_headers
           vk-bootstrap::vk-bootstrap
           Catch2::Catch2WithMain)
