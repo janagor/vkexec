@@ -220,7 +220,8 @@ void main() {}
   auto img = vkexec::test::sync_wait_value(vkexec::allocate_image(allocator,
     vkexec::image_create_info{ .extent = { .width = 1, .height = 1, .depth = 1 },
       .format = VK_FORMAT_R16G16B16A16_SFLOAT,
-      .usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT }));
+      .usage = static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_STORAGE_BIT)
+               | static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_SAMPLED_BIT) }));
   auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   auto resources_result =
