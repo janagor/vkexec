@@ -1,13 +1,18 @@
 #ifndef VKEXEC_TEST_HELPERS_HPP
 #define VKEXEC_TEST_HELPERS_HPP
 
+#include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/sync_wait.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <memory>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <stdexcept>
+#else
+#include <exception>
+#endif
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -52,7 +57,12 @@ template<class Sender> [[nodiscard]] auto sync_wait_sender(Sender &&sender)
   auto outcome = vkexec::try_sync_wait_value(factory::make_context(configured));
   if (!outcome) {
     if (require_validation) {
+#if VKEXEC_HAS_EXCEPTIONS
       throw std::runtime_error(std::string("Validation context unavailable: ") + outcome.error().message());
+#else
+      FAIL(std::string("Validation context unavailable: ") + outcome.error().message());
+      std::terminate();
+#endif
     }
     skip_if_no_vulkan(outcome.error());
   }
