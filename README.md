@@ -1,8 +1,8 @@
 # vkexec
 
 [![CI](https://github.com/janagor/vkexec/actions/workflows/ci.yml/badge.svg)](https://github.com/janagor/vkexec/actions/workflows/ci.yml)
--[![codecov](https://codecov.io/gh/janagor/vkexec/branch/main/graph/badge.svg)](https://codecov.io/gh/janagor/vkexec)
--[![CodeQL](https://github.com/janagor/vkexec/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/janagor/vkexec/actions/workflows/codeql-analysis.yml)
+[![codecov](https://codecov.io/gh/janagor/vkexec/branch/main/graph/badge.svg)](https://codecov.io/gh/janagor/vkexec)
+[![CodeQL](https://github.com/janagor/vkexec/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/janagor/vkexec/actions/workflows/codeql-analysis.yml)
 [![Documentation](https://github.com/janagor/vkexec/actions/workflows/docs.yml/badge.svg)](https://janagor.github.io/vkexec/)
 
 vkexec is a C++20 stdexec backend for composing asynchronous Vulkan compute and graphics work. It is an evolving project; review the public headers and examples when adopting an API.
