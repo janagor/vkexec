@@ -7,9 +7,11 @@
 // Reflect the compiler mode in headers, including for installed consumers.
 #ifdef _MSC_VER
 #if defined(_CPPUNWIND) && (!defined(_HAS_EXCEPTIONS) || _HAS_EXCEPTIONS)
+// NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define VKEXEC_HAS_EXCEPTIONS 1
 #else
 #define VKEXEC_HAS_EXCEPTIONS 0
+// NOLINTEND(cppcoreguidelines-macro-usage)
 #endif
 
 #elif defined(__cpp_exceptions) || defined(__EXCEPTIONS)
