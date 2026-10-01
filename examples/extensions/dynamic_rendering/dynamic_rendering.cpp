@@ -120,7 +120,10 @@ auto run() -> int
 
     vkexec::frame const frame = **frame_result;
     vkexec::owned::swapchain const *const chain = win.borrowed_swapchain();
-    if (chain == nullptr) { vkexec::examples::fail_check("window has no swapchain"); }
+    if (chain == nullptr) {
+      vkexec::examples::fail_check("window has no swapchain");
+      return 1;
+    }
 
     if (auto recorded = record_swapchain_clear(win.ctx(), *chain, frame.command_buffer, frame, phase); !recorded) {
       vkexec::examples::abort_with_error(recorded.error());
