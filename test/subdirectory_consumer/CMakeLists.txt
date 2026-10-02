@@ -10,7 +10,59 @@ if(NOT
   message(FATAL_ERROR "Configure this fixture with CMAKE_CXX_STANDARD=17 or 23")
 endif()
 
+# Supply aliased Vulkan targets whose usage requirements belong to the parent.
+if(NOT Vulkan_LIBRARY OR NOT Vulkan_INCLUDE_DIR)
+  message(FATAL_ERROR "Vulkan_LIBRARY and Vulkan_INCLUDE_DIR are required for the parent Vulkan fixture")
+endif()
+
+add_library(
+  parent_vulkan_loader
+  INTERFACE
+  IMPORTED
+  GLOBAL)
+set_target_properties(
+  parent_vulkan_loader
+  PROPERTIES INTERFACE_LINK_LIBRARIES "${Vulkan_LIBRARY}"
+             INTERFACE_INCLUDE_DIRECTORIES "${Vulkan_INCLUDE_DIR}"
+             INTERFACE_COMPILE_DEFINITIONS "VKEXEC_PARENT_VULKAN_LOADER=1")
+add_library(Vulkan::Vulkan ALIAS parent_vulkan_loader)
+
+add_library(
+  parent_vulkan_headers
+  INTERFACE
+  IMPORTED
+  GLOBAL)
+set_target_properties(parent_vulkan_headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${Vulkan_INCLUDE_DIR}"
+                                                       INTERFACE_COMPILE_DEFINITIONS "VKEXEC_PARENT_VULKAN_HEADERS=1")
+add_library(Vulkan::Headers ALIAS parent_vulkan_headers)
+
+foreach(target IN ITEMS parent_vulkan_loader parent_vulkan_headers)
+  foreach(property IN ITEMS INTERFACE_INCLUDE_DIRECTORIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES)
+    get_target_property(parent_vulkan_${target}_${property}_before ${target} ${property})
+  endforeach()
+endforeach()
+
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../.." vkexec)
+
+foreach(target IN ITEMS parent_vulkan_loader parent_vulkan_headers)
+  foreach(property IN ITEMS INTERFACE_INCLUDE_DIRECTORIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES)
+    get_target_property(parent_vulkan_${target}_${property}_after ${target} ${property})
+    if(NOT
+       "${parent_vulkan_${target}_${property}_after}"
+       STREQUAL
+       "${parent_vulkan_${target}_${property}_before}")
+      message(FATAL_ERROR "vkexec modified parent-owned ${target} ${property}")
+    endif()
+  endforeach()
+endforeach()
+
+get_target_property(vkexec_vulkan_links vkexec_vulkan INTERFACE_LINK_LIBRARIES)
+if(NOT
+   vkexec_vulkan_links
+   STREQUAL
+   "Vulkan::Headers;$<LINK_ONLY:Vulkan::Vulkan>")
+  message(FATAL_ERROR "vkexec_vulkan must use parent Vulkan headers and a link-only loader")
+endif()
 
 get_target_property(vkexec_compile_features vkexec::vkexec INTERFACE_COMPILE_FEATURES)
 if(NOT

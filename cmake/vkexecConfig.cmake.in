@@ -2,7 +2,36 @@
 
 include(CMakeFindDependencyMacro)
 
-find_dependency(Vulkan)
+if(NOT TARGET Vulkan::Headers OR NOT TARGET Vulkan::Vulkan)
+  find_package(Vulkan QUIET)
+endif()
+
+if(NOT TARGET Vulkan::Headers)
+  find_package(VulkanHeaders CONFIG QUIET)
+endif()
+
+if(NOT TARGET Vulkan::Vulkan)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(Vulkan IMPORTED_TARGET vulkan)
+    if(TARGET PkgConfig::Vulkan)
+      add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
+    endif()
+  endif()
+endif()
+
+if(NOT TARGET Vulkan::Headers)
+  set(vkexec_FOUND FALSE)
+  set(vkexec_NOT_FOUND_MESSAGE "vkexec requires Vulkan headers, but no Vulkan::Headers target could be resolved")
+  return()
+endif()
+
+if(NOT TARGET Vulkan::Vulkan)
+  set(vkexec_FOUND FALSE)
+  set(vkexec_NOT_FOUND_MESSAGE "vkexec requires the Vulkan loader, but no Vulkan::Vulkan target could be resolved")
+  return()
+endif()
+
 find_dependency(stdexec CONFIG)
 if(@VKEXEC_PACKAGE_NEEDS_VK_BOOTSTRAP@)
   find_dependency(vk-bootstrap CONFIG)

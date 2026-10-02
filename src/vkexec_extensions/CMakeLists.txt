@@ -20,7 +20,7 @@ target_include_directories(
 target_link_libraries(
   vkexec_ext_descriptor_heap
   PUBLIC vkexec::vkexec vkexec::features
-  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" vk-bootstrap::vk-bootstrap Vulkan::Vulkan)
+  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" vk-bootstrap::vk-bootstrap)
 
 target_compile_features(vkexec_ext_descriptor_heap PUBLIC cxx_std_20)
 
@@ -50,7 +50,7 @@ target_include_directories(
 target_link_libraries(
   vkexec_ext_dynamic_rendering
   PUBLIC vkexec::vkexec vkexec::features
-  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" Vulkan::Vulkan)
+  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>")
 
 target_compile_features(vkexec_ext_dynamic_rendering PUBLIC cxx_std_20)
 
@@ -71,7 +71,7 @@ target_include_directories(
 target_link_libraries(
   vkexec_ext_timeline_semaphore
   PUBLIC vkexec::vkexec vkexec::features vkexec::vkexec_graphics
-  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>" Vulkan::Vulkan)
+  PRIVATE "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>")
 
 target_compile_features(vkexec_ext_timeline_semaphore PUBLIC cxx_std_20)
 

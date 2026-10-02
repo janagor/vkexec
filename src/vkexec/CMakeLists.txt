@@ -21,7 +21,10 @@ set_target_properties(vkexec PROPERTIES EXPORT_NAME vkexec)
 
 target_link_libraries(
   vkexec
-  PUBLIC Vulkan::Headers Vulkan::Vulkan STDEXEC::stdexec
+  PUBLIC "$<BUILD_LOCAL_INTERFACE:vkexec_vulkan>"
+         "$<INSTALL_INTERFACE:Vulkan::Headers>"
+         "$<INSTALL_INTERFACE:$<LINK_ONLY:Vulkan::Vulkan>>"
+         STDEXEC::stdexec
   PRIVATE vk-bootstrap::vk-bootstrap "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>")
 
 target_include_directories(

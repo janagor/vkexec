@@ -16,11 +16,31 @@ function(vkexec_setup_dependencies)
   # For each dependency, see if it's
   # already been provided to us by a parent project
 
-  # Pin headers before find_package(Vulkan): FindVulkan creates Vulkan::Headers
-  # from the system/SDK install when present, which can be older than the
-  # vk-bootstrap tag (e.g. Ubuntu libvulkan-dev) and then skips CPM.
-  # Use DOWNLOAD_ONLY + IMPORTED so export still treats Headers like FindVulkan
-  # (consumers resolve it via find_dependency(Vulkan)).
+  # Respect parent targets, then prefer an installed Vulkan SDK or system package.
+  if(NOT TARGET Vulkan::Headers OR NOT TARGET Vulkan::Vulkan)
+    find_package(Vulkan QUIET)
+  endif()
+
+  if(NOT TARGET Vulkan::Headers)
+    find_package(VulkanHeaders CONFIG QUIET)
+  endif()
+
+  if(NOT TARGET Vulkan::Vulkan)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+      pkg_check_modules(Vulkan IMPORTED_TARGET vulkan)
+      if(TARGET PkgConfig::Vulkan)
+        add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
+      endif()
+    endif()
+    if(NOT TARGET Vulkan::Vulkan)
+      message(FATAL_ERROR "Vulkan loader not found (Vulkan::Vulkan). Install the Vulkan SDK "
+                          "(set VULKAN_SDK) or a system package such as libvulkan-dev.")
+    endif()
+  endif()
+
+  # Download headers only when neither the parent nor an installed package provided them.
+  # Keep the fallback behind the standard Vulkan::Headers target.
   if(NOT TARGET Vulkan::Headers)
     cpmaddpackage(
       NAME
@@ -38,34 +58,9 @@ function(vkexec_setup_dependencies)
                                                      "${VulkanHeaders_SOURCE_DIR}/include")
   endif()
 
-  if(NOT TARGET Vulkan::Vulkan)
-    find_package(Vulkan QUIET)
-    if(NOT Vulkan_FOUND)
-      find_package(PkgConfig QUIET)
-      if(PkgConfig_FOUND)
-        pkg_check_modules(Vulkan IMPORTED_TARGET vulkan)
-        if(TARGET PkgConfig::Vulkan)
-          add_library(Vulkan::Vulkan ALIAS PkgConfig::Vulkan)
-        endif()
-      endif()
-    endif()
-    if(NOT TARGET Vulkan::Vulkan)
-      message(FATAL_ERROR "Vulkan loader not found (Vulkan::Vulkan). Install the Vulkan SDK "
-                          "(set VULKAN_SDK) or a system package such as libvulkan-dev.")
-    endif()
-  endif()
-
-  # Prefer the pinned Vulkan::Headers over any system/SDK include dirs that
-  # FindVulkan / pkg-config attach to the loader target.
-  if(TARGET Vulkan::Vulkan)
-    get_target_property(_vkexec_vulkan_aliased Vulkan::Vulkan ALIASED_TARGET)
-    if(_vkexec_vulkan_aliased)
-      set_property(TARGET ${_vkexec_vulkan_aliased} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
-    else()
-      set_property(TARGET Vulkan::Vulkan PROPERTY INTERFACE_INCLUDE_DIRECTORIES "")
-    endif()
-    unset(_vkexec_vulkan_aliased)
-  endif()
+  # Compose existing usage requirements without changing third-party targets.
+  add_library(vkexec_vulkan INTERFACE)
+  target_link_libraries(vkexec_vulkan INTERFACE Vulkan::Headers "$<LINK_ONLY:Vulkan::Vulkan>")
 
   if((NOT DEFINED BUILD_TESTING OR BUILD_TESTING) AND NOT TARGET Catch2::Catch2WithMain)
     cpmaddpackage(

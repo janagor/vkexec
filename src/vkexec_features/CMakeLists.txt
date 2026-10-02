@@ -15,7 +15,7 @@ target_include_directories(
 
 target_link_libraries(
   vkexec_features
-  PUBLIC vkexec::vkexec Vulkan::Vulkan
+  PUBLIC vkexec::vkexec
   PRIVATE vk-bootstrap::vk-bootstrap "$<BUILD_LOCAL_INTERFACE:vkexec_warnings>")
 
 target_compile_features(vkexec_features PUBLIC cxx_std_20)
