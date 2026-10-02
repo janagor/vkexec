@@ -38,7 +38,15 @@ add_library(Vulkan::Headers ALIAS parent_vulkan_headers)
 
 foreach(target IN ITEMS parent_vulkan_loader parent_vulkan_headers)
   foreach(property IN ITEMS INTERFACE_INCLUDE_DIRECTORIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES)
-    get_target_property(parent_vulkan_${target}_${property}_before ${target} ${property})
+    get_property(
+      parent_vulkan_${target}_${property}_was_set
+      TARGET ${target}
+      PROPERTY ${property}
+      SET)
+    get_property(
+      parent_vulkan_${target}_${property}_before
+      TARGET ${target}
+      PROPERTY ${property})
   endforeach()
 endforeach()
 
@@ -46,11 +54,23 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../.." vkexec)
 
 foreach(target IN ITEMS parent_vulkan_loader parent_vulkan_headers)
   foreach(property IN ITEMS INTERFACE_INCLUDE_DIRECTORIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES)
-    get_target_property(parent_vulkan_${target}_${property}_after ${target} ${property})
+    get_property(
+      parent_vulkan_${target}_${property}_is_set
+      TARGET ${target}
+      PROPERTY ${property}
+      SET)
+    get_property(
+      parent_vulkan_${target}_${property}_after
+      TARGET ${target}
+      PROPERTY ${property})
     if(NOT
-       "${parent_vulkan_${target}_${property}_after}"
+       "${parent_vulkan_${target}_${property}_is_set}"
        STREQUAL
-       "${parent_vulkan_${target}_${property}_before}")
+       "${parent_vulkan_${target}_${property}_was_set}"
+       OR NOT
+          "${parent_vulkan_${target}_${property}_after}"
+          STREQUAL
+          "${parent_vulkan_${target}_${property}_before}")
       message(FATAL_ERROR "vkexec modified parent-owned ${target} ${property}")
     endif()
   endforeach()
