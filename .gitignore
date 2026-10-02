@@ -1,7 +1,9 @@
 # Build directories and binary files
 build/
-out/
-out/coverage/*
+/out/*
+!/out/coverage/
+/out/coverage/*
+!/out/coverage/.keep
 cmake-build-*/
 conan-cache/
 .cache/
