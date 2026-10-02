@@ -61,7 +61,6 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
     cmd,
     {
       .image = img.handle(),
-      .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .src_stage = VK_PIPELINE_STAGE_2_NONE,

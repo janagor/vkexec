@@ -120,14 +120,55 @@ auto memory_barrier(context &ctx, VkCommandBuffer cmd, memory_barrier_params con
   return {};
 }
 
+auto buffer_barrier(context &ctx, VkCommandBuffer cmd, buffer_barrier_params const &params) -> status
+{
+  if (params.buffer == VK_NULL_HANDLE || params.size == 0) {
+    return fail(errc::invalid_argument, "buffer_barrier requires a buffer and nonzero size");
+  }
+  VKEXEC_TRY(detail::validate_scope(params.src_stage, params.src_access));
+  VKEXEC_TRY(detail::validate_scope(params.dst_stage, params.dst_access));
+  if (detail::synchronization_backend_for(ctx) != detail::synchronization_backend::legacy) {
+    VkBufferMemoryBarrier2 barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+    barrier.srcStageMask = params.src_stage;
+    barrier.srcAccessMask = params.src_access;
+    barrier.dstStageMask = params.dst_stage;
+    barrier.dstAccessMask = params.dst_access;
+    barrier.srcQueueFamilyIndex = params.src_queue_family;
+    barrier.dstQueueFamilyIndex = params.dst_queue_family;
+    barrier.buffer = params.buffer;
+    barrier.offset = params.offset;
+    barrier.size = params.size;
+    VkDependencyInfo dependency{};
+    dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dependency.bufferMemoryBarrierCount = 1;
+    dependency.pBufferMemoryBarriers = &barrier;
+    ctx.procs().cmd_pipeline_barrier2(cmd, &dependency);
+    return {};
+  }
+  VKEXEC_TRY_ASSIGN(src_stage, detail::legacy_scope_stage(params.src_stage, params.src_access, true));
+  VKEXEC_TRY_ASSIGN(dst_stage, detail::legacy_scope_stage(params.dst_stage, params.dst_access, false));
+  VKEXEC_TRY_ASSIGN(src_access, detail::legacy_access_mask(params.src_access));
+  VKEXEC_TRY_ASSIGN(dst_access, detail::legacy_access_mask(params.dst_access));
+  VkBufferMemoryBarrier barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+  barrier.srcAccessMask = src_access;
+  barrier.dstAccessMask = dst_access;
+  barrier.srcQueueFamilyIndex = params.src_queue_family;
+  barrier.dstQueueFamilyIndex = params.dst_queue_family;
+  barrier.buffer = params.buffer;
+  barrier.offset = params.offset;
+  barrier.size = params.size;
+  vkCmdPipelineBarrier(cmd, src_stage, dst_stage, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+  return {};
+}
+
 auto image_barrier(context &ctx, VkCommandBuffer cmd, image_barrier_params const &params) -> status
 {
-  VkImageSubresourceRange range{};
-  range.aspectMask = params.aspect;
-  range.baseMipLevel = 0;
-  range.levelCount = 1;
-  range.baseArrayLayer = 0;
-  range.layerCount = 1;
+  if (params.image == VK_NULL_HANDLE || params.range.aspectMask == 0 || params.range.levelCount == 0
+      || params.range.layerCount == 0) {
+    return fail(errc::invalid_argument, "image_barrier requires an image and nonempty subresource range");
+  }
   VKEXEC_TRY(detail::validate_scope(params.src_stage, params.src_access));
   VKEXEC_TRY(detail::validate_scope(params.dst_stage, params.dst_access));
   if (detail::synchronization_backend_for(ctx) != detail::synchronization_backend::legacy) {
@@ -139,10 +180,10 @@ auto image_barrier(context &ctx, VkCommandBuffer cmd, image_barrier_params const
     barrier.dstAccessMask = params.dst_access;
     barrier.oldLayout = params.old_layout;
     barrier.newLayout = params.new_layout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.srcQueueFamilyIndex = params.src_queue_family;
+    barrier.dstQueueFamilyIndex = params.dst_queue_family;
     barrier.image = params.image;
-    barrier.subresourceRange = range;
+    barrier.subresourceRange = params.range;
     VkDependencyInfo dependency{};
     dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     dependency.imageMemoryBarrierCount = 1;
@@ -160,10 +201,10 @@ auto image_barrier(context &ctx, VkCommandBuffer cmd, image_barrier_params const
   barrier.dstAccessMask = dst_access;
   barrier.oldLayout = params.old_layout;
   barrier.newLayout = params.new_layout;
-  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.srcQueueFamilyIndex = params.src_queue_family;
+  barrier.dstQueueFamilyIndex = params.dst_queue_family;
   barrier.image = params.image;
-  barrier.subresourceRange = range;
+  barrier.subresourceRange = params.range;
   vkCmdPipelineBarrier(cmd, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
   return {};
 }

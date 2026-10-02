@@ -9,6 +9,20 @@
 
 namespace vkexec {
 
+struct image_view_create_info
+{
+  VkImageViewType type{ VK_IMAGE_VIEW_TYPE_2D };
+  VkFormat format{ VK_FORMAT_UNDEFINED };
+  VkImageSubresourceRange range{
+    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel = 0,
+    .levelCount = 1,
+    .baseArrayLayer = 0,
+    .layerCount = 1,
+  };
+  VkComponentMapping components{};
+};
+
 namespace owned {
   class image_view;
 }// namespace owned
@@ -19,8 +33,7 @@ namespace detail {
   {
     context *ctx;
     VkImage image;
-    VkFormat format;
-    VkImageAspectFlags aspect;
+    image_view_create_info info;
 
     [[nodiscard]] auto operator()() const -> result<owned::image_view>;
   };
@@ -31,6 +44,8 @@ namespace factory {
 
   struct make_image_view_t
   {
+    [[nodiscard]] auto operator()(context &ctx, VkImage image, image_view_create_info info) const
+    { return make_sender(detail::make_image_view_factory{ .ctx = &ctx, .image = image, .info = info }); }
 
     /**
      * Creates a 2D image view for raw Vulkan image facts.
@@ -40,8 +55,10 @@ namespace factory {
      */
     [[nodiscard]] auto operator()(context &ctx, VkImage image, VkFormat format, VkImageAspectFlags aspect) const
     {
-      return make_sender(
-        detail::make_image_view_factory{ .ctx = &ctx, .image = image, .format = format, .aspect = aspect });
+      image_view_create_info info{};
+      info.format = format;
+      info.range.aspectMask = aspect;
+      return (*this)(ctx, image, info);
     }
   };
 

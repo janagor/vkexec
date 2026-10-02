@@ -2,7 +2,7 @@
 #define VKEXEC_BARRIER_HPP
 
 //! \file
-//! Global memory and image barriers, plus pipeable stage presets for pass graphs.
+//! Global and resource-scoped barriers, plus pipeable steps for pass graphs.
 
 #include <vkexec/pass.hpp>
 
@@ -31,17 +31,41 @@ struct memory_barrier_params
  */
 [[nodiscard]] auto memory_barrier(context &ctx, VkCommandBuffer cmd, memory_barrier_params const &params) -> status;
 
-//! Parameters for a single-image layout transition recorded with `image_barrier`.
+//! Parameters for a buffer dependency recorded with `buffer_barrier`.
+struct buffer_barrier_params
+{
+  VkBuffer buffer{ VK_NULL_HANDLE };
+  VkDeviceSize offset{ 0 };
+  VkDeviceSize size{ VK_WHOLE_SIZE };
+  VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
+  VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
+  VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
+  VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
+  std::uint32_t src_queue_family{ VK_QUEUE_FAMILY_IGNORED };
+  std::uint32_t dst_queue_family{ VK_QUEUE_FAMILY_IGNORED };
+};
+
+[[nodiscard]] auto buffer_barrier(context &ctx, VkCommandBuffer cmd, buffer_barrier_params const &params) -> status;
+
+//! Parameters for an image dependency or layout transition.
 struct image_barrier_params
 {
   VkImage image{ VK_NULL_HANDLE };
-  VkImageAspectFlags aspect{ VK_IMAGE_ASPECT_COLOR_BIT };
+  VkImageSubresourceRange range{
+    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel = 0,
+    .levelCount = 1,
+    .baseArrayLayer = 0,
+    .layerCount = 1,
+  };
   VkImageLayout old_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
   VkImageLayout new_layout{ VK_IMAGE_LAYOUT_GENERAL };
   VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
   VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
   VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
   VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
+  std::uint32_t src_queue_family{ VK_QUEUE_FAMILY_IGNORED };
+  std::uint32_t dst_queue_family{ VK_QUEUE_FAMILY_IGNORED };
 };
 
 /**
@@ -60,6 +84,25 @@ struct image_barrier_params
  * `| barrier::compute_to_compute()` style steps in a pass graph.
  */
 namespace barrier {
+
+  struct buffer_t
+  {
+    [[nodiscard]] auto operator()(buffer_barrier_params params) const
+      -> detail::expr_closure<buffer_t, buffer_barrier_params>
+    { return detail::make_expr_closure(*this, params); }
+  };
+
+  struct image_t
+  {
+    [[nodiscard]] auto operator()(image_barrier_params params) const
+      -> detail::expr_closure<image_t, image_barrier_params>
+    { return detail::make_expr_closure(*this, params); }
+  };
+
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr buffer_t buffer{};
+  // NOLINTNEXTLINE(readability-identifier-naming)
+  inline constexpr image_t image{};
 
   //! Transfer writes -> compute shader reads/writes.
   struct transfer_to_compute_t
@@ -140,6 +183,31 @@ namespace barrier {
 }// namespace barrier
 
 namespace detail {
+
+  struct buffer_barrier_record
+  {
+    buffer_barrier_params params;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status
+    { return vkexec::buffer_barrier(ctx, cmd, params); }
+  };
+
+  struct image_barrier_record
+  {
+    image_barrier_params params;
+    [[nodiscard]] auto operator()(context &ctx, VkCommandBuffer cmd) const -> status
+    { return vkexec::image_barrier(ctx, cmd, params); }
+  };
+
+  template<class Env>
+  [[nodiscard]] auto lower_vkexec_pass_step(barrier::buffer_t /*tag*/,
+    buffer_barrier_params params,
+    Env const & /*env*/) -> barrier_step<buffer_barrier_record>
+  { return make_barrier_step(buffer_barrier_record{ params }); }
+
+  template<class Env>
+  [[nodiscard]] auto lower_vkexec_pass_step(barrier::image_t /*tag*/, image_barrier_params params, Env const & /*env*/)
+    -> barrier_step<image_barrier_record>
+  { return make_barrier_step(image_barrier_record{ params }); }
 
   template<class Tag, class Env>
     requires std::same_as<Tag, barrier::transfer_to_compute_t> || std::same_as<Tag, barrier::compute_to_compute_t>

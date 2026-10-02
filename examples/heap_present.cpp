@@ -101,7 +101,6 @@ auto run_dynamic_rendering(vkexec::context &ctx) -> vkexec::status
     cmd,
     {
       .image = img.handle(),
-      .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
       .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
       .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       .src_stage = VK_PIPELINE_STAGE_2_NONE,
@@ -202,7 +201,6 @@ auto run_heap_graphics(vkexec::context &ctx) -> bool
         cmd,
         {
           .image = img.handle(),
-          .aspect = VK_IMAGE_ASPECT_COLOR_BIT,
           .old_layout = VK_IMAGE_LAYOUT_UNDEFINED,
           .new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
           .src_stage = VK_PIPELINE_STAGE_2_NONE,

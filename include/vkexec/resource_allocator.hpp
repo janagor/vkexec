@@ -33,9 +33,17 @@ struct buffer_create_info
 
 struct image_create_info
 {
+  // The allocator checks basic values. Other image-type, extent, sample-count,
+  // and creation-flag combinations are passed through to Vulkan/VMA.
   VkExtent3D extent{};
   VkFormat format{ VK_FORMAT_UNDEFINED };
   VkImageUsageFlags usage{};
+  VkImageType type{ VK_IMAGE_TYPE_2D };
+  std::uint32_t mip_levels{ 1 };
+  std::uint32_t array_layers{ 1 };
+  VkSampleCountFlagBits samples{ VK_SAMPLE_COUNT_1_BIT };
+  VkImageTiling tiling{ VK_IMAGE_TILING_OPTIMAL };
+  VkImageCreateFlags flags{};
 };
 
 // Customizations are found through ADL and keep the backend's allocation token typed.

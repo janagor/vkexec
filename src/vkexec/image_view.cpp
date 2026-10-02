@@ -12,17 +12,18 @@ auto detail::make_image_view_factory::operator()() const -> result<::vkexec::own
 {
   if (ctx->device() == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a VkDevice"); }
   if (image == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "image_view requires a valid image"); }
+  if (info.format == VK_FORMAT_UNDEFINED || info.range.aspectMask == 0 || info.range.levelCount == 0
+      || info.range.layerCount == 0) {
+    return fail(errc::invalid_argument, "image_view requires a format and nonempty subresource range");
+  }
 
   VkImageViewCreateInfo view_info{};
   view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   view_info.image = image;
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.format = format;
-  view_info.subresourceRange.aspectMask = aspect;
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = 1;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = 1;
+  view_info.viewType = info.type;
+  view_info.format = info.format;
+  view_info.components = info.components;
+  view_info.subresourceRange = info.range;
 
   VkImageView view{ VK_NULL_HANDLE };
   VkResult const create_result = vkCreateImageView(ctx->device(), &view_info, nullptr, &view);
