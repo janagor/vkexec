@@ -61,6 +61,7 @@ add_executable(
   push_data_tests.cpp
   extension_tests.cpp
   feature_tests.cpp
+  context_capabilities_tests.cpp
   sampler_tests.cpp
   scheduler_tests.cpp
   graphics_tests.cpp

@@ -1,8 +1,8 @@
+#include <vkexec/detail/capability_id.hpp>
 #include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_features/buffer_device_address.hpp>
 
 #include <vkexec_features/common.hpp>
-#include <vkexec_features/query.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -22,11 +22,7 @@ namespace {
 }// namespace
 
 auto feature_traits<buffer_device_address>::available(context const &ctx) -> bool
-{
-  // Fast path: context already resolved the device proc during load_device_procs.
-  if (ctx.procs().get_buffer_device_address != nullptr) { return true; }
-  return detail::physical_device_buffer_device_address(ctx.physical_device(), ctx.api_version());
-}
+{ return ctx.capabilities().buffer_device_address; }
 
 auto feature_traits<buffer_device_address>::configure(vulkan_requirements &req) -> void
 {
@@ -35,7 +31,8 @@ auto feature_traits<buffer_device_address>::configure(vulkan_requirements &req) 
     VkPhysicalDeviceVulkan12Features features_12{};
     features_12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features_12.bufferDeviceAddress = VK_TRUE;
-    ::vkexec::detail::require_extension_feature(req, features_12);
+    ::vkexec::detail::require_extension_feature(
+      req, features_12, ::vkexec::detail::capability_id::buffer_device_address);
     return;
   }
 
@@ -43,7 +40,8 @@ auto feature_traits<buffer_device_address>::configure(vulkan_requirements &req) 
   VkPhysicalDeviceBufferDeviceAddressFeaturesKHR features_khr{};
   features_khr.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
   features_khr.bufferDeviceAddress = VK_TRUE;
-  ::vkexec::detail::require_extension_feature(req, features_khr);
+  ::vkexec::detail::require_extension_feature(
+    req, features_khr, ::vkexec::detail::capability_id::buffer_device_address);
 }
 
 }// namespace vkexec::feat

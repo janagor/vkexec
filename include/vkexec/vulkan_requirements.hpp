@@ -4,6 +4,8 @@
 //! \file
 //! User and library Vulkan instance/device requirements for context creation.
 
+#include <vkexec/detail/capability_id.hpp>
+
 #include <vulkan/vulkan.h>
 
 #include <array>
@@ -34,14 +36,16 @@ private:
   extension_feature(std::shared_ptr<void const> state,
     void (*require)(void const *, void *),
     bool (*enable)(void const *, void *),
-    VkStructureType s_type) noexcept
-    : state_(std::move(state)), require_(require), enable_(enable), s_type_(s_type)
+    VkStructureType s_type,
+    detail::capability_id capability) noexcept
+    : state_(std::move(state)), require_(require), enable_(enable), s_type_(s_type), capability_(capability)
   {}
 
   std::shared_ptr<void const> state_;
   void (*require_)(void const *, void *){};
   bool (*enable_)(void const *, void *){};
   VkStructureType s_type_{};
+  detail::capability_id capability_{ detail::capability_id::none };
 };
 
 /**

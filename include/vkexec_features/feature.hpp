@@ -37,7 +37,7 @@ concept feature = requires(context const &ctx, vulkan_requirements &req) {
 template<feature Tag> [[nodiscard]] constexpr auto name() -> std::string_view { return feature_traits<Tag>::name(); }
 
 /**
- * Returns whether feature `Tag` is available on `ctx`'s physical device / API version.
+ * Returns whether feature `Tag` is enabled and usable by `ctx`.
  */
 template<feature Tag> [[nodiscard]] auto available(context const &ctx) -> bool
 { return feature_traits<Tag>::available(ctx); }

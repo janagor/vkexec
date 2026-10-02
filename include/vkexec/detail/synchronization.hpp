@@ -1,6 +1,7 @@
 #ifndef VKEXEC_DETAIL_SYNCHRONIZATION_HPP
 #define VKEXEC_DETAIL_SYNCHRONIZATION_HPP
 
+#include <vkexec/device_capabilities.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -15,17 +16,12 @@ enum class synchronization_backend : std::uint8_t {
   synchronization2_core,
 };
 
-[[nodiscard]] constexpr auto select_synchronization_backend(std::uint32_t api_version,
-  bool khr_extension_enabled,
-  bool feature_enabled,
-  bool instance_dependency_enabled) noexcept -> synchronization_backend
+[[nodiscard]] constexpr auto select_synchronization_backend(device_capabilities const &caps) noexcept
+  -> synchronization_backend
 {
-  if (!feature_enabled) { return synchronization_backend::legacy; }
-  if (api_version >= VK_API_VERSION_1_3) { return synchronization_backend::synchronization2_core; }
-  if (khr_extension_enabled && (api_version >= VK_API_VERSION_1_1 || instance_dependency_enabled)) {
-    return synchronization_backend::synchronization2_khr;
-  }
-  return synchronization_backend::legacy;
+  if (!caps.synchronization2) { return synchronization_backend::legacy; }
+  return caps.api_version >= VK_API_VERSION_1_3 ? synchronization_backend::synchronization2_core
+                                                : synchronization_backend::synchronization2_khr;
 }
 
 [[nodiscard]] auto legacy_stage_mask(VkPipelineStageFlags2 value) -> result<VkPipelineStageFlags>;

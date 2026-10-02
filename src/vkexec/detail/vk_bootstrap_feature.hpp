@@ -12,7 +12,8 @@ namespace vkexec::detail {
 
 struct extension_feature_access
 {
-  template<typename Feature> static auto make(Feature feature) -> extension_feature
+  template<typename Feature>
+  static auto make(Feature feature, capability_id capability = capability_id::none) -> extension_feature
   {
     auto const structure_type = feature.sType;
     auto state = std::make_shared<Feature>(std::move(feature));
@@ -25,10 +26,12 @@ struct extension_feature_access
         return static_cast<vkb::PhysicalDevice *>(device)->enable_extension_features_if_present(
           *static_cast<Feature const *>(value));
       },
-      structure_type };
+      structure_type,
+      capability };
   }
 
   static auto s_type(extension_feature const &feature) noexcept -> VkStructureType { return feature.s_type_; }
+  static auto capability(extension_feature const &feature) noexcept -> capability_id { return feature.capability_; }
 
   static auto require(extension_feature const &feature, vkb::PhysicalDeviceSelector &selector) -> void
   { feature.require_(feature.state_.get(), &selector); }
@@ -37,12 +40,17 @@ struct extension_feature_access
   { return feature.enable_(feature.state_.get(), &device); }
 };
 
-template<typename Feature> auto require_extension_feature(vulkan_requirements &requirements, Feature feature) -> void
-{ requirements.required_extension_features.push_back(extension_feature_access::make(std::move(feature))); }
+template<typename Feature>
+auto require_extension_feature(vulkan_requirements &requirements,
+  Feature feature,
+  capability_id capability = capability_id::none) -> void
+{ requirements.required_extension_features.push_back(extension_feature_access::make(std::move(feature), capability)); }
 
 template<typename Feature>
-auto enable_extension_feature_if_present(vulkan_requirements &requirements, Feature feature) -> void
-{ requirements.optional_extension_features.push_back(extension_feature_access::make(std::move(feature))); }
+auto enable_extension_feature_if_present(vulkan_requirements &requirements,
+  Feature feature,
+  capability_id capability = capability_id::none) -> void
+{ requirements.optional_extension_features.push_back(extension_feature_access::make(std::move(feature), capability)); }
 
 }// namespace vkexec::detail
 

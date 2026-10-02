@@ -1,8 +1,8 @@
+#include <vkexec/detail/capability_id.hpp>
 #include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_features/dynamic_rendering.hpp>
 
 #include <vkexec_features/common.hpp>
-#include <vkexec_features/query.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -22,7 +22,7 @@ namespace {
 }// namespace
 
 auto feature_traits<dynamic_rendering>::available(context const &ctx) -> bool
-{ return detail::physical_device_dynamic_rendering(ctx.physical_device(), ctx.api_version()); }
+{ return ctx.capabilities().dynamic_rendering; }
 
 auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> void
 {
@@ -31,7 +31,7 @@ auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> v
     VkPhysicalDeviceDynamicRenderingFeatures features{};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
     features.dynamicRendering = VK_TRUE;
-    ::vkexec::detail::require_extension_feature(req, features);
+    ::vkexec::detail::require_extension_feature(req, features, ::vkexec::detail::capability_id::dynamic_rendering);
     return;
   }
 
@@ -39,7 +39,7 @@ auto feature_traits<dynamic_rendering>::configure(vulkan_requirements &req) -> v
   VkPhysicalDeviceDynamicRenderingFeaturesKHR features_khr{};
   features_khr.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
   features_khr.dynamicRendering = VK_TRUE;
-  ::vkexec::detail::require_extension_feature(req, features_khr);
+  ::vkexec::detail::require_extension_feature(req, features_khr, ::vkexec::detail::capability_id::dynamic_rendering);
 }
 
 }// namespace vkexec::feat

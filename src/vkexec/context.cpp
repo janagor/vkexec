@@ -1,10 +1,12 @@
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/capability_id.hpp>
 #include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
 #include <vkexec/detail/vk_bootstrap_error.hpp>
 #include <vkexec/detail/worker_callbacks.hpp>
+#include <vkexec/device_capabilities.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -39,11 +41,10 @@ namespace vkexec {
 
 struct context::impl
 {
-  vulkan_requirements requirements{};
-  std::uint32_t api_version{ VK_API_VERSION_1_0 };
+  vulkan_requirements creation_requirements{};
+  device_capabilities capabilities{};
   device_procs procs{};
   detail::synchronization_backend synchronization{ detail::synchronization_backend::legacy };
-  bool legacy_timeline_submit_info_available{ false };
   vkb::Instance instance{};
   vkb::PhysicalDevice physical_device{};
   vkb::Device device{};
@@ -89,6 +90,26 @@ struct context::impl
 };
 
 namespace {
+
+  auto enable_capability(device_capabilities &caps, detail::capability_id capability) noexcept -> void
+  {
+    switch (capability) {
+    case detail::capability_id::synchronization2:
+      caps.synchronization2 = true;
+      break;
+    case detail::capability_id::timeline_semaphore:
+      caps.timeline_semaphore = true;
+      break;
+    case detail::capability_id::buffer_device_address:
+      caps.buffer_device_address = true;
+      break;
+    case detail::capability_id::dynamic_rendering:
+      caps.dynamic_rendering = true;
+      break;
+    case detail::capability_id::none:
+      break;
+    }
+  }
 
   // Raise the request to the library floor so selectors never ask for less than vkexec needs.
   auto resolve_api_version(vulkan_requirements const &requirements) -> std::uint32_t
@@ -199,7 +220,8 @@ namespace {
         VkPhysicalDeviceSynchronization2Features feature{};
         feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
         feature.synchronization2 = VK_TRUE;
-        requirements.optional_extension_features.push_back(detail::extension_feature_access::make(feature));
+        requirements.optional_extension_features.push_back(
+          detail::extension_feature_access::make(feature, detail::capability_id::synchronization2));
       }
       return;
     }
@@ -217,52 +239,42 @@ namespace {
       VkPhysicalDeviceSynchronization2FeaturesKHR feature{};
       feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
       feature.synchronization2 = VK_TRUE;
-      requirements.optional_extension_features.push_back(detail::extension_feature_access::make(feature));
+      requirements.optional_extension_features.push_back(
+        detail::extension_feature_access::make(feature, detail::capability_id::synchronization2));
     }
   }
 
   auto apply_optional_device_requests(vkb::PhysicalDevice &physical_device,
     vulkan_requirements const &requirements,
-    std::uint32_t api_version,
-    bool &legacy_timeline_submit_info_available) -> detail::synchronization_backend
+    device_capabilities &caps) -> void
   {
     bool khr_extension_enabled =
       contains_extension(requirements.device_extensions, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
-    legacy_timeline_submit_info_available =
-      api_version >= VK_API_VERSION_1_2
-      || contains_extension(requirements.device_extensions, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
     for (char const *extension : requirements.optional_device_extensions) {
       if (extension == nullptr) { continue; }
       if (contains_extension(requirements.device_extensions, extension)) { continue; }
       bool const enabled = physical_device.enable_extension_if_present(extension);
       if (std::strcmp(extension, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME) == 0) { khr_extension_enabled |= enabled; }
-      if (std::strcmp(extension, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME) == 0) {
-        legacy_timeline_submit_info_available |= enabled;
-      }
     }
-    bool feature_enabled =
-      std::ranges::any_of(requirements.required_extension_features, [](extension_feature const &feature) -> bool {
-        return detail::extension_feature_access::s_type(feature)
-               == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-      });
+    for (extension_feature const &feature : requirements.required_extension_features) {
+      enable_capability(caps, detail::extension_feature_access::capability(feature));
+    }
     for (extension_feature const &feature : requirements.optional_extension_features) {
       bool const already_required = std::ranges::any_of(
         requirements.required_extension_features, [&feature](extension_feature const &required) -> bool {
-          return detail::extension_feature_access::s_type(required)
-                 == detail::extension_feature_access::s_type(feature);
+          auto const capability = detail::extension_feature_access::capability(feature);
+          return capability != detail::capability_id::none
+                   ? detail::extension_feature_access::capability(required) == capability
+                   : detail::extension_feature_access::s_type(required)
+                       == detail::extension_feature_access::s_type(feature);
         });
       if (already_required) { continue; }
-      bool const synchronization2 = detail::extension_feature_access::s_type(feature)
-                                    == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-      if (synchronization2 && api_version < VK_API_VERSION_1_3 && !khr_extension_enabled) { continue; }
+      bool const synchronization2 =
+        detail::extension_feature_access::capability(feature) == detail::capability_id::synchronization2;
+      if (synchronization2 && caps.api_version < VK_API_VERSION_1_3 && !khr_extension_enabled) { continue; }
       bool const enabled = detail::extension_feature_access::enable_if_present(feature, physical_device);
-      if (synchronization2) { feature_enabled |= enabled; }
+      if (enabled) { enable_capability(caps, detail::extension_feature_access::capability(feature)); }
     }
-    bool const instance_dependency_enabled =
-      api_version >= VK_API_VERSION_1_1
-      || contains_extension(requirements.instance_extensions, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-    return detail::select_synchronization_backend(
-      api_version, khr_extension_enabled, feature_enabled, instance_dependency_enabled);
   }
 
   auto build_headless_instance(scheduler_options const &opts, std::uint32_t api_version) -> result<vkb::Instance>
@@ -292,8 +304,7 @@ namespace {
     std::uint32_t api_version,
     VkSurfaceKHR surface,
     bool want_present,
-    detail::synchronization_backend &synchronization,
-    bool &legacy_timeline_submit_info_available) -> result<vkb::PhysicalDevice>
+    device_capabilities &caps) -> result<vkb::PhysicalDevice>
   {
     vkb::PhysicalDeviceSelector selector{ instance };
     configure_device_selector(selector, requirements, api_version, want_present);
@@ -301,8 +312,7 @@ namespace {
     auto const selected = selector.select();
     if (!selected) { return fail(detail::make_error_from_vkb(selected, "vk-bootstrap PhysicalDeviceSelector")); }
     vkb::PhysicalDevice physical_device = detail::vkb_take(selected);
-    synchronization =
-      apply_optional_device_requests(physical_device, requirements, api_version, legacy_timeline_submit_info_available);
+    apply_optional_device_requests(physical_device, requirements, caps);
     return physical_device;
   }
 
@@ -354,8 +364,8 @@ auto context::present_queue_family() const noexcept -> std::uint32_t { return im
 auto context::owns_instance() const noexcept -> bool { return impl_->owns_instance; }
 auto context::owns_device() const noexcept -> bool { return impl_->owns_device; }
 auto context::presentation_enabled() const noexcept -> bool { return impl_->presentation_enabled; }
-auto context::requirements() const noexcept -> vulkan_requirements const & { return impl_->requirements; }
-auto context::api_version() const noexcept -> std::uint32_t { return impl_->api_version; }
+auto context::capabilities() const noexcept -> device_capabilities const & { return impl_->capabilities; }
+auto context::api_version() const noexcept -> std::uint32_t { return impl_->capabilities.api_version; }
 auto context::procs() const noexcept -> device_procs const & { return impl_->procs; }
 auto detail::synchronization_backend_for(context const &ctx) noexcept -> synchronization_backend
 { return ctx.impl_->synchronization; }
@@ -373,26 +383,22 @@ auto context::init_common_resources() -> status
 
 auto context::init_headless(scheduler_options const &opts) -> status
 {
-  impl_->requirements = opts.requirements;
-  impl_->api_version = resolve_api_version(impl_->requirements);
-  configure_optional_synchronization2(impl_->requirements, impl_->api_version);
+  impl_->creation_requirements = opts.requirements;
+  impl_->capabilities.api_version = resolve_api_version(impl_->creation_requirements);
+  configure_optional_synchronization2(impl_->creation_requirements, impl_->capabilities.api_version);
 
   scheduler_options effective_opts = opts;
-  effective_opts.requirements = impl_->requirements;
-  VKEXEC_TRY_ASSIGN(built_instance, build_headless_instance(effective_opts, impl_->api_version));
+  effective_opts.requirements = impl_->creation_requirements;
+  VKEXEC_TRY_ASSIGN(built_instance, build_headless_instance(effective_opts, api_version()));
   impl_->instance = built_instance;
   impl_->has_instance = true;
   impl_->owns_instance = true;
 
   VKEXEC_TRY_ASSIGN(selected_physical,
-    select_physical_device(impl_->instance,
-      impl_->requirements,
-      impl_->api_version,
-      VK_NULL_HANDLE,
-      false,
-      impl_->synchronization,
-      impl_->legacy_timeline_submit_info_available));
+    select_physical_device(
+      impl_->instance, impl_->creation_requirements, api_version(), VK_NULL_HANDLE, false, impl_->capabilities));
   impl_->physical_device = std::move(selected_physical);
+  impl_->synchronization = detail::select_synchronization_backend(impl_->capabilities);
 
 
   VKEXEC_TRY(build_device_into(impl_->physical_device, impl_->device));
@@ -411,13 +417,8 @@ auto context::init_adopted(context_adopt_info const &info) -> status
     return fail(errc::invalid_argument, "context::adopt requires a compute VkQueue");
   }
 
-  impl_->api_version = info.api_version;
-  impl_->synchronization = detail::select_synchronization_backend(info.api_version,
-    info.synchronization2_khr_extension_enabled,
-    info.synchronization2_enabled,
-    info.physical_device_properties2_enabled);
-  impl_->legacy_timeline_submit_info_available =
-    info.api_version >= VK_API_VERSION_1_2 || info.timeline_semaphore_khr_extension_enabled;
+  impl_->capabilities = info.capabilities;
+  impl_->synchronization = detail::select_synchronization_backend(impl_->capabilities);
   impl_->instance.instance = info.instance;
   impl_->physical_device.physical_device = info.physical_device;
   impl_->device.device = info.device;
@@ -460,12 +461,12 @@ context::context(factory_access /*access*/,
   : impl_(std::make_unique<impl>())
 {
   (void)tag;
-  impl_->requirements = opts.requirements;
-  impl_->api_version = resolve_api_version(impl_->requirements);
-  configure_optional_synchronization2(impl_->requirements, impl_->api_version);
+  impl_->creation_requirements = opts.requirements;
+  impl_->capabilities.api_version = resolve_api_version(impl_->creation_requirements);
+  configure_optional_synchronization2(impl_->creation_requirements, api_version());
   scheduler_options effective_opts = opts;
-  effective_opts.requirements = impl_->requirements;
-  auto built_instance = build_instance_with_extensions(effective_opts, impl_->api_version, instance_extensions);
+  effective_opts.requirements = impl_->creation_requirements;
+  auto built_instance = build_instance_with_extensions(effective_opts, api_version(), instance_extensions);
   if (!built_instance) { detail::contract_violation("context instance-only construction failed"); }
   impl_->instance = expected_take(built_instance);
   impl_->has_instance = true;
@@ -478,14 +479,10 @@ auto context::complete_for_surface(VkSurfaceKHR surface) -> status
   if (surface == VK_NULL_HANDLE) { return fail(errc::invalid_argument, "complete_for_surface requires a surface"); }
 
   VKEXEC_TRY_ASSIGN(selected_physical,
-    select_physical_device(impl_->instance,
-      impl_->requirements,
-      impl_->api_version,
-      surface,
-      true,
-      impl_->synchronization,
-      impl_->legacy_timeline_submit_info_available));
+    select_physical_device(
+      impl_->instance, impl_->creation_requirements, api_version(), surface, true, impl_->capabilities));
   impl_->physical_device = std::move(selected_physical);
+  impl_->synchronization = detail::select_synchronization_backend(impl_->capabilities);
 
 
   VKEXEC_TRY(build_device_into(impl_->physical_device, impl_->device));
@@ -826,7 +823,7 @@ auto context::submit(queue_submit const &info) const -> status
   return detail::submit(info,
     queue,
     impl_->synchronization,
-    impl_->legacy_timeline_submit_info_available,
+    impl_->capabilities.timeline_semaphore,
     impl_->procs,
     *impl_->queue_synchronization.state(queue));
 }

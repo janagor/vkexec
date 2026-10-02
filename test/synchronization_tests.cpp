@@ -3,6 +3,7 @@
 #include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/submission.hpp>
 #include <vkexec/detail/synchronization.hpp>
+#include <vkexec/device_capabilities.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/vulkan_requirements.hpp>
 #include <vkexec_features/feature.hpp>
@@ -85,20 +86,18 @@ TEST_CASE("NONE stages have legacy scope equivalents only with empty access", "[
   REQUIRE_FALSE(vkexec::detail::validate_scope(VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_SHADER_READ_BIT));
 }
 
-TEST_CASE("synchronization backend requires enabled feature and extension", "[vkexec][sync]")
+TEST_CASE("synchronization backend follows enabled capability", "[vkexec][sync]")
 {
   using vkexec::detail::select_synchronization_backend;
   using vkexec::detail::synchronization_backend;
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_3, false, true, false)
-          == synchronization_backend::synchronization2_core);
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_2, true, true, true)
-          == synchronization_backend::synchronization2_khr);
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_2, false, true, true) == synchronization_backend::legacy);
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_2, true, false, true) == synchronization_backend::legacy);
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_0, true, true, true)
-          == synchronization_backend::synchronization2_khr);
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_0, true, true, false) == synchronization_backend::legacy);
-  REQUIRE(select_synchronization_backend(VK_API_VERSION_1_0, false, true, true) == synchronization_backend::legacy);
+  vkexec::device_capabilities caps{};
+  REQUIRE(select_synchronization_backend(caps) == synchronization_backend::legacy);
+  caps.synchronization2 = true;
+  REQUIRE(select_synchronization_backend(caps) == synchronization_backend::synchronization2_khr);
+  caps.api_version = VK_API_VERSION_1_3;
+  REQUIRE(select_synchronization_backend(caps) == synchronization_backend::synchronization2_core);
+  caps.synchronization2 = false;
+  REQUIRE(select_synchronization_backend(caps) == synchronization_backend::legacy);
 }
 
 TEST_CASE("Vulkan 1.0 synchronization2 requirement includes instance dependency", "[vkexec][sync]")

@@ -1,8 +1,8 @@
+#include <vkexec/detail/capability_id.hpp>
 #include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_features/synchronization2.hpp>
 
 #include <vkexec_features/common.hpp>
-#include <vkexec_features/query.hpp>
 
 #include <vkexec/context.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -12,7 +12,7 @@
 namespace vkexec::feat {
 
 auto feature_traits<synchronization2>::available(context const &ctx) -> bool
-{ return detail::physical_device_synchronization2(ctx.instance(), ctx.physical_device(), ctx.api_version()); }
+{ return ctx.capabilities().synchronization2; }
 
 auto feature_traits<synchronization2>::configure(vulkan_requirements &req) -> void
 {
@@ -20,7 +20,7 @@ auto feature_traits<synchronization2>::configure(vulkan_requirements &req) -> vo
     VkPhysicalDeviceSynchronization2Features features{};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
     features.synchronization2 = VK_TRUE;
-    ::vkexec::detail::require_extension_feature(req, features);
+    ::vkexec::detail::require_extension_feature(req, features, ::vkexec::detail::capability_id::synchronization2);
     return;
   }
 
@@ -31,7 +31,7 @@ auto feature_traits<synchronization2>::configure(vulkan_requirements &req) -> vo
   VkPhysicalDeviceSynchronization2FeaturesKHR features{};
   features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
   features.synchronization2 = VK_TRUE;
-  ::vkexec::detail::require_extension_feature(req, features);
+  ::vkexec::detail::require_extension_feature(req, features, ::vkexec::detail::capability_id::synchronization2);
 }
 
 }// namespace vkexec::feat

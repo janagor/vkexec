@@ -6,6 +6,7 @@
 
 #include <vkexec/detail/object_synchronization.hpp>
 #include <vkexec/detail/worker_callbacks.hpp>
+#include <vkexec/device_capabilities.hpp>
 #include <vkexec/device_procs.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/queue_submit.hpp>
@@ -100,17 +101,10 @@ struct context_adopt_info
   VkInstance instance{ VK_NULL_HANDLE };
   VkPhysicalDevice physical_device{ VK_NULL_HANDLE };
   VkDevice device{ VK_NULL_HANDLE };
-  //! API version negotiated by the embedder.
-  std::uint32_t api_version{ VK_API_VERSION_1_0 };
-  //! Feature bit enabled when the device was created.
-  bool synchronization2_enabled{ false };
-  //! Required with the feature bit on devices using the KHR command.
-  bool synchronization2_khr_extension_enabled{ false };
-  //! Required for the KHR path on Vulkan 1.0 instances.
-  bool physical_device_properties2_enabled{ false };
-  //! True if VK_KHR_timeline_semaphore was enabled when creating an adopted
-  //! Vulkan 1.0/1.1 VkDevice.
-  bool timeline_semaphore_khr_extension_enabled{ false };
+  //! Enabled logical-device features, not physical-device support. For promoted
+  //! features on older API versions, the embedder must enable the KHR feature,
+  //! extension, and applicable instance dependencies.
+  device_capabilities capabilities{};
 
   VkQueue compute_queue{ VK_NULL_HANDLE };
   std::uint32_t compute_queue_family{ 0 };
@@ -240,8 +234,8 @@ public:
   [[nodiscard]] auto owns_device() const noexcept -> bool;
   //! True when graphics/present queues were configured for swapchain use.
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool;
-  //! Effective Vulkan requirements after merging library baselines.
-  [[nodiscard]] auto requirements() const noexcept -> vulkan_requirements const &;
+  //! Features enabled and usable on this logical device.
+  [[nodiscard]] auto capabilities() const noexcept -> device_capabilities const &;
   //! Negotiated Vulkan API version for this device.
   [[nodiscard]] auto api_version() const noexcept -> std::uint32_t;
   //! Core device function pointers loaded via `vkGetDeviceProcAddr`.
