@@ -25,9 +25,9 @@
 #endif
 
 #if VKEXEC_HAS_EXCEPTIONS
-#include <vkexec/detail/normalize_errors.hpp>
 #include <exception>
 #include <stdexcept>
+#include <vkexec/detail/normalize_errors.hpp>
 #endif
 
 #ifdef VKEXEC_EXPECT_NO_EXCEPTIONS
