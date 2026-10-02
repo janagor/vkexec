@@ -9,7 +9,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <iterator>
 #include <memory>
 #include <mutex>

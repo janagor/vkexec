@@ -14,7 +14,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <span>
 #include <utility>
 #include <vector>

@@ -3,7 +3,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/config.hpp>
-#include <vkexec/detail/normalize_errors.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
@@ -15,16 +14,20 @@
 #include <concepts>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <system_error>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
 #if !VKEXEC_HAS_EXCEPTIONS && defined(__unix__)
-#include <exception>
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
+
+#if VKEXEC_HAS_EXCEPTIONS
+#include <vkexec/detail/normalize_errors.hpp>
+#include <exception>
+#include <stdexcept>
 #endif
 
 #ifdef VKEXEC_EXPECT_NO_EXCEPTIONS
@@ -36,6 +39,9 @@ namespace {
 constexpr auto k_expected_value = 42;
 constexpr auto k_sync_wait_pair_integer = 1;
 constexpr auto k_sync_wait_pair_floating_point = 2.0;
+#if !VKEXEC_HAS_EXCEPTIONS && defined(__unix__)
+constexpr auto k_terminate_exit_code = 86;
+#endif
 
 struct status_factory
 {
@@ -256,15 +262,17 @@ TEST_CASE("sync_wait terminates on sender error without exceptions", "[vkexec][s
   auto const child = fork();
   REQUIRE(child >= 0);
   if (child == 0) {
-    std::set_terminate([]() -> void { _exit(86); });
+    std::set_terminate([]() -> void { _exit(k_terminate_exit_code); });
     auto sndr = vkexec::make_sender([]() -> vkexec::result<int> { return vkexec::fail(vkexec::errc::unsupported); });
     (void)vkexec::sync_wait(sndr);
     _exit(0);
   }
   int status = 0;
   REQUIRE(waitpid(child, &status, 0) == child);
+  // NOLINTNEXTLINE(misc-include-cleaner) -- WIFEXITED is provided by sys/wait.h.
   REQUIRE(WIFEXITED(status));
-  REQUIRE(WEXITSTATUS(status) == 86);
+  // NOLINTNEXTLINE(misc-include-cleaner) -- WEXITSTATUS is provided by sys/wait.h.
+  REQUIRE(WEXITSTATUS(status) == k_terminate_exit_code);
 }
 #endif
 

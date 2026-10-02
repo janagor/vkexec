@@ -16,7 +16,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <span>
 #include <utility>
 

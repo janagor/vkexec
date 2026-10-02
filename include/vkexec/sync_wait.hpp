@@ -13,7 +13,9 @@
 #include <stdexec/execution.hpp>
 
 #include <cstdlib>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <optional>
 #include <system_error>
 #include <tuple>

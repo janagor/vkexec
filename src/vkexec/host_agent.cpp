@@ -4,7 +4,9 @@
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <latch>
 #include <mutex>
 #include <thread>

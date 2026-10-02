@@ -20,7 +20,9 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <memory>
 #include <optional>
 #include <span>

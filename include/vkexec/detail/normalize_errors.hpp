@@ -9,7 +9,9 @@
 #include <stdexec/execution.hpp>
 
 #include <concepts>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#endif
 #include <tuple>
 #include <type_traits>
 #include <utility>

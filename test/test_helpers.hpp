@@ -9,9 +9,8 @@
 
 #include <memory>
 #if VKEXEC_HAS_EXCEPTIONS
-#include <stdexcept>
-#else
 #include <exception>
+#include <stdexcept>
 #endif
 #include <string>
 #include <tuple>

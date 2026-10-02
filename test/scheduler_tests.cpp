@@ -24,11 +24,13 @@
 #include <atomic>
 #include <chrono>
 #include <concepts>
+#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
+#include <stdexcept>
+#endif
 #include <future>
 #include <memory>
 #include <semaphore>
-#include <stdexcept>
 #include <thread>
 #include <tuple>
 #include <type_traits>
@@ -44,11 +46,15 @@ struct empty_receiver_env
 
 auto signal_promise(std::promise<void> &promise) noexcept -> void
 {
+#if VKEXEC_HAS_EXCEPTIONS
   try {
     promise.set_value();
   } catch (std::future_error const &err) {
     (void)err;// already satisfied
   }
+#else
+  promise.set_value();
+#endif
 }
 
 struct completion_probe_receiver
@@ -63,7 +69,9 @@ struct completion_probe_receiver
 
   auto set_error(vkexec::error const & /*err*/) const && noexcept -> void { signal_done(); }
 
+#if VKEXEC_HAS_EXCEPTIONS
   auto set_error(std::exception_ptr const & /*exception*/) const && noexcept -> void { signal_done(); }
+#endif
 
   auto set_stopped() const && noexcept -> void { signal_done(); }
 
