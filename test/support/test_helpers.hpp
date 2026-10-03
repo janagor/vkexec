@@ -22,13 +22,17 @@ namespace vkexec::test {
 [[noreturn]] inline auto skip_if_no_vulkan(error const &err) -> void
 {
   SKIP(std::string("Vulkan unavailable: ") + err.message());
+#ifndef _MSC_VER
   std::terminate();
+#endif
 }
 
 [[noreturn]] inline auto skip_if_unavailable(error const &err) -> void
 {
   SKIP(std::string("Unavailable: ") + err.message());
+#ifndef _MSC_VER
   std::terminate();
+#endif
 }
 
 template<class Sender> [[nodiscard]] auto sync_wait_value(Sender &&sender)
