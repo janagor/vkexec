@@ -176,7 +176,8 @@ namespace factory {
         info.type = img.array_layers() == 1 ? VK_IMAGE_VIEW_TYPE_1D : VK_IMAGE_VIEW_TYPE_1D_ARRAY;
       } else if (img.type() == VK_IMAGE_TYPE_3D) {
         info.type = VK_IMAGE_VIEW_TYPE_3D;
-      } else if ((img.flags() & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) != 0 && img.array_layers() == k_cube_layers) {
+      } else if ((img.flags() & static_cast<VkImageCreateFlags>(VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT)) != 0
+                 && img.array_layers() == k_cube_layers) {
         info.type = VK_IMAGE_VIEW_TYPE_CUBE;
       } else {
         info.type = img.array_layers() == 1 ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY;
