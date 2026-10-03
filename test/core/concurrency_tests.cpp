@@ -7,6 +7,7 @@
 #include <vkexec/submit_scope.hpp>
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <barrier>
@@ -68,7 +69,7 @@ TEST_CASE("concurrent submit scopes reuse command pools", "[vkexec][concurrency]
     }
   };
   std::array<std::thread, k_thread_count> threads;
-  for (auto &thread : threads) { thread = std::thread(record); }
+  std::ranges::for_each(threads, [&record](std::thread &thread) -> void { thread = std::thread(record); });
   for (auto &thread : threads) { thread.join(); }
   REQUIRE(completed.load() == k_thread_count * stress_iterations());
 }
@@ -91,7 +92,7 @@ TEST_CASE("queue guards and host enqueue withstand contention", "[vkexec][concur
     }
   };
   std::array<std::thread, k_thread_count> threads;
-  for (auto &thread : threads) { thread = std::thread(work); }
+  std::ranges::for_each(threads, [&work](std::thread &thread) -> void { thread = std::thread(work); });
   for (auto &thread : threads) { thread.join(); }
   REQUIRE(enqueued.load() == k_thread_count * stress_iterations());
   // The context destructor drains accepted host work.
@@ -120,7 +121,7 @@ TEST_CASE("direct command buffers submit concurrently", "[vkexec][concurrency][g
     }
   };
   std::array<std::thread, k_thread_count> threads;
-  for (auto &thread : threads) { thread = std::thread(submit); }
+  std::ranges::for_each(threads, [&submit](std::thread &thread) -> void { thread = std::thread(submit); });
   for (auto &thread : threads) { thread.join(); }
   REQUIRE(completed.load() == k_thread_count * stress_iterations());
 }
