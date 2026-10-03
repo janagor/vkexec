@@ -74,7 +74,8 @@ set(configure_args
     "-DVKEXEC_FORBIDDEN_SOURCE=${VKEXEC_SOURCE_DIR}"
     "-DVKEXEC_FORBIDDEN_BUILD=${VKEXEC_BINARY_DIR}"
     "-DVKEXEC_EXPECT_VMA=${VKEXEC_EXPECT_VMA}"
-    "-DVKEXEC_EXPECT_TOOLS=${VKEXEC_EXPECT_TOOLS}")
+    "-DVKEXEC_EXPECT_TOOLS=${VKEXEC_EXPECT_TOOLS}"
+    "-DVKEXEC_EXPECT_SHARED=${VKEXEC_EXPECT_SHARED}")
 if(VKEXEC_GENERATOR_PLATFORM)
   list(
     APPEND
@@ -127,3 +128,8 @@ endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" ${configure_args} COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND "${CMAKE_COMMAND}" --build "${consumer_build}" --config "${VKEXEC_CONFIG}" --parallel 10
                         COMMAND_ERROR_IS_FATAL ANY)
+if(WIN32)
+  set(ENV{PATH} "${relocated_prefix}/bin;$ENV{PATH}")
+endif()
+execute_process(COMMAND "${CMAKE_CTEST_COMMAND}" --test-dir "${consumer_build}" -C "${VKEXEC_CONFIG}"
+                        --output-on-failure COMMAND_ERROR_IS_FATAL ANY)

@@ -3,6 +3,21 @@ cmake_minimum_required(VERSION 3.29)
 project(vkexec_install_consumer LANGUAGES CXX)
 
 find_package(vkexec CONFIG REQUIRED)
+get_target_property(vkexec_type vkexec::vkexec TYPE)
+if(VKEXEC_EXPECT_SHARED)
+  if(NOT
+     vkexec_type
+     STREQUAL
+     "SHARED_LIBRARY")
+    message(FATAL_ERROR "Expected installed vkexec::vkexec to be SHARED_LIBRARY, got ${vkexec_type}")
+  endif()
+elseif(
+  NOT
+  vkexec_type
+  STREQUAL
+  "STATIC_LIBRARY")
+  message(FATAL_ERROR "Expected installed vkexec::vkexec to be STATIC_LIBRARY, got ${vkexec_type}")
+endif()
 cmake_path(
   IS_PREFIX
   VKEXEC_PREFIX
@@ -118,3 +133,9 @@ endif()
 add_executable(consume_all main.cpp)
 set_target_properties(consume_all PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 target_link_libraries(consume_all PRIVATE ${vkexec_required_targets})
+
+enable_testing()
+add_executable(vkexec_install_smoke runtime_smoke.cpp)
+set_target_properties(vkexec_install_smoke PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+target_link_libraries(vkexec_install_smoke PRIVATE vkexec::vkexec)
+add_test(NAME vkexec.install_consumer.runtime COMMAND vkexec_install_smoke)

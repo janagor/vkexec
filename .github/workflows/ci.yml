@@ -751,9 +751,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux-full, os: ubuntu-latest, compiler: gcc-12, vma: 'ON', tools: 'ON' }
-          - { name: linux-minimal, os: ubuntu-latest, compiler: gcc-12, vma: 'OFF', tools: 'OFF' }
-          - { name: windows-full, os: windows-2022, compiler: msvc-14.43, vma: 'ON', tools: 'ON' }
+          - { name: linux-full-static, os: ubuntu-latest, compiler: gcc-12, shared: 'OFF', vma: 'ON', tools: 'ON' }
+          - { name: linux-minimal-static, os: ubuntu-latest, compiler: gcc-12, shared: 'OFF', vma: 'OFF', tools: 'OFF' }
+          - { name: linux-full-shared, os: ubuntu-latest, compiler: gcc-12, shared: 'ON', vma: 'ON', tools: 'ON' }
+          - { name: windows-full-static, os: windows-2022, compiler: msvc-14.43, shared: 'OFF', vma: 'ON', tools: 'ON' }
+          - { name: windows-full-shared, os: windows-2022, compiler: msvc-14.43, shared: 'ON', vma: 'ON', tools: 'ON' }
 
     steps:
       - uses: actions/checkout@v7
@@ -785,7 +787,7 @@ jobs:
           cache: true
 
       - name: Configure package
-        run: cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -Dvkexec_ENABLE_INSTALL_CONSUMER_TEST=ON -Dvkexec_ENABLE_IPO=OFF -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_VMA=${{ matrix.vma }} -Dvkexec_BUILD_TOOLS=${{ matrix.tools }} -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
+        run: cmake -S . -B build-package -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -Dvkexec_ENABLE_INSTALL_CONSUMER_TEST=ON -Dvkexec_ENABLE_IPO=OFF -Dvkexec_BUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=${{ matrix.shared }} -Dvkexec_BUILD_VMA=${{ matrix.vma }} -Dvkexec_BUILD_TOOLS=${{ matrix.tools }} -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
 
       - name: Build package tree
         run: cmake --build build-package --config Release --parallel
