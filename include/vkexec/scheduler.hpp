@@ -195,8 +195,7 @@ namespace detail {
   struct scheduler_access
   {
     [[nodiscard]] static auto state(scheduler const &sched) noexcept -> context_handle { return sched.state_; }
-    [[nodiscard]] static auto make(context_handle state) noexcept -> scheduler
-    { return scheduler{ std::move(state) }; }
+    [[nodiscard]] static auto make(context_handle state) noexcept -> scheduler { return scheduler{ std::move(state) }; }
   };
 }// namespace detail
 

@@ -155,7 +155,12 @@ macro(vkexec_local_options)
   if(NOT VKEXEC_ENABLE_EXCEPTIONS)
     target_compile_definitions(vkexec_exception_options INTERFACE VKEXEC_EXPECT_NO_EXCEPTIONS=1)
     if(MSVC)
-      target_compile_options(vkexec_exception_options INTERFACE /EHs-c- /D_HAS_EXCEPTIONS=0)
+      string(
+        REPLACE "/EHsc"
+                "/EHs-c-"
+                CMAKE_CXX_FLAGS
+                "${CMAKE_CXX_FLAGS}")
+      target_compile_definitions(vkexec_exception_options INTERFACE _HAS_EXCEPTIONS=0)
     else()
       target_compile_options(vkexec_exception_options INTERFACE -fno-exceptions)
     endif()

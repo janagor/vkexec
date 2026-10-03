@@ -110,8 +110,8 @@ template<vkexec_predecessor Pred, static_pass_step... Steps>
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(chain.pred));
   auto state = scheduler_access::state(sched);
-  return ex::let_value(
-    std::move(chain.pred), materialize_pass_graph_fn<Steps...>{ .state = std::move(state), .steps = std::move(chain.steps) });
+  return ex::let_value(std::move(chain.pred),
+    materialize_pass_graph_fn<Steps...>{ .state = std::move(state), .steps = std::move(chain.steps) });
 }
 
 template<static_pass_step... Steps>

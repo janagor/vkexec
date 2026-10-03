@@ -77,8 +77,7 @@ namespace detail {
   auto start_draw_async(context_handle const &state,
     owned::presenter *win,
     WindowOp &&record_and_end,
-    Receiver &receiver) noexcept
-    -> void
+    Receiver &receiver) noexcept -> void
   {
 #if VKEXEC_HAS_EXCEPTIONS
     try {
@@ -230,8 +229,7 @@ struct draw_sender
   owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
@@ -300,8 +298,7 @@ struct draw_async_sender
   owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   explicit draw_async_sender(draw_sender snd)
     : state(std::move(snd.state)), win(snd.win), pipeline(snd.pipeline), vertex_count(snd.vertex_count)
@@ -374,8 +371,7 @@ struct draw_layers_sender
   owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
@@ -472,10 +468,10 @@ struct draw_layers_async_sender
   owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
-  explicit draw_layers_async_sender(draw_layers_sender snd) : state(std::move(snd.state)), win(snd.win), layers(std::move(snd.layers))
+  explicit draw_layers_async_sender(draw_layers_sender snd)
+    : state(std::move(snd.state)), win(snd.win), layers(std::move(snd.layers))
   {}
 
   template<class Receiver> struct op_state
@@ -571,8 +567,7 @@ struct draw_mesh_sender
   owned::graphics_pipeline *pipeline{ nullptr };
   mesh_draw const *drawn{ nullptr };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
@@ -637,8 +632,7 @@ struct draw_mesh_async_sender
   owned::graphics_pipeline *pipeline{ nullptr };
   mesh_draw const *drawn{ nullptr };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   explicit draw_mesh_async_sender(draw_mesh_sender snd)
     : state(std::move(snd.state)), win(snd.win), pipeline(snd.pipeline), drawn(snd.drawn)
@@ -733,8 +727,7 @@ struct draw_bind_sender
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
@@ -806,8 +799,7 @@ struct draw_bind_async_sender
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   explicit draw_bind_async_sender(draw_bind_sender snd)
     : state(std::move(snd.state)), win(snd.win), resources(snd.resources), set(snd.set), vertex_count(snd.vertex_count)
@@ -885,8 +877,7 @@ struct draw_mesh_bind_sender
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
@@ -958,8 +949,7 @@ struct draw_mesh_bind_async_sender
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
-  { return scheduler_env{ .state = state }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   explicit draw_mesh_bind_async_sender(draw_mesh_bind_sender snd)
     : state(std::move(snd.state)), win(snd.win), resources(snd.resources), set(snd.set), drawn(snd.drawn)

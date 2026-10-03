@@ -407,24 +407,22 @@ namespace {
   {
     (void)runtime_reaper();
     return { new detail::context_state, [](detail::context_state *state) noexcept -> void {
-      std::unique_ptr<detail::context_state> owned{ state };
-      bool const on_worker = (owned->host_agent && owned->host_agent->on_agent_thread())
-                             || (owned->completion_waiter && owned->completion_waiter->on_agent_thread());
-      if (on_worker) {
-        runtime_reaper().retire(std::move(owned));
-      } else {
-        auto done = owned->retirement_done;
-        owned.reset();
-        done->set_value();
-      }
-    } };
+              std::unique_ptr<detail::context_state> owned{ state };
+              bool const on_worker = (owned->host_agent && owned->host_agent->on_agent_thread())
+                                     || (owned->completion_waiter && owned->completion_waiter->on_agent_thread());
+              if (on_worker) {
+                runtime_reaper().retire(std::move(owned));
+              } else {
+                auto done = owned->retirement_done;
+                owned.reset();
+                done->set_value();
+              }
+            } };
   }
 
 }// namespace
 
-context::context(factory_access /*access*/, [[maybe_unused]] uninitialized_tag tag)
-  : impl_(make_context_state())
-{}
+context::context(factory_access /*access*/, [[maybe_unused]] uninitialized_tag tag) : impl_(make_context_state()) {}
 
 auto detail::make_context_factory::operator()() const -> result<std::unique_ptr<::vkexec::context>>
 {

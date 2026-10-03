@@ -330,8 +330,8 @@ TEST_CASE("final runtime release on completion agent joins safely", "[vkexec][sc
   auto enqueued = ctx->enqueue_fence_wait(VK_NULL_HANDLE,
     fence,
     source.get_token(),
-    [state = std::move(retained), &completed](std::optional<vkexec::error> const & /*failure*/, bool /*stopped*/) noexcept
-      -> void {
+    [state = std::move(retained), &completed](
+      std::optional<vkexec::error> const & /*failure*/, bool /*stopped*/) noexcept -> void {
       (void)state;
       signal_promise(completed);
     });
@@ -344,8 +344,8 @@ TEST_CASE("final runtime release on completion agent joins safely", "[vkexec][sc
 TEST_CASE("static pass graph runs after context destruction", "[vkexec][scheduler][pass][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::make_pass_adaptor(make_empty_pass_step([]() noexcept -> void {}));
+  auto graph =
+    ex::schedule(ctx->get_scheduler()) | vkexec::make_pass_adaptor(make_empty_pass_step([]() noexcept -> void {}));
   ctx.reset();
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(outcome));

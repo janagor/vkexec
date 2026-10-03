@@ -44,8 +44,7 @@ public:
   // Drains outstanding waits and joins the agent thread. Safe to call more than once.
   auto shutdown() -> void;
 
-  [[nodiscard]] auto on_agent_thread() const noexcept -> bool
-  { return std::this_thread::get_id() == thread_.get_id(); }
+  [[nodiscard]] auto on_agent_thread() const noexcept -> bool { return std::this_thread::get_id() == thread_.get_id(); }
 
 private:
   struct job

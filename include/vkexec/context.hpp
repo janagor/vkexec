@@ -67,7 +67,9 @@ class context;
 namespace detail {
   struct context_state;
   using context_handle = std::shared_ptr<context_state>;
-  struct runtime_facade_tag {};
+  struct runtime_facade_tag
+  {
+  };
   struct context_access;
   [[nodiscard]] auto enqueue_host(context_handle const &state, host_task_fn task) -> status;
   [[nodiscard]] auto retirement_future(context_handle const &state) -> std::shared_future<void>;
@@ -368,8 +370,7 @@ public:
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:
-  explicit context(detail::context_handle state, detail::runtime_facade_tag /*tag*/) noexcept
-    : impl_(std::move(state))
+  explicit context(detail::context_handle state, detail::runtime_facade_tag /*tag*/) noexcept : impl_(std::move(state))
   {}
   friend class owned::presenter;
   friend struct detail::submit_scope;
