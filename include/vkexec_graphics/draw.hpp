@@ -54,22 +54,22 @@ namespace detail {
   template<class Receiver, class Operation>
   auto start_draw_sync(context_handle const &state, Receiver &receiver, Operation &&operation) noexcept -> void
   {
-    if (receiver_stop_requested(receiver)) {
-      ex::set_stopped(std::move(receiver));
-      return;
-    }
-    if (!state) {
-      ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
-      return;
-    }
 #if VKEXEC_HAS_EXCEPTIONS
     try {
+#endif
+      if (receiver_stop_requested(receiver)) {
+        ex::set_stopped(std::move(receiver));
+        return;
+      }
+      if (!state) {
+        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
+        return;
+      }
       std::forward<Operation>(operation)();
+#if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
       ex::set_error(std::move(receiver), unexpected_exception_error());
     }
-#else
-    std::forward<Operation>(operation)();
 #endif
   }
 
