@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <memory>
 #include <string_view>
 #include <system_error>
 #include <thread>
@@ -26,15 +27,24 @@ constexpr int k_default_iterations = 8;
 
 [[nodiscard]] auto stress_iterations() -> int
 {
+#ifdef _MSC_VER
+  char *value = nullptr;
+  std::size_t size = 0;
+  if (_dupenv_s(&value, &size, "VKEXEC_CONCURRENCY_ITERATIONS") != 0) { return k_default_iterations; }
+  std::unique_ptr<char, decltype(&std::free)> owned_value{ value, &std::free };
+  if (!owned_value) { return k_default_iterations; }
+  std::string_view const input{ owned_value.get() };
+#else
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  if (auto const *value = std::getenv("VKEXEC_CONCURRENCY_ITERATIONS")) {
-    std::string_view const input{ value };
-    int parsed = 0;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    auto const result = std::from_chars(input.data(), input.data() + input.size(), parsed);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (result.ec == std::errc{} && result.ptr == input.data() + input.size() && parsed > 0) { return parsed; }
-  }
+  auto const *value = std::getenv("VKEXEC_CONCURRENCY_ITERATIONS");
+  if (value == nullptr) { return k_default_iterations; }
+  std::string_view const input{ value };
+#endif
+  int parsed = 0;
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  auto const result = std::from_chars(input.data(), input.data() + input.size(), parsed);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  if (result.ec == std::errc{} && result.ptr == input.data() + input.size() && parsed > 0) { return parsed; }
   return k_default_iterations;
 }
 
