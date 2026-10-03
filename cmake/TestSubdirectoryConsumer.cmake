@@ -36,7 +36,7 @@ endfunction()
 
 set(configure_args
     -S
-    "${VKEXEC_SOURCE_DIR}/test/subdirectory_consumer"
+    "${VKEXEC_SOURCE_DIR}/test/fixtures/subdirectory_consumer"
     -B
     "${build}"
     -G

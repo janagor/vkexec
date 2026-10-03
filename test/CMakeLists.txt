@@ -1,29 +1,7 @@
-cmake_minimum_required(VERSION 3.15...3.23)
-
-project(
-  CmakeConfigPackageTests
-  VERSION ${PROJECT_VERSION}
-  LANGUAGES CXX)
-
 # Workaround clang>=22 flagging __COUNTER__ as c2y-extension
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 22)
   add_definitions(-DCATCH_CONFIG_NO_COUNTER)
 endif()
-
-# ---- Test as standalone project the exported config package ----
-
-if(PROJECT_IS_TOP_LEVEL OR TEST_INSTALLED_VERSION)
-  enable_testing()
-
-  find_package(vkexec CONFIG REQUIRED) # for vkexec, project_options, ...
-
-  if(NOT TARGET vkexec::vkexec)
-    message(FATAL_ERROR "Required vkexec package target not found!")
-    return() # be strictly paranoid for Template Janitor github action! CK
-  endif()
-endif()
-
-# ---- Dependencies ----
 
 include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
 
@@ -53,6 +31,7 @@ function(vkexec_add_test_executable name module)
     "SOURCES;LIBRARIES"
     ${ARGN})
   add_executable(${name} ${ARG_SOURCES})
+  set_target_properties(${name} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
   target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/support")
   target_link_libraries(
     ${name}
@@ -258,7 +237,8 @@ function(vkexec_add_header_checks name library)
   target_link_libraries(${name} PRIVATE ${library} vkexec_exception_options)
   set_target_properties(
     ${name}
-    PROPERTIES UNITY_BUILD OFF
+    PROPERTIES CXX_SCAN_FOR_MODULES OFF
+               UNITY_BUILD OFF
                DISABLE_PRECOMPILE_HEADERS ON
                CXX_CLANG_TIDY ""
                CXX_CPPCHECK "")
@@ -282,6 +262,7 @@ endif()
 
 # Only this implementation test may include the private vk-bootstrap adapter.
 add_executable(vk_bootstrap_feature_tests vk_bootstrap_feature_tests.cpp)
+set_target_properties(vk_bootstrap_feature_tests PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 target_link_libraries(
   vk_bootstrap_feature_tests
   PRIVATE vkexec_exception_options

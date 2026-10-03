@@ -101,6 +101,7 @@ foreach(
   particles
   layers
   mesh)
+  set_target_properties(${example} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
   target_link_libraries(${example} PRIVATE vkexec::vma vkexec_exception_options)
 endforeach()
 

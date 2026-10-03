@@ -50,7 +50,7 @@ foreach(target IN ITEMS parent_vulkan_loader parent_vulkan_headers)
   endforeach()
 endforeach()
 
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../.." vkexec)
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../.." vkexec)
 
 foreach(target IN ITEMS parent_vulkan_loader parent_vulkan_headers)
   foreach(property IN ITEMS INTERFACE_INCLUDE_DIRECTORIES INTERFACE_COMPILE_DEFINITIONS INTERFACE_LINK_LIBRARIES)
@@ -97,6 +97,7 @@ set_target_properties(vkexec_subdirectory_consumer PROPERTIES CXX_SCAN_FOR_MODUL
 target_link_libraries(vkexec_subdirectory_consumer PRIVATE vkexec::vkexec)
 
 add_executable(vkexec_unrelated unrelated.cpp)
+set_target_properties(vkexec_unrelated PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 get_target_property(unrelated_standard vkexec_unrelated CXX_STANDARD)
 if(NOT
    unrelated_standard

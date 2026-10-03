@@ -59,7 +59,7 @@ add_executable(app main.cpp)
 target_link_libraries(app PRIVATE vkexec::vkexec)
 ```
 
-Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/vkexec-prefix`. Fetched dependencies are installed alongside vkexec when their upstream projects provide install rules. Dependencies supplied externally remain external and must be discoverable by the consumer. The platform Vulkan SDK or loader development files must also be available. The source-tree and installed package expose the same `vkexec::*` target names listed in the README. The checked-in [`test/install_consumer/CMakeLists.txt`](https://github.com/janagor/vkexec/blob/main/test/install_consumer/CMakeLists.txt) is the consumer fixture; `vkexec.install_consumer` installs the built project, relocates its prefix, then configures and links independent consumers for each installed module.
+Configure the consumer with `-DCMAKE_PREFIX_PATH=/path/to/vkexec-prefix`. Fetched dependencies are installed alongside vkexec when their upstream projects provide install rules. Dependencies supplied externally remain external and must be discoverable by the consumer. The platform Vulkan SDK or loader development files must also be available. The source-tree and installed package expose the same `vkexec::*` target names listed in the README. The checked-in [`test/fixtures/install_consumer/CMakeLists.txt`](https://github.com/janagor/vkexec/blob/main/test/fixtures/install_consumer/CMakeLists.txt) is the consumer fixture; `vkexec.install_consumer` installs the built project, relocates its prefix, then configures and links independent consumers for each installed module.
 
 ## Consume the source tree
 
@@ -70,6 +70,6 @@ add_subdirectory(vkexec)
 target_link_libraries(app PRIVATE vkexec::vkexec)
 ```
 
-The [`test/subdirectory_consumer/CMakeLists.txt`](https://github.com/janagor/vkexec/blob/main/test/subdirectory_consumer/CMakeLists.txt) fixture checks this path under parent standard levels 17 and 23; vkexec still exports its own C++20 requirement without changing the parent's global standard. `vkexec.subdirectory_consumer.cxx17` and `.cxx23` run those checks in CTest.
+The [`test/fixtures/subdirectory_consumer/CMakeLists.txt`](https://github.com/janagor/vkexec/blob/main/test/fixtures/subdirectory_consumer/CMakeLists.txt) fixture checks this path under parent standard levels 17 and 23; vkexec still exports its own C++20 requirement without changing the parent's global standard. `vkexec.subdirectory_consumer.cxx17` and `.cxx23` run those checks in CTest.
 
 If a parent project uses CMake `FetchContent`, declare a pinned vkexec revision and call `FetchContent_MakeAvailable(vkexec)` before linking `vkexec::vkexec`. That produces the same subdirectory integration as above. Set vkexec options before `FetchContent_MakeAvailable`; the first configure also fetches vkexec's dependencies from `Dependencies.cmake`.
