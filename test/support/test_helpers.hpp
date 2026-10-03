@@ -7,9 +7,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <exception>
 #include <memory>
 #if VKEXEC_HAS_EXCEPTIONS
-#include <exception>
 #include <stdexcept>
 #endif
 #include <string>
@@ -19,9 +19,17 @@
 
 namespace vkexec::test {
 
-inline auto skip_if_no_vulkan(error const &err) -> void { SKIP(std::string("Vulkan unavailable: ") + err.message()); }
+[[noreturn]] inline auto skip_if_no_vulkan(error const &err) -> void
+{
+  SKIP(std::string("Vulkan unavailable: ") + err.message());
+  std::terminate();
+}
 
-inline auto skip_if_unavailable(error const &err) -> void { SKIP(std::string("Unavailable: ") + err.message()); }
+[[noreturn]] inline auto skip_if_unavailable(error const &err) -> void
+{
+  SKIP(std::string("Unavailable: ") + err.message());
+  std::terminate();
+}
 
 template<class Sender> [[nodiscard]] auto sync_wait_value(Sender &&sender)
 {

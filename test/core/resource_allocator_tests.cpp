@@ -5,7 +5,6 @@
 #include <vkexec/sender.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec/tensor.hpp>
-#include <vkexec_extensions/descriptor_heap/buffer.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 #include <stdexec/execution.hpp>
@@ -24,7 +23,6 @@ namespace resource_allocator_test {
 // NOLINTBEGIN(misc-use-internal-linkage)
 
 constexpr int k_wrong_value = 42;
-constexpr VkDeviceSize k_heap_bytes = 64;
 constexpr float k_buffer_fill = 1.5F;
 constexpr float k_tensor_fill = 2.0F;
 
@@ -132,21 +130,15 @@ static_assert(
   stdexec::sender<decltype(vkexec::factory::make_buffer(std::declval<test_allocator &>(), 4, k_buffer_fill))>);
 static_assert(
   stdexec::sender<decltype(vkexec::factory::make_tensor(std::declval<test_allocator &>(), 4, k_tensor_fill))>);
-static_assert(stdexec::sender<decltype(vkexec::factory::make_descriptor_heap_buffer(std::declval<test_allocator &>(),
-    k_heap_bytes))>);
 
 using buffer_sender = decltype(vkexec::factory::make_buffer(std::declval<test_allocator &>(), 4, k_buffer_fill));
 using tensor_sender = decltype(vkexec::factory::make_tensor(std::declval<test_allocator &>(), 4, k_tensor_fill));
-using heap_sender =
-  decltype(vkexec::factory::make_descriptor_heap_buffer(std::declval<test_allocator &>(), k_heap_bytes));
 
 // NOLINTBEGIN(misc-include-cleaner)
 static_assert(
   std::same_as<stdexec::error_types_of_t<buffer_sender, stdexec::env<>, std::tuple>, std::tuple<vkexec::error>>);
 static_assert(
   std::same_as<stdexec::error_types_of_t<tensor_sender, stdexec::env<>, std::tuple>, std::tuple<vkexec::error>>);
-static_assert(
-  std::same_as<stdexec::error_types_of_t<heap_sender, stdexec::env<>, std::tuple>, std::tuple<vkexec::error>>);
 // NOLINTEND(misc-include-cleaner)
 
 // NOLINTEND(misc-use-internal-linkage)
@@ -171,15 +163,9 @@ TEST_CASE("generic resources use a non-VMA allocator without a context", "[vkexe
   REQUIRE(tensor->size() == 4);
   REQUIRE(*tensor->data() == resource_allocator_test::k_tensor_fill);
 
-  auto heap = vkexec::try_sync_wait_value(
-    vkexec::factory::make_descriptor_heap_buffer(allocator, resource_allocator_test::k_heap_bytes));
-  REQUIRE(heap.has_value());
-  REQUIRE(allocator.buffer_allocations == 4);
-  REQUIRE(heap->mapped().size() == resource_allocator_test::k_heap_bytes);
-
   auto invalid = vkexec::factory::make_tensor(allocator, std::numeric_limits<std::size_t>::max(), 1.0F);
-  REQUIRE(allocator.buffer_allocations == 4);
+  REQUIRE(allocator.buffer_allocations == 3);
   auto rejected = vkexec::try_sync_wait_value(invalid);
   REQUIRE_FALSE(rejected.has_value());
-  REQUIRE(allocator.buffer_allocations == 4);
+  REQUIRE(allocator.buffer_allocations == 3);
 }

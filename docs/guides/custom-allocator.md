@@ -8,7 +8,7 @@ A buffer resource is movable and exposes `handle() -> VkBuffer` and `size()`. An
 
 The test suite compiles this small resource model:
 
-```{literalinclude} ../../test/resource_allocator_tests.cpp
+```{literalinclude} ../../test/core/resource_allocator_tests.cpp
 :language: cpp
 :start-after: docs: custom allocator resource types begin
 :end-before: docs: custom allocator resource types end
@@ -20,7 +20,7 @@ The test objects use null Vulkan handles, so they check the C++ protocol rather 
 
 Declare `buffer_type` and `image_type` on the allocator. Implement ADL-visible `tag_invoke` overloads that return senders completing with those exact types. The result can be infallible or report `vkexec::error`; a different error type does not satisfy the allocator concept.
 
-```{literalinclude} ../../test/resource_allocator_tests.cpp
+```{literalinclude} ../../test/core/resource_allocator_tests.cpp
 :language: cpp
 :start-after: docs: custom allocator customizations begin
 :end-before: docs: custom allocator customizations end

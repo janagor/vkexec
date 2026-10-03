@@ -234,7 +234,7 @@ jobs:
             -Dvkexec_ENABLE_CPPCHECK=OFF
 
       - name: Build tests
-        run: cmake --build build-validation --target tests
+        run: cmake --build build-validation --target vkexec_tests
 
       - name: Run unit tests with validation
         run: |
@@ -244,6 +244,59 @@ jobs:
             echo "Vulkan validation reported an error" >&2
             exit 1
           fi
+
+  thread-sanitizer:
+    if: github.event_name != 'schedule'
+    name: ThreadSanitizer concurrency (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup CMake and Ninja
+        uses: aminya/setup-cpp@v1
+        with:
+          cmake: true
+          ninja: true
+          vcpkg: false
+          ccache: false
+          clangtidy: false
+          cppcheck: false
+
+      - name: Install Clang and Vulkan runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clang-16 mesa-vulkan-drivers
+          ICD="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' | head -1)"
+          test -n "$ICD"
+          echo "VK_DRIVER_FILES=$ICD" >> "$GITHUB_ENV"
+          echo "VK_ICD_FILENAMES=$ICD" >> "$GITHUB_ENV"
+          echo "CC=/usr/bin/clang-16" >> "$GITHUB_ENV"
+          echo "CXX=/usr/bin/clang++-16" >> "$GITHUB_ENV"
+
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-tsan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON \
+            -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_BUILD_VMA=OFF \
+            -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF \
+            -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_LEAK=OFF \
+            -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF -Dvkexec_ENABLE_SANITIZER_MEMORY=OFF \
+            -Dvkexec_ENABLE_SANITIZER_THREAD=ON
+
+      - name: Build concurrency tests
+        run: cmake --build build-tsan --target vkexec_concurrency_tests
+
+      - name: Run concurrency tests
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+          VKEXEC_CONCURRENCY_ITERATIONS: 64
+        run: ctest --test-dir build-tsan -R '^unittests\.concurrency\.' --output-on-failure
 
   Test:
     if: github.event_name != 'schedule'
@@ -632,7 +685,7 @@ jobs:
         working-directory: ./build
         shell: pwsh
         run: |
-          & "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe" `
+          & "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\vkexec_tools_vma_tests.exe" `
             "graphics_pipeline tag factory owns null-layout DR pipeline" `
             -s `
             --allow-running-no-tests
@@ -644,12 +697,12 @@ jobs:
         shell: pwsh
         run: |
           OpenCppCoverage.exe `
-            --modules tests.exe `
+            --modules vkexec_tools_vma_tests.exe `
             --sources "$env:GITHUB_WORKSPACE\include" `
             --sources "$env:GITHUB_WORKSPACE\src" `
             --working_dir "$env:GITHUB_WORKSPACE\build\test" `
             --export_type cobertura:coverage.xml `
-            -- "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\tests.exe" `
+            -- "$env:GITHUB_WORKSPACE\build\test\${{matrix.build_type}}\vkexec_tools_vma_tests.exe" `
               "graphics_pipeline tag factory owns null-layout DR pipeline" `
               -s `
               --allow-running-no-tests
@@ -769,7 +822,7 @@ jobs:
           cmake -S . -B ./build-vma-off -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug -DBUILD_TESTING=ON -Dvkexec_BUILD_VMA=OFF -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF
 
       - name: Build core, graphics, extensions, and tests
-        run: cmake --build ./build-vma-off --target tests
+        run: cmake --build ./build-vma-off --target vkexec_core_tests vkexec_core_header_checks vkexec_features_header_checks vkexec_graphics_header_checks vkexec_descriptor_heap_header_checks vkexec_dynamic_rendering_header_checks vkexec_timeline_header_checks
 
       - name: Test non-VMA allocator and module boundary
         working-directory: ./build-vma-off
@@ -805,7 +858,7 @@ jobs:
           cmake -S . -B ./build -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug -DBUILD_TESTING=ON -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF -DVKEXEC_STDEXEC_GIT_TAG:STRING=main
 
       - name: Build representative tests
-        run: cmake --build ./build --target tests
+        run: cmake --build ./build --target vkexec_tests
 
       - name: Check private stdexec API boundary
         working-directory: ./build

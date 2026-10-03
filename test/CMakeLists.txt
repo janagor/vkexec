@@ -43,89 +43,242 @@ foreach(parent_standard 17 23)
 endforeach()
 set_tests_properties(vkexec.subdirectory_consumer.cxx17 vkexec.subdirectory_consumer.cxx23 PROPERTIES RUN_SERIAL TRUE)
 
-add_executable(
-  tests
-  tests.cpp
-  barrier_header_tests.cpp
-  synchronization_tests.cpp
-  sender_tests.cpp
-  resource_table_tests.cpp
-  resource_allocator_tests.cpp
-  descriptor_schema_tests.cpp
-  pass_detail_tests.cpp
-  dispatch_tests.cpp
-  error_tests.cpp
-  move_only_function_tests.cpp
-  timeline_semaphore_tests.cpp
-  frame_ring_tests.cpp
-  push_data_tests.cpp
-  extension_tests.cpp
-  feature_tests.cpp
-  context_capabilities_tests.cpp
-  sampler_tests.cpp
-  scheduler_tests.cpp
-  graphics_tests.cpp
-  vulkan_requirements_tests.cpp)
 option(vkexec_TEST_VALIDATION "Require Vulkan validation layers for unit tests" OFF)
-if(vkexec_TEST_VALIDATION)
-  target_compile_definitions(tests PRIVATE VKEXEC_TEST_VALIDATION)
-endif()
+
+function(vkexec_add_test_executable name module)
+  cmake_parse_arguments(
+    ARG
+    ""
+    ""
+    "SOURCES;LIBRARIES"
+    ${ARGN})
+  add_executable(${name} ${ARG_SOURCES})
+  target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/support")
+  target_link_libraries(
+    ${name}
+    PRIVATE vkexec::vkexec_warnings
+            vkexec::vkexec_options
+            vkexec_exception_options
+            ${ARG_LIBRARIES}
+            Catch2::Catch2WithMain)
+  if(vkexec_TEST_VALIDATION)
+    target_compile_definitions(${name} PRIVATE VKEXEC_TEST_VALIDATION)
+  endif()
+  vkexec_configure_linker(${name})
+  if(WIN32 AND BUILD_SHARED_LIBS)
+    add_custom_command(
+      TARGET ${name}
+      PRE_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${name}> $<TARGET_FILE_DIR:${name}>
+      COMMAND_EXPAND_LISTS)
+  endif()
+  catch_discover_tests(
+    ${name}
+    TEST_PREFIX
+    "unittests.${module}."
+    REPORTER
+    XML
+    OUTPUT_DIR
+    .
+    OUTPUT_PREFIX
+    "unittests.${module}."
+    OUTPUT_SUFFIX
+    .xml)
+  set_property(GLOBAL APPEND PROPERTY VKEXEC_TEST_EXECUTABLES ${name})
+endfunction()
+
+vkexec_add_test_executable(
+  vkexec_core_tests
+  core
+  LIBRARIES
+  vkexec::vkexec
+  SOURCES
+  core/tests.cpp
+  core/barrier_header_tests.cpp
+  core/sender_tests.cpp
+  core/resource_table_tests.cpp
+  core/descriptor_schema_tests.cpp
+  core/pass_detail_tests.cpp
+  core/dispatch_tests.cpp
+  core/error_tests.cpp
+  core/move_only_function_tests.cpp
+  core/sampler_tests.cpp
+  core/scheduler_tests.cpp
+  core/resource_allocator_tests.cpp
+  core/synchronization_tests.cpp)
+
+vkexec_add_test_executable(
+  vkexec_features_tests
+  features
+  LIBRARIES
+  vkexec::features
+  SOURCES
+  features/feature_tests.cpp
+  features/synchronization2_feature_tests.cpp
+  features/context_capabilities_tests.cpp)
+
+vkexec_add_test_executable(
+  vkexec_graphics_tests
+  graphics
+  LIBRARIES
+  vkexec::vkexec_graphics
+  SOURCES
+  graphics/graphics_tests.cpp)
+
+vkexec_add_test_executable(
+  vkexec_descriptor_heap_tests
+  descriptor_heap
+  LIBRARIES
+  vkexec::ext_descriptor_heap
+  SOURCES
+  extensions/descriptor_heap/push_data_tests.cpp
+  extensions/descriptor_heap/extension_tests.cpp
+  extensions/descriptor_heap/resource_allocator_tests.cpp
+  extensions/descriptor_heap/vulkan_requirements_tests.cpp)
+
+vkexec_add_test_executable(
+  vkexec_dynamic_rendering_tests
+  dynamic_rendering
+  LIBRARIES
+  vkexec::ext_dynamic_rendering
+  SOURCES
+  extensions/dynamic_rendering/rendering_tests.cpp)
+
+vkexec_add_test_executable(
+  vkexec_timeline_tests
+  timeline
+  LIBRARIES
+  vkexec::ext_timeline_semaphore
+  SOURCES
+  extensions/timeline_semaphore/timeline_semaphore_tests.cpp
+  extensions/timeline_semaphore/frame_ring_tests.cpp)
+
+vkexec_add_test_executable(
+  vkexec_concurrency_tests
+  concurrency
+  LIBRARIES
+  vkexec::vkexec
+  SOURCES
+  core/concurrency_tests.cpp)
+
 if(vkexec_BUILD_VMA)
-  target_sources(
-    tests
-    PRIVATE buffer_tests.cpp
-            tensor_tests.cpp
-            gpu_buffer_tests.cpp
-            descriptor_heap_tests.cpp
-            image_tests.cpp
-            image_barrier_tests.cpp
-            rendering_tests.cpp)
-  target_link_libraries(tests PRIVATE vkexec::vma)
+  vkexec_add_test_executable(
+    vkexec_vma_tests
+    vma
+    LIBRARIES
+    vkexec::vma
+    SOURCES
+    vma/buffer_tests.cpp
+    vma/gpu_buffer_tests.cpp
+    vma/image_tests.cpp
+    vma/image_barrier_tests.cpp)
+  vkexec_add_test_executable(
+    vkexec_vma_features_tests
+    vma_features
+    LIBRARIES
+    vkexec::vma
+    vkexec::features
+    SOURCES
+    vma/features/tensor_tests.cpp
+    vma/features/gpu_buffer_device_address_tests.cpp)
+  vkexec_add_test_executable(
+    vkexec_descriptor_heap_vma_tests
+    descriptor_heap_vma
+    LIBRARIES
+    vkexec::ext_descriptor_heap
+    vkexec::vma
+    SOURCES
+    integration/descriptor_heap_tests.cpp)
+  vkexec_add_test_executable(
+    vkexec_dynamic_rendering_vma_tests
+    dynamic_rendering_vma
+    LIBRARIES
+    vkexec::ext_dynamic_rendering
+    vkexec::vma
+    SOURCES
+    integration/rendering_tests.cpp)
+endif()
+
+if(vkexec_BUILD_TOOLS)
+  vkexec_add_test_executable(
+    vkexec_tools_tests
+    tools
+    LIBRARIES
+    vkexec::tools
+    SOURCES
+    tools/spirv_compile_tests.cpp)
+  if(vkexec_BUILD_VMA)
+    vkexec_add_test_executable(
+      vkexec_tools_vma_tests
+      tools_vma
+      LIBRARIES
+      vkexec::tools
+      vkexec::vma
+      SOURCES
+      integration/descriptor_heap_pipeline_tests.cpp
+      integration/gpu_tests.cpp
+      integration/tensor_pipeline_tests.cpp)
+    vkexec_add_test_executable(
+      vkexec_tools_graphics_vma_tests
+      tools_graphics_vma
+      LIBRARIES
+      vkexec::tools
+      vkexec::vma
+      SOURCES
+      integration/draw_stop_tests.cpp)
+  endif()
+endif()
+
+# Compile each standalone public header in its own translation unit.
+# Installed implementation-tail headers are excluded explicitly below.
+function(vkexec_add_header_checks name library)
+  set(sources)
+  foreach(header IN LISTS ARGN)
+    file(
+      RELATIVE_PATH
+      include_name
+      "${vkexec_SOURCE_DIR}/include"
+      "${header}")
+    if(include_name MATCHES "^\\.\\.")
+      message(FATAL_ERROR "Public header is outside vkexec include/: ${header}")
+    endif()
+    # This implementation tail is included after pass.hpp defines its step types.
+    if(include_name STREQUAL "vkexec/detail/pass_lowering.hpp")
+      continue()
+    endif()
+    string(MAKE_C_IDENTIFIER "${include_name}" source_name)
+    set(source "${CMAKE_CURRENT_BINARY_DIR}/header_checks/${name}/${source_name}.cpp")
+    file(
+      GENERATE
+      OUTPUT "${source}"
+      CONTENT "#include <${include_name}>\n")
+    list(APPEND sources "${source}")
+  endforeach()
+  add_library(${name} OBJECT ${sources})
+  target_link_libraries(${name} PRIVATE ${library} vkexec_exception_options)
+  set_target_properties(
+    ${name}
+    PROPERTIES UNITY_BUILD OFF
+               DISABLE_PRECOMPILE_HEADERS ON
+               CXX_CLANG_TIDY ""
+               CXX_CPPCHECK "")
+  set_property(GLOBAL APPEND PROPERTY VKEXEC_HEADER_CHECK_TARGETS ${name})
+endfunction()
+
+vkexec_add_header_checks(vkexec_core_header_checks vkexec::vkexec ${VKEXEC_CORE_HEADERS})
+vkexec_add_header_checks(vkexec_features_header_checks vkexec::features ${VKEXEC_FEATURE_HEADERS})
+vkexec_add_header_checks(vkexec_graphics_header_checks vkexec::vkexec_graphics ${VKEXEC_GRAPHICS_HEADERS})
+vkexec_add_header_checks(vkexec_descriptor_heap_header_checks vkexec::ext_descriptor_heap
+                         ${VKEXEC_DESCRIPTOR_HEAP_HEADERS})
+vkexec_add_header_checks(vkexec_dynamic_rendering_header_checks vkexec::ext_dynamic_rendering
+                         ${VKEXEC_DYNAMIC_RENDERING_HEADERS})
+vkexec_add_header_checks(vkexec_timeline_header_checks vkexec::ext_timeline_semaphore ${VKEXEC_TIMELINE_HEADERS})
+if(vkexec_BUILD_VMA)
+  vkexec_add_header_checks(vkexec_vma_header_checks vkexec::vma ${VKEXEC_VMA_HEADERS})
 endif()
 if(vkexec_BUILD_TOOLS)
-  target_sources(tests PRIVATE spirv_compile_tests.cpp)
+  vkexec_add_header_checks(vkexec_tools_header_checks vkexec::tools ${VKEXEC_TOOLS_HEADERS})
 endif()
-if(vkexec_BUILD_TOOLS AND vkexec_BUILD_VMA)
-  target_sources(tests PRIVATE descriptor_heap_pipeline_tests.cpp draw_stop_tests.cpp gpu_tests.cpp)
-endif()
-target_link_libraries(
-  tests
-  PRIVATE vkexec::vkexec_warnings
-          vkexec::vkexec_options
-          vkexec_exception_options
-          vkexec::vkexec
-          vkexec::features
-          vkexec::ext_descriptor_heap
-          vkexec::ext_timeline_semaphore
-          vkexec::ext_dynamic_rendering
-          vkexec::vkexec_graphics
-          Catch2::Catch2WithMain)
-if(vkexec_BUILD_TOOLS)
-  target_link_libraries(tests PRIVATE vkexec::tools)
-endif()
-
-vkexec_configure_linker(tests)
-
-if(WIN32 AND BUILD_SHARED_LIBS)
-  add_custom_command(
-    TARGET tests
-    PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:tests> $<TARGET_FILE_DIR:tests>
-    COMMAND_EXPAND_LISTS)
-endif()
-
-catch_discover_tests(
-  tests
-  TEST_PREFIX
-  "unittests."
-  REPORTER
-  XML
-  OUTPUT_DIR
-  .
-  OUTPUT_PREFIX
-  "unittests."
-  OUTPUT_SUFFIX
-  .xml)
 
 # Only this implementation test may include the private vk-bootstrap adapter.
 add_executable(vk_bootstrap_feature_tests vk_bootstrap_feature_tests.cpp)
@@ -137,3 +290,8 @@ target_link_libraries(
           vk-bootstrap::vk-bootstrap
           Catch2::Catch2WithMain)
 catch_discover_tests(vk_bootstrap_feature_tests TEST_PREFIX "detail.")
+
+get_property(vkexec_test_executables GLOBAL PROPERTY VKEXEC_TEST_EXECUTABLES)
+get_property(vkexec_header_check_targets GLOBAL PROPERTY VKEXEC_HEADER_CHECK_TARGETS)
+add_custom_target(vkexec_tests DEPENDS ${vkexec_test_executables} ${vkexec_header_check_targets}
+                                       vk_bootstrap_feature_tests)
