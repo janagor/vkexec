@@ -75,6 +75,48 @@ function(vkexec_setup_dependencies)
     target_compile_features(Catch2 PRIVATE cxx_std_17)
   endif()
 
+  if(vkexec_BUILD_BENCHMARKS AND NOT TARGET benchmark::benchmark)
+    find_package(benchmark CONFIG QUIET)
+  endif()
+  if(vkexec_BUILD_BENCHMARKS AND NOT TARGET benchmark::benchmark)
+    cpmaddpackage(
+      NAME
+      benchmark
+      GITHUB_REPOSITORY
+      google/benchmark
+      GIT_TAG
+      v1.9.4
+      SYSTEM
+      YES
+      OPTIONS
+      "BENCHMARK_ENABLE_TESTING OFF"
+      "BENCHMARK_ENABLE_GTEST_TESTS OFF")
+  endif()
+  # Clang 22 diagnoses Google Benchmark's __COUNTER__ feature test as a C2y
+  # extension. Keep the workaround on benchmark targets instead of the library.
+  if(vkexec_BUILD_BENCHMARKS
+     AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+     AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 22)
+    foreach(_vkexec_benchmark_target IN ITEMS benchmark benchmark_main)
+      if(TARGET ${_vkexec_benchmark_target})
+        get_target_property(_vkexec_benchmark_imported ${_vkexec_benchmark_target} IMPORTED)
+        if(NOT _vkexec_benchmark_imported)
+          target_compile_options(${_vkexec_benchmark_target} PRIVATE -Wno-c2y-extensions)
+        endif()
+      endif()
+    endforeach()
+  endif()
+  if(vkexec_BUILD_BENCHMARKS)
+    foreach(_vkexec_benchmark_target IN ITEMS benchmark benchmark_main)
+      if(TARGET ${_vkexec_benchmark_target})
+        get_target_property(_vkexec_benchmark_imported ${_vkexec_benchmark_target} IMPORTED)
+        if(NOT _vkexec_benchmark_imported)
+          set_target_properties(${_vkexec_benchmark_target} PROPERTIES CXX_CLANG_TIDY "" CXX_CPPCHECK "")
+        endif()
+      endif()
+    endforeach()
+  endif()
+
   if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
     find_package(glslang CONFIG QUIET)
   endif()

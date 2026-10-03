@@ -37,6 +37,10 @@ add_subdirectory(configured_files)
 # Adding the library source:
 add_subdirectory(src)
 
+if(vkexec_BUILD_BENCHMARKS)
+  add_subdirectory(benchmark)
+endif()
+
 # Public headers and installed template implementation-support headers are owned
 # by exported targets. Source-only detail headers are deliberately absent from
 # these sets and can never enter an install package.

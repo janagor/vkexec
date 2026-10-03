@@ -24,6 +24,7 @@
 #include <atomic>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
 #include <stdexcept>
@@ -36,10 +37,57 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace ex = stdexec;
 
 namespace {
+
+inline constexpr std::size_t k_sbo_inline_bytes = 32;
+inline constexpr std::size_t k_sbo_oversized_bytes = 256;
+inline constexpr int k_sbo_inline_count = 10;
+inline constexpr int k_sbo_relocation_count = 64;
+
+struct sbo_lifetime_counts
+{
+  int constructed{};
+  int moved{};
+  int destroyed{};
+  int alive{};
+  int recorded{};
+  int retired{};
+};
+
+struct tracked_sbo_step
+{
+  sbo_lifetime_counts *stats;
+  explicit tracked_sbo_step(sbo_lifetime_counts &value) : stats(&value)
+  {
+    ++stats->constructed;
+    ++stats->alive;
+  }
+  tracked_sbo_step(tracked_sbo_step &&other) noexcept : stats(other.stats)
+  {
+    ++stats->constructed;
+    ++stats->moved;
+    ++stats->alive;
+  }
+  tracked_sbo_step(tracked_sbo_step const &) = delete;
+  auto operator=(tracked_sbo_step const &) -> tracked_sbo_step & = delete;
+  auto operator=(tracked_sbo_step &&) -> tracked_sbo_step & = delete;
+  ~tracked_sbo_step()
+  {
+    ++stats->destroyed;
+    --stats->alive;
+  }
+  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
+    -> vkexec::status
+  {
+    ++stats->recorded;
+    return {};
+  }
+  auto after_gpu() const -> void { ++stats->retired; }
+};
 
 struct empty_receiver_env
 {
@@ -1028,4 +1076,77 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   REQUIRE(first_count == 1);
   REQUIRE(failing_count == 1);
   REQUIRE(skipped_count == 0);
+}
+
+TEST_CASE("SBO pass steps survive vector moves and heap fallback", "[vkexec][pass]")
+{
+  struct inline_step
+  {
+    int *recorded{};
+    int *retired{};
+    auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
+      -> vkexec::status
+    {
+      ++*recorded;
+      return {};
+    }
+    auto after_gpu() const -> void { ++*retired; }
+  };
+
+  struct oversized_step
+  {
+    std::array<std::byte, k_sbo_oversized_bytes> storage{};
+    int *recorded{};
+    auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
+      -> vkexec::status
+    {
+      ++*recorded;
+      return {};
+    }
+  };
+
+  auto ctx = vkexec::detail::context_access::facade(nullptr);
+  vkexec::detail::pass_cleanup cleanup{};
+  int recorded = 0;
+  int retired = 0;
+  std::vector<vkexec::detail::basic_dynamic_pass_step<k_sbo_inline_bytes>> steps;
+  steps.reserve(1);
+  for (int i = 0; i < k_sbo_inline_count; ++i) {
+    steps.emplace_back(inline_step{ .recorded = &recorded, .retired = &retired });
+  }
+  steps.emplace_back(oversized_step{ .storage = {}, .recorded = &recorded });
+  for (auto &step : steps) {
+    REQUIRE(step.record(ctx, VK_NULL_HANDLE, cleanup));
+    step.after_gpu();
+  }
+  REQUIRE(recorded == k_sbo_inline_count + 1);
+  REQUIRE(retired == k_sbo_inline_count);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("SBO pass steps preserve lifetime through relocation and move assignment", "[vkexec][pass]")
+{
+  sbo_lifetime_counts stats{};
+  using erased_step = vkexec::detail::basic_dynamic_pass_step<k_sbo_inline_bytes>;
+  auto ctx = vkexec::detail::context_access::facade(nullptr);
+  vkexec::detail::pass_cleanup cleanup{};
+  {
+    std::vector<erased_step> steps;
+    steps.reserve(1);
+    for (int i = 0; i < k_sbo_relocation_count; ++i) { steps.emplace_back(tracked_sbo_step{ stats }); }
+    erased_step destination{ tracked_sbo_step{ stats } };
+    erased_step source{ tracked_sbo_step{ stats } };
+    destination = std::move(source);
+    REQUIRE(destination.record(ctx, VK_NULL_HANDLE, cleanup));
+    destination.after_gpu();
+    for (auto &step : steps) {
+      REQUIRE(step.record(ctx, VK_NULL_HANDLE, cleanup));
+      step.after_gpu();
+    }
+    REQUIRE(stats.recorded == k_sbo_relocation_count + 1);
+    REQUIRE(stats.retired == k_sbo_relocation_count + 1);
+    REQUIRE(stats.moved > k_sbo_relocation_count);
+  }
+  REQUIRE(stats.alive == 0);
+  REQUIRE(stats.destroyed == stats.constructed);
 }

@@ -57,6 +57,7 @@ endmacro()
 macro(vkexec_setup_options)
   option(vkexec_BUILD_TOOLS "Build optional GLSL/SPIR-V tools (requires glslang)" ${PROJECT_IS_TOP_LEVEL})
   option(vkexec_BUILD_VMA "Build optional VMA-backed resource helpers" ON)
+  option(vkexec_BUILD_BENCHMARKS "Build manual performance benchmarks" OFF)
   option(vkexec_ENABLE_INSTALL_CONSUMER_TEST "Enable installed-package clean-room consumer test" OFF)
   option(VKEXEC_ENABLE_EXCEPTIONS "Enable C++ exceptions for vkexec targets" ON)
   option(vkexec_ENABLE_HARDENING "Enable hardening" ON)
@@ -115,6 +116,7 @@ macro(vkexec_setup_options)
       vkexec_ENABLE_COVERAGE
       vkexec_ENABLE_PCH
       vkexec_ENABLE_CACHE)
+    mark_as_advanced(vkexec_BUILD_BENCHMARKS)
   endif()
 
 endmacro()

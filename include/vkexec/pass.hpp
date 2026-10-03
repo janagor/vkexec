@@ -17,6 +17,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -24,6 +25,7 @@
 #include <exception>
 #endif
 #include <memory>
+#include <new>
 #include <optional>
 #include <span>
 #include <tuple>
@@ -153,7 +155,7 @@ namespace detail {
     }
   }
 
-  class dynamic_pass_step
+  template<std::size_t InlineBytes> class basic_dynamic_pass_step
   {
     struct interface
     {
@@ -181,27 +183,131 @@ namespace detail {
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
     };
 
-    std::unique_ptr<interface> impl_;
+    alignas(std::max_align_t) std::array<std::byte, InlineBytes> storage_{};
+    std::unique_ptr<interface> heap_;
+    interface *impl_{ nullptr };
+    auto (*move_inline_)(void *, void *) noexcept -> interface *{ nullptr };
+
+    auto release() noexcept -> void
+    {
+      if (move_inline_ != nullptr) {
+        std::destroy_at(impl_);
+      } else {
+        heap_.reset();
+      }
+      impl_ = nullptr;
+      move_inline_ = nullptr;
+    }
+
+    auto take(basic_dynamic_pass_step &other) noexcept -> void
+    {
+      move_inline_ = other.move_inline_;
+      if (move_inline_ != nullptr) {
+        impl_ = move_inline_(storage_.data(), other.impl_);
+        std::destroy_at(other.impl_);
+      } else {
+        heap_ = std::move(other.heap_);
+        impl_ = heap_.get();
+      }
+      other.impl_ = nullptr;
+      other.move_inline_ = nullptr;
+    }
 
   public:
-    dynamic_pass_step() = delete;
+    basic_dynamic_pass_step() = delete;
+
+    template<class Step> [[nodiscard]] static constexpr auto model_size() noexcept -> std::size_t
+    { return sizeof(model<Step>); }
+
+    template<class Step> [[nodiscard]] static constexpr auto model_alignment() noexcept -> std::size_t
+    { return alignof(model<Step>); }
 
     template<class Step>
-      requires(!std::same_as<std::remove_cvref_t<Step>, dynamic_pass_step>) && static_pass_step<Step>
-    explicit dynamic_pass_step(Step step) : impl_(std::make_unique<model<Step>>(std::move(step)))
-    {}
+      requires(!std::same_as<std::remove_cvref_t<Step>, basic_dynamic_pass_step>) && static_pass_step<Step>
+    explicit basic_dynamic_pass_step(Step step)
+    {
+      if constexpr (sizeof(model<Step>) <= InlineBytes && alignof(model<Step>) <= alignof(std::max_align_t)
+                    && std::is_nothrow_move_constructible_v<Step>) {
+        void *slot = storage_.data();
+        impl_ = std::construct_at(static_cast<model<Step> *>(slot), std::move(step));
+        move_inline_ = [](void *dst, void *src) noexcept -> interface * {
+          return std::construct_at(static_cast<model<Step> *>(dst), std::move(static_cast<model<Step> *>(src)->step));
+        };
+      } else {
+        heap_ = std::make_unique<model<Step>>(std::move(step));
+        impl_ = heap_.get();
+      }
+    }
 
-    ~dynamic_pass_step() = default;
-    dynamic_pass_step(dynamic_pass_step &&) noexcept = default;
-    auto operator=(dynamic_pass_step &&) noexcept -> dynamic_pass_step & = default;
-    dynamic_pass_step(dynamic_pass_step const &) = delete;
-    auto operator=(dynamic_pass_step const &) -> dynamic_pass_step & = delete;
+    ~basic_dynamic_pass_step()
+    {
+      if (impl_ != nullptr) { release(); }
+    }
+    basic_dynamic_pass_step(basic_dynamic_pass_step &&other) noexcept { take(other); }
+    auto operator=(basic_dynamic_pass_step &&other) noexcept -> basic_dynamic_pass_step &
+    {
+      if (this != &other) {
+        if (impl_ != nullptr) { release(); }
+        take(other);
+      }
+      return *this;
+    }
+    basic_dynamic_pass_step(basic_dynamic_pass_step const &) = delete;
+    auto operator=(basic_dynamic_pass_step const &) -> basic_dynamic_pass_step & = delete;
 
     auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
     { return impl_->record(ctx, cmd, cleanup); }
 
     auto after_gpu() -> void { impl_->after_gpu(); }
   };
+
+  template<> class basic_dynamic_pass_step<0>
+  {
+    struct interface
+    {
+      interface() = default;
+      virtual ~interface() = default;
+      interface(interface const &) = delete;
+      auto operator=(interface const &) -> interface & = delete;
+      interface(interface &&) = delete;
+      auto operator=(interface &&) -> interface & = delete;
+      virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status = 0;
+      virtual auto after_gpu() -> void = 0;
+    };
+
+    template<static_pass_step Step> struct model final : interface
+    {
+      Step step;
+      explicit model(Step value) : step(std::move(value)) {}
+      auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status override
+      { return step.record(ctx, cmd, cleanup); }
+      auto after_gpu() -> void override { detail::run_after_gpu(step); }
+    };
+
+    std::unique_ptr<interface> impl_;
+
+  public:
+    basic_dynamic_pass_step() = delete;
+    template<class Step> [[nodiscard]] static constexpr auto model_size() noexcept -> std::size_t
+    { return sizeof(model<Step>); }
+    template<class Step> [[nodiscard]] static constexpr auto model_alignment() noexcept -> std::size_t
+    { return alignof(model<Step>); }
+
+    template<class Step>
+      requires(!std::same_as<std::remove_cvref_t<Step>, basic_dynamic_pass_step>) && static_pass_step<Step>
+    explicit basic_dynamic_pass_step(Step step) : impl_(std::make_unique<model<Step>>(std::move(step)))
+    {}
+    ~basic_dynamic_pass_step() = default;
+    basic_dynamic_pass_step(basic_dynamic_pass_step &&) noexcept = default;
+    auto operator=(basic_dynamic_pass_step &&) noexcept -> basic_dynamic_pass_step & = default;
+    basic_dynamic_pass_step(basic_dynamic_pass_step const &) = delete;
+    auto operator=(basic_dynamic_pass_step const &) -> basic_dynamic_pass_step & = delete;
+    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
+    { return impl_->record(ctx, cmd, cleanup); }
+    auto after_gpu() -> void { impl_->after_gpu(); }
+  };
+
+  using dynamic_pass_step = basic_dynamic_pass_step<0>;
 
   static_assert(std::move_constructible<dynamic_pass_step>);
   static_assert(!std::copy_constructible<dynamic_pass_step>);
