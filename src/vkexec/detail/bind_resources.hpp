@@ -12,7 +12,7 @@ namespace vkexec::detail {
 
 template<class Backend> struct bound_release_state
 {
-  context *ctx{ nullptr };
+  context_handle state;
   handles::compute_pipeline const *pipe{ nullptr };
   std::optional<typename Backend::bound_type> bound;
 
@@ -24,10 +24,13 @@ template<class Backend> struct bound_release_state
 
   auto release() noexcept -> void
   {
-    if (ctx != nullptr && pipe != nullptr && bound.has_value()) {
-      Backend::release(*ctx, *pipe, *bound);
+    if (state && pipe != nullptr && bound.has_value()) {
+      auto facade = context_access::facade(state);
+      Backend::release(facade, *pipe, *bound);
       bound.reset();
     }
+    state.reset();
+    pipe = nullptr;
   }
 
   ~bound_release_state() { release(); }

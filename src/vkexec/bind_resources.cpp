@@ -54,7 +54,7 @@ auto detail::record_bind_resources_step(context &ctx,
   auto lowered =
     lower_and_bind_push<backend>(ctx, cmd, VK_PIPELINE_BIND_POINT_COMPUTE, *pipe, table, empty_table_lower_env{}, push);
   if (!lowered) { return fail(lowered); }
-  state->ctx = &ctx;
+  state->state = detail::context_access::state(ctx);
   state->pipe = pipe;
   state->bound.emplace(expected_take(lowered));
   return {};

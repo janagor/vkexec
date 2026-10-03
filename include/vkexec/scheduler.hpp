@@ -166,7 +166,7 @@ class scheduler
 {
 public:
   //! A null context is representable for composition; executing it reports invalid_argument.
-  explicit scheduler(context *ctx) noexcept
+  explicit scheduler(context const *ctx) noexcept
     : state_(ctx != nullptr ? detail::context_access::state(*ctx) : detail::context_handle{})
   {}
 
