@@ -25,4 +25,4 @@ Core execution consumes Vulkan handles such as `VkBuffer`, `VkImage`, pipelines,
 
 ## Lifetime rules
 
-The operation state and its context must remain valid until the operation completes. Vulkan objects referenced by submitted commands must remain valid until GPU completion. State referenced by `after_gpu()` must remain valid until that callback has run. Context-dependent owned objects must be destroyed before their context. Adopted instance/device lifetime remains the embedder's responsibility.
+The operation state remains valid until the operation completes. Schedulers, senders, operation states, and submit scopes retain the execution runtime after the public context is destroyed. Vulkan objects referenced by submitted commands must remain valid until GPU completion. State referenced by `after_gpu()` must remain valid until that callback has run. Context-dependent owned objects requiring explicit cleanup must be destroyed while the public context is available. Adopted instance and device lifetime remains the embedder's responsibility until all users of the retained runtime are gone.

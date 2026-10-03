@@ -52,10 +52,14 @@ namespace detail {
   }
 
   template<class Receiver, class Operation>
-  auto start_draw_sync(Receiver &receiver, Operation &&operation) noexcept -> void
+  auto start_draw_sync(context_handle const &state, Receiver &receiver, Operation &&operation) noexcept -> void
   {
     if (receiver_stop_requested(receiver)) {
       ex::set_stopped(std::move(receiver));
+      return;
+    }
+    if (!state) {
+      ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
       return;
     }
 #if VKEXEC_HAS_EXCEPTIONS
@@ -70,7 +74,10 @@ namespace detail {
   }
 
   template<class WindowOp, class Receiver>
-  auto start_draw_async(context *ctx, owned::presenter *win, WindowOp &&record_and_end, Receiver &receiver) noexcept
+  auto start_draw_async(context_handle const &state,
+    owned::presenter *win,
+    WindowOp &&record_and_end,
+    Receiver &receiver) noexcept
     -> void
   {
 #if VKEXEC_HAS_EXCEPTIONS
@@ -79,6 +86,10 @@ namespace detail {
       auto const token = receiver_stop_token(receiver);
       if (stop_requested(token)) {
         ex::set_stopped(std::move(receiver));
+        return;
+      }
+      if (!state) {
+        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
         return;
       }
 
@@ -99,7 +110,8 @@ namespace detail {
       }
 
       Receiver *const rcvr = &receiver;
-      (void)ctx->enqueue_borrowed_fence_wait(
+      auto facade = context_access::facade(state);
+      (void)facade.enqueue_borrowed_fence_wait(
         *fence_result, token, [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
           complete_draw(std::move(*rcvr), std::move(wait_error), stopped);
         });
@@ -213,15 +225,17 @@ struct draw_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
+    detail::context_handle state;
     owned::presenter *win{};
     owned::graphics_pipeline *pipeline{};
     std::uint32_t vertex_count{};
@@ -229,7 +243,7 @@ struct draw_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_sync(receiver, [this]() -> void {
+      detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
           ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -261,6 +275,7 @@ struct draw_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
+      .state = state,
       .win = win,
       .pipeline = pipeline,
       .vertex_count = vertex_count,
@@ -280,20 +295,21 @@ struct draw_async_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   explicit draw_async_sender(draw_sender snd)
-    : ctx(snd.ctx), win(snd.win), pipeline(snd.pipeline), vertex_count(snd.vertex_count)
+    : state(std::move(snd.state)), win(snd.win), pipeline(snd.pipeline), vertex_count(snd.vertex_count)
   {}
 
   template<class Receiver> struct op_state
   {
-    context *ctx{};
+    detail::context_handle state;
     owned::presenter *win{};
     owned::graphics_pipeline *pipeline{};
     std::uint32_t vertex_count{};
@@ -302,7 +318,7 @@ struct draw_async_sender
     auto start() noexcept -> void
     {
       detail::start_draw_async(
-        ctx,
+        state,
         win,
         [this](frame &drawn) -> result<VkFence> {
           if (auto draw_status =
@@ -321,7 +337,7 @@ struct draw_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .pipeline = pipeline,
       .vertex_count = vertex_count,
@@ -334,7 +350,7 @@ struct draw_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .pipeline = pipeline,
       .vertex_count = vertex_count,
@@ -354,21 +370,23 @@ struct draw_layers_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
+    detail::context_handle state;
     owned::presenter *win{};
     std::vector<draw_layer> layers;
     Receiver receiver;
 
     auto start() noexcept -> void
     {
-      detail::start_draw_sync(receiver, [this]() -> void {
+      detail::start_draw_sync(state, receiver, [this]() -> void {
         if (layers.empty()) {
           ex::set_error(
             std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
@@ -422,6 +440,7 @@ struct draw_layers_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
+      .state = state,
       .win = win,
       .layers = layers,
       .receiver = std::move(receiver),
@@ -434,6 +453,7 @@ struct draw_layers_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
+      .state = state,
       .win = win,
       .layers = std::move(layers),
       .receiver = std::move(receiver),
@@ -448,18 +468,19 @@ struct draw_layers_async_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   std::vector<draw_layer> layers;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
-  explicit draw_layers_async_sender(draw_layers_sender snd) : ctx(snd.ctx), win(snd.win), layers(std::move(snd.layers))
+  explicit draw_layers_async_sender(draw_layers_sender snd) : state(std::move(snd.state)), win(snd.win), layers(std::move(snd.layers))
   {}
 
   template<class Receiver> struct op_state
   {
-    context *ctx{};
+    detail::context_handle state;
     owned::presenter *win{};
     std::vector<draw_layer> layers;
     Receiver receiver;
@@ -467,7 +488,7 @@ struct draw_layers_async_sender
     auto start() noexcept -> void
     {
       detail::start_draw_async(
-        ctx,
+        state,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
           if (layers.empty()) { return fail(errc::invalid_argument, "draw_layers requires at least one layer"); }
@@ -503,7 +524,7 @@ struct draw_layers_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .layers = layers,
       .receiver = std::move(receiver),
@@ -516,7 +537,7 @@ struct draw_layers_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .layers = std::move(layers),
       .receiver = std::move(receiver),
@@ -527,7 +548,7 @@ struct draw_layers_async_sender
 inline auto operator|(schedule_sender snd, draw_closure closure) -> draw_sender
 {
   return draw_sender{
-    .ctx = snd.ctx,
+    .state = std::move(snd.state),
     .win = closure.win,
     .pipeline = closure.pipeline,
     .vertex_count = closure.vertex_count,
@@ -545,15 +566,17 @@ struct draw_mesh_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
   mesh_draw const *drawn{ nullptr };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
+    detail::context_handle state;
     owned::presenter *win{ nullptr };
     owned::graphics_pipeline *pipeline{ nullptr };
     mesh_draw const *drawn{ nullptr };
@@ -561,7 +584,7 @@ struct draw_mesh_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_sync(receiver, [this]() -> void {
+      detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
           ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -593,6 +616,7 @@ struct draw_mesh_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
+      .state = state,
       .win = win,
       .pipeline = pipeline,
       .drawn = drawn,
@@ -608,20 +632,21 @@ struct draw_mesh_async_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   owned::graphics_pipeline *pipeline{ nullptr };
   mesh_draw const *drawn{ nullptr };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   explicit draw_mesh_async_sender(draw_mesh_sender snd)
-    : ctx(snd.ctx), win(snd.win), pipeline(snd.pipeline), drawn(snd.drawn)
+    : state(std::move(snd.state)), win(snd.win), pipeline(snd.pipeline), drawn(snd.drawn)
   {}
 
   template<class Receiver> struct op_state
   {
-    context *ctx{};
+    detail::context_handle state;
     owned::presenter *win{};
     owned::graphics_pipeline *pipeline{};
     mesh_draw const *drawn{};
@@ -630,7 +655,7 @@ struct draw_mesh_async_sender
     auto start() noexcept -> void
     {
       detail::start_draw_async(
-        ctx,
+        state,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
           if (auto draw_status = pipeline->draw(
@@ -649,7 +674,7 @@ struct draw_mesh_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .pipeline = pipeline,
       .drawn = drawn,
@@ -662,7 +687,7 @@ struct draw_mesh_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .pipeline = pipeline,
       .drawn = drawn,
@@ -674,7 +699,7 @@ struct draw_mesh_async_sender
 inline auto operator|(schedule_sender snd, draw_mesh_closure closure) -> draw_mesh_sender
 {
   return draw_mesh_sender{
-    .ctx = snd.ctx,
+    .state = std::move(snd.state),
     .win = closure.win,
     .pipeline = closure.pipeline,
     .drawn = closure.drawn,
@@ -682,19 +707,19 @@ inline auto operator|(schedule_sender snd, draw_mesh_closure closure) -> draw_me
 }
 
 inline auto operator|(schedule_sender snd, draw_layers_closure closure) -> draw_layers_sender
-{ return draw_layers_sender{ .ctx = snd.ctx, .win = closure.win, .layers = std::move(closure.layers) }; }
+{ return draw_layers_sender{ .state = std::move(snd.state), .win = closure.win, .layers = std::move(closure.layers) }; }
 
 [[nodiscard]] inline auto operator|(draw_sender snd, submit_t /*tag*/) -> draw_async_sender
-{ return draw_async_sender{ snd }; }
+{ return draw_async_sender{ std::move(snd) }; }
 
 [[nodiscard]] inline auto operator|(draw_mesh_sender snd, submit_t /*tag*/) -> draw_mesh_async_sender
-{ return draw_mesh_async_sender{ snd }; }
+{ return draw_mesh_async_sender{ std::move(snd) }; }
 
 [[nodiscard]] inline auto operator|(draw_layers_sender &&snd, submit_t /*tag*/) -> draw_layers_async_sender
 { return draw_layers_async_sender{ std::move(snd) }; }
 
 [[nodiscard]] inline auto operator|(draw_layers_sender const &snd, submit_t /*tag*/) -> draw_layers_async_sender
-{ return draw_layers_async_sender{ draw_layers_sender{ .ctx = snd.ctx, .win = snd.win, .layers = snd.layers } }; }
+{ return draw_layers_async_sender{ draw_layers_sender{ .state = snd.state, .win = snd.win, .layers = snd.layers } }; }
 
 struct draw_bind_sender
 {
@@ -702,16 +727,18 @@ struct draw_bind_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
+    detail::context_handle state;
     owned::presenter *win{ nullptr };
     handles::graphics_pipeline const *resources{ nullptr };
     VkDescriptorSet set{ VK_NULL_HANDLE };
@@ -720,7 +747,7 @@ struct draw_bind_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_sync(receiver, [this]() -> void {
+      detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
           ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -757,6 +784,7 @@ struct draw_bind_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
+      .state = state,
       .win = win,
       .resources = resources,
       .set = set,
@@ -772,21 +800,22 @@ struct draw_bind_async_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::uint32_t vertex_count{ 0 };
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   explicit draw_bind_async_sender(draw_bind_sender snd)
-    : ctx(snd.ctx), win(snd.win), resources(snd.resources), set(snd.set), vertex_count(snd.vertex_count)
+    : state(std::move(snd.state)), win(snd.win), resources(snd.resources), set(snd.set), vertex_count(snd.vertex_count)
   {}
 
   template<class Receiver> struct op_state
   {
-    context *ctx{};
+    detail::context_handle state;
     owned::presenter *win{};
     handles::graphics_pipeline const *resources{};
     VkDescriptorSet set{};
@@ -796,7 +825,7 @@ struct draw_bind_async_sender
     auto start() noexcept -> void
     {
       detail::start_draw_async(
-        ctx,
+        state,
         win,
         [this](frame &drawn) -> result<VkFence> {
           if (auto draw_status = draw_pass(drawn.command_buffer,
@@ -820,7 +849,7 @@ struct draw_bind_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .resources = resources,
       .set = set,
@@ -834,7 +863,7 @@ struct draw_bind_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .resources = resources,
       .set = set,
@@ -850,16 +879,18 @@ struct draw_mesh_bind_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
+    detail::context_handle state;
     owned::presenter *win{ nullptr };
     handles::graphics_pipeline const *resources{ nullptr };
     VkDescriptorSet set{ VK_NULL_HANDLE };
@@ -868,7 +899,7 @@ struct draw_mesh_bind_sender
 
     auto start() noexcept -> void
     {
-      detail::start_draw_sync(receiver, [this]() -> void {
+      detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
           ex::set_error(std::move(receiver), std::move(frame_result.error()));
@@ -905,6 +936,7 @@ struct draw_mesh_bind_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
+      .state = state,
       .win = win,
       .resources = resources,
       .set = set,
@@ -920,21 +952,22 @@ struct draw_mesh_bind_async_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   owned::presenter *win{ nullptr };
   handles::graphics_pipeline const *resources{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
   mesh_draw drawn{};
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env
+  { return scheduler_env{ .state = state }; }
 
   explicit draw_mesh_bind_async_sender(draw_mesh_bind_sender snd)
-    : ctx(snd.ctx), win(snd.win), resources(snd.resources), set(snd.set), drawn(snd.drawn)
+    : state(std::move(snd.state)), win(snd.win), resources(snd.resources), set(snd.set), drawn(snd.drawn)
   {}
 
   template<class Receiver> struct op_state
   {
-    context *ctx{};
+    detail::context_handle state;
     owned::presenter *win{};
     handles::graphics_pipeline const *resources{};
     VkDescriptorSet set{};
@@ -944,7 +977,7 @@ struct draw_mesh_bind_async_sender
     auto start() noexcept -> void
     {
       detail::start_draw_async(
-        ctx,
+        state,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
           if (auto draw_status = draw_pass(drawn_frame.command_buffer,
@@ -968,7 +1001,7 @@ struct draw_mesh_bind_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .resources = resources,
       .set = set,
@@ -982,7 +1015,7 @@ struct draw_mesh_bind_async_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .win = win,
       .resources = resources,
       .set = set,
@@ -995,7 +1028,7 @@ struct draw_mesh_bind_async_sender
 inline auto operator|(schedule_sender snd, draw_bind_closure closure) -> draw_bind_sender
 {
   return draw_bind_sender{
-    .ctx = snd.ctx,
+    .state = std::move(snd.state),
     .win = closure.win,
     .resources = closure.resources,
     .set = closure.set,
@@ -1006,7 +1039,7 @@ inline auto operator|(schedule_sender snd, draw_bind_closure closure) -> draw_bi
 inline auto operator|(schedule_sender snd, draw_mesh_bind_closure closure) -> draw_mesh_bind_sender
 {
   return draw_mesh_bind_sender{
-    .ctx = snd.ctx,
+    .state = std::move(snd.state),
     .win = closure.win,
     .resources = closure.resources,
     .set = closure.set,
@@ -1015,10 +1048,10 @@ inline auto operator|(schedule_sender snd, draw_mesh_bind_closure closure) -> dr
 }
 
 [[nodiscard]] inline auto operator|(draw_bind_sender snd, submit_t /*tag*/) -> draw_bind_async_sender
-{ return draw_bind_async_sender{ snd }; }
+{ return draw_bind_async_sender{ std::move(snd) }; }
 
 [[nodiscard]] inline auto operator|(draw_mesh_bind_sender snd, submit_t /*tag*/) -> draw_mesh_bind_async_sender
-{ return draw_mesh_bind_async_sender{ snd }; }
+{ return draw_mesh_bind_async_sender{ std::move(snd) }; }
 
 }// namespace vkexec
 

@@ -307,7 +307,8 @@ namespace detail {
   template<class... Steps>
   [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::tuple<Steps...> &steps) -> status
   {
-    if (auto recorded = record_static_steps(*scope.ctx, scope.cmd, scope.cleanup, steps); !recorded) {
+    auto facade = context_access::facade(scope.state);
+    if (auto recorded = record_static_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -315,17 +316,19 @@ namespace detail {
 
   [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::vector<dynamic_pass_step> &steps) -> status
   {
-    if (auto recorded = record_dynamic_steps(*scope.ctx, scope.cmd, scope.cleanup, steps); !recorded) {
+    auto facade = context_access::facade(scope.state);
+    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
   }
 
   template<class StepStorage>
-  [[nodiscard]] auto open_and_record_pass(context *ctx, StepStorage &steps) -> result<submit_scope>
+  [[nodiscard]] auto open_and_record_pass(context_handle state, StepStorage &steps) -> result<submit_scope>
   {
-    if (ctx == nullptr) { return fail(errc::invalid_argument, "pass graph requires a context"); }
-    auto opened = submit_scope::open(*ctx);
+    if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
+    auto facade = context_access::facade(std::move(state));
+    auto opened = submit_scope::open(facade);
     if (!opened) { return fail(opened); }
     submit_scope scope = expected_take(opened);
     if (auto recorded = record_pass_steps(scope, steps); !recorded) {
@@ -381,7 +384,7 @@ namespace detail {
 
   template<class StepStorage, class Receiver> struct pass_graph_op_state
   {
-    context *ctx{ nullptr };
+    context_handle state;
     StepStorage steps;
     Receiver receiver;
     using child_receiver_t = pass_graph_after_gpu_receiver<StepStorage, Receiver>;
@@ -393,7 +396,7 @@ namespace detail {
     {
       submit_op_t op;
       submit_op_holder(detail::submit_fence_sender sender, scheduler sched, child_receiver_t child)
-        : op(ex::connect(ex::continues_on(std::move(sender), sched), std::move(child)))
+        : op(ex::connect(ex::continues_on(std::move(sender), std::move(sched)), std::move(child)))
       {}
       ~submit_op_holder() = default;
       submit_op_holder(submit_op_holder const &) = delete;
@@ -413,13 +416,13 @@ namespace detail {
 #if VKEXEC_HAS_EXCEPTIONS
       try {
 #endif
-        auto prepared = detail::open_and_record_pass(ctx, steps);
+        auto prepared = detail::open_and_record_pass(state, steps);
         if (!prepared) {
           ex::set_error(std::move(receiver), std::move(prepared.error()));
           return;
         }
         auto &child = submit_op.emplace(detail::submit_fence(expected_take(prepared)),
-          ctx->get_scheduler(),
+          scheduler_access::make(state),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
 #if VKEXEC_HAS_EXCEPTIONS
@@ -457,12 +460,12 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
   using sender_concept = ex::sender_t;
   using completion_signatures = pass_graph_completion_signatures;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   std::tuple<Steps...> steps;
 
   using step_storage_t = std::tuple<Steps...>;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> using op_state = detail::pass_graph_op_state<step_storage_t, Receiver>;
 
@@ -473,7 +476,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = state,
       .steps = steps,
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
@@ -486,7 +489,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = std::move(state),
       .steps = std::move(steps),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
@@ -500,11 +503,11 @@ struct dynamic_pass_graph_sender
   using completion_signatures = pass_graph_completion_signatures;
   using step_storage_t = std::vector<detail::dynamic_pass_step>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
   step_storage_t steps;
 
   dynamic_pass_graph_sender() = default;
-  explicit dynamic_pass_graph_sender(context *graph_ctx) : ctx(graph_ctx) {}
+  explicit dynamic_pass_graph_sender(detail::context_handle graph_state) : state(std::move(graph_state)) {}
   ~dynamic_pass_graph_sender() = default;
   dynamic_pass_graph_sender(dynamic_pass_graph_sender &&) noexcept = default;
   auto operator=(dynamic_pass_graph_sender &&) noexcept -> dynamic_pass_graph_sender & = default;
@@ -520,7 +523,7 @@ struct dynamic_pass_graph_sender
     }
   auto append(detail::expr_closure<Tag, Data> operation) -> dynamic_pass_graph_sender &;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> using op_state = detail::pass_graph_op_state<step_storage_t, Receiver>;
 
@@ -530,7 +533,7 @@ struct dynamic_pass_graph_sender
     -> op_state<Receiver>
   {
     return op_state<Receiver>{
-      .ctx = ctx,
+      .state = std::move(state),
       .steps = std::move(steps),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
@@ -662,7 +665,7 @@ template<detail::static_pass_step Step>
 }
 
 [[nodiscard]] inline auto make_dynamic_pass_graph(schedule_sender snd) -> dynamic_pass_graph_sender
-{ return dynamic_pass_graph_sender{ snd.ctx }; }
+{ return dynamic_pass_graph_sender{ std::move(snd.state) }; }
 
 template<detail::push_constant_type Params>
 auto compute_pass_t::operator()(compute_bind bind, Params const &params, dispatch groups) const

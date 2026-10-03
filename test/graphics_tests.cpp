@@ -1,7 +1,10 @@
+#include "test_helpers.hpp"
+
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <stdexec/execution.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -12,7 +15,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include <concepts>
+#include <memory>
 #include <type_traits>
+#include <utility>
 
 namespace ex = stdexec;
 
@@ -79,7 +84,7 @@ TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][sc
 {
   vkexec::scheduler const sched{ nullptr };
   vkexec::draw_sender const sync{
-    .ctx = nullptr,
+    .state = {},
     .win = nullptr,
     .pipeline = nullptr,
     .vertex_count = 0,
@@ -94,4 +99,17 @@ TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][sc
   using signatures = vkexec::draw_async_sender::completion_signatures;
   STATIC_REQUIRE(std::same_as<signatures,
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
+}
+
+TEST_CASE("draw senders retain runtime after context destruction", "[vkexec][graphics][scheduler][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  std::weak_ptr<vkexec::detail::context_state> const runtime = vkexec::detail::context_access::state(*ctx);
+  auto sender = ex::schedule(ctx->get_scheduler()) | vkexec::draw_closure{};
+  auto async_sender = std::move(sender) | vkexec::submit;
+  ctx.reset();
+
+  REQUIRE(!runtime.expired());
+  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(async_sender));
+  REQUIRE(vkexec::detail::scheduler_access::state(completion).get() == runtime.lock().get());
 }

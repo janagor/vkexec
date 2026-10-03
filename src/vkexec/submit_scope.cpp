@@ -189,7 +189,7 @@ namespace detail {
     }
 
     submit_scope scope;
-    scope.ctx = &host;
+    scope.state = context_access::state(host);
     scope.pool = pool;
     scope.cmd = cmd_buf;
     return scope;
@@ -208,20 +208,22 @@ namespace detail {
   auto submit_scope::release() noexcept -> void
   {
     // Always free cmd before descriptors so a failed submit still returns loans.
-    if (ctx == nullptr) { return; }
+    if (!state) { return; }
+
+    auto facade = context_access::facade(state);
 
 #if VKEXEC_HAS_EXCEPTIONS
     try {
 #endif
       if (cmd != VK_NULL_HANDLE) {
-        vkFreeCommandBuffers(ctx->device(), pool, 1, &cmd);
+        vkFreeCommandBuffers(facade.device(), pool, 1, &cmd);
         cmd = VK_NULL_HANDLE;
       }
-      ctx->release_command_pool(ctx->queue_family(), pool);
+      facade.release_command_pool(facade.queue_family(), pool);
       pool = VK_NULL_HANDLE;
 
-      cleanup.release(*ctx);
-      ctx = nullptr;
+      cleanup.release(facade);
+      state.reset();
 #if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
       // Cleanup is an RAII/noexcept boundary. If object synchronization fails,
@@ -246,7 +248,11 @@ namespace detail {
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }
   }
 
-  auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender { return enter_submit_scope_sender{ .ctx = ctx }; }
+  auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender
+  { return enter_submit_scope(ctx != nullptr ? context_access::state(*ctx) : context_handle{}); }
+
+  auto enter_submit_scope(context_handle state) -> enter_submit_scope_sender
+  { return enter_submit_scope_sender{ .state = std::move(state) }; }
 
   auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender { return enter_submit_scope(&ctx); }
 

@@ -1,8 +1,11 @@
 digraph ownership {
   rankdir=LR;
-  context -> scheduler;
+  context -> "shared runtime";
+  scheduler -> "shared runtime";
+  "pass graph" -> "shared runtime";
+  "submit scope" -> "shared runtime";
   context -> "owning resources" [label="must outlive"];
   "owning resources" -> "borrowed handles" -> "pass graph" -> "GPU completion";
   "VMA allocator" -> "VMA resources";
-  "embedder Vulkan objects" -> "adopted context";
+  "embedder Vulkan objects" -> "shared runtime" [label="must outlive adopted runtime"];
 }

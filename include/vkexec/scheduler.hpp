@@ -25,6 +25,7 @@ namespace ex = stdexec;
 class scheduler;
 
 namespace detail {
+  struct scheduler_access;
 
   /**
    * Sender environment that advertises the vkexec domain but no completion scheduler.
@@ -57,7 +58,7 @@ namespace detail {
  */
 struct scheduler_env
 {
-  context *ctx{ nullptr };
+  detail::context_handle state;
 
   [[nodiscard]] auto query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler;
 
@@ -76,7 +77,7 @@ struct scheduler_env
  *
  * A pre-requested stop completes inline with `set_stopped`. Otherwise the
  * queued task checks for stop again before delivering `set_value` on the host
- * agent. A null `ctx` completes inline with `set_error(errc::invalid_argument)`.
+ * agent. An empty state completes inline with `set_error(errc::invalid_argument)`.
  * A pre-requested stop takes precedence. No scheduling guarantee is made for
  * `set_error` or `set_stopped`.
  */
@@ -86,13 +87,13 @@ struct schedule_sender
   using completion_signatures =
     ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
 
-  context *ctx{ nullptr };
+  detail::context_handle state;
 
-  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .ctx = ctx }; }
+  [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
   template<class Receiver> struct op_state
   {
-    context *ctx{ nullptr };
+    detail::context_handle state;
     Receiver receiver;
 
     auto start() noexcept -> void
@@ -102,7 +103,7 @@ struct schedule_sender
         return;
       }
 
-      if (ctx == nullptr) {
+      if (!state) {
         ex::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
         return;
       }
@@ -110,7 +111,7 @@ struct schedule_sender
 #if VKEXEC_HAS_EXCEPTIONS
       std::optional<status> enqueued;
       try {
-        enqueued.emplace(ctx->enqueue_host([this]() noexcept -> void {
+        enqueued.emplace(detail::enqueue_host(state, [this]() noexcept -> void {
           if (detail::receiver_stop_requested(receiver)) {
             ex::set_stopped(std::move(receiver));
           } else {
@@ -122,7 +123,7 @@ struct schedule_sender
         return;
       }
 #else
-      auto enqueued = ctx->enqueue_host([this]() noexcept -> void {
+      auto enqueued = detail::enqueue_host(state, [this]() noexcept -> void {
         if (detail::receiver_stop_requested(receiver)) {
           ex::set_stopped(std::move(receiver));
         } else {
@@ -144,20 +145,20 @@ struct schedule_sender
   // cppcheck-suppress functionStatic
   [[nodiscard]] auto connect(Receiver receiver) & noexcept(std::is_nothrow_move_constructible_v<Receiver>)
     -> op_state<Receiver>
-  { return op_state<Receiver>{ ctx, std::move(receiver) }; }
+  { return op_state<Receiver>{ state, std::move(receiver) }; }
 
   template<class Receiver>
   // cppcheck-suppress functionStatic
   [[nodiscard]] auto connect(Receiver receiver) && noexcept(std::is_nothrow_move_constructible_v<Receiver>)
     -> op_state<Receiver>
-  { return op_state<Receiver>{ ctx, std::move(receiver) }; }
+  { return op_state<Receiver>{ std::move(state), std::move(receiver) }; }
 };
 
 /**
- * stdexec scheduler bound to a `context`.
+ * stdexec scheduler bound to a shared context runtime.
  *
  * `schedule()` starts work on the context host agent. Equality compares the
- * underlying `context*` pointers.
+ * underlying runtime state.
  *
  * @see context::get_scheduler, schedule_sender, domain
  */
@@ -165,12 +166,12 @@ class scheduler
 {
 public:
   //! A null context is representable for composition; executing it reports invalid_argument.
-  explicit scheduler(context *ctx) noexcept : ctx_(ctx) {}
+  explicit scheduler(context *ctx) noexcept
+    : state_(ctx != nullptr ? detail::context_access::state(*ctx) : detail::context_handle{})
+  {}
 
   //! Returns a sender that completes on this scheduler's host agent.
-  [[nodiscard]] auto schedule() const noexcept -> schedule_sender { return schedule_sender{ .ctx = ctx_ }; }
-  //! Returns the bound context pointer (may be null).
-  [[nodiscard]] auto get_context() const noexcept -> context * { return ctx_; }
+  [[nodiscard]] auto schedule() const noexcept -> schedule_sender { return schedule_sender{ .state = state_ }; }
 
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -181,16 +182,28 @@ public:
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
 
-  friend auto operator==(scheduler const &lhs, scheduler const &rhs) noexcept -> bool { return lhs.ctx_ == rhs.ctx_; }
+  friend auto operator==(scheduler const &lhs, scheduler const &rhs) noexcept -> bool
+  { return lhs.state_.get() == rhs.state_.get(); }
+  friend struct detail::scheduler_access;
 
 private:
-  context *ctx_{ nullptr };
+  explicit scheduler(detail::context_handle state) noexcept : state_(std::move(state)) {}
+  detail::context_handle state_;
 };
 
-inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler
-{ return scheduler{ ctx }; }
+namespace detail {
+  struct scheduler_access
+  {
+    [[nodiscard]] static auto state(scheduler const &sched) noexcept -> context_handle { return sched.state_; }
+    [[nodiscard]] static auto make(context_handle state) noexcept -> scheduler
+    { return scheduler{ std::move(state) }; }
+  };
+}// namespace detail
 
-inline auto context::get_scheduler() noexcept -> scheduler { return scheduler{ this }; }
+inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler
+{ return detail::scheduler_access::make(state); }
+
+inline auto context::get_scheduler() noexcept -> scheduler { return detail::scheduler_access::make(impl_); }
 
 /**
  * True when `Pred` is a sender whose value completion is guaranteed to happen

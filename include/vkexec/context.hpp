@@ -19,6 +19,7 @@
 
 #include <concepts>
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -64,6 +65,12 @@ class window;
 class context;
 
 namespace detail {
+  struct context_state;
+  using context_handle = std::shared_ptr<context_state>;
+  struct runtime_facade_tag {};
+  struct context_access;
+  [[nodiscard]] auto enqueue_host(context_handle const &state, host_task_fn task) -> status;
+  [[nodiscard]] auto retirement_future(context_handle const &state) -> std::shared_future<void>;
   enum class synchronization_backend : std::uint8_t;
   struct submit_scope;
   [[nodiscard]] auto synchronization_backend_for(context const &ctx) noexcept -> synchronization_backend;
@@ -93,6 +100,8 @@ struct scheduler_options
  * presentation is unused. Direct queue operations by the embedder must use
  * `context::lock_queue` so they share vkexec's queue synchronization. One
  * VkQueue must not be managed by two vkexec contexts at the same time.
+ * The embedder must keep adopted Vulkan handles alive until all schedulers,
+ * senders, operation states, and scopes using this runtime have been released.
  *
  * @see factory::adopt_context
  */
@@ -185,8 +194,12 @@ namespace factory {
  * Concurrent host access to the same descriptor set, including update and
  * free, remains the caller's responsibility.
  * A command pool and recording of its command buffers require exclusive use.
- * Destruction requires all users and queue operations on the device to have
- * stopped; it may call `vkDeviceWaitIdle` before releasing owned resources.
+ * Schedulers, senders, operation states, and submit scopes retain the runtime
+ * after this facade is destroyed. Owned Vulkan handles are released when the
+ * last runtime user is released; that teardown may call `vkDeviceWaitIdle`.
+ * Direct embedder queue operations must have stopped before final teardown.
+ * Execution objects must be released before C++ static object destruction
+ * begins; the process-wide runtime retirement agent shuts down in that phase.
  *
  * ~~~~~~~~~~~{.cpp}
  * auto ctx = vkexec::sync_wait_value(vkexec::factory::make_context());
@@ -198,6 +211,7 @@ namespace factory {
 class context
 {
   friend auto detail::synchronization_backend_for(context const &ctx) noexcept -> detail::synchronization_backend;
+  friend struct detail::context_access;
 
 public:
   ~context();
@@ -228,9 +242,9 @@ public:
   [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t;
   //! Queue family index for `present_queue()`.
   [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t;
-  //! True when this context destroys the Vulkan instance in its destructor.
+  //! True when the retained runtime destroys the Vulkan instance at final release.
   [[nodiscard]] auto owns_instance() const noexcept -> bool;
-  //! True when this context destroys the Vulkan device in its destructor.
+  //! True when the retained runtime destroys the Vulkan device at final release.
   [[nodiscard]] auto owns_device() const noexcept -> bool;
   //! True when graphics/present queues were configured for swapchain use.
   [[nodiscard]] auto presentation_enabled() const noexcept -> bool;
@@ -354,6 +368,9 @@ public:
   [[nodiscard]] auto host_agent_thread_id() -> std::thread::id;
 
 private:
+  explicit context(detail::context_handle state, detail::runtime_facade_tag /*tag*/) noexcept
+    : impl_(std::move(state))
+  {}
   friend class owned::presenter;
   friend struct detail::submit_scope;
   friend class detail::descriptor_pool_access;
@@ -382,7 +399,7 @@ private:
   };
 
 public:
-  explicit context(factory_access /*access*/, uninitialized_tag tag) noexcept;
+  explicit context(factory_access /*access*/, uninitialized_tag tag);
   explicit context(factory_access /*access*/,
     instance_only_tag tag,
     scheduler_options const &opts,
@@ -405,9 +422,17 @@ private:
     do_enqueue_borrowed_fence_wait(VkFence fence, detail::stop_fn stop_requested, detail::done_fn on_done) -> status;
   [[nodiscard]] auto do_enqueue_host(detail::host_task_fn task) -> status;
 
-  struct impl;
-  std::unique_ptr<impl> impl_;
+  detail::context_handle impl_;
 };
+
+namespace detail {
+  struct context_access
+  {
+    [[nodiscard]] static auto state(context const &ctx) noexcept -> context_handle { return ctx.impl_; }
+    [[nodiscard]] static auto facade(context_handle state) noexcept -> context
+    { return context{ std::move(state), runtime_facade_tag{} }; }
+  };
+}// namespace detail
 
 }// namespace vkexec
 

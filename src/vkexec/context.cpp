@@ -24,8 +24,10 @@
 
 #include <algorithm>
 #include <array>
+#include <condition_variable>
 #include <cstdint>
 #include <cstring>
+#include <future>
 #include <iterator>
 #include <memory>
 #include <mutex>
@@ -39,7 +41,7 @@
 
 namespace vkexec {
 
-struct context::impl
+struct detail::context_state
 {
   vulkan_requirements creation_requirements{};
   device_capabilities capabilities{};
@@ -68,6 +70,16 @@ struct context::impl
   bool has_device{ false };
   bool owns_instance{ false };
   bool owns_device{ false };
+  context_state *next_retired{ nullptr };
+  std::shared_ptr<std::promise<void>> retirement_done{ std::make_shared<std::promise<void>>() };
+  std::shared_future<void> retirement{ retirement_done->get_future().share() };
+
+  ~context_state();
+  context_state() = default;
+  context_state(context_state const &) = delete;
+  auto operator=(context_state const &) -> context_state & = delete;
+  context_state(context_state &&) = delete;
+  auto operator=(context_state &&) -> context_state & = delete;
 
   auto register_known_queues() -> status
   {
@@ -90,6 +102,73 @@ struct context::impl
 };
 
 namespace {
+
+  class retirement_executor
+  {
+  public:
+    retirement_executor() : worker_([this]() noexcept -> void { run(); }) {}
+    retirement_executor(retirement_executor const &) = delete;
+    auto operator=(retirement_executor const &) -> retirement_executor & = delete;
+    retirement_executor(retirement_executor &&) = delete;
+    auto operator=(retirement_executor &&) -> retirement_executor & = delete;
+
+    ~retirement_executor()
+    {
+      {
+        std::scoped_lock const lock(mutex_);
+        stopping_ = true;
+      }
+      cv_.notify_one();
+      worker_.join();
+    }
+
+    auto retire(std::unique_ptr<detail::context_state> state) noexcept -> void
+    {
+      auto *retired = state.release();
+      {
+        std::scoped_lock const lock(mutex_);
+        if (tail_ != nullptr) {
+          tail_->next_retired = retired;
+        } else {
+          head_ = retired;
+        }
+        tail_ = retired;
+      }
+      cv_.notify_one();
+    }
+
+  private:
+    auto run() noexcept -> void
+    {
+      for (;;) {
+        std::unique_ptr<detail::context_state> state;
+        {
+          std::unique_lock lock(mutex_);
+          cv_.wait(lock, [this]() noexcept -> bool { return stopping_ || head_ != nullptr; });
+          if (head_ == nullptr && stopping_) { return; }
+          state.reset(head_);
+          head_ = state->next_retired;
+          if (head_ == nullptr) { tail_ = nullptr; }
+        }
+        auto done = state->retirement_done;
+        state.reset();
+        done->set_value();
+      }
+    }
+
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    detail::context_state *head_{ nullptr };
+    detail::context_state *tail_{ nullptr };
+    bool stopping_{ false };
+    std::thread worker_;
+  };
+
+  [[nodiscard]] auto runtime_reaper() -> retirement_executor &
+  {
+    static retirement_executor executor;
+    return executor;
+  }
 
   auto enable_capability(device_capabilities &caps, detail::capability_id capability) noexcept -> void
   {
@@ -324,10 +403,27 @@ namespace {
     return {};
   }
 
+  [[nodiscard]] auto make_context_state() -> detail::context_handle
+  {
+    (void)runtime_reaper();
+    return { new detail::context_state, [](detail::context_state *state) noexcept -> void {
+      std::unique_ptr<detail::context_state> owned{ state };
+      bool const on_worker = (owned->host_agent && owned->host_agent->on_agent_thread())
+                             || (owned->completion_waiter && owned->completion_waiter->on_agent_thread());
+      if (on_worker) {
+        runtime_reaper().retire(std::move(owned));
+      } else {
+        auto done = owned->retirement_done;
+        owned.reset();
+        done->set_value();
+      }
+    } };
+  }
+
 }// namespace
 
-context::context(factory_access /*access*/, [[maybe_unused]] uninitialized_tag tag) noexcept
-  : impl_(std::make_unique<impl>())
+context::context(factory_access /*access*/, [[maybe_unused]] uninitialized_tag tag)
+  : impl_(make_context_state())
 {}
 
 auto detail::make_context_factory::operator()() const -> result<std::unique_ptr<::vkexec::context>>
@@ -458,7 +554,7 @@ context::context(factory_access /*access*/,
   instance_only_tag tag,
   scheduler_options const &opts,
   std::vector<char const *> const &instance_extensions)
-  : impl_(std::make_unique<impl>())
+  : impl_(make_context_state())
 {
   (void)tag;
   impl_->creation_requirements = opts.requirements;
@@ -565,31 +661,33 @@ auto context::load_device_procs() -> status
   return {};
 }
 
-context::~context()
+context::~context() = default;
+
+detail::context_state::~context_state()
 {
   // Agents first so outstanding completions finish before tearing down Vulkan objects.
-  impl_->host_agent.reset();
-  impl_->completion_waiter.reset();
+  host_agent.reset();
+  completion_waiter.reset();
 
-  if (impl_->device.device != VK_NULL_HANDLE) {
-    if (impl_->owns_device) { vkDeviceWaitIdle(impl_->device.device); }
-    for (auto const &[cmd, pool] : impl_->command_buffer_pools) {
+  if (device.device != VK_NULL_HANDLE) {
+    if (owns_device) { vkDeviceWaitIdle(device.device); }
+    for (auto const &[cmd, pool] : command_buffer_pools) {
       (void)cmd;
-      vkDestroyCommandPool(impl_->device.device, pool, nullptr);
+      vkDestroyCommandPool(device.device, pool, nullptr);
     }
-    for (auto const &[family, pool] : impl_->available_command_pools) {
+    for (auto const &[family, pool] : available_command_pools) {
       (void)family;
-      vkDestroyCommandPool(impl_->device.device, pool, nullptr);
+      vkDestroyCommandPool(device.device, pool, nullptr);
     }
-    if (impl_->owns_device) {
-      vkb::destroy_device(impl_->device);
-      impl_->has_device = false;
+    if (owns_device) {
+      vkb::destroy_device(device);
+      has_device = false;
     }
   }
 
-  if (impl_->owns_instance && impl_->has_instance) {
-    vkb::destroy_instance(impl_->instance);
-    impl_->has_instance = false;
+  if (owns_instance && has_instance) {
+    vkb::destroy_instance(instance);
+    has_instance = false;
   }
 }
 
@@ -711,6 +809,16 @@ auto context::do_enqueue_host(detail::host_task_fn task) -> status
   if (!impl_->host_agent) { impl_->host_agent = std::make_unique<detail::host_agent>(); }
   return impl_->host_agent->enqueue(std::move(task));
 }
+
+auto detail::enqueue_host(context_handle const &state, host_task_fn task) -> status
+{
+  if (!state) { return fail(errc::invalid_argument, "scheduler has no context"); }
+  auto facade = context_access::facade(state);
+  return facade.enqueue_host(std::move(task));
+}
+
+auto detail::retirement_future(context_handle const &state) -> std::shared_future<void>
+{ return state != nullptr ? state->retirement : std::shared_future<void>{}; }
 
 auto context::allocate_command_buffer() -> result<VkCommandBuffer>
 {

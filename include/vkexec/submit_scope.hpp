@@ -109,7 +109,7 @@ namespace detail {
    */
   struct submit_scope
   {
-    context *ctx{ nullptr };
+    context_handle state;
     VkCommandPool pool{ VK_NULL_HANDLE };
     VkCommandBuffer cmd{ VK_NULL_HANDLE };
     descriptor_cleanup cleanup{};
@@ -119,9 +119,8 @@ namespace detail {
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
     submit_scope(submit_scope &&other) noexcept
-      : ctx(other.ctx), pool(other.pool), cmd(other.cmd), cleanup(std::move(other.cleanup))
+      : state(std::move(other.state)), pool(other.pool), cmd(other.cmd), cleanup(std::move(other.cleanup))
     {
-      other.ctx = nullptr;
       other.pool = VK_NULL_HANDLE;
       other.cmd = VK_NULL_HANDLE;
     }
@@ -130,11 +129,10 @@ namespace detail {
     {
       if (this == &other) { return *this; }
       release();
-      ctx = other.ctx;
+      state = std::move(other.state);
       pool = other.pool;
       cmd = other.cmd;
       cleanup = std::move(other.cleanup);
-      other.ctx = nullptr;
       other.pool = VK_NULL_HANDLE;
       other.cmd = VK_NULL_HANDLE;
       return *this;
@@ -214,7 +212,7 @@ namespace detail {
     using completion_signatures =
       ex::completion_signatures<ex::set_value_t(submit_scope), ex::set_error_t(error), ex::set_stopped_t()>;
 
-    context *ctx{ nullptr };
+    context_handle state;
 
     // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -222,7 +220,7 @@ namespace detail {
 
     template<class Receiver> struct op_state
     {
-      context *ctx{ nullptr };
+      context_handle state;
       Receiver receiver;
 
       auto start() noexcept -> void
@@ -232,7 +230,7 @@ namespace detail {
           return;
         }
 
-        if (ctx == nullptr) {
+        if (!state) {
           ex::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
           return;
         }
@@ -240,13 +238,15 @@ namespace detail {
         result<submit_scope> opened;
 #if VKEXEC_HAS_EXCEPTIONS
         try {
-          opened = submit_scope::open(*ctx);
+          auto facade = context_access::facade(state);
+          opened = submit_scope::open(facade);
         } catch (...) {
           ex::set_error(std::move(receiver), unexpected_exception_error());
           return;
         }
 #else
-        opened = submit_scope::open(*ctx);
+        auto facade = context_access::facade(state);
+        opened = submit_scope::open(facade);
 #endif
         if (!opened) {
           ex::set_error(std::move(receiver), std::move(opened.error()));
@@ -260,17 +260,18 @@ namespace detail {
     // cppcheck-suppress functionStatic
     [[nodiscard]] auto connect(Receiver receiver) & noexcept(std::is_nothrow_move_constructible_v<Receiver>)
       -> op_state<Receiver>
-    { return op_state<Receiver>{ ctx, std::move(receiver) }; }
+    { return op_state<Receiver>{ state, std::move(receiver) }; }
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
     [[nodiscard]] auto connect(Receiver receiver) && noexcept(std::is_nothrow_move_constructible_v<Receiver>)
       -> op_state<Receiver>
-    { return op_state<Receiver>{ ctx, std::move(receiver) }; }
+    { return op_state<Receiver>{ std::move(state), std::move(receiver) }; }
   };
 
   //! Returns a sender that opens a `submit_scope` on `ctx`; null completes with invalid_argument.
   [[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
+  [[nodiscard]] auto enter_submit_scope(context_handle state) -> enter_submit_scope_sender;
 
   //! Returns a sender that opens a `submit_scope` on `ctx`.
   [[nodiscard]] auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender;
@@ -309,7 +310,8 @@ namespace detail {
           return;
         }
 
-        context *const host = scope.ctx;
+        auto facade = context_access::facade(scope.state);
+        context *const host = &facade;
         status submitted;
 #if VKEXEC_HAS_EXCEPTIONS
         try {
@@ -384,7 +386,8 @@ namespace detail {
           return;
         }
 
-        context *const host = scope.ctx;
+        auto facade = context_access::facade(scope.state);
+        context *const host = &facade;
         VkFence fence{ VK_NULL_HANDLE };
         VkSemaphore done{ VK_NULL_HANDLE };
 #if VKEXEC_HAS_EXCEPTIONS

@@ -96,11 +96,11 @@ template<class Tag, class Data, class Child, class Env>
 
 template<static_pass_step... Steps> struct materialize_pass_graph_fn
 {
-  context *ctx{ nullptr };
+  context_handle state;
   std::tuple<Steps...> steps;
 
   template<class... Values> [[nodiscard]] auto operator()(Values &&.../*values*/) -> pass_graph_sender<Steps...>
-  { return { .ctx = ctx, .steps = std::move(steps) }; }
+  { return { .state = std::move(state), .steps = std::move(steps) }; }
 };
 
 template<vkexec_predecessor Pred, static_pass_step... Steps>
@@ -109,24 +109,23 @@ template<vkexec_predecessor Pred, static_pass_step... Steps>
   -> decltype(ex::let_value(std::declval<Pred>(), std::declval<materialize_pass_graph_fn<Steps...>>()))
 {
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(chain.pred));
-  // NOLINTNEXTLINE(misc-const-correctness)
-  context *const ctx = sched.get_context();
+  auto state = scheduler_access::state(sched);
   return ex::let_value(
-    std::move(chain.pred), materialize_pass_graph_fn<Steps...>{ .ctx = ctx, .steps = std::move(chain.steps) });
+    std::move(chain.pred), materialize_pass_graph_fn<Steps...>{ .state = std::move(state), .steps = std::move(chain.steps) });
 }
 
 template<static_pass_step... Steps>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
 [[nodiscard]] auto materialize_pass_chain(pass_chain<schedule_sender, Steps...> &&chain) -> pass_graph_sender<Steps...>
-{ return { .ctx = chain.pred.ctx, .steps = std::move(chain.steps) }; }
+{ return { .state = std::move(chain.pred.state), .steps = std::move(chain.steps) }; }
 
 template<static_pass_step... Old, static_pass_step... Steps>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
 [[nodiscard]] auto materialize_pass_chain(pass_chain<pass_graph_sender<Old...>, Steps...> &&chain)
   -> pass_graph_sender<Old..., Steps...>
 {
-  context *const ctx = chain.pred.ctx;
-  return { .ctx = ctx, .steps = std::tuple_cat(std::move(chain.pred.steps), std::move(chain.steps)) };
+  auto state = std::move(chain.pred.state);
+  return { .state = std::move(state), .steps = std::tuple_cat(std::move(chain.pred.steps), std::move(chain.steps)) };
 }
 
 template<static_pass_step... Steps>

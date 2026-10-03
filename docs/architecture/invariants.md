@@ -9,5 +9,5 @@
 - Execution uses Vulkan handles and does not depend on a concrete allocator; VMA is optional.
 - Descriptor schema and resource tables do not contain backend-specific heap state.
 - Cancellation uses `set_stopped`, failures use `set_error(vkexec::error)`.
-- Context-dependent resources do not outlive their context.
+- Execution objects retain the shared runtime; resources requiring explicit `context` cleanup are destroyed while the public facade is available.
 - Private stdexec APIs, vk-bootstrap types, and extension-specific entry points remain behind their boundaries.

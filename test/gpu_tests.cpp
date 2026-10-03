@@ -335,7 +335,7 @@ TEST_CASE("pass graph completes with set_stopped when stop is already requested"
   ex::inplace_stop_source source;
   source.request_stop();
   vkexec::pass_graph_sender<> sender{
-    .ctx = nullptr,
+    .state = {},
     .steps = {},
   };
 
