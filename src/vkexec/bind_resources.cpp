@@ -1,5 +1,6 @@
 #include <vkexec/bind_resources.hpp>
 
+#include <vkexec/context.hpp>
 #include <vkexec/detail/bind_resources.hpp>
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/descriptor_table_backend.hpp>
