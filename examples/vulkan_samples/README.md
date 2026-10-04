@@ -1,0 +1,21 @@
+# Vulkan Samples workloads in vkexec
+
+This directory is a curated set of vkexec implementations of workloads described by
+[KhronosGroup/Vulkan-Samples](https://github.com/KhronosGroup/Vulkan-Samples).
+The examples use vkexec to schedule their work and use the existing GLFW presenter
+for window and swapchain setup.
+
+| Workload | Status | Main dependency |
+| --- | --- | --- |
+| Hello Triangle 1.3 | Implemented | graphics to present |
+| Compute N-Body | Planned | compute to compute to graphics |
+| Pipeline Barriers | Planned | G-buffer to lighting |
+| Async Compute | Planned | graphics and compute queues |
+| Timeline Semaphore / Game of Life | Planned | cross-queue image ping-pong |
+
+The shaders are compiled by `glslc` into the build tree. The source tree contains
+GLSL only. Set `vkexec_BUILD_EXAMPLES=ON` when configuring, then build the
+`vkexec_vs_triangle` target. A Vulkan-capable display is needed to run it.
+
+These are workload adaptations, not copies of the Khronos implementation. The
+current triangle shaders were adapted from vkexec's existing triangle example.
