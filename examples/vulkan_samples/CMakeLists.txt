@@ -24,3 +24,4 @@ function(vkexec_add_sample_shaders target)
 endfunction()
 
 add_subdirectory(hello_triangle_1_3)
+add_subdirectory(compute_nbody)

@@ -1,0 +1,21 @@
+#version 450
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) buffer PosX { float data[]; } pos_x;
+layout(set = 0, binding = 1) buffer PosY { float data[]; } pos_y;
+layout(set = 0, binding = 2) buffer VelX { float data[]; } vel_x;
+layout(set = 0, binding = 3) buffer VelY { float data[]; } vel_y;
+layout(set = 0, binding = 4) readonly buffer AccX { float data[]; } acc_x;
+layout(set = 0, binding = 5) readonly buffer AccY { float data[]; } acc_y;
+layout(push_constant) uniform Push { float delta_time; } pc;
+
+void main() {
+  uint i = gl_GlobalInvocationID.x;
+  vec2 velocity = vec2(vel_x.data[i], vel_y.data[i]);
+  velocity += vec2(acc_x.data[i], acc_y.data[i]) * pc.delta_time;
+  vec2 position = vec2(pos_x.data[i], pos_y.data[i]) + velocity * pc.delta_time;
+  vel_x.data[i] = velocity.x;
+  vel_y.data[i] = velocity.y;
+  pos_x.data[i] = position.x;
+  pos_y.data[i] = position.y;
+}
