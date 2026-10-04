@@ -25,3 +25,4 @@ endfunction()
 
 add_subdirectory(hello_triangle_1_3)
 add_subdirectory(compute_nbody)
+add_subdirectory(pipeline_barriers)

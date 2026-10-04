@@ -113,6 +113,7 @@ public:
   }
 
   [[nodiscard]] auto should_close() const noexcept -> bool { return glfwWindowShouldClose(window_) == GLFW_TRUE; }
+  [[nodiscard]] auto native_window() const noexcept -> GLFWwindow * { return window_; }
 
   auto poll_events() -> void
   {
