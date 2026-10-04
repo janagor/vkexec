@@ -106,10 +106,18 @@ auto run() -> int
     return { .buffer = buffer.vk_buffer(), .byte_size = buffer.size() * sizeof(float), .binding = slot };
   };
   std::array<vkexec::storage_binding, 4> const calculate_buffers{
-    bind(pos_x, 0), bind(pos_y, 1), bind(acc_x, 2), bind(acc_y, 3),
+    bind(pos_x, 0),
+    bind(pos_y, 1),
+    bind(acc_x, 2),
+    bind(acc_y, 3),
   };
   std::array<vkexec::storage_binding, 6> const integrate_buffers{
-    bind(pos_x, 0), bind(pos_y, 1), bind(vel_x, 2), bind(vel_y, 3), bind(acc_x, 4), bind(acc_y, 5),
+    bind(pos_x, 0),
+    bind(pos_y, 1),
+    bind(vel_x, 2),
+    bind(vel_y, 3),
+    bind(acc_x, 4),
+    bind(acc_y, 5),
   };
   std::array<vkexec::storage_binding, 2> const draw_buffers{ bind(pos_x, 0), bind(pos_y, 1) };
   auto calculate_bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(calculate, calculate_buffers));
@@ -139,7 +147,8 @@ auto run() -> int
       ex::schedule(ctx.get_scheduler())
       | vkexec::compute_pass(*calculate_bound.pipe, calculate_bound.set, k_particle_count)
       | vkexec::barrier::compute_to_compute()
-      | vkexec::compute_pass(*integrate_bound.pipe, integrate_bound.set, integrate_params{ delta_time }, k_particle_count));
+      | vkexec::compute_pass(
+        *integrate_bound.pipe, integrate_bound.set, integrate_params{ delta_time }, k_particle_count));
     vkexec::examples::sync_wait_graph(
       ex::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), graphics, k_particle_count));
     win.wait_idle();

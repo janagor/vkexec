@@ -1,4 +1,7 @@
-find_program(VKEXEC_GLSLC NAMES glslc HINTS "$ENV{VULKAN_SDK}/bin")
+find_program(
+  VKEXEC_GLSLC
+  NAMES glslc
+  HINTS "$ENV{VULKAN_SDK}/bin")
 
 function(vkexec_add_sample_shaders target)
   if(NOT VKEXEC_GLSLC)
@@ -19,8 +22,7 @@ function(vkexec_add_sample_shaders target)
   endforeach()
   add_custom_target(${target}_shaders DEPENDS ${shader_outputs})
   add_dependencies(${target} ${target}_shaders)
-  target_compile_definitions(${target} PRIVATE
-    "VKEXEC_SAMPLE_SHADER_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/shaders\"")
+  target_compile_definitions(${target} PRIVATE "VKEXEC_SAMPLE_SHADER_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/shaders\"")
 endfunction()
 
 add_subdirectory(hello_triangle_1_3)

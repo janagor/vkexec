@@ -79,10 +79,9 @@ namespace detail {
     detail::k_ktx_header_bytes + detail::read_u32(bytes, detail::k_ktx_key_values_offset);
   std::uint32_t const image_size = detail::read_u32(bytes, image_size_offset);
   std::size_t const payload_offset = image_size_offset + sizeof(std::uint32_t);
-  std::size_t const block_count = ((static_cast<std::size_t>(extent.width) + detail::k_astc_block_extent - 1)
-                                    / detail::k_astc_block_extent)
-                                  * ((static_cast<std::size_t>(extent.height) + detail::k_astc_block_extent - 1)
-                                    / detail::k_astc_block_extent);
+  std::size_t const block_count =
+    ((static_cast<std::size_t>(extent.width) + detail::k_astc_block_extent - 1) / detail::k_astc_block_extent)
+    * ((static_cast<std::size_t>(extent.height) + detail::k_astc_block_extent - 1) / detail::k_astc_block_extent);
   if (extent.width == 0 || extent.height == 0 || image_size != block_count * detail::k_astc_block_bytes
       || payload_offset + image_size > bytes.size()) {
     fail_check("invalid Sponza KTX texture payload");

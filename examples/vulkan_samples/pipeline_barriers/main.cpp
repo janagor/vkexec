@@ -8,17 +8,17 @@
 #include <vkexec/barrier.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec_features/feature.hpp>
+#include <vkexec_features/shader_demote_to_helper_invocation.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/presenter.hpp>
-#include <vkexec_features/feature.hpp>
-#include <vkexec_features/shader_demote_to_helper_invocation.hpp>
 #include <vkexec_vma/allocator.hpp>
 #include <vkexec_vma/gpu_buffer.hpp>
 #include <vkexec_vma/offscreen_target.hpp>
 
-#include <vulkan/vulkan_core.h>
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <array>
@@ -100,12 +100,12 @@ struct free_camera
   free_camera()
   {
     // Main Camera rotation from Sponza01.gltf.
-    float const forward_x = -2.0F * ((k_camera_rotation_x * k_camera_rotation_z)
-                                      + (k_camera_rotation_w * k_camera_rotation_y));
-    float const forward_y = -2.0F * ((k_camera_rotation_y * k_camera_rotation_z)
-                                      - (k_camera_rotation_w * k_camera_rotation_x));
-    float const forward_z = -(1.0F - (2.0F * ((k_camera_rotation_x * k_camera_rotation_x)
-                                                + (k_camera_rotation_y * k_camera_rotation_y))));
+    float const forward_x =
+      -2.0F * ((k_camera_rotation_x * k_camera_rotation_z) + (k_camera_rotation_w * k_camera_rotation_y));
+    float const forward_y =
+      -2.0F * ((k_camera_rotation_y * k_camera_rotation_z) - (k_camera_rotation_w * k_camera_rotation_x));
+    float const forward_z =
+      -(1.0F - (2.0F * ((k_camera_rotation_x * k_camera_rotation_x) + (k_camera_rotation_y * k_camera_rotation_y))));
     yaw = std::atan2(forward_x, -forward_z);
     pitch = std::asin(std::clamp(forward_y, -1.0F, 1.0F));
   }
@@ -157,8 +157,10 @@ struct free_camera
       .right = { cosine, 0.0F, sine, 0.0F },
       .up = { -pitch_sine * sine, pitch_cosine, pitch_sine * cosine, 0.0F },
       .forward = { pitch_cosine * sine, pitch_sine, -pitch_cosine * cosine, 0.0F },
-      .projection =
-        { 1.0F, k_camera_far_plane, static_cast<float>(extent.width) / static_cast<float>(extent.height), 0.0F },
+      .projection = { 1.0F,
+        k_camera_far_plane,
+        static_cast<float>(extent.width) / static_cast<float>(extent.height),
+        0.0F },
     };
   }
 };
@@ -212,7 +214,8 @@ auto make_frame_resources(vkexec::examples::glfw_presenter &win,
     auto material_resources = vkexec::bindings(
       vkexec::resource_binding{ .slot = 0, .resource = vkexec::sampled_image_resource(texture.view.handle()) },
       vkexec::resource_binding{ .slot = 1, .resource = vkexec::sampler_resource(sampler) },
-      vkexec::resource_binding{ .slot = 2, .resource = vkexec::buffer_resource(camera_buffer.handle(), sizeof(camera_data)) });
+      vkexec::resource_binding{
+        .slot = 2, .resource = vkexec::buffer_resource(camera_buffer.handle(), sizeof(camera_data)) });
     geometry.push_back(vkexec::examples::sync_wait_value(vkexec::factory::make_graphics_pipeline(win.ctx(),
       target.render_pass(),
       geometry_config,
@@ -232,10 +235,10 @@ auto make_frame_resources(vkexec::examples::glfw_presenter &win,
     vkexec::examples::load_spirv(shader_dir / "lighting.vert.spv"),
     vkexec::examples::load_spirv(shader_dir / (albedo_only ? "albedo.frag.spv" : "lighting.frag.spv")),
     std::move(resources)));
-  return frame_resources{
-    .target = std::move(target), .camera_buffer = std::move(camera_buffer), .geometry = std::move(geometry),
-    .lighting = std::move(lighting)
-  };
+  return frame_resources{ .target = std::move(target),
+    .camera_buffer = std::move(camera_buffer),
+    .geometry = std::move(geometry),
+    .lighting = std::move(lighting) };
 }
 
 auto transition_image(vkexec::context &ctx,

@@ -73,8 +73,8 @@ auto detail::make_gpu_buffer_factory::operator()() const -> result<::vkexec::vma
 
   bool const want_device_address = info.shader_device_address;
   if (want_device_address && !allocator->ctx().capabilities().buffer_device_address) {
-    return fail(errc::unsupported,
-      "vkexec::gpu_buffer shader device address requested but bufferDeviceAddress is not enabled");
+    return fail(
+      errc::unsupported, "vkexec::gpu_buffer shader device address requested but bufferDeviceAddress is not enabled");
   }
 
   VKEXEC_TRY_ASSIGN(usage, usage_for(info.memory, want_device_address));

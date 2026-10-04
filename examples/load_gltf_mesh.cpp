@@ -549,8 +549,7 @@ namespace {
     for (std::uint32_t primitive_index = 0; primitive_index < mesh.primitives_count; ++primitive_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       tg3_primitive const &primitive = mesh.primitives[primitive_index];
-      if (auto status = append_primitive(model, primitive, world, mesh_data, bake_vertex_lighting);
-        !status) {
+      if (auto status = append_primitive(model, primitive, world, mesh_data, bake_vertex_lighting); !status) {
         return fail(status);
       }
     }
