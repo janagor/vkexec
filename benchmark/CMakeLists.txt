@@ -1,4 +1,12 @@
-add_executable(vkexec_benchmarks pass_graph.cpp allocation_counter.cpp)
+add_executable(
+  vkexec_benchmarks
+  pass_graph_lifecycle.cpp
+  pass_graph_record.cpp
+  pass_graph_build_record.cpp
+  pass_graph_heap.cpp
+  pass_graph_compact.cpp
+  pass_graph_arena.cpp
+  allocation_counter.cpp)
 set_target_properties(
   vkexec_benchmarks
   PROPERTIES CXX_SCAN_FOR_MODULES OFF

@@ -17,7 +17,6 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -25,8 +24,9 @@
 #include <exception>
 #endif
 #include <memory>
-#include <new>
+#include <memory_resource>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -155,113 +155,7 @@ namespace detail {
     }
   }
 
-  template<std::size_t InlineBytes> class basic_dynamic_pass_step
-  {
-    struct interface
-    {
-      interface() = default;
-      virtual ~interface() = default;
-
-      interface(interface const &) = delete;
-      auto operator=(interface const &) -> interface & = delete;
-      interface(interface &&) = delete;
-      auto operator=(interface &&) -> interface & = delete;
-
-      virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status = 0;
-      virtual auto after_gpu() -> void = 0;
-    };
-
-    template<static_pass_step Step> struct model final : interface
-    {
-      Step step;
-
-      explicit model(Step value) : step(std::move(value)) {}
-
-      auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status override
-      { return step.record(ctx, cmd, cleanup); }
-
-      auto after_gpu() -> void override { detail::run_after_gpu(step); }
-    };
-
-    alignas(std::max_align_t) std::array<std::byte, InlineBytes> storage_{};
-    std::unique_ptr<interface> heap_;
-    interface *impl_{ nullptr };
-    auto (*move_inline_)(void *, void *) noexcept -> interface *{ nullptr };
-
-    auto release() noexcept -> void
-    {
-      if (move_inline_ != nullptr) {
-        std::destroy_at(impl_);
-      } else {
-        heap_.reset();
-      }
-      impl_ = nullptr;
-      move_inline_ = nullptr;
-    }
-
-    auto take(basic_dynamic_pass_step &other) noexcept -> void
-    {
-      move_inline_ = other.move_inline_;
-      if (move_inline_ != nullptr) {
-        impl_ = move_inline_(storage_.data(), other.impl_);
-        std::destroy_at(other.impl_);
-      } else {
-        heap_ = std::move(other.heap_);
-        impl_ = heap_.get();
-      }
-      other.impl_ = nullptr;
-      other.move_inline_ = nullptr;
-    }
-
-  public:
-    basic_dynamic_pass_step() = delete;
-
-    template<class Step> [[nodiscard]] static constexpr auto model_size() noexcept -> std::size_t
-    { return sizeof(model<Step>); }
-
-    template<class Step> [[nodiscard]] static constexpr auto model_alignment() noexcept -> std::size_t
-    { return alignof(model<Step>); }
-
-    template<class Step>
-      requires(!std::same_as<std::remove_cvref_t<Step>, basic_dynamic_pass_step>) && static_pass_step<Step>
-    explicit basic_dynamic_pass_step(Step step)
-    {
-      if constexpr (sizeof(model<Step>) <= InlineBytes && alignof(model<Step>) <= alignof(std::max_align_t)
-                    && std::is_nothrow_move_constructible_v<Step>) {
-        void *slot = storage_.data();
-        impl_ = std::construct_at(static_cast<model<Step> *>(slot), std::move(step));
-        move_inline_ = [](void *dst, void *src) noexcept -> interface * {
-          return std::construct_at(static_cast<model<Step> *>(dst), std::move(static_cast<model<Step> *>(src)->step));
-        };
-      } else {
-        heap_ = std::make_unique<model<Step>>(std::move(step));
-        impl_ = heap_.get();
-      }
-    }
-
-    ~basic_dynamic_pass_step()
-    {
-      if (impl_ != nullptr) { release(); }
-    }
-    basic_dynamic_pass_step(basic_dynamic_pass_step &&other) noexcept { take(other); }
-    auto operator=(basic_dynamic_pass_step &&other) noexcept -> basic_dynamic_pass_step &
-    {
-      if (this != &other) {
-        if (impl_ != nullptr) { release(); }
-        take(other);
-      }
-      return *this;
-    }
-    basic_dynamic_pass_step(basic_dynamic_pass_step const &) = delete;
-    auto operator=(basic_dynamic_pass_step const &) -> basic_dynamic_pass_step & = delete;
-
-    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
-    { return impl_->record(ctx, cmd, cleanup); }
-
-    auto after_gpu() -> void { impl_->after_gpu(); }
-  };
-
-  template<> class basic_dynamic_pass_step<0>
+  class dynamic_pass_storage
   {
     struct interface
     {
@@ -284,33 +178,53 @@ namespace detail {
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
     };
 
-    std::unique_ptr<interface> impl_;
+    std::pmr::monotonic_buffer_resource arena_;
+    std::vector<interface *> steps_;
 
   public:
-    basic_dynamic_pass_step() = delete;
-    template<class Step> [[nodiscard]] static constexpr auto model_size() noexcept -> std::size_t
-    { return sizeof(model<Step>); }
-    template<class Step> [[nodiscard]] static constexpr auto model_alignment() noexcept -> std::size_t
-    { return alignof(model<Step>); }
+    dynamic_pass_storage() = default;
+    dynamic_pass_storage(dynamic_pass_storage const &) = delete;
+    auto operator=(dynamic_pass_storage const &) -> dynamic_pass_storage & = delete;
+    dynamic_pass_storage(dynamic_pass_storage &&) = delete;
+    auto operator=(dynamic_pass_storage &&) -> dynamic_pass_storage & = delete;
+    ~dynamic_pass_storage()
+    {
+      for (auto *step : std::views::reverse(steps_)) { std::destroy_at(step); }
+    }
 
-    template<class Step>
-      requires(!std::same_as<std::remove_cvref_t<Step>, basic_dynamic_pass_step>) && static_pass_step<Step>
-    explicit basic_dynamic_pass_step(Step step) : impl_(std::make_unique<model<Step>>(std::move(step)))
-    {}
-    ~basic_dynamic_pass_step() = default;
-    basic_dynamic_pass_step(basic_dynamic_pass_step &&) noexcept = default;
-    auto operator=(basic_dynamic_pass_step &&) noexcept -> basic_dynamic_pass_step & = default;
-    basic_dynamic_pass_step(basic_dynamic_pass_step const &) = delete;
-    auto operator=(basic_dynamic_pass_step const &) -> basic_dynamic_pass_step & = delete;
-    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
-    { return impl_->record(ctx, cmd, cleanup); }
-    auto after_gpu() -> void { impl_->after_gpu(); }
+    auto reserve(std::size_t count) -> void { steps_.reserve(count); }
+    [[nodiscard]] auto size() const noexcept -> std::size_t { return steps_.size(); }
+
+    template<static_pass_step Step> auto append(Step step) -> void
+    {
+      void *slot = arena_.allocate(sizeof(model<Step>), alignof(model<Step>));
+      auto *value = std::construct_at(static_cast<model<Step> *>(slot), std::move(step));
+#if VKEXEC_HAS_EXCEPTIONS
+      try {
+        steps_.push_back(value);
+      } catch (...) {
+        std::destroy_at(value);
+        throw;
+      }
+#else
+      steps_.push_back(value);
+#endif
+    }
+
+    [[nodiscard]] auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
+    {
+      for (auto *step : steps_) {
+        auto recorded = step->record(ctx, cmd, cleanup);
+        if (!recorded) { return fail(recorded); }
+      }
+      return {};
+    }
+
+    auto after_gpu() -> void
+    {
+      for (auto *step : steps_) { step->after_gpu(); }
+    }
   };
-
-  using dynamic_pass_step = basic_dynamic_pass_step<0>;
-
-  static_assert(std::move_constructible<dynamic_pass_step>);
-  static_assert(!std::copy_constructible<dynamic_pass_step>);
 
   [[nodiscard]] inline auto push_bytes(no_push_constants const & /*unused*/) noexcept -> std::span<std::byte const>
   { return {}; }
@@ -398,17 +312,10 @@ namespace detail {
     return {};
   }
 
-  [[nodiscard]] inline auto record_dynamic_steps(context &ctx,
-    VkCommandBuffer cmd,
-    pass_cleanup &cleanup,
-    std::vector<dynamic_pass_step> &steps) -> status
-  {
-    for (auto &step : steps) {
-      auto recorded = step.record(ctx, cmd, cleanup);
-      if (!recorded) { return fail(recorded); }
-    }
-    return {};
-  }
+  [[nodiscard]] inline auto
+    record_dynamic_steps(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, dynamic_pass_storage &steps)
+      -> status
+  { return steps.record(ctx, cmd, cleanup); }
 
   template<class... Steps>
   [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::tuple<Steps...> &steps) -> status
@@ -420,10 +327,12 @@ namespace detail {
     return scope.end_recording();
   }
 
-  [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::vector<dynamic_pass_step> &steps) -> status
+  [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::unique_ptr<dynamic_pass_storage> &steps)
+    -> status
   {
+    if (!steps) { return fail(errc::invalid_argument, "pass graph has no step storage"); }
     auto facade = context_access::facade(scope.state);
-    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
+    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, *steps); !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -449,10 +358,7 @@ namespace detail {
     std::apply([](auto &...step) -> void { (detail::run_after_gpu(step), ...); }, steps);
   }
 
-  inline auto run_after_gpu(std::vector<dynamic_pass_step> &steps) -> void
-  {
-    for (auto &step : steps) { step.after_gpu(); }
-  }
+  inline auto run_after_gpu(std::unique_ptr<dynamic_pass_storage> &steps) -> void { steps->after_gpu(); }
 
 }// namespace detail
 
@@ -607,20 +513,24 @@ struct dynamic_pass_graph_sender
 {
   using sender_concept = ex::sender_t;
   using completion_signatures = pass_graph_completion_signatures;
-  using step_storage_t = std::vector<detail::dynamic_pass_step>;
+  using step_storage_t = std::unique_ptr<detail::dynamic_pass_storage>;
 
   detail::context_handle state;
   step_storage_t steps;
 
-  dynamic_pass_graph_sender() = default;
-  explicit dynamic_pass_graph_sender(detail::context_handle graph_state) : state(std::move(graph_state)) {}
+  dynamic_pass_graph_sender() : steps(std::make_unique<detail::dynamic_pass_storage>()) {}
+  explicit dynamic_pass_graph_sender(detail::context_handle graph_state)
+    : state(std::move(graph_state)), steps(std::make_unique<detail::dynamic_pass_storage>())
+  {}
   ~dynamic_pass_graph_sender() = default;
   dynamic_pass_graph_sender(dynamic_pass_graph_sender &&) noexcept = default;
   auto operator=(dynamic_pass_graph_sender &&) noexcept -> dynamic_pass_graph_sender & = default;
   dynamic_pass_graph_sender(dynamic_pass_graph_sender const &) = delete;
   auto operator=(dynamic_pass_graph_sender const &) -> dynamic_pass_graph_sender & = delete;
 
-  auto reserve(std::size_t count) -> void { steps.reserve(count); }
+  // Capacity is part of this graph's mutable construction state.
+  // NOLINTNEXTLINE(readability-make-member-function-const)
+  auto reserve(std::size_t count) -> void { steps->reserve(count); }
 
   //! Lowers and appends one primitive semantic pass operation to this runtime graph.
   template<class Tag, class Data>
@@ -835,7 +745,7 @@ template<class Tag, class Data>
   }
 auto dynamic_pass_graph_sender::append(detail::expr_closure<Tag, Data> operation) -> dynamic_pass_graph_sender &
 {
-  steps.emplace_back(lower_vkexec_pass_step(std::move(operation.tag), std::move(operation.data), get_env()));
+  steps->append(lower_vkexec_pass_step(std::move(operation.tag), std::move(operation.data), get_env()));
   return *this;
 }
 

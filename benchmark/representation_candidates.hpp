@@ -130,6 +130,49 @@ private:
   { return this == &other; }
 };
 
+// The former production layout: one owning pointer and one model allocation per step.
+class heap_graph
+{
+  struct interface
+  {
+    virtual ~interface() = default;
+    virtual auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status = 0;
+    virtual auto after_gpu() -> void = 0;
+  };
+
+  template<vkexec::detail::static_pass_step Step> struct model final : interface
+  {
+    Step step;
+    explicit model(Step value) : step(std::move(value)) {}
+    auto record(vkexec::context &ctx, VkCommandBuffer cmd, vkexec::detail::pass_cleanup &cleanup)
+      -> vkexec::status override
+    { return step.record(ctx, cmd, cleanup); }
+    auto after_gpu() -> void override { vkexec::detail::run_after_gpu(step); }
+  };
+
+  std::vector<std::unique_ptr<interface>> steps_;
+
+public:
+  auto reserve(std::size_t count) -> void { steps_.reserve(count); }
+
+  template<vkexec::detail::static_pass_step Step> auto append(Step step) -> void
+  { steps_.emplace_back(std::make_unique<model<Step>>(std::move(step))); }
+
+  [[nodiscard]] auto record(vkexec::context &ctx, VkCommandBuffer cmd, vkexec::detail::pass_cleanup &cleanup)
+    -> vkexec::status
+  {
+    for (auto &step : steps_) {
+      auto recorded = step->record(ctx, cmd, cleanup);
+      if (!recorded) { return vkexec::fail(recorded); }
+    }
+    return {};
+  }
+
+  [[nodiscard]] auto size() const noexcept -> std::size_t { return steps_.size(); }
+  [[nodiscard]] static constexpr auto step_bytes() noexcept -> std::size_t
+  { return sizeof(std::unique_ptr<interface>); }
+};
+
 class arena_graph
 {
   struct interface

@@ -37,57 +37,64 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 namespace ex = stdexec;
 
 namespace {
 
-inline constexpr std::size_t k_sbo_inline_bytes = 32;
-inline constexpr std::size_t k_sbo_oversized_bytes = 256;
-inline constexpr int k_sbo_inline_count = 10;
-inline constexpr int k_sbo_relocation_count = 64;
+inline constexpr std::size_t k_arena_small_bytes = 8;
+inline constexpr std::size_t k_arena_large_bytes = 256;
+inline constexpr std::size_t k_arena_large_alignment = 64;
+inline constexpr int k_arena_transferred_steps = 2;
 
-struct sbo_lifetime_counts
+struct arena_lifetime_counts
 {
   int constructed{};
-  int moved{};
   int destroyed{};
   int alive{};
-  int recorded{};
-  int retired{};
 };
 
-struct tracked_sbo_step
+template<std::size_t Bytes, std::size_t Alignment> struct arena_lifetime_step
 {
-  sbo_lifetime_counts *stats;
-  explicit tracked_sbo_step(sbo_lifetime_counts &value) : stats(&value)
+  alignas(Alignment) std::array<std::byte, Bytes> payload{};
+  arena_lifetime_counts *lifetime{};
+  int *recorded{};
+  int *retired{};
+  bool should_fail{};
+
+  arena_lifetime_step(arena_lifetime_counts &counts, int &record_count, int &retire_count, bool fail = false)
+    : lifetime(&counts), recorded(&record_count), retired(&retire_count), should_fail(fail)
   {
-    ++stats->constructed;
-    ++stats->alive;
+    ++lifetime->constructed;
+    ++lifetime->alive;
   }
-  tracked_sbo_step(tracked_sbo_step &&other) noexcept : stats(other.stats)
+  arena_lifetime_step(arena_lifetime_step &&other) noexcept
+    : payload(std::move(other.payload)), lifetime(other.lifetime), recorded(other.recorded), retired(other.retired),
+      should_fail(other.should_fail)
   {
-    ++stats->constructed;
-    ++stats->moved;
-    ++stats->alive;
+    ++lifetime->constructed;
+    ++lifetime->alive;
   }
-  tracked_sbo_step(tracked_sbo_step const &) = delete;
-  auto operator=(tracked_sbo_step const &) -> tracked_sbo_step & = delete;
-  auto operator=(tracked_sbo_step &&) -> tracked_sbo_step & = delete;
-  ~tracked_sbo_step()
+  arena_lifetime_step(arena_lifetime_step const &) = delete;
+  auto operator=(arena_lifetime_step const &) -> arena_lifetime_step & = delete;
+  auto operator=(arena_lifetime_step &&) -> arena_lifetime_step & = delete;
+  ~arena_lifetime_step()
   {
-    ++stats->destroyed;
-    --stats->alive;
+    ++lifetime->destroyed;
+    --lifetime->alive;
   }
   auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
     -> vkexec::status
   {
-    ++stats->recorded;
+    ++*recorded;
+    if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
     return {};
   }
-  auto after_gpu() const -> void { ++stats->retired; }
+  auto after_gpu() const -> void { ++*retired; }
 };
+
+using arena_small_step = arena_lifetime_step<k_arena_small_bytes, alignof(std::max_align_t)>;
+using arena_large_step = arena_lifetime_step<k_arena_large_bytes, k_arena_large_alignment>;
 
 struct empty_receiver_env
 {
@@ -1002,13 +1009,13 @@ TEST_CASE("dynamic pass graph keeps one sender type", "[vkexec][pass]")
 
   graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
   STATIC_REQUIRE(std::same_as<decltype(graph), vkexec::dynamic_pass_graph_sender>);
-  REQUIRE(graph.steps.size() == 1);
+  REQUIRE(graph.steps->size() == 1);
 
   graph.append(vkexec::barrier::compute_to_compute());
-  REQUIRE(graph.steps.size() == 2);
+  REQUIRE(graph.steps->size() == 2);
 
   graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
-  REQUIRE(graph.steps.size() == 3);
+  REQUIRE(graph.steps->size() == 3);
 }
 
 TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
@@ -1017,7 +1024,7 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
   vkexec::scheduler sched{ nullptr };
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
   graph.append(vkexec::make_pass_adaptor(move_only_pass_step{ k_initial_value }));
-  REQUIRE(graph.steps.size() == 1);
+  REQUIRE(graph.steps->size() == 1);
 }
 
 TEST_CASE("copyable binding graphs defer mutable state to each operation", "[vkexec][pass]")
@@ -1070,7 +1077,7 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &skipped_count, .should_fail = false }));
 
   vkexec::detail::pass_cleanup cleanup{};
-  auto recorded = vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, graph.steps);
+  auto recorded = vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, *graph.steps);
 
   REQUIRE_FALSE(recorded);
   REQUIRE(first_count == 1);
@@ -1078,75 +1085,63 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   REQUIRE(skipped_count == 0);
 }
 
-TEST_CASE("SBO pass steps survive vector moves and heap fallback", "[vkexec][pass]")
+TEST_CASE("arena pass graph keeps heterogeneous steps alive across graph moves", "[vkexec][pass]")
 {
-  struct inline_step
-  {
-    int *recorded{};
-    int *retired{};
-    auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
-      -> vkexec::status
-    {
-      ++*recorded;
-      return {};
-    }
-    auto after_gpu() const -> void { ++*retired; }
-  };
-
-  struct oversized_step
-  {
-    std::array<std::byte, k_sbo_oversized_bytes> storage{};
-    int *recorded{};
-    auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
-      -> vkexec::status
-    {
-      ++*recorded;
-      return {};
-    }
-  };
-
+  arena_lifetime_counts lifetime{};
+  int small_recorded = 0;
+  int large_recorded = 0;
+  int discarded_recorded = 0;
+  int small_retired = 0;
+  int large_retired = 0;
+  int discarded_retired = 0;
   auto ctx = vkexec::detail::context_access::facade(nullptr);
   vkexec::detail::pass_cleanup cleanup{};
-  int recorded = 0;
-  int retired = 0;
-  std::vector<vkexec::detail::basic_dynamic_pass_step<k_sbo_inline_bytes>> steps;
-  steps.reserve(1);
-  for (int i = 0; i < k_sbo_inline_count; ++i) {
-    steps.emplace_back(inline_step{ .recorded = &recorded, .retired = &retired });
+  std::optional<vkexec::dynamic_pass_graph_sender> transferred;
+
+  {
+    auto graph = vkexec::make_dynamic_pass_graph(vkexec::scheduler{ nullptr }.schedule());
+    graph.append(vkexec::make_pass_adaptor(arena_small_step{ lifetime, small_recorded, small_retired }));
+    graph.append(vkexec::make_pass_adaptor(arena_large_step{ lifetime, large_recorded, large_retired }));
+    transferred.emplace(std::move(graph));
+    REQUIRE(transferred->steps != nullptr);
   }
-  steps.emplace_back(oversized_step{ .storage = {}, .recorded = &recorded });
-  for (auto &step : steps) {
-    REQUIRE(step.record(ctx, VK_NULL_HANDLE, cleanup));
-    step.after_gpu();
+  REQUIRE(lifetime.alive == k_arena_transferred_steps);
+
+  {
+    auto destination = vkexec::make_dynamic_pass_graph(vkexec::scheduler{ nullptr }.schedule());
+    destination.append(vkexec::make_pass_adaptor(arena_small_step{ lifetime, discarded_recorded, discarded_retired }));
+    destination = std::move(*transferred);
+    transferred.reset();
+    REQUIRE(lifetime.alive == k_arena_transferred_steps);
+    REQUIRE(vkexec::detail::record_dynamic_steps(ctx, VK_NULL_HANDLE, cleanup, *destination.steps));
+    destination.steps->after_gpu();
   }
-  REQUIRE(recorded == k_sbo_inline_count + 1);
-  REQUIRE(retired == k_sbo_inline_count);
+
+  REQUIRE(small_recorded == 1);
+  REQUIRE(large_recorded == 1);
+  REQUIRE(discarded_recorded == 0);
+  REQUIRE(small_retired == 1);
+  REQUIRE(large_retired == 1);
+  REQUIRE(discarded_retired == 0);
+  REQUIRE(lifetime.alive == 0);
+  REQUIRE(lifetime.destroyed == lifetime.constructed);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_CASE("SBO pass steps preserve lifetime through relocation and move assignment", "[vkexec][pass]")
+TEST_CASE("arena pass recording stops after the first failure", "[vkexec][pass]")
 {
-  sbo_lifetime_counts stats{};
-  using erased_step = vkexec::detail::basic_dynamic_pass_step<k_sbo_inline_bytes>;
+  arena_lifetime_counts lifetime{};
+  int first_recorded = 0;
+  int failing_recorded = 0;
+  int skipped_recorded = 0;
+  int retired = 0;
+  auto graph = vkexec::make_dynamic_pass_graph(vkexec::scheduler{ nullptr }.schedule());
+  graph.append(vkexec::make_pass_adaptor(arena_small_step{ lifetime, first_recorded, retired }));
+  graph.append(vkexec::make_pass_adaptor(arena_large_step{ lifetime, failing_recorded, retired, true }));
+  graph.append(vkexec::make_pass_adaptor(arena_small_step{ lifetime, skipped_recorded, retired }));
   auto ctx = vkexec::detail::context_access::facade(nullptr);
   vkexec::detail::pass_cleanup cleanup{};
-  {
-    std::vector<erased_step> steps;
-    steps.reserve(1);
-    for (int i = 0; i < k_sbo_relocation_count; ++i) { steps.emplace_back(tracked_sbo_step{ stats }); }
-    erased_step destination{ tracked_sbo_step{ stats } };
-    erased_step source{ tracked_sbo_step{ stats } };
-    destination = std::move(source);
-    REQUIRE(destination.record(ctx, VK_NULL_HANDLE, cleanup));
-    destination.after_gpu();
-    for (auto &step : steps) {
-      REQUIRE(step.record(ctx, VK_NULL_HANDLE, cleanup));
-      step.after_gpu();
-    }
-    REQUIRE(stats.recorded == k_sbo_relocation_count + 1);
-    REQUIRE(stats.retired == k_sbo_relocation_count + 1);
-    REQUIRE(stats.moved > k_sbo_relocation_count);
-  }
-  REQUIRE(stats.alive == 0);
-  REQUIRE(stats.destroyed == stats.constructed);
+  REQUIRE_FALSE(vkexec::detail::record_dynamic_steps(ctx, VK_NULL_HANDLE, cleanup, *graph.steps));
+  REQUIRE(first_recorded == 1);
+  REQUIRE(failing_recorded == 1);
+  REQUIRE(skipped_recorded == 0);
 }

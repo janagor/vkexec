@@ -133,8 +133,8 @@ template<static_pass_step... Steps>
 [[nodiscard]] auto materialize_pass_chain(pass_chain<dynamic_pass_graph_sender, Steps...> &&chain)
   -> dynamic_pass_graph_sender
 {
-  std::apply([&chain](Steps &&...step) -> void { (chain.pred.steps.emplace_back(std::move(step)), ...); },
-    std::move(chain.steps));
+  std::apply(
+    [&chain](Steps &&...step) -> void { (chain.pred.steps->append(std::move(step)), ...); }, std::move(chain.steps));
   return std::move(chain.pred);
 }
 
