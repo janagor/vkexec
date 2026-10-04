@@ -11,6 +11,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -22,6 +23,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -54,7 +56,8 @@ namespace {
     constexpr std::uint32_t k_mesh_binding = 0;
     constexpr std::uint32_t k_mesh_position_location = 0;
     constexpr std::uint32_t k_mesh_color_location = 1;
-    constexpr std::uint32_t k_mesh_attribute_count = 2;
+    constexpr std::uint32_t k_mesh_normal_location = 2;
+    constexpr std::uint32_t k_mesh_attribute_count = 4;
 
     VkVertexInputBindingDescription mesh_binding{};
     std::array<VkVertexInputAttributeDescription, k_mesh_attribute_count> mesh_attributes{};
@@ -72,6 +75,14 @@ namespace {
       mesh_attributes.at(1).binding = k_mesh_binding;
       mesh_attributes.at(1).format = VK_FORMAT_R32G32B32_SFLOAT;
       mesh_attributes.at(1).offset = static_cast<std::uint32_t>(offsetof(mesh_vertex, color));
+      mesh_attributes.at(2).location = k_mesh_normal_location;
+      mesh_attributes.at(2).binding = k_mesh_binding;
+      mesh_attributes.at(2).format = VK_FORMAT_R32G32B32_SFLOAT;
+      mesh_attributes.at(2).offset = static_cast<std::uint32_t>(offsetof(mesh_vertex, normal));
+      mesh_attributes.at(3).location = 3;
+      mesh_attributes.at(3).binding = k_mesh_binding;
+      mesh_attributes.at(3).format = VK_FORMAT_R32G32_SFLOAT;
+      mesh_attributes.at(3).offset = static_cast<std::uint32_t>(offsetof(mesh_vertex, texcoord));
       vertex_input.vertexBindingDescriptionCount = 1;
       vertex_input.pVertexBindingDescriptions = &mesh_binding;
       vertex_input.vertexAttributeDescriptionCount = k_mesh_attribute_count;
@@ -122,10 +133,11 @@ namespace {
       blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
     }
 
+    std::vector<VkPipelineColorBlendAttachmentState> color_blends(cfg.color_attachment_count, blend_attachment);
     VkPipelineColorBlendStateCreateInfo blend{};
     blend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    blend.attachmentCount = 1;
-    blend.pAttachments = &blend_attachment;
+    blend.attachmentCount = cfg.color_attachment_count;
+    blend.pAttachments = color_blends.data();
 
     std::array dynamic_states{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
     VkPipelineDynamicStateCreateInfo dynamic{};
@@ -157,14 +169,6 @@ namespace {
     return pipeline;
   }
 
-  auto install_storage_set(context &ctx,
-    handles::graphics_pipeline const &resources,
-    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>
-  {
-    VKEXEC_TRY_ASSIGN(bound, bind_graphics_storage(ctx, resources, buffers));
-    return bound.set;
-  }
-
   auto make_graphics_pipeline(context &ctx,
     VkRenderPass render_pass,
     graphics_pipeline_config cfg,
@@ -172,11 +176,21 @@ namespace {
     std::span<std::uint32_t const> fs_spv,
     std::span<storage_binding const> buffers) -> result<::vkexec::owned::graphics_pipeline>
   {
-    auto const binding_count = static_cast<std::uint32_t>(buffers.size());
-    VKEXEC_TRY_ASSIGN(owned, create(ctx, render_pass, cfg, vs_spv, fs_spv, binding_count));
-    VKEXEC_TRY_ASSIGN(set, install_storage_set(ctx, owned, buffers));
+    std::vector<resource_binding> bindings;
+    bindings.reserve(buffers.size());
+    for (storage_binding const &buffer : buffers) {
+      bindings.push_back(
+        resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) });
+    }
+    resource_table table{ std::move(bindings) };
+    VKEXEC_TRY_ASSIGN(owned, create(ctx, render_pass, cfg, vs_spv, fs_spv, table));
+    auto bound = bind_graphics_resources(ctx, owned, table);
+    if (!bound) {
+      destroy(ctx, owned);
+      return fail(bound);
+    }
     return owned::graphics_pipeline::make(
-      ctx, std::make_unique<handles::graphics_pipeline>(owned), set, std::vector(buffers.begin(), buffers.end()));
+      ctx, std::make_unique<handles::graphics_pipeline>(owned), bound->set, std::move(table));
   }
 
 }// namespace
@@ -202,28 +216,62 @@ auto create(context &ctx,
   std::span<std::uint32_t const> fragment_spirv,
   std::uint32_t storage_binding_count) -> result<handles::graphics_pipeline>
 {
+  std::vector<resource_binding> bindings;
+  bindings.reserve(storage_binding_count);
+  for (std::uint32_t slot = 0; slot < storage_binding_count; ++slot) {
+    bindings.push_back(resource_binding{ .slot = slot, .resource = buffer_resource(VK_NULL_HANDLE, 0) });
+  }
+  return create(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, resource_table{ std::move(bindings) });
+}
+
+auto create(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  resource_table const &resources) -> result<handles::graphics_pipeline>
+{
   if (vertex_spirv.empty() || fragment_spirv.empty()) {
     return fail(errc::invalid_argument, "create requires non-empty SPIR-V");
   }
 
   handles::graphics_pipeline owned{};
   owned.cfg = cfg;
-  owned.binding_count = storage_binding_count;
+  owned.binding_count = static_cast<std::uint32_t>(resources.size());
   VkDevice device = ctx.device();
 
-  std::vector<VkDescriptorSetLayoutBinding> layout_bindings(storage_binding_count);
-  for (std::uint32_t index = 0; index < storage_binding_count; ++index) {
-    layout_bindings.at(index).binding = index;
-    layout_bindings.at(index).descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    layout_bindings.at(index).descriptorCount = 1;
-    layout_bindings.at(index).stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
+  layout_bindings.reserve(resources.size());
+  for (resource_binding const &binding : resources.entries()) {
+    VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    switch (binding.resource.kind) {
+    case resource_kind::storage_buffer:
+      descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      break;
+    case resource_kind::storage_image:
+      descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+      break;
+    case resource_kind::sampled_image:
+      descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+      break;
+    case resource_kind::sampler:
+      descriptor_type = VK_DESCRIPTOR_TYPE_SAMPLER;
+      break;
+    }
+    layout_bindings.push_back(VkDescriptorSetLayoutBinding{
+      .binding = binding.slot,
+      .descriptorType = descriptor_type,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+      .pImmutableSamplers = nullptr,
+    });
   }
   detail::descriptor_layout_info const layout_info{ .bindings = layout_bindings,
     .push_stages = 0,
     .push_bytes = 0,
     .sets_per_pool = k_graphics_descriptor_sets_per_pool,
-    .create_set_layout = storage_binding_count > 0,
-    .create_pool = storage_binding_count > 0 };
+    .create_set_layout = !resources.empty(),
+    .create_pool = !resources.empty() };
   if (auto created = detail::set_descriptor_backend::create_set_and_pipeline_layout(device, owned, layout_info);
     !created) {
     destroy(ctx, owned);
@@ -296,6 +344,18 @@ auto bind_graphics_storage(context &ctx,
   return bound_graphics{ .pipe = &pipe, .set = set };
 }
 
+auto bind_graphics_resources(context &ctx, handles::graphics_pipeline const &pipe, resource_table const &resources)
+  -> result<bound_graphics>
+{
+  if (resources.size() != pipe.binding_count) {
+    return fail(errc::invalid_argument, "graphics resource count must match binding count");
+  }
+  if (resources.empty()) { return bound_graphics{ .pipe = &pipe, .set = VK_NULL_HANDLE }; }
+  VKEXEC_TRY_ASSIGN(set, allocate_graphics_set(ctx, pipe));
+  write_resource_descriptors(ctx.device(), set, resources.entries());
+  return bound_graphics{ .pipe = &pipe, .set = set };
+}
+
 auto free_graphics_set(context const &ctx, handles::graphics_pipeline const &pipe, VkDescriptorSet set) noexcept -> void
 {
   if (set == VK_NULL_HANDLE || pipe.descriptor_pool == VK_NULL_HANDLE) { return; }
@@ -345,7 +405,7 @@ auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mes
   VkDeviceSize const vertex_offset = 0;
   vkCmdBindVertexBuffers(cmd, 0, 1, &drawn.vertex_buffer, &vertex_offset);
   vkCmdBindIndexBuffer(cmd, drawn.index_buffer, 0, VK_INDEX_TYPE_UINT32);
-  vkCmdDrawIndexed(cmd, drawn.index_count, 1, 0, 0, 0);
+  vkCmdDrawIndexed(cmd, drawn.index_count, 1, drawn.first_index, 0, 0);
 }
 
 auto draw_pass(VkCommandBuffer cmd,
@@ -387,12 +447,24 @@ auto owned::graphics_pipeline::reset() noexcept -> void
   if (ctx_ != nullptr && resources_ != nullptr) { destroy(*ctx_, *resources_); }
   resources_.reset();
   descriptor_set_ = VK_NULL_HANDLE;
-  buffers_.clear();
+  resources_table_ = {};
   ctx_ = nullptr;
 }
 
 auto detail::make_graphics_pipeline_spirv_factory::operator()() -> result<::vkexec::owned::graphics_pipeline>
 { return ::vkexec::make_graphics_pipeline(*ctx, render_pass, cfg, vertex_spirv, fragment_spirv, buffers); }
+
+auto detail::make_graphics_pipeline_resources_factory::operator()() -> result<::vkexec::owned::graphics_pipeline>
+{
+  VKEXEC_TRY_ASSIGN(owned, create(*ctx, render_pass, cfg, vertex_spirv, fragment_spirv, resources));
+  auto bound = bind_graphics_resources(*ctx, owned, resources);
+  if (!bound) {
+    destroy(*ctx, owned);
+    return fail(bound);
+  }
+  return owned::graphics_pipeline::make(
+    *ctx, std::make_unique<handles::graphics_pipeline>(owned), bound->set, std::move(resources));
+}
 
 auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const
   -> void

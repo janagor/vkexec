@@ -2,11 +2,12 @@
 #define VKEXEC_GRAPHICS_GRAPHICS_HPP
 
 //! \file
-//! Owning graphics pipelines for swapchain render passes.
+//! Owning graphics pipelines for compatible render passes.
 
 #include <vkexec/context.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
@@ -53,12 +54,40 @@ namespace detail {
     [[nodiscard]] auto operator()() -> result<owned::graphics_pipeline>;
   };
 
+  struct make_graphics_pipeline_resources_factory
+  {
+    context *ctx;
+    VkRenderPass render_pass;
+    graphics_pipeline_config cfg;
+    std::vector<std::uint32_t> vertex_spirv;
+    std::vector<std::uint32_t> fragment_spirv;
+    resource_table resources;
+
+    [[nodiscard]] auto operator()() -> result<owned::graphics_pipeline>;
+  };
+
 }// namespace detail
 
 namespace factory {
 
   struct make_graphics_pipeline_t
   {
+
+    //! Creates a graphics pipeline with storage buffers, images, or samplers.
+    [[nodiscard]] auto operator()(context &ctx,
+      VkRenderPass render_pass,
+      graphics_pipeline_config cfg,
+      std::span<std::uint32_t const> vertex_spirv,
+      std::span<std::uint32_t const> fragment_spirv,
+      resource_table resources) const
+    {
+      return make_sender(::vkexec::detail::make_graphics_pipeline_resources_factory{ .ctx = &ctx,
+        .render_pass = render_pass,
+        .cfg = cfg,
+        .vertex_spirv = std::vector<std::uint32_t>(vertex_spirv.begin(), vertex_spirv.end()),
+        .fragment_spirv = std::vector<std::uint32_t>(fragment_spirv.begin(), fragment_spirv.end()),
+        .resources = std::move(resources) });
+    }
 
     /**
      * Creates a graphics pipeline from SPIR-V with an explicit config.
@@ -147,8 +176,8 @@ namespace factory {
  * Graphics pipeline built from precompiled SPIR-V or GLSL source strings.
  *
  * Thin owning wrapper over `handles::graphics_pipeline` plus an optional retained
- * descriptor set for storage buffers passed at create time. Compatible with a
- * `presenter` render pass. Use `draw` / `record_draw` inside a begun frame.
+ * descriptor set for resources passed at create time. Use `draw` / `record_draw`
+ * with a render pass compatible with the pipeline.
  *
  * @see presenter, mesh, draw, create, factory::make_graphics_pipeline
  */
@@ -159,14 +188,29 @@ namespace owned {
   public:
     //! Owning factory used after `create` + optional set install.
     [[nodiscard]] static auto make(context &ctx,
-      std::unique_ptr<handles::graphics_pipeline> resources,
+      std::unique_ptr<handles::graphics_pipeline> pipeline_resources,
       VkDescriptorSet set = VK_NULL_HANDLE,
-      std::vector<storage_binding> buffers = {}) -> graphics_pipeline
+      resource_table table = {}) -> graphics_pipeline
     {
-      graphics_pipeline pipe{ &ctx, std::move(resources) };
+      graphics_pipeline pipe{ &ctx, std::move(pipeline_resources) };
       pipe.descriptor_set_ = set;
-      pipe.buffers_ = std::move(buffers);
+      pipe.resources_table_ = std::move(table);
       return pipe;
+    }
+
+    //! Compatibility overload for storage-buffer-only callers.
+    [[nodiscard]] static auto make(context &ctx,
+      std::unique_ptr<handles::graphics_pipeline> resources,
+      VkDescriptorSet set,
+      std::vector<storage_binding> const &buffers) -> graphics_pipeline
+    {
+      std::vector<resource_binding> entries;
+      entries.reserve(buffers.size());
+      for (storage_binding const &buffer : buffers) {
+        entries.push_back(
+          resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) });
+      }
+      return make(ctx, std::move(resources), set, resource_table{ std::move(entries) });
     }
 
     ~graphics_pipeline() { reset(); }
@@ -176,7 +220,8 @@ namespace owned {
 
     graphics_pipeline(graphics_pipeline &&other) noexcept
       : ctx_(std::exchange(other.ctx_, nullptr)), resources_(std::move(other.resources_)),
-        descriptor_set_(std::exchange(other.descriptor_set_, VK_NULL_HANDLE)), buffers_(std::move(other.buffers_))
+        descriptor_set_(std::exchange(other.descriptor_set_, VK_NULL_HANDLE)),
+        resources_table_(std::move(other.resources_table_))
     {}
 
     auto operator=(graphics_pipeline &&other) noexcept -> graphics_pipeline &
@@ -186,7 +231,7 @@ namespace owned {
       ctx_ = std::exchange(other.ctx_, nullptr);
       resources_ = std::move(other.resources_);
       descriptor_set_ = std::exchange(other.descriptor_set_, VK_NULL_HANDLE);
-      buffers_ = std::move(other.buffers_);
+      resources_table_ = std::move(other.resources_table_);
       return *this;
     }
 
@@ -237,7 +282,7 @@ namespace owned {
     context *ctx_{ nullptr };
     std::unique_ptr<handles::graphics_pipeline> resources_;
     VkDescriptorSet descriptor_set_{ VK_NULL_HANDLE };
-    std::vector<storage_binding> buffers_;
+    resource_table resources_table_;
   };
 
 }// namespace owned

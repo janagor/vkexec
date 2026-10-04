@@ -7,6 +7,7 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan.h>
@@ -43,6 +44,7 @@ struct graphics_pipeline_config
   bool depth_test{ false };
   bool depth_write{ true };
   bool use_mesh_vertices{ false };
+  std::uint32_t color_attachment_count{ 1 };
 };
 
 //! Builds color + depth clear values from `cfg`.
@@ -106,6 +108,14 @@ namespace handles {
   std::span<std::uint32_t const> fragment_spirv,
   std::uint32_t storage_binding_count = 0) -> result<handles::graphics_pipeline>;
 
+//! Creates a pipeline whose descriptor layout follows a logical resource table.
+[[nodiscard]] auto create(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  resource_table const &resources) -> result<handles::graphics_pipeline>;
+
 /**
  * Compiles GLSL to SPIR-V then creates classic graphics Vulkan objects.
  */
@@ -147,6 +157,11 @@ struct bound_graphics
   handles::graphics_pipeline const &pipe,
   std::span<storage_binding const> buffers) -> result<bound_graphics>;
 
+//! Allocates and writes all resource kinds supported by resource_table.
+[[nodiscard]] auto bind_graphics_resources(context &ctx,
+  handles::graphics_pipeline const &pipe,
+  resource_table const &resources) -> result<bound_graphics>;
+
 /**
  * Returns `set` to `pipe.descriptor_pool`.
  *
@@ -175,6 +190,7 @@ struct mesh_draw
   VkBuffer vertex_buffer{ VK_NULL_HANDLE };
   VkBuffer index_buffer{ VK_NULL_HANDLE };
   std::uint32_t index_count{ 0 };
+  std::uint32_t first_index{ 0 };
 };
 
 //! Begins a render pass using clear values from `cfg`.
