@@ -1,4 +1,5 @@
 #include "common/shader_loader.hpp"
+#include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "sync_wait_helpers.hpp"
 
@@ -26,6 +27,7 @@ auto run() -> int
     .height = k_window_height,
     .title = "vkexec Vulkan Samples: Hello Triangle",
     .validation_layers = true,
+    .requirements = vkexec::examples::vulkan_sample_requirements(),
   });
 
   std::filesystem::path const shader_dir{ VKEXEC_SAMPLE_SHADER_DIR };

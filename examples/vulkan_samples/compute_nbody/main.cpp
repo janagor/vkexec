@@ -1,4 +1,5 @@
 #include "common/shader_loader.hpp"
+#include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "sync_wait_helpers.hpp"
 
@@ -50,6 +51,7 @@ auto run() -> int
     .height = k_window_height,
     .title = "vkexec Vulkan Samples: Compute N-Body",
     .validation_layers = true,
+    .requirements = vkexec::examples::vulkan_sample_requirements(),
   });
   auto &ctx = win.ctx();
   auto allocator = vkexec::examples::make_vma_allocator(ctx);
