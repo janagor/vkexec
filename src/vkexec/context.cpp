@@ -185,6 +185,9 @@ namespace {
     case detail::capability_id::dynamic_rendering:
       caps.dynamic_rendering = true;
       break;
+    case detail::capability_id::shader_demote_to_helper_invocation:
+      caps.shader_demote_to_helper_invocation = true;
+      break;
     case detail::capability_id::none:
       break;
     }

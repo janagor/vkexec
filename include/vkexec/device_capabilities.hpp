@@ -15,6 +15,7 @@ struct device_capabilities
   bool timeline_semaphore{ false };
   bool buffer_device_address{ false };
   bool dynamic_rendering{ false };
+  bool shader_demote_to_helper_invocation{ false };
 };
 
 }// namespace vkexec
