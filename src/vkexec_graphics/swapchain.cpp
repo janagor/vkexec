@@ -96,8 +96,9 @@ auto owned::swapchain::acquire_next_image(VkSemaphore image_available, std::uint
   std::uint32_t image_index = 0;
   VkResult const result =
     vkAcquireNextImageKHR(ctx_->device(), handle(), timeout, image_available, VK_NULL_HANDLE, &image_index);
-  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) { return std::optional<std::uint32_t>{}; }
-  if (result != VK_SUCCESS) { return fail(result, "vkAcquireNextImageKHR failed"); }
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) { return std::optional<std::uint32_t>{}; }
+  if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { return fail(result, "vkAcquireNextImageKHR failed"); }
+  // VK_SUBOPTIMAL_KHR still acquires an image and signals image_available.
   return image_index;
 }
 
