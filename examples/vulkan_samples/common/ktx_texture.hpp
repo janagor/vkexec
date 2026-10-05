@@ -119,9 +119,14 @@ namespace detail {
     format = static_cast<VkFormat>(detail::read_u32(bytes, detail::k_ktx2_format_offset));
     if (format != VK_FORMAT_ASTC_5x5_SRGB_BLOCK) { fail_check("unsupported KTX2 texture format"); }
     block_extent = detail::k_astc_5x5_block_extent;
-    payload_offset = static_cast<std::size_t>(detail::read_u64(bytes, detail::k_ktx2_level_index));
-    image_size =
-      static_cast<std::size_t>(detail::read_u64(bytes, detail::k_ktx2_level_index + detail::k_ktx2_level_size_offset));
+    std::uint64_t const level_offset = detail::read_u64(bytes, detail::k_ktx2_level_index);
+    std::uint64_t const level_size =
+      detail::read_u64(bytes, detail::k_ktx2_level_index + detail::k_ktx2_level_size_offset);
+    if (!std::in_range<std::size_t>(level_offset) || !std::in_range<std::size_t>(level_size)) {
+      fail_check("KTX2 level exceeds addressable size");
+    }
+    payload_offset = level_offset;
+    image_size = level_size;
   }
   std::size_t const block_count = ((static_cast<std::size_t>(extent.width) + block_extent - 1) / block_extent)
                                   * ((static_cast<std::size_t>(extent.height) + block_extent - 1) / block_extent);
