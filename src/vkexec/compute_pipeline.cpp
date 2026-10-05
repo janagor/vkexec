@@ -130,6 +130,18 @@ auto detail::bind_storage_factory::operator()() const -> result<bound_compute_pi
   return bound_compute_pipeline{ .pipe = pipe, .set = set };
 }
 
+auto detail::update_resources_factory::operator()() const -> status { return pipe->update_set(set, resources); }
+
+auto detail::bind_resources_factory::operator()() const -> result<bound_compute_pipeline>
+{
+  VKEXEC_TRY_ASSIGN(set, pipe->allocate_set());
+  if (auto updated = pipe->update_set(set, resources); !updated) {
+    free_compute_set(*pipe->ctx_, pipe->resources(), set);
+    return fail(updated);
+  }
+  return bound_compute_pipeline{ .pipe = pipe, .set = set };
+}
+
 auto owned::compute_pipeline::allocate_set() const -> result<VkDescriptorSet>
 { return vkexec::allocate_compute_set(*ctx_, *resources_); }
 
@@ -139,6 +151,15 @@ auto owned::compute_pipeline::update_set(VkDescriptorSet set, std::span<storage_
     return fail(errc::invalid_argument, "update_set buffer count must match layout_desc.bindings");
   }
   write_storage_descriptors(ctx_->device(), set, buffers);
+  return {};
+}
+
+auto owned::compute_pipeline::update_set(VkDescriptorSet set, resource_table const &resources) const -> status
+{
+  if (resources.size() != resources_->binding_count) {
+    return fail(errc::invalid_argument, "update_set resource count must match layout_desc.bindings");
+  }
+  write_resource_descriptors(ctx_->device(), set, resources.entries());
   return {};
 }
 

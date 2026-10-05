@@ -9,6 +9,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/sender.hpp>
 
 #include <vulkan/vulkan.h>
@@ -72,6 +73,23 @@ namespace detail {
     std::vector<storage_binding> buffers;
 
     [[nodiscard]] auto operator()() const -> result<bound_compute_pipeline>;
+  };
+
+  struct bind_resources_factory
+  {
+    owned::compute_pipeline const *pipe;
+    resource_table resources;
+
+    [[nodiscard]] auto operator()() const -> result<bound_compute_pipeline>;
+  };
+
+  struct update_resources_factory
+  {
+    owned::compute_pipeline const *pipe;
+    VkDescriptorSet set;
+    resource_table resources;
+
+    [[nodiscard]] auto operator()() const -> status;
   };
 
 }// namespace detail
@@ -194,13 +212,22 @@ namespace owned {
       return make_sender(detail::update_set_factory{
         .pipe = this, .set = set, .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
     }
+    //! Sender that writes a generic resource table into `set`.
+    [[nodiscard]] auto update_set_sender(VkDescriptorSet set, resource_table resources) const
+    {
+      return make_sender(detail::update_resources_factory{ .pipe = this, .set = set, .resources = std::move(resources) });
+    }
 
     //! Allocates an empty descriptor set from this pipeline's pool.
     [[nodiscard]] auto allocate_set() const -> result<VkDescriptorSet>;
     //! Writes `buffers` into `set` on the context device.
     [[nodiscard]] auto update_set(VkDescriptorSet set, std::span<storage_binding const> buffers) const -> status;
+    //! Writes sampled images, storage images, samplers, or buffers into `set`.
+    [[nodiscard]] auto update_set(VkDescriptorSet set, resource_table const &resources) const -> status;
 
   private:
+    friend struct detail::bind_resources_factory;
+
     compute_pipeline(context *ctx, std::unique_ptr<handles::compute_pipeline> resources) noexcept
       : ctx_(ctx), resources_(std::move(resources))
     {}
@@ -237,6 +264,12 @@ struct bound_compute_pipeline
 {
   return make_sender(detail::bind_storage_factory{
     .pipe = &pipe, .buffers = std::vector<storage_binding>(buffers.begin(), buffers.end()) });
+}
+
+//! Allocates and writes a descriptor set for generic compute resources.
+[[nodiscard]] inline auto bind_resources_sender(owned::compute_pipeline const &pipe, resource_table resources)
+{
+  return make_sender(detail::bind_resources_factory{ .pipe = &pipe, .resources = std::move(resources) });
 }
 
 //! Uploads push constants using `pipe.resources().pipeline_layout`.
