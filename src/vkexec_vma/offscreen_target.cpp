@@ -51,8 +51,9 @@ offscreen_target::~offscreen_target() = default;
 auto offscreen_target::create(context &ctx, allocator &alloc, offscreen_target_config const &config)
   -> result<offscreen_target>
 {
-  if (config.extent.width == 0 || config.extent.height == 0 || config.color_formats.empty()) {
-    return fail(errc::invalid_argument, "offscreen target needs an extent and color format");
+  if (config.extent.width == 0 || config.extent.height == 0
+      || (config.color_formats.empty() && config.depth_format == VK_FORMAT_UNDEFINED)) {
+    return fail(errc::invalid_argument, "offscreen target needs an extent and attachment format");
   }
   auto target = std::make_unique<state>();
   target->ctx = &ctx;
@@ -116,7 +117,7 @@ auto offscreen_target::create(context &ctx, allocator &alloc, offscreen_target_c
     attachment.format = config.depth_format;
     attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment.storeOp = config.sample_depth ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
