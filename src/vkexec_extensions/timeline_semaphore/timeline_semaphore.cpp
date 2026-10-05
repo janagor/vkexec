@@ -12,7 +12,6 @@
 
 #include <array>
 #include <cstdint>
-#include <limits>
 
 namespace vkexec {
 
@@ -64,11 +63,11 @@ auto owned::timeline_semaphore::operator=(timeline_semaphore &&other) noexcept -
   return *this;
 }
 
-auto owned::timeline_semaphore::wait(std::uint64_t value) const -> status
+auto owned::timeline_semaphore::wait(std::uint64_t value, std::uint64_t timeout) const -> status
 {
-  if (value == 0 || semaphore_ == VK_NULL_HANDLE) { return {}; }
-  if (ctx_ == nullptr) {
-    return fail(errc::invalid_argument, "owned::timeline_semaphore::wait requires a live context");
+  if (value == 0) { return {}; }
+  if (ctx_ == nullptr || semaphore_ == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "owned::timeline_semaphore::wait requires a live semaphore");
   }
 
   std::array<VkSemaphore, 1> const semaphores{ semaphore_ };
@@ -80,9 +79,36 @@ auto owned::timeline_semaphore::wait(std::uint64_t value) const -> status
   wait_info.pSemaphores = semaphores.data();
   wait_info.pValues = values.data();
 
-  VkResult const wait_result = vkWaitSemaphores(ctx_->device(), &wait_info, std::numeric_limits<std::uint64_t>::max());
+  VkResult const wait_result = vkWaitSemaphores(ctx_->device(), &wait_info, timeout);
   if (wait_result != VK_SUCCESS) { return fail(wait_result, "vkWaitSemaphores failed"); }
   return {};
+}
+
+auto owned::timeline_semaphore::signal(std::uint64_t value) -> status
+{
+  if (ctx_ == nullptr || semaphore_ == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "owned::timeline_semaphore::signal requires a live semaphore");
+  }
+  VkSemaphoreSignalInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO;
+  info.semaphore = semaphore_;
+  info.value = value;
+  if (VkResult const signaled = vkSignalSemaphore(ctx_->device(), &info); signaled != VK_SUCCESS) {
+    return fail(signaled, "vkSignalSemaphore failed");
+  }
+  return {};
+}
+
+auto owned::timeline_semaphore::counter() const -> result<std::uint64_t>
+{
+  if (ctx_ == nullptr || semaphore_ == VK_NULL_HANDLE) {
+    return fail(errc::invalid_argument, "owned::timeline_semaphore::counter requires a live semaphore");
+  }
+  std::uint64_t value = 0;
+  if (VkResult const queried = vkGetSemaphoreCounterValue(ctx_->device(), semaphore_, &value); queried != VK_SUCCESS) {
+    return fail(queried, "vkGetSemaphoreCounterValue failed");
+  }
+  return value;
 }
 
 auto owned::timeline_semaphore::destroy() noexcept -> void
