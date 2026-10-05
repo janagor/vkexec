@@ -12,10 +12,15 @@ function(vkexec_add_sample_shaders target)
   foreach(shader IN LISTS ARGN)
     get_filename_component(shader_name "${shader}" NAME)
     set(output "${CMAKE_CURRENT_BINARY_DIR}/shaders/${shader_name}.spv")
+    set(depfile "${output}.d")
     add_custom_command(
       OUTPUT "${output}"
       COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
-      COMMAND "${VKEXEC_GLSLC}" --target-env=vulkan1.3 "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
+      COMMAND "${VKEXEC_GLSLC}" --target-env=vulkan1.3
+        -I "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+        -MD -MF "${depfile}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
+      DEPFILE "${depfile}"
       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}"
       VERBATIM)
     list(APPEND shader_outputs "${output}")
@@ -28,3 +33,4 @@ endfunction()
 add_subdirectory(hello_triangle_1_3)
 add_subdirectory(compute_nbody)
 add_subdirectory(pipeline_barriers)
+add_subdirectory(async_compute)
