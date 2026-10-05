@@ -165,8 +165,7 @@ namespace detail {
     return allocated;
   }
 
-  auto submit_scope::open(context &host) -> result<submit_scope>
-  { return open(host, host.compute_queue_ref()); }
+  auto submit_scope::open(context &host) -> result<submit_scope> { return open(host, host.compute_queue_ref()); }
 
   auto submit_scope::open(context &host, queue_ref queue) -> result<submit_scope>
   {

@@ -215,7 +215,8 @@ namespace owned {
     //! Sender that writes a generic resource table into `set`.
     [[nodiscard]] auto update_set_sender(VkDescriptorSet set, resource_table resources) const
     {
-      return make_sender(detail::update_resources_factory{ .pipe = this, .set = set, .resources = std::move(resources) });
+      return make_sender(
+        detail::update_resources_factory{ .pipe = this, .set = set, .resources = std::move(resources) });
     }
 
     //! Allocates an empty descriptor set from this pipeline's pool.
@@ -268,9 +269,7 @@ struct bound_compute_pipeline
 
 //! Allocates and writes a descriptor set for generic compute resources.
 [[nodiscard]] inline auto bind_resources_sender(owned::compute_pipeline const &pipe, resource_table resources)
-{
-  return make_sender(detail::bind_resources_factory{ .pipe = &pipe, .resources = std::move(resources) });
-}
+{ return make_sender(detail::bind_resources_factory{ .pipe = &pipe, .resources = std::move(resources) }); }
 
 //! Uploads push constants using `pipe.resources().pipeline_layout`.
 template<typename T>

@@ -16,10 +16,8 @@ function(vkexec_add_sample_shaders target)
     add_custom_command(
       OUTPUT "${output}"
       COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
-      COMMAND "${VKEXEC_GLSLC}" --target-env=vulkan1.3
-        -I "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
-        -MD -MF "${depfile}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
+      COMMAND "${VKEXEC_GLSLC}" --target-env=vulkan1.3 -I "${CMAKE_CURRENT_SOURCE_DIR}/shaders" -MD -MF "${depfile}"
+              "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
       DEPFILE "${depfile}"
       DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}"
       VERBATIM)

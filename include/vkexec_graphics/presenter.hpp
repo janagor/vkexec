@@ -7,9 +7,9 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
-#include <vkexec/queue_submit.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>
@@ -252,9 +252,8 @@ namespace owned {
      */
     [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
     //! Submits with caller GPU waits in addition to the swapchain image wait.
-    [[nodiscard]] auto end_frame(frame const &drawn,
-      frame_submit_options submit_options,
-      present_options options = {}) -> result<VkFence>;
+    [[nodiscard]] auto end_frame(frame const &drawn, frame_submit_options submit_options, present_options options = {})
+      -> result<VkFence>;
 
   private:
     friend struct detail::make_presenter_factory;

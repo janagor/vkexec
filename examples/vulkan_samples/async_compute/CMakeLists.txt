@@ -10,7 +10,7 @@ target_link_libraries(
           tinygltf::tinygltf
           vkexec_exception_options)
 target_include_directories(vkexec_vs_async_compute PRIVATE "${PROJECT_SOURCE_DIR}/examples"
-                                                            "${CMAKE_CURRENT_SOURCE_DIR}/..")
+                                                           "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_compile_definitions(vkexec_vs_async_compute
                            PRIVATE "VKEXEC_SAMPLE_ASSET_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/assets\"")
 set_target_properties(vkexec_vs_async_compute PROPERTIES CXX_SCAN_FOR_MODULES OFF)

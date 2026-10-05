@@ -296,10 +296,8 @@ public:
    */
   [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence = nullptr)
     -> status;
-  [[nodiscard]] auto submit_async(VkCommandBuffer cmd,
-    VkSemaphore *out_semaphore,
-    VkFence *out_fence,
-    queue_ref queue) -> status;
+  [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence, queue_ref queue)
+    -> status;
 
   /**
    * Submits work described by `info` (command buffers plus optional wait/signal

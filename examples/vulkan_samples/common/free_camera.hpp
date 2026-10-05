@@ -47,8 +47,7 @@ struct free_camera
     float const rotation_w = rotation.at(3);
     float const forward_x = -2.0F * ((rotation_x * rotation_z) + (rotation_w * rotation_y));
     float const forward_y = -2.0F * ((rotation_y * rotation_z) - (rotation_w * rotation_x));
-    float const forward_z =
-      -(1.0F - (2.0F * ((rotation_x * rotation_x) + (rotation_y * rotation_y))));
+    float const forward_z = -(1.0F - (2.0F * ((rotation_x * rotation_x) + (rotation_y * rotation_y))));
     yaw = std::atan2(forward_x, -forward_z);
     pitch = std::asin(std::clamp(forward_y, -1.0F, 1.0F));
   }
@@ -66,9 +65,8 @@ struct free_camera
     bool const pressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
     if (pressed && dragging) {
       yaw += static_cast<float>(cursor_x - previous_x) * k_mouse_sensitivity;
-      pitch = std::clamp(pitch - (static_cast<float>(cursor_y - previous_y) * k_mouse_sensitivity),
-        -k_max_pitch,
-        k_max_pitch);
+      pitch = std::clamp(
+        pitch - (static_cast<float>(cursor_y - previous_y) * k_mouse_sensitivity), -k_max_pitch, k_max_pitch);
     }
     dragging = pressed;
     previous_x = cursor_x;
@@ -102,10 +100,7 @@ struct free_camera
       .right = { cosine, 0.0F, sine, 0.0F },
       .up = { -pitch_sine * sine, pitch_cosine, pitch_sine * cosine, 0.0F },
       .forward = { pitch_cosine * sine, pitch_sine, -pitch_cosine * cosine, 0.0F },
-      .projection = { 1.0F,
-        far_plane,
-        static_cast<float>(extent.width) / static_cast<float>(extent.height),
-        0.0F },
+      .projection = { 1.0F, far_plane, static_cast<float>(extent.width) / static_cast<float>(extent.height), 0.0F },
     };
   }
 };

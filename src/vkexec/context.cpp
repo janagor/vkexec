@@ -878,8 +878,7 @@ auto context::free_command_buffer(VkCommandBuffer cmd) -> void
   release_command_pool(family, pool);
 }
 
-auto context::submit_and_wait(VkCommandBuffer cmd) -> status
-{ return submit_and_wait(cmd, compute_queue_ref()); }
+auto context::submit_and_wait(VkCommandBuffer cmd) -> status { return submit_and_wait(cmd, compute_queue_ref()); }
 
 auto context::submit_and_wait(VkCommandBuffer cmd, queue_ref queue) -> status
 {
@@ -909,10 +908,8 @@ auto context::submit_and_wait(VkCommandBuffer cmd, queue_ref queue) -> status
 auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence) -> status
 { return submit_async(cmd, out_semaphore, out_fence, compute_queue_ref()); }
 
-auto context::submit_async(VkCommandBuffer cmd,
-  VkSemaphore *out_semaphore,
-  VkFence *out_fence,
-  queue_ref queue) -> status
+auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence, queue_ref queue)
+  -> status
 {
   if (out_semaphore == nullptr) { return fail(errc::invalid_argument, "submit_async requires out_semaphore"); }
 
@@ -938,8 +935,8 @@ auto context::submit_async(VkCommandBuffer cmd,
 
   std::array<VkCommandBuffer, 1> const commands{ cmd };
   std::array<semaphore_submit, 1> const signals{ semaphore_submit{ .semaphore = sem } };
-  auto submitted = submit(queue_submit{
-    .command_buffers = commands, .signals = signals, .fence = fence, .queue = queue.queue });
+  auto submitted =
+    submit(queue_submit{ .command_buffers = commands, .signals = signals, .fence = fence, .queue = queue.queue });
   if (!submitted) {
     vkDestroySemaphore(impl_->device.device, sem, nullptr);
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(impl_->device.device, fence, nullptr); }
