@@ -24,12 +24,13 @@ struct sampler_owner
 
 [[nodiscard]] inline auto make_sampler(VkDevice device,
   VkSamplerAddressMode address = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-  bool compare = false) -> sampler_owner
+  bool compare = false,
+  VkFilter filter = VK_FILTER_LINEAR) -> sampler_owner
 {
   VkSamplerCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-  info.magFilter = VK_FILTER_LINEAR;
-  info.minFilter = VK_FILTER_LINEAR;
+  info.magFilter = filter;
+  info.minFilter = filter;
   info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
   info.addressModeU = address;
   info.addressModeV = address;
