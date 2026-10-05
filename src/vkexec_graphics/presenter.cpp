@@ -518,8 +518,8 @@ auto owned::presenter::submission_sync(frame const &drawn) const -> result<frame
   }
   frame_sync const &sync = frames_.at(frame_index_);
   return frame_submit_sync{
-    .image_available_wait = semaphore_submit{
-      .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT },
+    .image_available_wait =
+      semaphore_submit{ .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT },
     .render_finished_signal = semaphore_submit{ .semaphore = render_finished_.at(current_image_index_) },
     .fence = sync.in_flight,
   };

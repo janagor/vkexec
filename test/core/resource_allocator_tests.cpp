@@ -112,8 +112,9 @@ struct wrong_image_allocator
   });
 }
 
-[[nodiscard]] auto
-  tag_invoke(vkexec::allocate_image_t /*tag*/, test_allocator & /*allocator*/, vkexec::image_create_info const & /*info*/)
+[[nodiscard]] auto tag_invoke(vkexec::allocate_image_t /*tag*/,
+  test_allocator & /*allocator*/,
+  vkexec::image_create_info const & /*info*/)
 {
   return vkexec::make_sender([]() -> vkexec::result<test_image> { return test_image{}; });
 }

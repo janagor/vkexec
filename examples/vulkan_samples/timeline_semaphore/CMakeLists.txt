@@ -10,7 +10,7 @@ target_link_libraries(
           vkexec_examples_glfw
           vkexec_exception_options)
 target_include_directories(vkexec_vs_timeline_semaphore PRIVATE "${PROJECT_SOURCE_DIR}/examples"
-                                                              "${CMAKE_CURRENT_SOURCE_DIR}/..")
+                                                                "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set_target_properties(vkexec_vs_timeline_semaphore PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 vkexec_add_sample_shaders(
   vkexec_vs_timeline_semaphore

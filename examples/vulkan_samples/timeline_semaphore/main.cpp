@@ -107,9 +107,8 @@ auto check_vk(VkResult result, char const *message) -> void
   if (result != VK_SUCCESS) { vkexec::examples::fail_check(message); }
 }
 
-[[nodiscard]] auto make_image(vkexec::context &ctx,
-  vkexec::vma::allocator &allocator,
-  vkexec::queue_ref compute_queue) -> game_image
+[[nodiscard]] auto make_image(vkexec::context &ctx, vkexec::vma::allocator &allocator, vkexec::queue_ref compute_queue)
+  -> game_image
 {
   std::vector<std::uint32_t> families;
   if (compute_queue.family != ctx.graphics_queue_family()) {
@@ -159,9 +158,8 @@ auto begin_recording(VkCommandBuffer cmd) -> void
   check_vk(vkBeginCommandBuffer(cmd, &begin), "vkBeginCommandBuffer failed");
 }
 
-[[nodiscard]] auto compute_resources(game_image const &output,
-  game_image const &input,
-  VkSampler sampler) -> vkexec::resource_table
+[[nodiscard]] auto compute_resources(game_image const &output, game_image const &input, VkSampler sampler)
+  -> vkexec::resource_table
 {
   return vkexec::bindings(
     vkexec::resource_binding{ .slot = 0, .resource = vkexec::storage_image_resource(output.view.handle()) },
@@ -179,8 +177,7 @@ auto initialize_images(vkexec::context &ctx,
   if (!allocated) { vkexec::examples::abort_with_error(allocated.error()); }
   VkCommandBuffer cmd = *allocated;
   begin_recording(cmd);
-  constexpr vkexec::dispatch k_groups{
-    .x = k_grid_width / k_local_size, .y = k_grid_height / k_local_size, .z = 1 };
+  constexpr vkexec::dispatch k_groups{ .x = k_grid_width / k_local_size, .y = k_grid_height / k_local_size, .z = 1 };
   for (std::size_t index = 0; index < k_image_count; ++index) {
     transition(ctx,
       cmd,
@@ -227,8 +224,7 @@ auto record_compute(vkexec::context &ctx,
     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
     VK_ACCESS_2_NONE,
     VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
-  constexpr vkexec::dispatch k_groups{
-    .x = k_grid_width / k_local_size, .y = k_grid_height / k_local_size, .z = 1 };
+  constexpr vkexec::dispatch k_groups{ .x = k_grid_width / k_local_size, .y = k_grid_height / k_local_size, .z = 1 };
   if (ticket.update) {
     vkexec::record_pass(cmd, update.bind(update_sets.at(ticket.image_index)), nullptr, 0, k_groups);
   } else {
@@ -269,8 +265,8 @@ auto run() -> int
   vkexec::queue_ref const compute_queue = ctx.compute_queue_ref();
   auto allocator = vkexec::examples::make_vma_allocator(ctx);
   auto sampler = vkexec::examples::make_sampler(ctx.device(), VK_SAMPLER_ADDRESS_MODE_REPEAT, false, VK_FILTER_NEAREST);
-  std::array<game_image, k_image_count> images{
-    make_image(ctx, allocator, compute_queue), make_image(ctx, allocator, compute_queue) };
+  std::array<game_image, k_image_count> images{ make_image(ctx, allocator, compute_queue),
+    make_image(ctx, allocator, compute_queue) };
 
   std::filesystem::path const shader_dir{ VKEXEC_SAMPLE_SHADER_DIR };
   using enum vkexec::buffer_access;
@@ -314,13 +310,14 @@ auto run() -> int
     init_sets.at(index) = *init_set;
     update_sets.at(index) = *update_set;
     mutate_sets.at(index) = *mutate_set;
-    check(init.update_set(init_sets.at(index), vkexec::bindings(vkexec::resource_binding{
-      .slot = 0, .resource = vkexec::storage_image_resource(images.at(index).view.handle()) })));
+    check(init.update_set(init_sets.at(index),
+      vkexec::bindings(vkexec::resource_binding{
+        .slot = 0, .resource = vkexec::storage_image_resource(images.at(index).view.handle()) })));
     std::size_t const input_index = (index + 1) % k_image_count;
-    check(update.update_set(update_sets.at(index),
-      compute_resources(images.at(index), images.at(input_index), sampler.handle)));
-    check(mutate.update_set(mutate_sets.at(index),
-      compute_resources(images.at(index), images.at(input_index), sampler.handle)));
+    check(update.update_set(
+      update_sets.at(index), compute_resources(images.at(index), images.at(input_index), sampler.handle)));
+    check(mutate.update_set(
+      mutate_sets.at(index), compute_resources(images.at(index), images.at(input_index), sampler.handle)));
   }
   initialize_images(ctx, compute_queue, images, init, init_sets);
 
@@ -336,13 +333,11 @@ auto run() -> int
       config,
       vertex_spirv,
       fragment_spirv,
-      vkexec::bindings(
-        vkexec::resource_binding{
-          .slot = 0, .resource = vkexec::sampled_image_resource(images.at(index).view.handle()) },
+      vkexec::bindings(vkexec::resource_binding{ .slot = 0,
+                         .resource = vkexec::sampled_image_resource(images.at(index).view.handle()) },
         vkexec::resource_binding{ .slot = 1, .resource = vkexec::sampler_resource(sampler.handle) })));
   };
-  std::array<vkexec::owned::graphics_pipeline, k_image_count> renderers{
-    make_renderer(0), make_renderer(1) };
+  std::array<vkexec::owned::graphics_pipeline, k_image_count> renderers{ make_renderer(0), make_renderer(1) };
   auto timeline = vkexec::examples::sync_wait_value(vkexec::factory::make_timeline_semaphore(ctx));
   auto command = ctx.allocate_command_buffer(compute_queue);
   if (!command) { vkexec::examples::abort_with_error(command.error()); }
@@ -357,8 +352,8 @@ auto run() -> int
       std::array<VkCommandBuffer, 1> const commands{ compute_cmd };
       std::array<vkexec::semaphore_submit, 1> const signals{ vkexec::semaphore_submit{
         .semaphore = timeline.handle(), .value = timeline_value(ticket->number, timeline_stage::draw) } };
-      check(ctx.submit(vkexec::queue_submit{
-        .command_buffers = commands, .signals = signals, .queue = compute_queue.queue }));
+      check(ctx.submit(
+        vkexec::queue_submit{ .command_buffers = commands, .signals = signals, .queue = compute_queue.queue }));
       previous = ticket->number;
     }
   } };
