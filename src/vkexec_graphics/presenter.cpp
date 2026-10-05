@@ -493,35 +493,51 @@ auto owned::presenter::end_frame(frame const &drawn, present_options options) ->
 auto owned::presenter::end_frame(frame const &drawn, frame_submit_options submit_options, present_options options)
   -> result<VkFence>
 {
-  if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
-  if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }
-  swapchain &active_swapchain = *swapchain_;
-  (void)drawn;
-
-  auto &sync = frames_.at(frame_index_);
-  VkCommandBuffer cmd = command_buffers_.at(frame_index_);
-
-  std::array<VkCommandBuffer, 1> const commands{ cmd };
+  VKEXEC_TRY_ASSIGN(sync, submission_sync(drawn));
+  std::array<VkCommandBuffer, 1> const commands{ drawn.command_buffer };
   std::vector<semaphore_submit> waits;
   waits.reserve(1 + submit_options.waits.size());
-  waits.push_back(
-    semaphore_submit{ .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT });
+  waits.push_back(sync.image_available_wait);
   waits.insert(waits.end(), submit_options.waits.begin(), submit_options.waits.end());
-  std::array<semaphore_submit, 1> const signals{ semaphore_submit{
-    .semaphore = render_finished_.at(current_image_index_) } };
+  std::array<semaphore_submit, 1> const signals{ sync.render_finished_signal };
   VKEXEC_TRY(ctx_->submit(queue_submit{ .command_buffers = commands,
     .waits = waits,
     .signals = signals,
-    .fence = sync.in_flight,
+    .fence = sync.fence,
     .queue = ctx_->graphics_queue() }));
 
-  std::array<VkSemaphore, 1> const wait_semaphores{ render_finished_.at(current_image_index_) };
+  return present_submitted(drawn, options);
+}
+
+auto owned::presenter::submission_sync(frame const &drawn) const -> result<frame_submit_sync>
+{
+  if (!frame_open_ || !swapchain_ || drawn.command_buffer != command_buffers_.at(frame_index_)
+      || drawn.image_index != current_image_index_ || drawn.framebuffer != framebuffers_.at(current_image_index_)
+      || drawn.extent.width != extent().width || drawn.extent.height != extent().height) {
+    return fail(errc::invalid_argument, "submission_sync requires the current open frame");
+  }
+  frame_sync const &sync = frames_.at(frame_index_);
+  return frame_submit_sync{
+    .image_available_wait = semaphore_submit{
+      .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT },
+    .render_finished_signal = semaphore_submit{ .semaphore = render_finished_.at(current_image_index_) },
+    .fence = sync.in_flight,
+  };
+}
+
+auto owned::presenter::present_submitted(frame const &drawn, present_options options) -> result<VkFence>
+{
+  VKEXEC_TRY_ASSIGN(sync, submission_sync(drawn));
+  if (!swapchain_) { return fail(errc::invalid_argument, "present_submitted requires a swapchain"); }
+  swapchain &active_swapchain = *swapchain_;
+
+  std::array<VkSemaphore, 1> const wait_semaphores{ sync.render_finished_signal.semaphore };
   auto present_result = active_swapchain.present(current_image_index_, wait_semaphores, options);
   if (!present_result) { return fail(present_result); }
   if (!*present_result) { resize_required_ = true; }
 
   // Caller may enqueue_borrowed_fence_wait on this fence; presenter retains ownership.
-  VkFence submitted = sync.in_flight;
+  VkFence submitted = sync.fence;
   frame_index_ = (frame_index_ + 1) % static_cast<std::uint32_t>(k_frames);
   frame_open_ = false;
   return submitted;

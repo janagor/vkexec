@@ -107,6 +107,14 @@ struct frame_submit_options
   std::span<semaphore_submit const> waits;
 };
 
+//! Presenter-owned binary semaphores and fence for one external graphics submit.
+struct frame_submit_sync
+{
+  semaphore_submit image_available_wait;
+  semaphore_submit render_finished_signal;
+  VkFence fence{ VK_NULL_HANDLE };
+};
+
 /**
  * Presentation context creation options.
  *
@@ -254,6 +262,11 @@ namespace owned {
     //! Submits with caller GPU waits in addition to the swapchain image wait.
     [[nodiscard]] auto end_frame(frame const &drawn, frame_submit_options submit_options, present_options options = {})
       -> result<VkFence>;
+
+    //! Borrows the swapchain synchronization for a caller-submitted graphics frame.
+    [[nodiscard]] auto submission_sync(frame const &drawn) const -> result<frame_submit_sync>;
+    //! Presents a frame after the caller has submitted it using `submission_sync`.
+    [[nodiscard]] auto present_submitted(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
   private:
     friend struct detail::make_presenter_factory;
