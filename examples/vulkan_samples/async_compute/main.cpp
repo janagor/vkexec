@@ -697,9 +697,8 @@ auto record_final(vkexec::context &ctx,
         ctx.graphics_queue_family());
     }
   }
-  check(frame.composite.draw(
-    cmd, win.render_pass(), present_frame.framebuffer, present_frame.extent, k_fullscreen_vertices));
-  // graphics_pipeline::draw() completes command-buffer recording.
+  frame.composite.record_pass(
+    cmd, win.render_pass(), present_frame.framebuffer, present_frame.extent, k_fullscreen_vertices);
 }
 
 auto submit_frame(vkexec::context &ctx,

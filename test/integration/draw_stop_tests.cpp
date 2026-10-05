@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
@@ -16,6 +17,7 @@
 #include <stdexec/stop_token.hpp>
 #include <vulkan/vulkan_core.h>
 
+#include <array>
 #include <cstdint>
 #include <thread>
 #include <utility>
@@ -145,7 +147,6 @@ TEST_CASE("presenter suspends at zero extent and resumes after resize", "[vkexec
   REQUIRE(resumed.has_value());
   if (!resumed->has_value()) { FAIL("presenter remained suspended after non-zero resize"); }
   vkexec::frame const resumed_frame = **resumed;
-  REQUIRE(vkEndCommandBuffer(resumed_frame.command_buffer) == VK_SUCCESS);
   REQUIRE(win.end_frame(resumed_frame));
   win.wait_idle();
 }
@@ -168,4 +169,107 @@ TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec
 
   win.wait_idle();
   vkexec::destroy(win.ctx(), resources);
+}
+
+TEST_CASE("graphics pass helpers leave command-buffer recording open", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  auto begun = fixture.win.begin_frame();
+  REQUIRE(begun.has_value());
+  REQUIRE(begun->has_value());
+  vkexec::frame const frame = begun->value_or(vkexec::frame{});
+
+  auto allocated = fixture.win.ctx().allocate_command_buffer(fixture.win.ctx().graphics_queue_ref());
+  REQUIRE(allocated.has_value());
+  VkCommandBuffer cmd = vkexec::expected_take(allocated);
+  VkCommandBufferBeginInfo begin{};
+  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+  REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
+  vkexec::record_draw_pass(cmd,
+    fixture.win.render_pass(),
+    frame.framebuffer,
+    frame.extent,
+    fixture.pipeline.config(),
+    fixture.pipeline.bind(),
+    k_triangle_vertices);
+  REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
+
+  REQUIRE(vkResetCommandBuffer(cmd, 0) == VK_SUCCESS);
+  REQUIRE(vkBeginCommandBuffer(cmd, &begin) == VK_SUCCESS);
+  fixture.pipeline.record_pass(cmd, fixture.win.render_pass(), frame.framebuffer, frame.extent, k_triangle_vertices);
+  REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
+
+  fixture.win.ctx().free_command_buffer(cmd);
+  REQUIRE(fixture.win.end_frame(frame));
+  fixture.win.wait_idle();
+}
+
+TEST_CASE("presenter finishes once before external submission", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  auto begun = fixture.win.begin_frame();
+  REQUIRE(begun.has_value());
+  REQUIRE(begun->has_value());
+  vkexec::frame const frame = begun->value_or(vkexec::frame{});
+  fixture.pipeline.record_pass(
+    frame.command_buffer, fixture.win.render_pass(), frame.framebuffer, frame.extent, k_triangle_vertices);
+
+  REQUIRE(fixture.win.finish_frame_recording(frame));
+  REQUIRE_FALSE(fixture.win.finish_frame_recording(frame));
+  auto sync = fixture.win.submission_sync(frame);
+  REQUIRE(sync.has_value());
+
+  std::array<VkCommandBuffer, 1> const commands{ frame.command_buffer };
+  std::array<vkexec::semaphore_submit, 1> const waits{ sync->image_available_wait };
+  std::array<vkexec::semaphore_submit, 1> const signals{ sync->render_finished_signal };
+  REQUIRE(fixture.win.ctx().submit(vkexec::queue_submit{
+    .command_buffers = commands,
+    .waits = waits,
+    .signals = signals,
+    .fence = sync->fence,
+    .queue = fixture.win.ctx().graphics_queue(),
+  }));
+  REQUIRE(fixture.win.present_submitted(frame));
+  fixture.win.wait_idle();
+}
+
+TEST_CASE("presenter end_frame accepts an explicitly finished frame", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  auto begun = fixture.win.begin_frame();
+  REQUIRE(begun.has_value());
+  REQUIRE(begun->has_value());
+  vkexec::frame const frame = begun->value_or(vkexec::frame{});
+  fixture.pipeline.record_pass(
+    frame.command_buffer, fixture.win.render_pass(), frame.framebuffer, frame.extent, k_triangle_vertices);
+
+  REQUIRE(fixture.win.finish_frame_recording(frame));
+  REQUIRE(fixture.win.end_frame(frame));
+  fixture.win.wait_idle();
+}
+
+TEST_CASE("presenter rejects presenting a recording frame", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  auto begun = fixture.win.begin_frame();
+  REQUIRE(begun.has_value());
+  REQUIRE(begun->has_value());
+  vkexec::frame const frame = begun->value_or(vkexec::frame{});
+  fixture.pipeline.record_pass(
+    frame.command_buffer, fixture.win.render_pass(), frame.framebuffer, frame.extent, k_triangle_vertices);
+
+  REQUIRE_FALSE(fixture.win.present_submitted(frame));
+  REQUIRE(fixture.win.end_frame(frame));
+  fixture.win.wait_idle();
+}
+
+TEST_CASE("draw_layers presents with presenter-owned recording", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  auto const waited = vkexec::test::sync_wait_sender(
+    ex::schedule(fixture.win.ctx().get_scheduler())
+    | vkexec::draw_layers(fixture.win, { { .pipeline = &fixture.pipeline, .vertex_count = k_triangle_vertices } }));
+  REQUIRE(vkexec::test::sync_wait_completed(waited));
+  fixture.win.wait_idle();
 }

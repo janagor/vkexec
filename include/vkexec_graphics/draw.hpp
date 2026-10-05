@@ -253,12 +253,7 @@ struct draw_sender
         }
 
         frame const &drawn = **frame_result;
-        if (auto draw_status =
-              pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
-          !draw_status) {
-          ex::set_error(std::move(receiver), std::move(draw_status.error()));
-          return;
-        }
+        pipeline->record_pass(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
         if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
           ex::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
@@ -318,11 +313,8 @@ struct draw_async_sender
         state,
         win,
         [this](frame &drawn) -> result<VkFence> {
-          if (auto draw_status =
-                pipeline->draw(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
-            !draw_status) {
-            return fail(draw_status);
-          }
+          pipeline->record_pass(
+            drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
           return detail::try_end_frame(*win, drawn);
         },
         receiver);
@@ -417,10 +409,6 @@ struct draw_layers_sender
           layer.pipeline->record_draw(drawn.command_buffer, drawn.extent, layer.vertex_count);
         }
         vkCmdEndRenderPass(drawn.command_buffer);
-        if (VkResult const end_result = vkEndCommandBuffer(drawn.command_buffer); end_result != VK_SUCCESS) {
-          ex::set_error(std::move(receiver), make_vk_error(end_result, "vkEndCommandBuffer failed"));
-          return;
-        }
         if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
           ex::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
@@ -505,9 +493,6 @@ struct draw_layers_async_sender
             layer.pipeline->record_draw(drawn_frame.command_buffer, drawn_frame.extent, layer.vertex_count);
           }
           vkCmdEndRenderPass(drawn_frame.command_buffer);
-          if (VkResult const end_result = vkEndCommandBuffer(drawn_frame.command_buffer); end_result != VK_SUCCESS) {
-            return fail(end_result, "vkEndCommandBuffer failed");
-          }
           return detail::try_end_frame(*win, drawn_frame);
         },
         receiver);
@@ -591,12 +576,8 @@ struct draw_mesh_sender
         }
 
         frame const &drawn_frame = **frame_result;
-        if (auto draw_status = pipeline->draw(
-              drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
-          !draw_status) {
-          ex::set_error(std::move(receiver), std::move(draw_status.error()));
-          return;
-        }
+        pipeline->record_pass(
+          drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
         if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
           ex::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
@@ -652,11 +633,8 @@ struct draw_mesh_async_sender
         state,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
-          if (auto draw_status = pipeline->draw(
-                drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
-            !draw_status) {
-            return fail(draw_status);
-          }
+          pipeline->record_pass(
+            drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
           return detail::try_end_frame(*win, drawn_frame);
         },
         receiver);
@@ -752,17 +730,13 @@ struct draw_bind_sender
         }
 
         frame const &drawn = **frame_result;
-        if (auto draw_status = draw_pass(drawn.command_buffer,
-              win->render_pass(),
-              drawn.framebuffer,
-              drawn.extent,
-              resources->cfg,
-              bind_graphics(*resources, set),
-              vertex_count);
-          !draw_status) {
-          ex::set_error(std::move(receiver), std::move(draw_status.error()));
-          return;
-        }
+        record_draw_pass(drawn.command_buffer,
+          win->render_pass(),
+          drawn.framebuffer,
+          drawn.extent,
+          resources->cfg,
+          bind_graphics(*resources, set),
+          vertex_count);
         if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
           ex::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
@@ -820,16 +794,13 @@ struct draw_bind_async_sender
         state,
         win,
         [this](frame &drawn) -> result<VkFence> {
-          if (auto draw_status = draw_pass(drawn.command_buffer,
-                win->render_pass(),
-                drawn.framebuffer,
-                drawn.extent,
-                resources->cfg,
-                bind_graphics(*resources, set),
-                vertex_count);
-            !draw_status) {
-            return fail(draw_status);
-          }
+          record_draw_pass(drawn.command_buffer,
+            win->render_pass(),
+            drawn.framebuffer,
+            drawn.extent,
+            resources->cfg,
+            bind_graphics(*resources, set),
+            vertex_count);
           return detail::try_end_frame(*win, drawn);
         },
         receiver);
@@ -902,17 +873,13 @@ struct draw_mesh_bind_sender
         }
 
         frame const &drawn_frame = **frame_result;
-        if (auto draw_status = draw_pass(drawn_frame.command_buffer,
-              win->render_pass(),
-              drawn_frame.framebuffer,
-              drawn_frame.extent,
-              resources->cfg,
-              bind_graphics(*resources, set),
-              drawn);
-          !draw_status) {
-          ex::set_error(std::move(receiver), std::move(draw_status.error()));
-          return;
-        }
+        record_draw_pass(drawn_frame.command_buffer,
+          win->render_pass(),
+          drawn_frame.framebuffer,
+          drawn_frame.extent,
+          resources->cfg,
+          bind_graphics(*resources, set),
+          drawn);
         if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
           ex::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
@@ -970,16 +937,13 @@ struct draw_mesh_bind_async_sender
         state,
         win,
         [this](frame &drawn_frame) -> result<VkFence> {
-          if (auto draw_status = draw_pass(drawn_frame.command_buffer,
-                win->render_pass(),
-                drawn_frame.framebuffer,
-                drawn_frame.extent,
-                resources->cfg,
-                bind_graphics(*resources, set),
-                drawn);
-            !draw_status) {
-            return fail(draw_status);
-          }
+          record_draw_pass(drawn_frame.command_buffer,
+            win->render_pass(),
+            drawn_frame.framebuffer,
+            drawn_frame.extent,
+            resources->cfg,
+            bind_graphics(*resources, set),
+            drawn);
           return detail::try_end_frame(*win, drawn_frame);
         },
         receiver);

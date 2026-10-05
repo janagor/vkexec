@@ -249,28 +249,30 @@ namespace owned {
     [[nodiscard]] auto bind() const -> graphics_bind { return bind_graphics(*resources_, descriptor_set_); }
 
     /**
-     * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
+     * Requires a recording command buffer and an active compatible render pass.
+     * The render pass and command buffer remain open.
      */
     auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, std::uint32_t vertex_count) const -> void;
 
-    //! Records a mesh draw (vertex/index binds + indexed draw) into an open render pass.
+    //! Records a mesh draw in an active render pass; both remain open.
     auto record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh_draw const &drawn) const -> void;
 
     /**
-     * Begins a render pass, records a non-indexed draw, and ends the pass.
+     * Requires a recording command buffer with no active render pass. Begins a
+     * render pass, records a non-indexed draw, and ends the pass. `cmd` remains recording.
      */
-    auto draw(VkCommandBuffer cmd,
+    auto record_pass(VkCommandBuffer cmd,
       VkRenderPass render_pass,
       VkFramebuffer framebuffer,
       VkExtent2D extent,
-      std::uint32_t vertex_count) const -> status;
+      std::uint32_t vertex_count) const -> void;
 
-    //! Begins a render pass, records a mesh draw, and ends the pass.
-    auto draw(VkCommandBuffer cmd,
+    //! Records a mesh draw in a complete render pass; `cmd` remains recording.
+    auto record_pass(VkCommandBuffer cmd,
       VkRenderPass render_pass,
       VkFramebuffer framebuffer,
       VkExtent2D extent,
-      mesh_draw const &drawn) const -> status;
+      mesh_draw const &drawn) const -> void;
 
   private:
     graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept

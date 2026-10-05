@@ -408,38 +408,30 @@ auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mes
   vkCmdDrawIndexed(cmd, drawn.index_count, 1, drawn.first_index, 0, 0);
 }
 
-auto draw_pass(VkCommandBuffer cmd,
+auto record_draw_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
   graphics_bind bind,
-  std::uint32_t vertex_count) -> status
+  std::uint32_t vertex_count) -> void
 {
   begin_graphics_pass(cmd, render_pass, framebuffer, extent, cfg);
   record_draw(cmd, bind, extent, vertex_count);
   end_graphics_pass(cmd);
-  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return fail(result, "vkEndCommandBuffer failed");
-  }
-  return {};
 }
 
-auto draw_pass(VkCommandBuffer cmd,
+auto record_draw_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
   graphics_bind bind,
-  mesh_draw const &drawn) -> status
+  mesh_draw const &drawn) -> void
 {
   begin_graphics_pass(cmd, render_pass, framebuffer, extent, cfg);
   record_draw(cmd, bind, extent, drawn);
   end_graphics_pass(cmd);
-  if (VkResult const result = vkEndCommandBuffer(cmd); result != VK_SUCCESS) {
-    return fail(result, "vkEndCommandBuffer failed");
-  }
-  return {};
 }
 
 auto owned::graphics_pipeline::reset() noexcept -> void
@@ -473,18 +465,18 @@ auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D exten
 auto owned::graphics_pipeline::record_draw(VkCommandBuffer cmd, VkExtent2D extent, mesh_draw const &drawn) const -> void
 { vkexec::record_draw(cmd, bind(), extent, drawn); }
 
-auto owned::graphics_pipeline::draw(VkCommandBuffer cmd,
+auto owned::graphics_pipeline::record_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
-  std::uint32_t vertex_count) const -> status
-{ return draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), vertex_count); }
+  std::uint32_t vertex_count) const -> void
+{ record_draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), vertex_count); }
 
-auto owned::graphics_pipeline::draw(VkCommandBuffer cmd,
+auto owned::graphics_pipeline::record_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
-  mesh_draw const &drawn) const -> status
-{ return draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), drawn); }
+  mesh_draw const &drawn) const -> void
+{ record_draw_pass(cmd, render_pass, framebuffer, extent, resources_->cfg, bind(), drawn); }
 
 }// namespace vkexec

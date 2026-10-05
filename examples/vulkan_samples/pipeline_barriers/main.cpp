@@ -253,11 +253,8 @@ auto record_frame(vkexec::context &ctx,
   vkCmdEndRenderPass(cmd);
   finish_geometry(ctx, cmd, resources, mode);
   resources.initialized = true;
-  if (auto drawn = resources.lighting.draw(
-        cmd, win.render_pass(), present_frame.framebuffer, present_frame.extent, k_lighting_vertices);
-    !drawn) {
-    vkexec::examples::abort_with_error(drawn.error());
-  }
+  resources.lighting.record_pass(
+    cmd, win.render_pass(), present_frame.framebuffer, present_frame.extent, k_lighting_vertices);
 }
 
 auto parse_mode(int argc, char const *const *argv) -> barrier_mode

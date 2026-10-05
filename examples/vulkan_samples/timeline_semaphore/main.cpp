@@ -361,12 +361,13 @@ auto run() -> int
     std::uint64_t previous = UINT64_MAX;
     while (auto ticket = tickets.next(stopped, previous)) {
       check(timeline.wait(timeline_value(ticket->number, timeline_stage::submit)));
-      check(renderers.at(ticket->image_index)
-          .draw(ticket->present_frame.command_buffer,
-            win.render_pass(),
-            ticket->present_frame.framebuffer,
-            ticket->present_frame.extent,
-            k_fullscreen_vertices));
+      renderers.at(ticket->image_index)
+        .record_pass(ticket->present_frame.command_buffer,
+          win.render_pass(),
+          ticket->present_frame.framebuffer,
+          ticket->present_frame.extent,
+          k_fullscreen_vertices);
+      check(win.target().finish_frame_recording(ticket->present_frame));
       std::uint64_t const draw_value = timeline_value(ticket->number, timeline_stage::draw);
       if (compute_queue.queue == ctx.graphics_queue()) { check(timeline.wait(draw_value)); }
       std::array<VkCommandBuffer, 1> const commands{ ticket->present_frame.command_buffer };

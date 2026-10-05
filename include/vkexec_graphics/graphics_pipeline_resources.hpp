@@ -206,32 +206,34 @@ auto begin_graphics_pass(VkCommandBuffer cmd,
 inline auto end_graphics_pass(VkCommandBuffer cmd) -> void { vkCmdEndRenderPass(cmd); }
 
 /**
- * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
+ * Requires a recording command buffer and an active compatible render pass.
+ * The render pass and command buffer remain open.
  */
 auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, std::uint32_t vertex_count) -> void;
 
-//! Records viewport/scissor, bind, and an indexed mesh draw into an open render pass.
+//! Records an indexed mesh draw; the active render pass and command buffer remain open.
 auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mesh_draw const &drawn) -> void;
 
 /**
- * Begins a render pass, records a non-indexed draw, ends the pass, and ends `cmd`.
+ * Requires a recording command buffer with no active render pass. Begins a
+ * render pass, records a non-indexed draw, and ends the pass. `cmd` remains recording.
  */
-auto draw_pass(VkCommandBuffer cmd,
+auto record_draw_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
   graphics_bind bind,
-  std::uint32_t vertex_count) -> status;
+  std::uint32_t vertex_count) -> void;
 
-//! Begins a render pass, records a mesh draw, ends the pass, and ends `cmd`.
-auto draw_pass(VkCommandBuffer cmd,
+//! Records a mesh draw in a complete render pass; `cmd` remains recording.
+auto record_draw_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
   graphics_bind bind,
-  mesh_draw const &drawn) -> status;
+  mesh_draw const &drawn) -> void;
 
 }// namespace vkexec
 

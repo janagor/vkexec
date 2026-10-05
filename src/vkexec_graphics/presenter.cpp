@@ -88,10 +88,12 @@ owned::presenter::presenter(presenter &&other) noexcept
     command_buffers_(std::move(other.command_buffers_)), render_finished_(std::move(other.render_finished_)),
     images_in_flight_(std::move(other.images_in_flight_)), frame_index_(other.frame_index_),
     current_image_index_(other.current_image_index_), resize_required_(other.resize_required_),
-    suspended_(other.suspended_), frame_open_(other.frame_open_)
+    suspended_(other.suspended_), frame_open_(other.frame_open_), recording_open_(other.recording_open_)
 {
   other.surface_ = VK_NULL_HANDLE;
   other.render_pass_ = VK_NULL_HANDLE;
+  other.frame_open_ = false;
+  other.recording_open_ = false;
 }
 
 auto owned::presenter::operator=(presenter &&other) noexcept -> presenter &
@@ -482,6 +484,7 @@ auto owned::presenter::begin_frame() -> result<std::optional<frame>>
 
   current_image_index_ = image_index;
   frame_open_ = true;
+  recording_open_ = true;
   return frame{
     .command_buffer = cmd, .framebuffer = framebuffers_.at(image_index), .extent = extent(), .image_index = image_index
   };
@@ -493,6 +496,7 @@ auto owned::presenter::end_frame(frame const &drawn, present_options options) ->
 auto owned::presenter::end_frame(frame const &drawn, frame_submit_options submit_options, present_options options)
   -> result<VkFence>
 {
+  if (recording_open_) { VKEXEC_TRY(finish_frame_recording(drawn)); }
   VKEXEC_TRY_ASSIGN(sync, submission_sync(drawn));
   std::array<VkCommandBuffer, 1> const commands{ drawn.command_buffer };
   std::vector<semaphore_submit> waits;
@@ -509,13 +513,30 @@ auto owned::presenter::end_frame(frame const &drawn, frame_submit_options submit
   return present_submitted(drawn, options);
 }
 
-auto owned::presenter::submission_sync(frame const &drawn) const -> result<frame_submit_sync>
+auto owned::presenter::finish_frame_recording(frame const &drawn) -> status
+{
+  VKEXEC_TRY(validate_current_frame(drawn));
+  if (!recording_open_) { return fail(errc::invalid_argument, "frame command buffer is not recording"); }
+  if (VkResult const result = vkEndCommandBuffer(drawn.command_buffer); result != VK_SUCCESS) {
+    return fail(result, "vkEndCommandBuffer failed");
+  }
+  recording_open_ = false;
+  return {};
+}
+
+auto owned::presenter::validate_current_frame(frame const &drawn) const -> status
 {
   if (!frame_open_ || !swapchain_ || drawn.command_buffer != command_buffers_.at(frame_index_)
       || drawn.image_index != current_image_index_ || drawn.framebuffer != framebuffers_.at(current_image_index_)
       || drawn.extent.width != extent().width || drawn.extent.height != extent().height) {
-    return fail(errc::invalid_argument, "submission_sync requires the current open frame");
+    return fail(errc::invalid_argument, "operation requires the current open frame");
   }
+  return {};
+}
+
+auto owned::presenter::submission_sync(frame const &drawn) const -> result<frame_submit_sync>
+{
+  VKEXEC_TRY(validate_current_frame(drawn));
   frame_sync const &sync = frames_.at(frame_index_);
   return frame_submit_sync{
     .image_available_wait =
@@ -527,6 +548,8 @@ auto owned::presenter::submission_sync(frame const &drawn) const -> result<frame
 
 auto owned::presenter::present_submitted(frame const &drawn, present_options options) -> result<VkFence>
 {
+  VKEXEC_TRY(validate_current_frame(drawn));
+  if (recording_open_) { return fail(errc::invalid_argument, "frame command buffer is still recording"); }
   VKEXEC_TRY_ASSIGN(sync, submission_sync(drawn));
   if (!swapchain_) { return fail(errc::invalid_argument, "present_submitted requires a swapchain"); }
   swapchain &active_swapchain = *swapchain_;
@@ -540,6 +563,7 @@ auto owned::presenter::present_submitted(frame const &drawn, present_options opt
   VkFence submitted = sync.fence;
   frame_index_ = (frame_index_ + 1) % static_cast<std::uint32_t>(k_frames);
   frame_open_ = false;
+  recording_open_ = false;
   return submitted;
 }
 

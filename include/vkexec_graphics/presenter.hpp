@@ -250,10 +250,10 @@ namespace owned {
     [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
 
     /**
-     * Submits the recorded command buffer and presents.
+     * Ends command-buffer recording if still open, submits, and presents.
      *
-     * The command buffer must already be ended. Returns the per-frame `in_flight`
-     * fence signalled by the submit (owned by the presenter).
+     * The frame must come from `begin_frame`. On success, recording is ended
+     * and the per-frame `in_flight` fence (owned by the presenter) is returned.
      *
      * @param drawn Frame from a successful `begin_frame`.
      * @param options Optional `VkPresentInfoKHR::pNext` chain.
@@ -263,9 +263,14 @@ namespace owned {
     [[nodiscard]] auto end_frame(frame const &drawn, frame_submit_options submit_options, present_options options = {})
       -> result<VkFence>;
 
-    //! Borrows the swapchain synchronization for a caller-submitted graphics frame.
+    //! Ends recording for the current frame before caller-managed submission.
+    //! Requires an open frame with recording still active; the frame remains open.
+    [[nodiscard]] auto finish_frame_recording(frame const &drawn) -> status;
+
+    //! Borrows swapchain synchronization for a caller-submitted graphics frame.
+    //! Does not end command-buffer recording; call `finish_frame_recording` before submission.
     [[nodiscard]] auto submission_sync(frame const &drawn) const -> result<frame_submit_sync>;
-    //! Presents a frame after the caller has submitted it using `submission_sync`.
+    //! Presents a frame after the caller has ended recording and submitted it using `submission_sync`.
     [[nodiscard]] auto present_submitted(frame const &drawn, present_options options = {}) -> result<VkFence>;
 
   private:
@@ -292,6 +297,7 @@ namespace owned {
     auto destroy_swapchain_sync() noexcept -> void;
     auto cleanup_swapchain() -> void;
     auto recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status;
+    [[nodiscard]] auto validate_current_frame(frame const &drawn) const -> status;
 
     config cfg_;
     std::unique_ptr<context> ctx_;
@@ -316,6 +322,7 @@ namespace owned {
     bool resize_required_{ false };
     bool suspended_{ false };
     bool frame_open_{ false };
+    bool recording_open_{ false };
   };
 
 }// namespace owned
