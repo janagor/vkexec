@@ -24,3 +24,10 @@ The sample shaders are adapted from
 [KhronosGroup/Vulkan-Samples](https://github.com/KhronosGroup/Vulkan-Samples)
 at commit `177edebf0cd7d4f669667e49f052cfb56b17e004` and retain their
 Apache-2.0 headers. Their descriptors and geometry inputs were changed for vkexec.
+
+The Timeline Semaphore sample shaders are copied from
+[KhronosGroup/Vulkan-Samples](https://github.com/KhronosGroup/Vulkan-Samples)
+at commit `177edebf0cd7d4f669667e49f052cfb56b17e004`. The files retain
+their original Apache-2.0 copyright and SPDX notices. Descriptor declarations
+were adapted for vkexec's separate sampled-image and sampler resource model.
+There are no external assets for this sample.
