@@ -64,6 +64,7 @@ TEST_CASE("generic image retains mip and layer metadata", "[vkexec][image][gpu]"
       .mip_levels = 4,
       .array_layers = k_cube_layers,
       .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+      .queue_families = {},
     }));
   REQUIRE(img.extent_3d().width == k_width);
   REQUIRE(img.mip_levels() == 4);
@@ -112,6 +113,7 @@ TEST_CASE("automatic view supports cube-compatible images with seven layers", "[
       .usage = VK_IMAGE_USAGE_SAMPLED_BIT,
       .array_layers = k_extra_cube_layer_count,
       .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+      .queue_families = {},
     }));
   auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   REQUIRE(view.handle() != VK_NULL_HANDLE);

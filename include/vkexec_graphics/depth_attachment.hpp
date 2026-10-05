@@ -47,6 +47,7 @@ template<image_allocator A, class MakeAllocator>
                  .extent = { .width = extent.width, .height = extent.height, .depth = 1 },
                  .format = format,
                  .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                 .queue_families = {},
                })
              | stdexec::let_value(
                [&ctx, extent, format, allocator = std::move(allocator)](image_type &image) mutable -> auto {

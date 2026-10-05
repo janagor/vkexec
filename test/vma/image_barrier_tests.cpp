@@ -77,6 +77,7 @@ TEST_CASE("resource barriers record finite buffer and image ranges", "[vkexec][b
       .usage = VK_IMAGE_USAGE_STORAGE_BIT,
       .mip_levels = 4,
       .array_layers = k_array_layers,
+      .queue_families = {},
     }));
   auto cmd_result = ctx->allocate_command_buffer();
   REQUIRE(cmd_result.has_value());
@@ -126,7 +127,8 @@ TEST_CASE("resource barrier pass steps execute", "[vkexec][barrier][gpu]")
   auto img = vkexec::test::sync_wait_value(vkexec::allocate_image(allocator,
     vkexec::image_create_info{ .extent = { .width = k_pass_extent, .height = k_pass_extent, .depth = 1 },
       .format = VK_FORMAT_R8G8B8A8_UNORM,
-      .usage = VK_IMAGE_USAGE_STORAGE_BIT }));
+      .usage = VK_IMAGE_USAGE_STORAGE_BIT,
+      .queue_families = {} }));
   auto graph =
     stdexec::schedule(ctx->get_scheduler())
     | vkexec::barrier::buffer({ .buffer = buffer.handle(), .offset = k_barrier_offset, .size = k_barrier_size })

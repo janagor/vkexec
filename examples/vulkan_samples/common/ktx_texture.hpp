@@ -143,6 +143,7 @@ namespace detail {
       .extent = { .width = extent.width, .height = extent.height, .depth = 1 },
       .format = format,
       .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+      .queue_families = {},
     }));
   auto view = sync_wait_value(vma::factory::make_image_view(ctx, image));
   return ktx_texture{

@@ -1,4 +1,13 @@
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC reports a null dereference in stdexec's inlined run-loop dispatch.
+// Keep the suppression on the third-party header that owns the diagnostic.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+#endif
 #include <vkexec_vma/offscreen_target.hpp>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -70,7 +79,8 @@ auto offscreen_target::create(context &ctx, allocator &alloc, offscreen_target_c
       ::vkexec::image_create_info{
         .extent = VkExtent3D{ .width = config.extent.width, .height = config.extent.height, .depth = 1 },
         .format = format,
-        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT }));
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .queue_families = {} }));
     if (!allocated) { return fail(allocated); }
     target->colors.push_back(std::move(*allocated));
     auto view = try_sync_wait_value(factory::make_image_view(ctx, target->colors.back()));
@@ -101,7 +111,8 @@ auto offscreen_target::create(context &ctx, allocator &alloc, offscreen_target_c
         .extent = VkExtent3D{ .width = config.extent.width, .height = config.extent.height, .depth = 1 },
         .format = config.depth_format,
         .usage = static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-                 | (config.sample_depth ? static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_SAMPLED_BIT) : 0U) }));
+                 | (config.sample_depth ? static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_SAMPLED_BIT) : 0U),
+        .queue_families = {} }));
     if (!allocated) { return fail(allocated); }
     target->depth.emplace(std::move(*allocated));
     auto view = try_sync_wait_value(factory::make_image_view(ctx, *target->depth));

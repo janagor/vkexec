@@ -212,6 +212,7 @@ auto check_vk(VkResult result, char const *message) -> void
       .extent = { .width = extent.width, .height = extent.height, .depth = 1 },
       .format = k_hdr_format,
       .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+      .queue_families = {},
     }));
   auto view = vkexec::examples::sync_wait_value(vkexec::vma::factory::make_image_view(ctx, image));
   return bloom_image{ .image = std::move(image), .view = std::move(view), .extent = extent };
