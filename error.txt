@@ -1,0 +1,126 @@
+[0/2] Re-checking globbed directories...
+[1/3] Building CXX object examples/vulkan_samples/async_compute/CMakeFiles/vkexec_vs_async_compute.dir/main.cpp.o
+FAILED: [code=1] examples/vulkan_samples/async_compute/CMakeFiles/vkexec_vs_async_compute.dir/main.cpp.o 
+/nix/store/c3bm9h7k398cmg00d4rss6hcxkl2zbl2-cmake-4.4.2/bin/cmake -E __run_co_compile --launcher=/nix/store/y5zzlgmhy59gzf6y1x7xx0jdsj7mvlp3-ccache-4.13.6/bin/ccache --tidy="/nix/store/82lxfl0n7xgxbigbbj84w73qcy4ps0i8-clang-tools-22.1.8/bin/clang-tidy;-extra-arg=-Wno-unknown-warning-option;-extra-arg=-Wno-ignored-optimization-argument;-extra-arg=-Wno-unused-command-line-argument;-p;-warnings-as-errors=*;--extra-arg-before=--driver-mode=g++" --cppcheck="/nix/store/2fhi9gvzhbj5rw21mxjc53iwyr1l3z1m-cppcheck-2.21.1/bin/cppcheck;--template=gcc;--enable=style,performance,warning,portability;--inline-suppr;--suppress=cppcheckError;--suppress=internalAstError;--suppress=unmatchedSuppression;--suppress=passedByValue;--suppress=syntaxError;--suppress=preprocessorErrorDirective;--suppress=knownConditionTrueFalse;--suppress=constParameterReference;--suppress=constVariableReference;--suppress=functionConst;--suppress=uselessCallsConstructor;--inconclusive;--check-level=exhaustive;--suppress=*:/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/_deps/*;--error-exitcode=2" --source=/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp -- /nix/store/n86z1v3lb1xyps6acmfa62gb5qkgd90d-clang-wrapper-22.1.8/bin/clang++ -DVKEXEC_SAMPLE_ASSET_DIR=\"/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/assets\" -DVKEXEC_SAMPLE_SHADER_DIR=\"/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/examples/vulkan_samples/async_compute/shaders\" -D_GLIBCXX_ASSERTIONS -I/home/janagorski/Projects/currently/vkexec/examples -I/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/.. -I/home/janagorski/Projects/currently/vkexec/include -I/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/include -isystem /home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/_deps/stdexec-src/include -isystem /home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/_deps/stdexec-build/include -isystem /home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/_deps/vulkanmemoryallocator-src/include -isystem /home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/_deps/glfw-src/include -isystem /home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-release/_deps/tinygltf-src -O2 -g -DNDEBUG -std=gnu++20 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fcf-protection -fstack-clash-protection -fcolor-diagnostics -fsanitize=address,undefined -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -Wpedantic -Wconversion -Wnull-dereference -Wdouble-promotion -Wformat=2 -Wimplicit-fallthrough -Werror -MD -MT examples/vulkan_samples/async_compute/CMakeFiles/vkexec_vs_async_compute.dir/main.cpp.o -MF examples/vulkan_samples/async_compute/CMakeFiles/vkexec_vs_async_compute.dir/main.cpp.o.d -o examples/vulkan_samples/async_compute/CMakeFiles/vkexec_vs_async_compute.dir/main.cpp.o -c /home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp
+/home/janagorski/Projects/currently/vkexec/examples/glfw_presenter.hpp:68:5: error: pointee of variable 'native_window' of type 'GLFWwindow *const' (aka 'struct GLFWwindow *const') can be declared 'const' [misc-const-correctness,-warnings-as-errors]
+   68 |     GLFWwindow *const native_window = created.window_;
+      |     ^
+      |                 const
+/home/janagorski/Projects/currently/vkexec/examples/glfw_presenter.hpp:76:37: error: use of undeclared identifier 'glfwCreateWindowSurface' [clang-diagnostic-error]
+   76 |         if (VkResult const result = glfwCreateWindowSurface(instance, native_window, nullptr, &surface);
+      |                                     ^~~~~~~~~~~~~~~~~~~~~~~
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/../common/free_camera.hpp:92:27: error: unknown type name 'VkExtent2D' [clang-diagnostic-error]
+   92 |   [[nodiscard]] auto data(VkExtent2D extent) const -> camera_data
+      |                           ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:78:21: error: 16 is a magic number; consider replacing it with a named constant [cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,-warnings-as-errors]
+   78 |   std::array<float, 16> matrix{};
+      |                     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:130:20: error: no header providing "vkexec::status" is directly included [misc-include-cleaner,-warnings-as-errors]
+    9 | auto check(vkexec::status result) -> void
+      |                    ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:179:14: error: variable name 'up' is too short, expected at least 3 characters [readability-identifier-length,-warnings-as-errors]
+  179 |   auto const up = normalize(std::array<float, 3>{
+      |              ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:386:27: error: 'set' declared with a const-qualified typedef; results in the type being 'VkDescriptorSet_T *const' instead of 'const VkDescriptorSet_T *' [misc-misplaced-const,-warnings-as-errors]
+  386 |     VkDescriptorSet const set = *set_result;
+      |                           ^
+/nix/store/gj5v2ghs5pcx3h43sh3a6zrspiixl97i-vulkan-headers-1.4.357.0/include/vulkan/vulkan_core.h:122:35: note: typedef declared here
+  122 | VK_DEFINE_NON_DISPATCHABLE_HANDLE(VkDescriptorSet)
+      |                                   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:487:25: error: 'cmd' declared with a const-qualified typedef; results in the type being 'VkCommandBuffer_T *const' instead of 'const VkCommandBuffer_T *' [misc-misplaced-const,-warnings-as-errors]
+  487 |   VkCommandBuffer const cmd = frame.early_cmd;
+      |                         ^
+/nix/store/gj5v2ghs5pcx3h43sh3a6zrspiixl97i-vulkan-headers-1.4.357.0/include/vulkan/vulkan_core.h:104:18: note: typedef declared here
+  104 | VK_DEFINE_HANDLE(VkCommandBuffer)
+      |                  ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:590:25: error: 'cmd' declared with a const-qualified typedef; results in the type being 'VkCommandBuffer_T *const' instead of 'const VkCommandBuffer_T *' [misc-misplaced-const,-warnings-as-errors]
+  590 |   VkCommandBuffer const cmd = frame.compute_cmd;
+      |                         ^
+/nix/store/gj5v2ghs5pcx3h43sh3a6zrspiixl97i-vulkan-headers-1.4.357.0/include/vulkan/vulkan_core.h:104:18: note: typedef declared here
+  104 | VK_DEFINE_HANDLE(VkCommandBuffer)
+      |                  ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:693:25: error: 'cmd' declared with a const-qualified typedef; results in the type being 'VkCommandBuffer_T *const' instead of 'const VkCommandBuffer_T *' [misc-misplaced-const,-warnings-as-errors]
+  693 |   VkCommandBuffer const cmd = present_frame.command_buffer;
+      |                         ^
+/nix/store/gj5v2ghs5pcx3h43sh3a6zrspiixl97i-vulkan-headers-1.4.357.0/include/vulkan/vulkan_core.h:104:18: note: typedef declared here
+  104 | VK_DEFINE_HANDLE(VkCommandBuffer)
+      |                  ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:770:6: error: function 'run' has cognitive complexity of 26 (threshold 25) [readability-function-cognitive-complexity,-warnings-as-errors]
+  770 | auto run(int argc, char const *const *argv) -> int
+      |      ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:787:3: note: +1, including nesting penalty of 0, nesting level increased to 1
+  787 |   if ((texture_properties.optimalTilingFeatures & k_texture_features) != k_texture_features) {
+      |   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:795:3: note: +1, including nesting penalty of 0, nesting level increased to 1
+  795 |   if ((hdr_properties.optimalTilingFeatures & k_hdr_features) != k_hdr_features) {
+      |   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:801:26: note: +1
+  801 |                          && dedicated_queue.family != ctx.graphics_queue_family();
+      |                          ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:802:53: note: +1, including nesting penalty of 0, nesting level increased to 1
+  802 |   vkexec::queue_ref const compute_queue = dedicated ? dedicated_queue : ctx.graphics_queue_ref();
+      |                                                     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:805:27: note: +1, including nesting penalty of 0, nesting level increased to 1
+  805 |             << (dedicated ? "dedicated async compute" : requested_mode == queue_mode::single
+      |                           ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:806:19: note: +2, including nesting penalty of 1, nesting level increased to 2
+  806 |                   ? "single queue"
+      |                   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:837:3: note: +1, including nesting penalty of 0, nesting level increased to 1
+  837 |   for (std::string const &texture_path : scene.base_color_textures) {
+      |   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:838:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  838 |     if (texture_path.empty()) { vkexec::examples::fail_check("Bonza material has no base-color texture"); }
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:844:25: note: nesting level increased to 1
+  844 |   auto rebuild_frames = [&]() -> void {
+      |                         ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:846:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  846 |     for (frame_resources &frame : frames) { destroy_frame(ctx, frame); }
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:849:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  849 |     for (std::size_t index = 0; index < k_frames_in_flight; ++index) {
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:865:3: note: +1, including nesting penalty of 0, nesting level increased to 1
+  865 |   while (!win.should_close()) {
+      |   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:869:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  869 |     if (window_extent.width == 0 || window_extent.height == 0) { continue; }
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:869:34: note: +1
+  869 |     if (window_extent.width == 0 || window_extent.height == 0) { continue; }
+      |                                  ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:871:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  871 |     if (frames.front().hdr.extent().width != wanted_extent.width
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:872:9: note: +1
+  872 |         || frames.front().hdr.extent().height != wanted_extent.height) {
+      |         ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:876:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  876 |     if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:877:5: note: +2, including nesting penalty of 1, nesting level increased to 2
+  877 |     if (!begun->has_value()) { continue; }
+      |     ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:899:3: note: +1, including nesting penalty of 0, nesting level increased to 1
+  899 |   for (frame_resources &frame : frames) { destroy_frame(ctx, frame); }
+      |   ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:792:51: error: use of a signed integer operand with a binary bitwise operator [hicpp-signed-bitwise,-warnings-as-errors]
+  792 |   constexpr VkFormatFeatureFlags k_hdr_features = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT
+      |                                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  793 |                                                  | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT
+      |                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  794 |                                                  | VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+      |                                                  ~
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:805:57: error: conditional operator is used as sub-expression of parent conditional operator, refrain from using nested conditional operators [readability-avoid-nested-conditional-operator,-warnings-as-errors]
+  805 |             << (dedicated ? "dedicated async compute" : requested_mode == queue_mode::single
+      |                                                         ^
+/home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp:805:17: note: parent conditional operator here
+  805 |             << (dedicated ? "dedicated async compute" : requested_mode == queue_mode::single
+      |                 ^
+30404 warnings and 2 errors generated.
+Error while processing /home/janagorski/Projects/currently/vkexec/examples/vulkan_samples/async_compute/main.cpp.
+Suppressed 30490 warnings (30392 in non-user code, 98 NOLINT).
+Use -header-filter=.* or leave it as default to display errors from all non-system headers. Use -system-headers to display errors from system headers as well.
+11 warnings treated as errors
+ninja: build stopped: subcommand failed.
