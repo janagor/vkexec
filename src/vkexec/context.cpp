@@ -64,7 +64,7 @@ struct detail::context_state
   std::mutex command_pool_cache_mutex;
   std::vector<std::pair<std::uint32_t, VkCommandPool>> available_command_pools;
   std::mutex command_buffer_mutex;
-  std::unordered_map<VkCommandBuffer, VkCommandPool> command_buffer_pools;
+  std::unordered_map<VkCommandBuffer, std::pair<std::uint32_t, VkCommandPool>> command_buffer_pools;
   bool presentation_enabled{ false };
   bool has_instance{ false };
   bool has_device{ false };
@@ -458,6 +458,12 @@ auto context::present_queue() const noexcept -> VkQueue { return impl_->present_
 auto context::queue_family() const noexcept -> std::uint32_t { return impl_->queue_family; }
 auto context::graphics_queue_family() const noexcept -> std::uint32_t { return impl_->graphics_family; }
 auto context::present_queue_family() const noexcept -> std::uint32_t { return impl_->present_family; }
+auto context::compute_queue_ref() const noexcept -> queue_ref
+{ return queue_ref{ .queue = compute_queue(), .family = queue_family() }; }
+auto context::graphics_queue_ref() const noexcept -> queue_ref
+{ return queue_ref{ .queue = graphics_queue(), .family = graphics_queue_family() }; }
+auto context::present_queue_ref() const noexcept -> queue_ref
+{ return queue_ref{ .queue = present_queue(), .family = present_queue_family() }; }
 auto context::owns_instance() const noexcept -> bool { return impl_->owns_instance; }
 auto context::owns_device() const noexcept -> bool { return impl_->owns_device; }
 auto context::presentation_enabled() const noexcept -> bool { return impl_->presentation_enabled; }
@@ -672,9 +678,9 @@ detail::context_state::~context_state()
 
   if (device.device != VK_NULL_HANDLE) {
     if (owns_device) { vkDeviceWaitIdle(device.device); }
-    for (auto const &[cmd, pool] : command_buffer_pools) {
+    for (auto const &[cmd, family_pool] : command_buffer_pools) {
       (void)cmd;
-      vkDestroyCommandPool(device.device, pool, nullptr);
+      vkDestroyCommandPool(device.device, family_pool.second, nullptr);
     }
     for (auto const &[family, pool] : available_command_pools) {
       (void)family;
@@ -822,8 +828,14 @@ auto detail::retirement_future(context_handle const &state) -> std::shared_futur
 { return state != nullptr ? state->retirement : std::shared_future<void>{}; }
 
 auto context::allocate_command_buffer() -> result<VkCommandBuffer>
+{ return allocate_command_buffer(compute_queue_ref()); }
+
+auto context::allocate_command_buffer(queue_ref queue) -> result<VkCommandBuffer>
 {
-  VKEXEC_TRY_ASSIGN(pool, acquire_command_pool(queue_family()));
+  if (queue.queue == VK_NULL_HANDLE || queue.family == VK_QUEUE_FAMILY_IGNORED) {
+    return fail(errc::invalid_argument, "allocate_command_buffer requires a valid queue");
+  }
+  VKEXEC_TRY_ASSIGN(pool, acquire_command_pool(queue.family));
   VkCommandBufferAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   alloc_info.commandPool = pool;
@@ -831,18 +843,18 @@ auto context::allocate_command_buffer() -> result<VkCommandBuffer>
   alloc_info.commandBufferCount = 1;
   VkCommandBuffer cmd{ VK_NULL_HANDLE };
   if (VkResult const result = vkAllocateCommandBuffers(impl_->device.device, &alloc_info, &cmd); result != VK_SUCCESS) {
-    release_command_pool(queue_family(), pool);
+    release_command_pool(queue.family, pool);
     return fail(result, "vkAllocateCommandBuffers failed");
   }
 #if VKEXEC_HAS_EXCEPTIONS
   try {
 #endif
     std::scoped_lock const lock(impl_->command_buffer_mutex);
-    impl_->command_buffer_pools.emplace(cmd, pool);
+    impl_->command_buffer_pools.emplace(cmd, std::pair{ queue.family, pool });
 #if VKEXEC_HAS_EXCEPTIONS
   } catch (...) {
     vkFreeCommandBuffers(device(), pool, 1, &cmd);
-    release_command_pool(queue_family(), pool);
+    release_command_pool(queue.family, pool);
     return fail(unexpected_exception_error());
   }
 #endif
@@ -853,18 +865,23 @@ auto context::free_command_buffer(VkCommandBuffer cmd) -> void
 {
   if (cmd == VK_NULL_HANDLE) { return; }
   VkCommandPool pool{ VK_NULL_HANDLE };
+  std::uint32_t family{ VK_QUEUE_FAMILY_IGNORED };
   {
     std::scoped_lock const lock(impl_->command_buffer_mutex);
     auto found = impl_->command_buffer_pools.find(cmd);
     if (found == impl_->command_buffer_pools.end()) { return; }
-    pool = found->second;
+    family = found->second.first;
+    pool = found->second.second;
     impl_->command_buffer_pools.erase(found);
   }
   vkFreeCommandBuffers(device(), pool, 1, &cmd);
-  release_command_pool(queue_family(), pool);
+  release_command_pool(family, pool);
 }
 
 auto context::submit_and_wait(VkCommandBuffer cmd) -> status
+{ return submit_and_wait(cmd, compute_queue_ref()); }
+
+auto context::submit_and_wait(VkCommandBuffer cmd, queue_ref queue) -> status
 {
   VkFenceCreateInfo fence_info{};
   fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -875,7 +892,7 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> status
   }
 
   std::array<VkCommandBuffer, 1> const commands{ cmd };
-  auto submitted = submit(queue_submit{ .command_buffers = commands, .fence = fence });
+  auto submitted = submit(queue_submit{ .command_buffers = commands, .fence = fence, .queue = queue.queue });
   if (!submitted) {
     vkDestroyFence(impl_->device.device, fence, nullptr);
     return submitted;
@@ -890,6 +907,12 @@ auto context::submit_and_wait(VkCommandBuffer cmd) -> status
 }
 
 auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence) -> status
+{ return submit_async(cmd, out_semaphore, out_fence, compute_queue_ref()); }
+
+auto context::submit_async(VkCommandBuffer cmd,
+  VkSemaphore *out_semaphore,
+  VkFence *out_fence,
+  queue_ref queue) -> status
 {
   if (out_semaphore == nullptr) { return fail(errc::invalid_argument, "submit_async requires out_semaphore"); }
 
@@ -915,7 +938,8 @@ auto context::submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFe
 
   std::array<VkCommandBuffer, 1> const commands{ cmd };
   std::array<semaphore_submit, 1> const signals{ semaphore_submit{ .semaphore = sem } };
-  auto submitted = submit(queue_submit{ .command_buffers = commands, .signals = signals, .fence = fence });
+  auto submitted = submit(queue_submit{
+    .command_buffers = commands, .signals = signals, .fence = fence, .queue = queue.queue });
   if (!submitted) {
     vkDestroySemaphore(impl_->device.device, sem, nullptr);
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(impl_->device.device, fence, nullptr); }

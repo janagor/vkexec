@@ -11,6 +11,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vulkan/vulkan.h>
@@ -112,6 +113,7 @@ namespace detail {
     context_handle state;
     VkCommandPool pool{ VK_NULL_HANDLE };
     VkCommandBuffer cmd{ VK_NULL_HANDLE };
+    queue_ref queue{};
     descriptor_cleanup cleanup{};
 
     submit_scope() = default;
@@ -119,7 +121,8 @@ namespace detail {
     auto operator=(submit_scope const &) -> submit_scope & = delete;
 
     submit_scope(submit_scope &&other) noexcept
-      : state(std::move(other.state)), pool(other.pool), cmd(other.cmd), cleanup(std::move(other.cleanup))
+      : state(std::move(other.state)), pool(other.pool), cmd(other.cmd), queue(other.queue),
+        cleanup(std::move(other.cleanup))
     {
       other.pool = VK_NULL_HANDLE;
       other.cmd = VK_NULL_HANDLE;
@@ -132,6 +135,7 @@ namespace detail {
       state = std::move(other.state);
       pool = other.pool;
       cmd = other.cmd;
+      queue = other.queue;
       cleanup = std::move(other.cleanup);
       other.pool = VK_NULL_HANDLE;
       other.cmd = VK_NULL_HANDLE;
@@ -146,6 +150,7 @@ namespace detail {
      * @param host Context that owns the command pool.
      */
     [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
+    [[nodiscard]] static auto open(context &host, queue_ref queue) -> result<submit_scope>;
 
     //! Ends Vulkan recording on `cmd` (`vkEndCommandBuffer`).
     // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
@@ -213,6 +218,7 @@ namespace detail {
       ex::completion_signatures<ex::set_value_t(submit_scope), ex::set_error_t(error), ex::set_stopped_t()>;
 
     context_handle state;
+    queue_ref queue{};
 
     // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -221,6 +227,7 @@ namespace detail {
     template<class Receiver> struct op_state
     {
       context_handle state;
+      queue_ref queue{};
       Receiver receiver;
 
       auto start() noexcept -> void
@@ -239,14 +246,14 @@ namespace detail {
 #if VKEXEC_HAS_EXCEPTIONS
         try {
           auto facade = context_access::facade(state);
-          opened = submit_scope::open(facade);
+          opened = submit_scope::open(facade, queue);
         } catch (...) {
           ex::set_error(std::move(receiver), unexpected_exception_error());
           return;
         }
 #else
         auto facade = context_access::facade(state);
-        opened = submit_scope::open(facade);
+        opened = submit_scope::open(facade, queue);
 #endif
         if (!opened) {
           ex::set_error(std::move(receiver), std::move(opened.error()));
@@ -260,13 +267,13 @@ namespace detail {
     // cppcheck-suppress functionStatic
     [[nodiscard]] auto connect(Receiver receiver) & noexcept(std::is_nothrow_move_constructible_v<Receiver>)
       -> op_state<Receiver>
-    { return op_state<Receiver>{ state, std::move(receiver) }; }
+    { return op_state<Receiver>{ state, queue, std::move(receiver) }; }
 
     template<class Receiver>
     // cppcheck-suppress functionStatic
     [[nodiscard]] auto connect(Receiver receiver) && noexcept(std::is_nothrow_move_constructible_v<Receiver>)
       -> op_state<Receiver>
-    { return op_state<Receiver>{ std::move(state), std::move(receiver) }; }
+    { return op_state<Receiver>{ std::move(state), queue, std::move(receiver) }; }
   };
 
   //! Returns a sender that opens a `submit_scope` on `ctx`; null completes with invalid_argument.
@@ -275,6 +282,7 @@ namespace detail {
 
   //! Returns a sender that opens a `submit_scope` on `ctx`.
   [[nodiscard]] auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender;
+  [[nodiscard]] auto enter_submit_scope(context &ctx, queue_ref queue) -> enter_submit_scope_sender;
 
   /**
    * Sender that submits a fully recorded scope, blocks until the GPU finishes,
@@ -315,14 +323,14 @@ namespace detail {
         status submitted;
 #if VKEXEC_HAS_EXCEPTIONS
         try {
-          submitted = host->submit_and_wait(scope.cmd);
+          submitted = host->submit_and_wait(scope.cmd, scope.queue);
         } catch (...) {
           scope.release();
           ex::set_error(std::move(receiver), unexpected_exception_error());
           return;
         }
 #else
-        submitted = host->submit_and_wait(scope.cmd);
+        submitted = host->submit_and_wait(scope.cmd, scope.queue);
 #endif
         if (!submitted) {
           scope.release();
@@ -394,8 +402,8 @@ namespace detail {
         bool submitted_to_gpu = false;
         try {
 #endif
-          if (auto submitted = host->submit_async(scope.cmd, &done, &fence); !submitted) {
-            reclaim_submission_sync(*host, host->compute_queue(), done, fence);
+          if (auto submitted = host->submit_async(scope.cmd, &done, &fence, scope.queue); !submitted) {
+            reclaim_submission_sync(*host, scope.queue.queue, done, fence);
             scope.release();
             ex::set_error(std::move(receiver), std::move(submitted.error()));
             return;
@@ -416,7 +424,7 @@ namespace detail {
           }
 #if VKEXEC_HAS_EXCEPTIONS
         } catch (...) {
-          if (submitted_to_gpu) { reclaim_submission_sync(*host, host->compute_queue(), done, fence); }
+          if (submitted_to_gpu) { reclaim_submission_sync(*host, scope.queue.queue, done, fence); }
           scope.release();
           ex::set_error(std::move(receiver), unexpected_exception_error());
         }
