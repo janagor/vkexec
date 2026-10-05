@@ -1,8 +1,10 @@
+#include "../common/free_camera.hpp"
+#include "../common/ktx_texture.hpp"
+#include "../common/sampler.hpp"
 #include "common/shader_loader.hpp"
 #include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "load_gltf_mesh.hpp"
-#include "sponza_texture.hpp"
 #include "sync_wait_helpers.hpp"
 
 #include <vkexec/barrier.hpp>
@@ -17,12 +19,9 @@
 #include <vkexec_vma/gpu_buffer.hpp>
 #include <vkexec_vma/offscreen_target.hpp>
 
-#include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
-#include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -42,32 +41,10 @@ constexpr std::size_t k_frames_in_flight = 2;
 constexpr std::uint32_t k_gbuffer_color_count = 2;
 constexpr VkFormat k_color_format = VK_FORMAT_R8G8B8A8_UNORM;
 constexpr VkFormat k_depth_format = VK_FORMAT_D32_SFLOAT;
-constexpr float k_camera_speed = 250.0F;
-constexpr float k_mouse_sensitivity = 0.002F;
-constexpr float k_camera_max_pitch = 1.55F;
-constexpr float k_camera_far_plane = 4000.0F;
 constexpr std::array<float, 3> k_camera_initial_position{ -705.01001F, 195.20282F, -119.932266F };
-constexpr float k_camera_rotation_x = -0.004728F;
-constexpr float k_camera_rotation_y = -0.775409F;
-constexpr float k_camera_rotation_z = -0.005807F;
-constexpr float k_camera_rotation_w = 0.631416F;
-
+constexpr std::array<float, 4> k_camera_initial_rotation{ -0.004728F, -0.775409F, -0.005807F, 0.631416F };
+constexpr float k_camera_speed = 250.0F;
 enum class barrier_mode : std::uint8_t { fragment, conservative };
-
-struct sampler_owner
-{
-  VkDevice device{ VK_NULL_HANDLE };
-  VkSampler handle{ VK_NULL_HANDLE };
-  sampler_owner(VkDevice owned_device, VkSampler owned_handle) noexcept : device(owned_device), handle(owned_handle) {}
-  sampler_owner(sampler_owner const &) = delete;
-  auto operator=(sampler_owner const &) -> sampler_owner & = delete;
-  sampler_owner(sampler_owner &&) = delete;
-  auto operator=(sampler_owner &&) -> sampler_owner & = delete;
-  ~sampler_owner()
-  {
-    if (handle != VK_NULL_HANDLE) { vkDestroySampler(device, handle, nullptr); }
-  }
-};
 
 struct frame_resources
 {
@@ -78,115 +55,14 @@ struct frame_resources
   bool initialized{ false };
 };
 
-struct camera_data
-{
-  std::array<float, 4> position{};
-  std::array<float, 4> right{};
-  std::array<float, 4> up{};
-  std::array<float, 4> forward{};
-  std::array<float, 4> projection{};
-};
-
-struct free_camera
-{
-  std::array<float, 3> position = k_camera_initial_position;
-  float yaw{ 0.0F };
-  float pitch{ 0.0F };
-  double previous_time{ 0.0 };
-  double previous_x{ 0.0 };
-  double previous_y{ 0.0 };
-  bool dragging{ false };
-
-  free_camera()
-  {
-    // Main Camera rotation from Sponza01.gltf.
-    float const forward_x =
-      -2.0F * ((k_camera_rotation_x * k_camera_rotation_z) + (k_camera_rotation_w * k_camera_rotation_y));
-    float const forward_y =
-      -2.0F * ((k_camera_rotation_y * k_camera_rotation_z) - (k_camera_rotation_w * k_camera_rotation_x));
-    float const forward_z =
-      -(1.0F - (2.0F * ((k_camera_rotation_x * k_camera_rotation_x) + (k_camera_rotation_y * k_camera_rotation_y))));
-    yaw = std::atan2(forward_x, -forward_z);
-    pitch = std::asin(std::clamp(forward_y, -1.0F, 1.0F));
-  }
-
-  auto update(GLFWwindow *window) -> void
-  {
-    double const now = glfwGetTime();
-    float const delta = static_cast<float>(std::clamp(now - previous_time, 0.0, 0.1));
-    previous_time = now;
-    double cursor_x = 0.0;
-    double cursor_y = 0.0;
-    glfwGetCursorPos(window, &cursor_x, &cursor_y);
-    bool const pressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-    if (pressed && dragging) {
-      yaw += static_cast<float>(cursor_x - previous_x) * k_mouse_sensitivity;
-      pitch = std::clamp(pitch - (static_cast<float>(cursor_y - previous_y) * k_mouse_sensitivity),
-        -k_camera_max_pitch,
-        k_camera_max_pitch);
-    }
-    dragging = pressed;
-    previous_x = cursor_x;
-    previous_y = cursor_y;
-    float const sine = std::sin(yaw);
-    float const cosine = std::cos(yaw);
-    std::array<float, 3> const forward{ std::cos(pitch) * sine, std::sin(pitch), -std::cos(pitch) * cosine };
-    std::array<float, 3> const right{ cosine, 0.0F, sine };
-    auto move = [&](int key, std::array<float, 3> const &direction, float sign) -> void {
-      if (glfwGetKey(window, key) != GLFW_PRESS) { return; }
-      for (std::size_t index = 0; index < position.size(); ++index) {
-        position.at(index) += direction.at(index) * sign * k_camera_speed * delta;
-      }
-    };
-    move(GLFW_KEY_W, forward, 1.0F);
-    move(GLFW_KEY_S, forward, -1.0F);
-    move(GLFW_KEY_D, right, 1.0F);
-    move(GLFW_KEY_A, right, -1.0F);
-    move(GLFW_KEY_E, { 0.0F, 1.0F, 0.0F }, 1.0F);
-    move(GLFW_KEY_Q, { 0.0F, 1.0F, 0.0F }, -1.0F);
-  }
-
-  [[nodiscard]] auto data(VkExtent2D extent) const -> camera_data
-  {
-    float const sine = std::sin(yaw);
-    float const cosine = std::cos(yaw);
-    float const pitch_sine = std::sin(pitch);
-    float const pitch_cosine = std::cos(pitch);
-    return camera_data{
-      .position = { position.at(0), position.at(1), position.at(2), 0.0F },
-      .right = { cosine, 0.0F, sine, 0.0F },
-      .up = { -pitch_sine * sine, pitch_cosine, pitch_sine * cosine, 0.0F },
-      .forward = { pitch_cosine * sine, pitch_sine, -pitch_cosine * cosine, 0.0F },
-      .projection = { 1.0F,
-        k_camera_far_plane,
-        static_cast<float>(extent.width) / static_cast<float>(extent.height),
-        0.0F },
-    };
-  }
-};
-
-auto make_sampler(VkDevice device) -> VkSampler
-{
-  VkSamplerCreateInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-  info.magFilter = VK_FILTER_LINEAR;
-  info.minFilter = VK_FILTER_LINEAR;
-  info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-  info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  info.maxLod = 1.0F;
-  VkSampler sampler{ VK_NULL_HANDLE };
-  if (vkCreateSampler(device, &info, nullptr, &sampler) != VK_SUCCESS) {
-    vkexec::examples::fail_check("vkCreateSampler failed");
-  }
-  return sampler;
-}
+using vkexec::examples::camera_data;
+using vkexec::examples::free_camera;
+using vkexec::examples::sampler_owner;
 
 auto make_frame_resources(vkexec::examples::glfw_presenter &win,
   vkexec::vma::allocator &allocator,
   std::filesystem::path const &shader_dir,
-  std::vector<vkexec::examples::sponza_texture> const &textures,
+  std::vector<vkexec::examples::ktx_texture> const &textures,
   vkexec::vma::gpu_buffer camera_buffer,
   VkSampler sampler,
   bool albedo_only) -> frame_resources
@@ -210,7 +86,7 @@ auto make_frame_resources(vkexec::examples::glfw_presenter &win,
   auto const geometry_fragment_shader = vkexec::examples::load_spirv(shader_dir / "geometry.frag.spv");
   std::vector<vkexec::owned::graphics_pipeline> geometry;
   geometry.reserve(textures.size());
-  for (vkexec::examples::sponza_texture const &texture : textures) {
+  for (vkexec::examples::ktx_texture const &texture : textures) {
     auto material_resources = vkexec::bindings(
       vkexec::resource_binding{ .slot = 0, .resource = vkexec::sampled_image_resource(texture.view.handle()) },
       vkexec::resource_binding{ .slot = 1, .resource = vkexec::sampler_resource(sampler) },
@@ -340,14 +216,14 @@ auto record_frame(vkexec::context &ctx,
   vkexec::examples::gltf_mesh_data const &scene_data,
   VkBuffer vertex_buffer,
   VkBuffer index_buffer,
-  std::vector<vkexec::examples::sponza_texture> const &textures,
+  std::vector<vkexec::examples::ktx_texture> const &textures,
   bool upload_textures,
   barrier_mode mode) -> void
 {
   VkCommandBuffer cmd = present_frame.command_buffer;
   if (upload_textures) {
-    for (vkexec::examples::sponza_texture const &texture : textures) {
-      vkexec::examples::record_sponza_texture_upload(ctx, cmd, texture);
+    for (vkexec::examples::ktx_texture const &texture : textures) {
+      vkexec::examples::record_ktx_texture_upload(ctx, cmd, texture);
     }
   }
   prepare_geometry(ctx, cmd, resources);
@@ -445,14 +321,13 @@ auto run(int argc, char const *const *argv) -> int
   std::memcpy(indices.mapped().data(), scene_data.indices.data(), indices.mapped().size());
   if (auto flushed = vertices.flush(); !flushed) { vkexec::examples::abort_with_error(flushed.error()); }
   if (auto flushed = indices.flush(); !flushed) { vkexec::examples::abort_with_error(flushed.error()); }
-  VkSampler sampler_handle = make_sampler(ctx.device());
-  sampler_owner const sampler{ ctx.device(), sampler_handle };
+  sampler_owner const sampler = vkexec::examples::make_sampler(ctx.device());
   std::filesystem::path const asset_dir{ VKEXEC_SAMPLE_ASSET_DIR };
-  std::vector<vkexec::examples::sponza_texture> textures;
+  std::vector<vkexec::examples::ktx_texture> textures;
   textures.reserve(scene_data.base_color_textures.size());
   for (std::string const &texture_path : scene_data.base_color_textures) {
     if (texture_path.empty()) { vkexec::examples::fail_check("Sponza material is missing a base-color texture"); }
-    textures.push_back(vkexec::examples::load_sponza_texture(ctx, allocator, asset_dir / "sponza" / texture_path));
+    textures.push_back(vkexec::examples::load_ktx_texture(ctx, allocator, asset_dir / "sponza" / texture_path));
   }
   std::filesystem::path const shader_dir{ VKEXEC_SAMPLE_SHADER_DIR };
   std::vector<frame_resources> frames;
@@ -475,7 +350,7 @@ auto run(int argc, char const *const *argv) -> int
 
   std::size_t frame_index = 0;
   bool upload_textures = true;
-  free_camera camera;
+  free_camera camera{ k_camera_initial_position, k_camera_initial_rotation, k_camera_speed };
   std::cout << "Pipeline Barriers: " << (mode == barrier_mode::fragment ? "fragment" : "conservative")
             << " synchronization; " << (albedo_only ? "albedo view" : "lit view")
             << "; WASD move, Q/E descend/ascend, right mouse drag to look; close the window to exit\n";
