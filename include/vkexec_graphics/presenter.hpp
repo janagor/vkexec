@@ -9,12 +9,14 @@
 #include <vkexec/error.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec_graphics/swapchain.hpp>
 
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -97,6 +99,12 @@ struct frame
   VkFramebuffer framebuffer{ VK_NULL_HANDLE };
   VkExtent2D extent{};
   std::uint32_t image_index{ 0 };
+};
+
+//! Additional GPU waits for the graphics submit that presents a frame.
+struct frame_submit_options
+{
+  std::span<semaphore_submit const> waits;
 };
 
 /**
@@ -243,6 +251,10 @@ namespace owned {
      * @param options Optional `VkPresentInfoKHR::pNext` chain.
      */
     [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
+    //! Submits with caller GPU waits in addition to the swapchain image wait.
+    [[nodiscard]] auto end_frame(frame const &drawn,
+      frame_submit_options submit_options,
+      present_options options = {}) -> result<VkFence>;
 
   private:
     friend struct detail::make_presenter_factory;

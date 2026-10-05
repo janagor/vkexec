@@ -488,6 +488,11 @@ auto owned::presenter::begin_frame() -> result<std::optional<frame>>
 }
 
 auto owned::presenter::end_frame(frame const &drawn, present_options options) -> result<VkFence>
+{ return end_frame(drawn, frame_submit_options{}, options); }
+
+auto owned::presenter::end_frame(frame const &drawn,
+  frame_submit_options submit_options,
+  present_options options) -> result<VkFence>
 {
   if (!frame_open_) { return fail(errc::invalid_argument, "end_frame called without begin_frame"); }
   if (!swapchain_) { return fail(errc::invalid_argument, "end_frame requires a swapchain"); }
@@ -498,8 +503,11 @@ auto owned::presenter::end_frame(frame const &drawn, present_options options) ->
   VkCommandBuffer cmd = command_buffers_.at(frame_index_);
 
   std::array<VkCommandBuffer, 1> const commands{ cmd };
-  std::array<semaphore_submit, 1> const waits{ semaphore_submit{
-    .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT } };
+  std::vector<semaphore_submit> waits;
+  waits.reserve(1 + submit_options.waits.size());
+  waits.push_back(semaphore_submit{
+    .semaphore = sync.image_available, .stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT });
+  waits.insert(waits.end(), submit_options.waits.begin(), submit_options.waits.end());
   std::array<semaphore_submit, 1> const signals{ semaphore_submit{
     .semaphore = render_finished_.at(current_image_index_) } };
   VKEXEC_TRY(ctx_->submit(queue_submit{ .command_buffers = commands,
