@@ -8,6 +8,8 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec_features/feature.hpp>
+#include <vkexec_features/shader_demote_to_helper_invocation.hpp>
 #include <vkexec_graphics/draw.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
@@ -23,6 +25,7 @@
 #include <filesystem>
 #include <iostream>
 #include <random>
+#include <utility>
 
 namespace ex = stdexec;
 
@@ -46,12 +49,14 @@ struct integrate_params
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto run() -> int
 {
+  auto requirements = vkexec::examples::vulkan_sample_requirements();
+  vkexec::feat::configure<vkexec::feat::shader_demote_to_helper_invocation>(requirements);
   auto win = vkexec::examples::glfw_presenter::create({
     .width = k_window_width,
     .height = k_window_height,
     .title = "vkexec Vulkan Samples: Compute N-Body",
     .validation_layers = true,
-    .requirements = vkexec::examples::vulkan_sample_requirements(),
+    .requirements = std::move(requirements),
   });
   auto &ctx = win.ctx();
   auto allocator = vkexec::examples::make_vma_allocator(ctx);

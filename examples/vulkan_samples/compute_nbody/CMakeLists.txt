@@ -5,6 +5,7 @@ target_link_libraries(
           vkexec::vkexec_warnings
           vkexec::vkexec
           vkexec::vkexec_graphics
+          vkexec::features
           vkexec::vma
           vkexec_examples_glfw
           vkexec_exception_options)
