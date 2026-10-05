@@ -85,7 +85,7 @@ namespace {
       mesh_attributes.at(3).offset = static_cast<std::uint32_t>(offsetof(mesh_vertex, texcoord));
       vertex_input.vertexBindingDescriptionCount = 1;
       vertex_input.pVertexBindingDescriptions = &mesh_binding;
-      vertex_input.vertexAttributeDescriptionCount = k_mesh_attribute_count;
+      vertex_input.vertexAttributeDescriptionCount = cfg.mesh_position_only ? 1U : k_mesh_attribute_count;
       vertex_input.pVertexAttributeDescriptions = mesh_attributes.data();
     }
 

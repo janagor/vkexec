@@ -32,6 +32,7 @@ constexpr std::uint32_t k_stencil_clear_value = 0;
  * Configuration for classic graphics pipelines.
  *
  * When `use_mesh_vertices` is true, the pipeline expects `mesh_vertex` attributes.
+ * Set `mesh_position_only` for shaders that read only the position attribute.
  */
 struct graphics_pipeline_config
 {
@@ -44,6 +45,7 @@ struct graphics_pipeline_config
   bool depth_test{ false };
   bool depth_write{ true };
   bool use_mesh_vertices{ false };
+  bool mesh_position_only{ false };
   std::uint32_t color_attachment_count{ 1 };
 };
 
