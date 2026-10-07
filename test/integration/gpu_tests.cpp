@@ -338,6 +338,8 @@ TEST_CASE("pass graph completes with set_stopped when stop is already requested"
   vkexec::pass_graph_sender<> sender{
     .state = {},
     .steps = {},
+    .step_queues = {},
+    .current_queue = {},
   };
 
   auto const waited =

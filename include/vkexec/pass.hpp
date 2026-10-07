@@ -17,6 +17,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -34,6 +35,9 @@
 namespace vkexec {
 
 namespace ex = stdexec;
+
+//! An unset affinity uses the graph's default queue during execution planning.
+using queue_affinity = std::optional<queue_ref>;
 
 //! Workgroup counts for `vkCmdDispatch` (X/Y/Z).
 struct dispatch
@@ -106,6 +110,10 @@ auto record_pass(VkCommandBuffer cmd,
 namespace detail {
 
   struct no_push_constants
+  {
+  };
+
+  struct on_queue_t
   {
   };
 
@@ -462,6 +470,8 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
 
   detail::context_handle state;
   std::tuple<Steps...> steps;
+  std::vector<queue_affinity> step_queues;
+  queue_affinity current_queue;
 
   using step_storage_t = std::tuple<Steps...>;
 
@@ -505,6 +515,8 @@ struct dynamic_pass_graph_sender
 
   detail::context_handle state;
   step_storage_t steps;
+  std::vector<queue_affinity> step_queues;
+  queue_affinity current_queue;
 
   dynamic_pass_graph_sender() = default;
   explicit dynamic_pass_graph_sender(detail::context_handle graph_state) : state(std::move(graph_state)) {}
@@ -516,12 +528,22 @@ struct dynamic_pass_graph_sender
 
   auto reserve(std::size_t count) -> void { steps.reserve(count); }
 
+  //! Sets the queue affinity of subsequently appended pass steps.
+  auto append_queue(queue_ref queue) -> dynamic_pass_graph_sender &
+  {
+    current_queue = queue;
+    return *this;
+  }
+
   //! Lowers and appends one primitive semantic pass operation to this runtime graph.
   template<class Tag, class Data>
     requires requires(Tag tag, Data &&data, scheduler_env const &env) {
       lower_vkexec_pass_step(tag, std::move(data), env);
     }
   auto append(detail::expr_closure<Tag, Data> operation) -> dynamic_pass_graph_sender &;
+
+  auto append(detail::expr_closure<detail::on_queue_t, queue_ref> operation) -> dynamic_pass_graph_sender &
+  { return append_queue(operation.data); }
 
   [[nodiscard]] auto get_env() const noexcept -> scheduler_env { return scheduler_env{ .state = state }; }
 
@@ -649,12 +671,17 @@ namespace detail {
   {
   };
 
+
   template<static_pass_step Step> struct raw_pass_step_data
   {
     VKEXEC_NO_UNIQUE_ADDRESS Step step;
   };
 
 }// namespace detail
+
+//! Changes the queue affinity of subsequent passes in a graph.
+[[nodiscard]] inline auto on_queue(queue_ref queue) -> detail::expr_closure<detail::on_queue_t, queue_ref>
+{ return detail::make_expr_closure(detail::on_queue_t{}, queue); }
 
 template<detail::static_pass_step Step>
 [[nodiscard]] auto make_pass_adaptor(Step step) noexcept(std::is_nothrow_move_constructible_v<Step>)
@@ -729,9 +756,13 @@ template<class Tag, class Data>
   }
 auto dynamic_pass_graph_sender::append(detail::expr_closure<Tag, Data> operation) -> dynamic_pass_graph_sender &
 {
+  assert(step_queues.empty() || step_queues.size() == steps.size());
+  if (step_queues.empty()) { step_queues.resize(steps.size()); }
   steps.emplace_back(lower_vkexec_pass_step(std::move(operation.tag), std::move(operation.data), get_env()));
+  step_queues.push_back(current_queue);
   return *this;
 }
+
 
 }// namespace vkexec
 

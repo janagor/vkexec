@@ -4,6 +4,7 @@
 // Implementation tail included by pass.hpp after the pass sender and step types
 // are complete. This header is intentionally not a standalone public include.
 
+#include <cassert>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -14,18 +15,31 @@ template<class Pred, static_pass_step... Steps> struct pass_chain
 {
   Pred pred;
   std::tuple<Steps...> steps;
+  std::vector<queue_affinity> step_queues;
+  queue_affinity current_queue;
 };
 
 template<class Pred, class Env>
 [[nodiscard]] auto collect_pass_chain(Pred &&pred, Env const & /*env*/) -> pass_chain<std::decay_t<Pred>>
-{ return { .pred = std::forward<Pred>(pred), .steps = {} }; }
+{
+  if constexpr (is_pass_graph_sender_v<Pred>) {
+    queue_affinity const queue = pred.current_queue;
+    return { .pred = std::forward<Pred>(pred), .steps = {}, .step_queues = {}, .current_queue = queue };
+  } else {
+    return { .pred = std::forward<Pred>(pred), .steps = {}, .step_queues = {}, .current_queue = {} };
+  }
+}
 
 template<class Pred, static_pass_step... Steps, static_pass_step Step>
 [[nodiscard]] auto append_lowered_step(pass_chain<Pred, Steps...> chain, Step step) -> pass_chain<Pred, Steps..., Step>
 {
+  chain.step_queues.push_back(chain.current_queue);
   return std::apply(
     [&chain, &step](Steps &&...old) -> pass_chain<Pred, Steps..., Step> {
-      return { .pred = std::move(chain.pred), .steps = { std::move(old)..., std::move(step) } };
+      return { .pred = std::move(chain.pred),
+        .steps = { std::move(old)..., std::move(step) },
+        .step_queues = std::move(chain.step_queues),
+        .current_queue = chain.current_queue };
     },
     std::move(chain.steps));
 }
@@ -38,10 +52,11 @@ template<class Sender, class Env>
 // Expand composite semantic operations before collecting primitive pass steps,
 // so a composite cannot become a submission boundary inside a larger chain.
 template<class Tag, class Data, class Child, class Env>
-  requires requires(Tag tag, Data &&data, Env const &env) { lower_vkexec_pass_step(tag, std::move(data), env); }
-           && (!requires(Tag tag, Data &&data, Child &&child, Env const &env) {
-                lower_vkexec_expression(tag, std::move(data), std::move(child), env);
-              })
+  requires(std::same_as<Tag, on_queue_t>
+            || requires(Tag tag, Data &&data, Env const &env) { lower_vkexec_pass_step(tag, std::move(data), env); })
+          && (!requires(Tag tag, Data &&data, Child &&child, Env const &env) {
+               lower_vkexec_expression(tag, std::move(data), std::move(child), env);
+             })
 [[nodiscard]] auto normalize_vkexec_expression(sender_expr<Tag, Data, Child> expr, Env const &env)
   -> decltype(make_sender_expr(std::move(expr.tag),
     std::move(expr.data),
@@ -84,23 +99,34 @@ template<class Tag, class Data, class Child, class Env>
 }
 
 template<class Tag, class Data, class Child, class Env>
-  requires requires(Tag tag, Data &&data, Env const &env) { lower_vkexec_pass_step(tag, std::move(data), env); }
+  requires(std::same_as<Tag, on_queue_t>
+           || requires(Tag tag, Data &&data, Env const &env) { lower_vkexec_pass_step(tag, std::move(data), env); })
 [[nodiscard]] auto collect_pass_chain(sender_expr<Tag, Data, Child> expr, Env const &env)
-  -> decltype(append_lowered_step(collect_pass_chain(std::move(expr.child), env),
-    lower_vkexec_pass_step(std::move(expr.tag), std::move(expr.data), env)))
 {
   auto chain = collect_pass_chain(std::move(expr.child), env);
-  auto step = lower_vkexec_pass_step(std::move(expr.tag), std::move(expr.data), env);
-  return append_lowered_step(std::move(chain), std::move(step));
+  if constexpr (std::same_as<Tag, on_queue_t>) {
+    chain.current_queue = expr.data;
+    return chain;
+  } else {
+    auto step = lower_vkexec_pass_step(std::move(expr.tag), std::move(expr.data), env);
+    return append_lowered_step(std::move(chain), std::move(step));
+  }
 }
 
 template<static_pass_step... Steps> struct materialize_pass_graph_fn
 {
   context_handle state;
   std::tuple<Steps...> steps;
+  std::vector<queue_affinity> step_queues;
+  queue_affinity current_queue;
 
   template<class... Values> [[nodiscard]] auto operator()(Values &&.../*values*/) -> pass_graph_sender<Steps...>
-  { return { .state = std::move(state), .steps = std::move(steps) }; }
+  {
+    return { .state = std::move(state),
+      .steps = std::move(steps),
+      .step_queues = std::move(step_queues),
+      .current_queue = current_queue };
+  }
 };
 
 template<vkexec_predecessor Pred, static_pass_step... Steps>
@@ -111,13 +137,21 @@ template<vkexec_predecessor Pred, static_pass_step... Steps>
   scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(chain.pred));
   auto state = scheduler_access::state(sched);
   return ex::let_value(std::move(chain.pred),
-    materialize_pass_graph_fn<Steps...>{ .state = std::move(state), .steps = std::move(chain.steps) });
+    materialize_pass_graph_fn<Steps...>{ .state = std::move(state),
+      .steps = std::move(chain.steps),
+      .step_queues = std::move(chain.step_queues),
+      .current_queue = chain.current_queue });
 }
 
 template<static_pass_step... Steps>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
 [[nodiscard]] auto materialize_pass_chain(pass_chain<schedule_sender, Steps...> &&chain) -> pass_graph_sender<Steps...>
-{ return { .state = std::move(chain.pred.state), .steps = std::move(chain.steps) }; }
+{
+  return { .state = std::move(chain.pred.state),
+    .steps = std::move(chain.steps),
+    .step_queues = std::move(chain.step_queues),
+    .current_queue = chain.current_queue };
+}
 
 template<static_pass_step... Old, static_pass_step... Steps>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
@@ -125,7 +159,14 @@ template<static_pass_step... Old, static_pass_step... Steps>
   -> pass_graph_sender<Old..., Steps...>
 {
   auto state = std::move(chain.pred.state);
-  return { .state = std::move(state), .steps = std::tuple_cat(std::move(chain.pred.steps), std::move(chain.steps)) };
+  auto queues = std::move(chain.pred.step_queues);
+  assert(queues.empty() || queues.size() == sizeof...(Old));
+  if (queues.empty()) { queues.resize(sizeof...(Old)); }
+  queues.insert(queues.end(), chain.step_queues.begin(), chain.step_queues.end());
+  return { .state = std::move(state),
+    .steps = std::tuple_cat(std::move(chain.pred.steps), std::move(chain.steps)),
+    .step_queues = std::move(queues),
+    .current_queue = chain.current_queue };
 }
 
 template<static_pass_step... Steps>
@@ -133,8 +174,12 @@ template<static_pass_step... Steps>
 [[nodiscard]] auto materialize_pass_chain(pass_chain<dynamic_pass_graph_sender, Steps...> &&chain)
   -> dynamic_pass_graph_sender
 {
+  assert(chain.pred.step_queues.empty() || chain.pred.step_queues.size() == chain.pred.steps.size());
+  if (chain.pred.step_queues.empty()) { chain.pred.step_queues.resize(chain.pred.steps.size()); }
   std::apply([&chain](Steps &&...step) -> void { (chain.pred.steps.emplace_back(std::move(step)), ...); },
     std::move(chain.steps));
+  chain.pred.step_queues.insert(chain.pred.step_queues.end(), chain.step_queues.begin(), chain.step_queues.end());
+  chain.pred.current_queue = chain.current_queue;
   return std::move(chain.pred);
 }
 
