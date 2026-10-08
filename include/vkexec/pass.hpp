@@ -8,6 +8,7 @@
 #include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/result.hpp>
@@ -17,6 +18,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <array>
 #include <cassert>
 #include <concepts>
 #include <cstddef>
@@ -386,29 +388,77 @@ namespace detail {
   }
 
   template<class StepStorage>
+  [[nodiscard]] auto
+    record_batch_steps(context &facade, submit_scope &scope, execution_batch const &batch, StepStorage &steps) -> status
+  {
+    if constexpr (requires { steps.size(); }) {
+      for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
+        if (auto recorded = steps.at(index).record(facade, scope.cmd, scope.cleanup); !recorded) {
+          return fail(recorded);
+        }
+      }
+      return {};
+    } else {
+      status recorded{};
+      std::size_t index{};
+      auto record_one = [&](auto &step) -> void {
+        if (recorded && index >= batch.first_step && index < batch.end_step) {
+          recorded = step.record(facade, scope.cmd, scope.cleanup);
+        }
+        ++index;
+      };
+      std::apply([&](auto &...step) -> void { (record_one(step), ...); }, steps);
+      return recorded;
+    }
+  }
+
+  [[nodiscard]] inline auto validate_execution_batches(execution_plan const &plan, std::size_t step_count) -> status
+  {
+    if (plan.batches.empty() && step_count != 0) {
+      return fail(errc::invalid_argument, "invalid empty execution plan");
+    }
+    std::size_t validated_step{};
+    queue_affinity previous_queue;
+    for (auto const &batch : plan.batches) {
+      if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {
+        return fail(errc::invalid_argument, "invalid execution batch");
+      }
+      if (previous_queue && previous_queue->family != batch.queue.family) {
+        return fail(errc::unsupported, "cross-family pass graphs require resource ownership planning");
+      }
+      validated_step = batch.end_step;
+      previous_queue = batch.queue;
+    }
+    if (validated_step != step_count) { return fail(errc::invalid_argument, "incomplete execution plan"); }
+    return {};
+  }
+
+  template<class StepStorage>
   [[nodiscard]] auto record_execution(context_handle const &state, execution_plan const &plan, StepStorage &steps)
-    -> result<submit_scope>
+    -> result<std::vector<submit_scope>>
   {
     if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
-    if (plan.batches.size() > 1) {
-      return fail(errc::unsupported, "multi-batch pass graphs require synchronization planning");
-    }
     auto const step_count = pass_step_count(steps);
-    if (plan.batches.empty()) {
-      if (step_count != 0) { return fail(errc::invalid_argument, "invalid empty execution plan"); }
-    } else {
-      auto const &batch = plan.batches.front();
-      if (batch.first_step != 0 || batch.end_step != step_count) {
-        return fail(errc::invalid_argument, "invalid single-batch execution plan");
-      }
-    }
+    if (auto validated = validate_execution_batches(plan, step_count); !validated) { return fail(validated); }
     auto facade = context_access::facade(state);
-    queue_ref const queue = plan.batches.empty() ? facade.compute_queue_ref() : plan.batches.front().queue;
-    auto opened = submit_scope::open(facade, queue);
-    if (!opened) { return fail(opened); }
-    submit_scope scope = expected_take(opened);
-    if (auto recorded = record_pass_steps(scope, steps); !recorded) { return fail(recorded); }
-    return scope;
+    std::vector<submit_scope> scopes;
+    scopes.reserve(plan.batches.empty() ? std::size_t{ 1 } : plan.batches.size());
+    for (auto const &batch : plan.batches) {
+      auto opened = submit_scope::open(facade, batch.queue);
+      if (!opened) { return fail(opened); }
+      scopes.push_back(expected_take(opened));
+      auto &scope = scopes.back();
+      auto recorded = record_batch_steps(facade, scope, batch, steps);
+      if (!recorded) { return fail(recorded); }
+      if (auto ended = scope.end_recording(); !ended) { return fail(ended); }
+    }
+    if (scopes.empty()) {
+      auto opened = submit_scope::open(facade);
+      if (!opened) { return fail(opened); }
+      scopes.push_back(expected_take(opened));
+      if (auto ended = scopes.back().end_recording(); !ended) { return fail(ended); }
+    }
+    return scopes;
   }
 
   template<class... Steps> auto run_after_gpu(std::tuple<Steps...> &steps) -> void
@@ -455,6 +505,175 @@ namespace detail {
     { return ex::get_env(std::as_const(*rcvr)); }
   };
 
+  struct graph_submit_sender
+  {
+    using sender_concept = ex::sender_t;
+    using completion_signatures = pass_graph_completion_signatures;
+
+    std::vector<submit_scope> scopes;
+
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
+
+    template<class Receiver> struct op_state
+    {
+      std::vector<submit_scope> scopes;
+      Receiver receiver;
+      std::vector<VkSemaphore> semaphores;
+      std::vector<VkFence> fences;
+      bool timeline{};
+
+      auto release(VkDevice device) noexcept -> void
+      {
+        for (VkFence fence : fences) {
+          if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+        }
+        fences.clear();
+        for (VkSemaphore semaphore : semaphores) {
+          if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
+        }
+        semaphores.clear();
+        scopes.clear();
+      }
+
+      [[nodiscard]] auto create_sync(context &facade) -> status
+      {
+        auto const boundary_count = scopes.size() - std::size_t{ 1 };
+        timeline = facade.capabilities().timeline_semaphore && boundary_count != 0;
+        semaphores.reserve(timeline ? std::size_t{ 1 } : boundary_count);
+        fences.reserve(scopes.size());
+        for (std::size_t index{}; index < scopes.size(); ++index) {
+          VkFence fence{ VK_NULL_HANDLE };
+          VkFenceCreateInfo fence_info{};
+          fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+          if (VkResult const created = vkCreateFence(facade.device(), &fence_info, nullptr, &fence);
+            created != VK_SUCCESS) {
+            return fail(created, "vkCreateFence failed");
+          }
+          fences.push_back(fence);
+        }
+        auto const semaphore_count = timeline ? std::size_t{ 1 } : boundary_count;
+        for (std::size_t index{}; index < semaphore_count; ++index) {
+          VkSemaphore semaphore{ VK_NULL_HANDLE };
+          VkSemaphoreTypeCreateInfo type_info{};
+          type_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+          type_info.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+          VkSemaphoreCreateInfo semaphore_info{};
+          semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+          semaphore_info.pNext = timeline ? &type_info : nullptr;
+          if (VkResult const created = vkCreateSemaphore(facade.device(), &semaphore_info, nullptr, &semaphore);
+            created != VK_SUCCESS) {
+            return fail(created, "vkCreateSemaphore failed");
+          }
+          semaphores.push_back(semaphore);
+        }
+        return {};
+      }
+
+      [[nodiscard]] auto submit_batch(context &facade, std::size_t index) -> status
+      {
+        auto const boundary_count = scopes.size() - std::size_t{ 1 };
+        auto const &scope = scopes.at(index);
+        std::array<VkCommandBuffer, 1> const commands{ scope.cmd };
+        std::array<semaphore_submit, 1> waits{};
+        std::array<semaphore_submit, 1> signals{};
+        if (index != 0) {
+          waits.front() = semaphore_submit{
+            .semaphore = semaphores.at(timeline ? std::size_t{} : index - std::size_t{ 1 }),
+            .value = timeline ? index : std::size_t{},
+          };
+        }
+        if (index < boundary_count) {
+          signals.front() = semaphore_submit{
+            .semaphore = semaphores.at(timeline ? std::size_t{} : index),
+            .value = timeline ? index + std::size_t{ 1 } : std::size_t{},
+          };
+        }
+        return facade.submit(queue_submit{
+          .command_buffers = commands,
+          .waits = index == 0 ? std::span<semaphore_submit const>{} : std::span<semaphore_submit const>{ waits },
+          .signals = index == boundary_count ? std::span<semaphore_submit const>{}
+                                             : std::span<semaphore_submit const>{ signals },
+          .fence = fences.at(index),
+          .queue = scope.queue.queue,
+        });
+      }
+
+      auto start() noexcept -> void
+      {
+        if (detail::receiver_stop_requested(receiver)) {
+          ex::set_stopped(std::move(receiver));
+          return;
+        }
+        auto facade = context_access::facade(scopes.front().state);
+        auto *device = facade.device();
+        std::size_t submitted{};
+#if VKEXEC_HAS_EXCEPTIONS
+        try {
+#endif
+          if (auto created = create_sync(facade); !created) {
+            finish_error(facade, submitted, std::move(created.error()));
+            return;
+          }
+          for (std::size_t index{}; index < scopes.size(); ++index) {
+            auto submitted_status = submit_batch(facade, index);
+            if (!submitted_status) {
+              finish_error(facade, submitted, std::move(submitted_status.error()));
+              return;
+            }
+            ++submitted;
+          }
+          auto const token = detail::receiver_stop_token(receiver);
+          VkFence terminal_fence = fences.back();
+          fences.back() = VK_NULL_HANDLE;
+          status enqueued;
+#if VKEXEC_HAS_EXCEPTIONS
+          try {
+#endif
+            enqueued = facade.enqueue_fence_wait(VK_NULL_HANDLE,
+              terminal_fence,
+              token,
+              [this, device](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+                release(device);
+                detail::complete_after_reclaim(std::move(receiver), std::move(wait_error), stopped);
+              });
+#if VKEXEC_HAS_EXCEPTIONS
+          } catch (...) {
+            fences.back() = terminal_fence;
+            throw;
+          }
+#endif
+          if (!enqueued) { return; }
+#if VKEXEC_HAS_EXCEPTIONS
+        } catch (...) {
+          finish_error(facade, submitted, unexpected_exception_error());
+        }
+#endif
+      }
+
+      auto finish_error(context &facade, std::size_t submitted, error failure) noexcept -> void
+      {
+        if (submitted != 0) {
+          auto const count = static_cast<std::uint32_t>(submitted);
+          (void)vkWaitForFences(facade.device(), count, fences.data(), VK_TRUE, UINT64_MAX);
+        }
+        release(facade.device());
+        ex::set_error(std::move(receiver), std::move(failure));
+      }
+    };
+
+    template<class Receiver> [[nodiscard]] auto connect(Receiver receiver) && -> op_state<Receiver>
+    {
+      return op_state<Receiver>{
+        .scopes = std::move(scopes),
+        .receiver = std::move(receiver),
+        .semaphores = {},
+        .fences = {},
+        .timeline = false,
+      };
+    }
+  };
+
   template<class StepStorage, class Receiver> struct pass_graph_op_state
   {
     context_handle state;
@@ -462,14 +681,14 @@ namespace detail {
     std::vector<queue_affinity> step_queues;
     Receiver receiver;
     using child_receiver_t = pass_graph_after_gpu_receiver<StepStorage, Receiver>;
-    using fence_sender_t = detail::submit_fence_sender;
+    using fence_sender_t = detail::graph_submit_sender;
     using completion_sender_t = decltype(ex::continues_on(std::declval<fence_sender_t>(), std::declval<scheduler>()));
     using submit_op_t = decltype(ex::connect(std::declval<completion_sender_t>(), std::declval<child_receiver_t>()));
 
     struct submit_op_holder
     {
       submit_op_t op;
-      submit_op_holder(detail::submit_fence_sender sender, scheduler sched, child_receiver_t child)
+      submit_op_holder(detail::graph_submit_sender sender, scheduler sched, child_receiver_t child)
         : op(ex::connect(ex::continues_on(std::move(sender), std::move(sched)), std::move(child)))
       {}
       ~submit_op_holder() = default;
@@ -505,7 +724,7 @@ namespace detail {
           ex::set_error(std::move(receiver), std::move(prepared.error()));
           return;
         }
-        auto &child = submit_op.emplace(detail::submit_fence(expected_take(prepared)),
+        auto &child = submit_op.emplace(detail::graph_submit_sender{ .scopes = expected_take(prepared) },
           scheduler_access::make(state),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
