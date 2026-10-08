@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/detail/pass_lowering.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -7,6 +8,7 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
+#include <vkexec/scheduler.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -15,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -27,6 +30,7 @@ constexpr std::size_t k_pair_step_count = 2;
 constexpr std::size_t k_single_step_count = 1;
 constexpr std::size_t k_dag_step_count = 4;
 constexpr std::uint32_t k_default_family = 0;
+constexpr std::uint32_t k_other_family = 1;
 constexpr std::uint32_t k_sampled_binding = 0;
 
 [[nodiscard]] auto fake_buffer(void *storage) -> VkBuffer { return static_cast<VkBuffer>(storage); }
@@ -92,9 +96,9 @@ TEST_CASE("pass batches group adjacent steps by resolved queue", "[vkexec][pass]
   char graphics_storage{};
   char compute_storage{};
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
-  vkexec::queue_ref const graphics{ .queue = reinterpret_cast<VkQueue>(&graphics_storage), .family = 0 };
+  vkexec::queue_ref const graphics{ .queue = reinterpret_cast<VkQueue>(&graphics_storage), .family = k_default_family };
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
-  vkexec::queue_ref const compute{ .queue = reinterpret_cast<VkQueue>(&compute_storage), .family = 1 };
+  vkexec::queue_ref const compute{ .queue = reinterpret_cast<VkQueue>(&compute_storage), .family = k_other_family };
   vkexec::queue_affinity const unset{};
   vkexec::queue_affinity const graphics_affinity{ graphics };
   vkexec::queue_affinity const compute_affinity{ compute };
@@ -219,6 +223,90 @@ TEST_CASE("dynamic pass graph records branch predecessors", "[vkexec][pass]")
   REQUIRE(graph.step_predecessors.at(joined).size() == k_pair_step_count);
   REQUIRE(graph.step_predecessors.at(joined).at(k_first_step) == left);
   REQUIRE(graph.step_predecessors.at(joined).at(k_second_step) == right);
+}
+
+TEST_CASE("typed branches join at the next pass", "[vkexec][pass]")
+{
+  constexpr std::size_t k_root = 0;
+  constexpr std::size_t k_left_first = 1;
+  constexpr std::size_t k_left_last = 2;
+  constexpr std::size_t k_right = 3;
+  constexpr std::size_t k_joined = 4;
+  constexpr std::size_t k_step_count = 5;
+  auto make_step = []() -> decltype(auto) {
+    return vkexec::make_pass_adaptor(vkexec::detail::make_callback_pass_step(
+      [](vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status { return {}; }));
+  };
+  auto expression = vkexec::detail::pass_fragment_root{} | make_step()
+                    | vkexec::when_all(make_step() | make_step(), make_step()) | make_step();
+  auto chain = vkexec::detail::collect_pass_chain(std::move(expression), vkexec::scheduler_env{});
+  REQUIRE(
+    chain.step_predecessors
+    == std::vector<std::vector<std::size_t>>{ {}, { k_root }, { k_left_first }, { k_root }, { k_left_last, k_right } });
+  REQUIRE(chain.frontier == std::vector<std::size_t>{ k_joined });
+  STATIC_REQUIRE(std::tuple_size_v<decltype(chain.steps)> == k_step_count);
+}
+
+TEST_CASE("nested typed branches keep queue affinity scoped", "[vkexec][pass]")
+{
+  constexpr std::size_t k_root = 0;
+  constexpr std::size_t k_left = 1;
+  constexpr std::size_t k_nested_first = 2;
+  constexpr std::size_t k_nested_second = 3;
+  constexpr std::size_t k_nested_join = 4;
+  constexpr std::size_t k_right = 5;
+  constexpr std::size_t k_joined = 6;
+  char graphics_storage{};
+  char compute_storage{};
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  vkexec::queue_ref const graphics{ .queue = reinterpret_cast<VkQueue>(&graphics_storage), .family = k_default_family };
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  vkexec::queue_ref const compute{ .queue = reinterpret_cast<VkQueue>(&compute_storage), .family = k_other_family };
+  auto make_step = []() -> decltype(auto) {
+    return vkexec::make_pass_adaptor(vkexec::detail::make_callback_pass_step(
+      [](vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status { return {}; }));
+  };
+  auto expression =
+    vkexec::detail::pass_fragment_root{} | vkexec::on_queue(graphics) | make_step()
+    | vkexec::when_all(
+      vkexec::on_queue(compute) | make_step() | vkexec::when_all(make_step(), make_step()) | make_step(), make_step())
+    | make_step();
+  auto chain = vkexec::detail::collect_pass_chain(std::move(expression), vkexec::scheduler_env{});
+  REQUIRE(chain.step_predecessors
+          == std::vector<std::vector<std::size_t>>{ {},
+            { k_root },
+            { k_left },
+            { k_left },
+            { k_nested_first, k_nested_second },
+            { k_root },
+            { k_nested_join, k_right } });
+  auto expect_queue = [&chain](std::size_t index, vkexec::queue_ref expected) -> void {
+    REQUIRE(chain.step_queues.at(index).has_value());
+    REQUIRE(vkexec::detail::same_queue(*chain.step_queues.at(index), expected));
+  };
+  expect_queue(k_root, graphics);
+  for (std::size_t index{ k_left }; index <= k_nested_join; ++index) { expect_queue(index, compute); }
+  expect_queue(k_right, graphics);
+  expect_queue(k_joined, graphics);
+}
+
+TEST_CASE("typed branch lowering materializes a static graph with terminal sinks", "[vkexec][pass]")
+{
+  constexpr std::size_t k_root = 0;
+  constexpr std::size_t k_left = 1;
+  constexpr std::size_t k_right = 2;
+  constexpr std::size_t k_step_count = 3;
+  auto make_step = []() -> decltype(auto) {
+    return vkexec::make_pass_adaptor(vkexec::detail::make_callback_pass_step(
+      [](vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status { return {}; }));
+  };
+  auto expression = vkexec::schedule_sender{} | make_step() | vkexec::when_all(make_step(), make_step());
+  auto chain = vkexec::detail::collect_pass_chain(std::move(expression), vkexec::scheduler_env{});
+  auto graph = vkexec::detail::materialize_pass_chain(std::move(chain));
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph)>);
+  STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == k_step_count);
+  REQUIRE(graph.step_predecessors == std::vector<std::vector<std::size_t>>{ {}, { k_root }, { k_root } });
+  REQUIRE(graph.step_predecessors.at(k_left) == graph.step_predecessors.at(k_right));
 }
 
 TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass]")

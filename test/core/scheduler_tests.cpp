@@ -26,6 +26,7 @@
 #include <atomic>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
@@ -39,6 +40,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace ex = stdexec;
 
@@ -923,6 +925,35 @@ TEST_CASE("DAG terminal join waits for independent queue branches", "[vkexec][pa
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("typed DAG executes branches and their join", "[vkexec][pass][gpu]")
+{
+  constexpr int k_recorded_once = 1;
+  auto ctx = vkexec::test::require_context();
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  auto const right_queue = graphics.queue == VK_NULL_HANDLE ? compute : graphics;
+
+  int root_recorded{};
+  int left_recorded{};
+  int right_recorded{};
+  int joined_recorded{};
+  auto make_step = [](int &count) -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [&count](VkCommandBuffer /*unused*/) -> void { ++count; });
+  };
+  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::on_queue(compute) | make_step(root_recorded)
+               | vkexec::when_all(vkexec::on_queue(compute) | make_step(left_recorded),
+                 vkexec::on_queue(right_queue) | make_step(right_recorded))
+               | make_step(joined_recorded);
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(result));
+  REQUIRE(root_recorded == k_recorded_once);
+  REQUIRE(left_recorded == k_recorded_once);
+  REQUIRE(right_recorded == k_recorded_once);
+  REQUIRE(joined_recorded == k_recorded_once);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
@@ -1010,6 +1041,29 @@ TEST_CASE("pass composition retains each concrete step type", "[vkexec][pass]")
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph3.steps)> == 3);
   STATIC_REQUIRE(!std::same_as<decltype(graph2), decltype(graph3)>);
   REQUIRE(!graph3.state);
+}
+
+TEST_CASE("typed graph appended after materialization joins branch sinks", "[vkexec][pass]")
+{
+  constexpr std::size_t k_root = 0;
+  constexpr std::size_t k_left = 1;
+  constexpr std::size_t k_right = 2;
+  constexpr std::size_t k_joined = 3;
+  constexpr std::size_t k_step_count = 4;
+  vkexec::scheduler sched{ nullptr };
+  auto make_step = []() -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {});
+  };
+
+  auto branched =
+    ex::transform_sender(ex::schedule(sched) | make_step() | vkexec::when_all(make_step(), make_step()), ex::env<>{});
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(branched)>);
+  REQUIRE(branched.step_predecessors == std::vector<std::vector<std::size_t>>{ {}, { k_root }, { k_root } });
+
+  auto graph = ex::transform_sender(std::move(branched) | make_step(), ex::env<>{});
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph)>);
+  STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == k_step_count);
+  REQUIRE(graph.step_predecessors.at(k_joined) == std::vector<std::size_t>{ k_left, k_right });
 }
 
 // NOLINTBEGIN(bugprone-unchecked-optional-access)

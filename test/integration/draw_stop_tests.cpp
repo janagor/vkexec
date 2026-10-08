@@ -406,6 +406,45 @@ TEST_CASE("presentation graph submits and presents an acquired frame", "[vkexec]
   REQUIRE(fixture.win.abandon_frame(retry_frame));
 }
 
+TEST_CASE("typed branches join before the final presentation pass", "[vkexec][draw][gpu]")
+{
+  headless_fixture fixture;
+  auto acquired = fixture.win.acquire_frame();
+  REQUIRE(acquired.has_value());
+  REQUIRE(acquired->has_value());
+  vkexec::acquired_frame const frame = acquired->value_or(vkexec::acquired_frame{});
+  VkImageSubresourceRange const color_range{ .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel = 0,
+    .levelCount = k_single_subresource,
+    .baseArrayLayer = 0,
+    .layerCount = k_single_subresource };
+  auto color_use = vkexec::write(frame.image, color_range, vkexec::image_usage::color_attachment);
+  color_use.final_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  auto sync = fixture.win.submission_sync(frame);
+  REQUIRE(sync.has_value());
+  VkFence fence = sync->fence;
+
+  auto make_empty_pass = []() -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {});
+  };
+  auto const graphics = fixture.win.ctx().graphics_queue_ref();
+  auto const compute = fixture.win.ctx().compute_queue_ref();
+  auto graph =
+    ex::schedule(fixture.win.ctx().get_scheduler()) | vkexec::on_queue(graphics) | make_empty_pass()
+    | vkexec::when_all(vkexec::on_queue(compute) | make_empty_pass(), vkexec::on_queue(graphics) | make_empty_pass())
+    | vkexec::on_queue(graphics)
+    | vkexec::custom_pass(vkexec::uses(color_use),
+      [&](VkCommandBuffer cmd) -> void {
+        fixture.pipeline.record_pass(
+          cmd, fixture.win.render_pass(), frame.framebuffer, frame.extent, k_triangle_vertices);
+      })
+    | vkexec::present(fixture.win, frame);
+
+  auto const outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(outcome));
+  REQUIRE(vkGetFenceStatus(fixture.win.ctx().device(), fence) == VK_SUCCESS);
+}
+
 TEST_CASE("draw_layers presents with presenter-owned recording", "[vkexec][draw][gpu]")
 {
   headless_fixture fixture;

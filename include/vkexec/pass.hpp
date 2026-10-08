@@ -158,6 +158,17 @@ namespace detail {
   {
   };
 
+  struct when_all_t
+  {
+  };
+
+  inline constexpr std::size_t k_min_branch_count = 2;
+
+  template<class... Branches> struct when_all_data
+  {
+    std::tuple<Branches...> branches;
+  };
+
   struct custom_pass_t
   {
   };
@@ -1474,6 +1485,18 @@ namespace detail {
 //! Changes the queue affinity of subsequent passes in a graph.
 [[nodiscard]] inline auto on_queue(queue_ref queue) -> detail::expr_closure<detail::on_queue_t, queue_ref>
 { return detail::make_expr_closure(detail::on_queue_t{}, queue); }
+
+//! Appends two or more independent fragments after the same incoming frontier.
+//! Each branch must contain at least one pass; presentation belongs after the branches.
+template<detail::sender_adaptor_closure... Branches>
+  requires(sizeof...(Branches) >= detail::k_min_branch_count)
+[[nodiscard]] auto when_all(Branches &&...branches)
+  -> detail::expr_closure<detail::when_all_t, detail::when_all_data<std::decay_t<Branches>...>>
+{
+  return detail::make_expr_closure(detail::when_all_t{},
+    detail::when_all_data<std::decay_t<Branches>...>{
+      .branches = std::tuple<std::decay_t<Branches>...>{ std::forward<Branches>(branches)... } });
+}
 
 /**
  * Records raw Vulkan commands as a graph step. The graph owns command-buffer
