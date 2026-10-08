@@ -16,6 +16,7 @@
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/resource_allocator.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
@@ -26,6 +27,7 @@
 #include <vkexec_vma/image.hpp>
 #include <vkexec_vma/offscreen_target.hpp>
 
+#include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
@@ -469,17 +471,10 @@ auto record_early(vkexec::context &ctx,
   vkexec::examples::gltf_mesh_data const &scene,
   VkBuffer vertices,
   VkBuffer indices,
-  std::vector<vkexec::examples::ktx_texture> const &textures,
-  bool upload_textures,
   vkexec::queue_ref compute_queue) -> void
 {
   VkCommandBuffer cmd = frame.early_cmd;
   begin_recording(cmd);
-  if (upload_textures) {
-    for (vkexec::examples::ktx_texture const &texture : textures) {
-      vkexec::examples::record_ktx_texture_upload(ctx, cmd, texture);
-    }
-  }
   transition(ctx,
     cmd,
     frame.shadow.depth_image(),
@@ -851,6 +846,23 @@ auto run(int argc, char const *const *argv) -> int
     if (texture_path.empty()) { vkexec::examples::fail_check("Bonza material has no base-color texture"); }
     textures.push_back(vkexec::examples::load_ktx_texture(ctx, allocator, asset_dir / "bonza" / texture_path));
   }
+  auto uploads = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx.get_scheduler()));
+  uploads.append_queue(ctx.graphics_queue_ref());
+  for (vkexec::examples::ktx_texture const &texture : textures) {
+    VkImageSubresourceRange const range{
+      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+      .baseMipLevel = 0,
+      .levelCount = 1,
+      .baseArrayLayer = 0,
+      .layerCount = 1,
+    };
+    uploads.append(
+      vkexec::custom_pass(vkexec::uses(vkexec::read(texture.staging.handle(), vkexec::buffer_usage::transfer_source),
+                            vkexec::write(texture.image.handle(), range, vkexec::image_usage::transfer_destination)),
+        [&ctx, &texture](
+          VkCommandBuffer cmd) -> void { vkexec::examples::record_ktx_texture_upload(ctx, cmd, texture); }));
+  }
+  vkexec::examples::sync_wait_graph(std::move(uploads));
   std::filesystem::path const shader_dir{ VKEXEC_SAMPLE_SHADER_DIR };
   auto compute = make_compute_pipelines(ctx, shader_dir);
   std::vector<frame_resources> frames;
@@ -874,7 +886,6 @@ auto run(int argc, char const *const *argv) -> int
     bounds.radius * k_camera_far_scale,
   };
   std::size_t frame_index = 0;
-  bool upload_textures = true;
   while (!win.should_close()) {
     win.poll_events();
     camera.update(win.native_window());
@@ -893,12 +904,11 @@ auto run(int argc, char const *const *argv) -> int
     vkexec::examples::camera_data const camera_uniform = camera.data(frame.hdr.extent());
     std::memcpy(frame.camera_buffer.mapped().data(), &camera_uniform, sizeof(camera_uniform));
     check(frame.camera_buffer.flush());
-    record_early(ctx, frame, scene, vertices.handle(), indices.handle(), textures, upload_textures, compute_queue);
+    record_early(ctx, frame, scene, vertices.handle(), indices.handle(), compute_queue);
     record_compute(ctx, frame, compute_queue);
     record_final(ctx, frame, present_frame, win, compute_queue);
     submit_frame(ctx, frame, present_frame, win, compute_queue);
     frame.initialized = true;
-    upload_textures = false;
     frame_index = (frame_index + 1) % k_frames_in_flight;
   }
   win.wait_idle();

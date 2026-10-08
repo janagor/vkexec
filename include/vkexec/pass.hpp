@@ -11,6 +11,7 @@
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -26,6 +27,7 @@
 #if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
 #endif
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -117,6 +119,32 @@ namespace detail {
 
   struct on_queue_t
   {
+  };
+
+  struct custom_pass_t
+  {
+  };
+
+  template<class Uses, class Record> struct custom_pass_data
+  {
+    VKEXEC_NO_UNIQUE_ADDRESS Uses resources;
+    VKEXEC_NO_UNIQUE_ADDRESS Record record_fn;
+  };
+
+  template<class Uses, class Record> struct custom_pass_step
+  {
+    VKEXEC_NO_UNIQUE_ADDRESS Uses resources;
+    VKEXEC_NO_UNIQUE_ADDRESS Record record_fn;
+
+    auto record(context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status
+    {
+      if constexpr (std::same_as<std::invoke_result_t<Record &, VkCommandBuffer>, status>) {
+        return std::invoke(record_fn, cmd);
+      } else {
+        std::invoke(record_fn, cmd);
+        return {};
+      }
+    }
   };
 
   template<class T> struct is_byte_span : std::false_type
@@ -980,6 +1008,29 @@ namespace detail {
 //! Changes the queue affinity of subsequent passes in a graph.
 [[nodiscard]] inline auto on_queue(queue_ref queue) -> detail::expr_closure<detail::on_queue_t, queue_ref>
 { return detail::make_expr_closure(detail::on_queue_t{}, queue); }
+
+/**
+ * Records raw Vulkan commands as a graph step. The graph owns command-buffer
+ * creation, recording boundaries, submission, and completion. `resources`
+ * describes accesses made by the recorder, including their buffer ranges or
+ * image subresources. It does not describe the final layout or ownership of
+ * resources changed by manual barriers. Callers must still record required
+ * barriers explicitly; a future synchronization planner must account for
+ * those final states before using these declarations to generate barriers.
+ *
+ * The recorder accepts a recording VkCommandBuffer and returns void or status.
+ */
+template<resource_use... Uses, class Record>
+  requires std::move_constructible<std::decay_t<Record>> && std::invocable<std::decay_t<Record> &, VkCommandBuffer>
+           && (std::same_as<std::invoke_result_t<std::decay_t<Record> &, VkCommandBuffer>, void>
+               || std::same_as<std::invoke_result_t<std::decay_t<Record> &, VkCommandBuffer>, status>)
+[[nodiscard]] auto custom_pass(resource_uses<Uses...> resources, Record &&record)
+  -> detail::expr_closure<detail::custom_pass_t, detail::custom_pass_data<resource_uses<Uses...>, std::decay_t<Record>>>
+{
+  return detail::make_expr_closure(detail::custom_pass_t{},
+    detail::custom_pass_data<resource_uses<Uses...>, std::decay_t<Record>>{
+      .resources = std::move(resources), .record_fn = std::forward<Record>(record) });
+}
 
 template<detail::static_pass_step Step>
 [[nodiscard]] auto make_pass_adaptor(Step step) noexcept(std::is_nothrow_move_constructible_v<Step>)

@@ -188,6 +188,12 @@ template<class Step, class Env>
   -> Step
 { return std::move(data.step); }
 
+template<class Uses, class Record, class Env>
+[[nodiscard]] auto lower_vkexec_pass_step(custom_pass_t /*tag*/,
+  custom_pass_data<Uses, Record> data,
+  Env const & /*env*/) -> custom_pass_step<Uses, Record>
+{ return { .resources = std::move(data.resources), .record_fn = std::move(data.record_fn) }; }
+
 template<push_constant_type Push, dispatch_kind Dispatch, class Env>
 [[nodiscard]] auto lower_vkexec_pass_step(compute_pass_t /*tag*/,
   compute_pass_data<Push, Dispatch> data,
