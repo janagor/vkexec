@@ -1,26 +1,46 @@
-find_program(
-  VKEXEC_GLSLC
-  NAMES glslc
-  HINTS "$ENV{VULKAN_SDK}/bin")
+option(vkexec_RECOMPILE_SAMPLE_SHADERS "Recompile Vulkan sample shaders" OFF)
+
+if(vkexec_RECOMPILE_SAMPLE_SHADERS)
+  find_package(Vulkan QUIET)
+  if(TARGET Vulkan::glslc)
+    set(VKEXEC_GLSLC Vulkan::glslc)
+  elseif(Vulkan_GLSLC_EXECUTABLE)
+    set(VKEXEC_GLSLC "${Vulkan_GLSLC_EXECUTABLE}")
+  else()
+    find_program(
+      VKEXEC_GLSLC
+      NAMES glslc
+      HINTS "$ENV{VULKAN_SDK}/bin" REQUIRED)
+  endif()
+endif()
 
 function(vkexec_add_sample_shaders target)
-  if(NOT VKEXEC_GLSLC)
-    message(FATAL_ERROR "glslc is required to build the Vulkan Samples examples")
-  endif()
-
   set(shader_outputs)
   foreach(shader IN LISTS ARGN)
-    get_filename_component(shader_name "${shader}" NAME)
-    set(output "${CMAKE_CURRENT_BINARY_DIR}/shaders/${shader_name}.spv")
-    set(depfile "${output}.d")
-    add_custom_command(
-      OUTPUT "${output}"
-      COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
-      COMMAND "${VKEXEC_GLSLC}" --target-env=vulkan1.3 -I "${CMAKE_CURRENT_SOURCE_DIR}/shaders" -MD -MF "${depfile}"
-              "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}" -o "${output}"
-      DEPFILE "${depfile}"
-      DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}"
-      VERBATIM)
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/shaders/${shader}")
+    set(committed "${source}.spv")
+    set(output "${CMAKE_CURRENT_BINARY_DIR}/shaders/${shader}.spv")
+    if(vkexec_RECOMPILE_SAMPLE_SHADERS)
+      set(depfile "${output}.d")
+      add_custom_command(
+        OUTPUT "${output}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
+        COMMAND "${VKEXEC_GLSLC}" --target-env=vulkan1.3 -I "${CMAKE_CURRENT_SOURCE_DIR}/shaders" -MD -MF "${depfile}"
+                "${source}" -o "${output}"
+        DEPFILE "${depfile}"
+        DEPENDS "${source}"
+        VERBATIM)
+    else()
+      if(NOT EXISTS "${committed}")
+        message(FATAL_ERROR "Missing committed sample shader: ${committed}")
+      endif()
+      add_custom_command(
+        OUTPUT "${output}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/shaders"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${committed}" "${output}"
+        DEPENDS "${committed}"
+        VERBATIM)
+    endif()
     list(APPEND shader_outputs "${output}")
   endforeach()
   add_custom_target(${target}_shaders DEPENDS ${shader_outputs})

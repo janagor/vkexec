@@ -38,7 +38,7 @@ KTX textures use ASTC 8x8 sRGB compression, so the device must support
 
 ## Building and running
 
-Configure with `vkexec_BUILD_EXAMPLES=ON` and `glslc` on `PATH`, then build
+Configure with `vkexec_BUILD_EXAMPLES=ON`, then build
 `vkexec_vs_pipeline_barriers`. Run the executable with either barrier mode.
 Use WASD to move through Sponza, Q/E to descend/ascend, and right mouse drag to
 rotate the view. Close the window to exit; resizing recreates the offscreen targets.

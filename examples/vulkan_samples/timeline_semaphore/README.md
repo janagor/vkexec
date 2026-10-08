@@ -6,8 +6,8 @@ APIs. It uses the five upstream shaders from commit
 `177edebf0cd7d4f669667e49f052cfb56b17e004`, with only texture and sampler
 descriptor declarations adapted for vkexec. There are no external assets.
 
-Build `vkexec_vs_timeline_semaphore` with `vkexec_BUILD_EXAMPLES=ON` and `glslc`
-available. The sample requires Vulkan 1.3 and the `timelineSemaphore` feature.
+Build `vkexec_vs_timeline_semaphore` with `vkexec_BUILD_EXAMPLES=ON`.
+The sample requires Vulkan 1.3 and the `timelineSemaphore` feature.
 Run it on a Vulkan-capable display; close the window to exit.
 
 ## Images and queues

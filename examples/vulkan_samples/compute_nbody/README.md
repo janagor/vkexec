@@ -29,7 +29,7 @@ flight.
 
 ## Building and running
 
-Configure with `vkexec_BUILD_EXAMPLES=ON` and `glslc` on `PATH`, then build
+Configure with `vkexec_BUILD_EXAMPLES=ON`, then build
 target `vkexec_vs_compute_nbody`. Run the executable with a Vulkan-capable
 display. Close the window to exit.
 

@@ -15,7 +15,7 @@ presentation to vkexec.
 
 ## Building and running
 
-Configure the project with `vkexec_BUILD_EXAMPLES=ON` and `glslc` on `PATH`,
+Configure the project with `vkexec_BUILD_EXAMPLES=ON`,
 then build target `vkexec_vs_triangle`. Run the resulting executable with a
 Vulkan-capable display. Resize the window or close it to exit.
 

@@ -13,12 +13,21 @@ for window and swapchain setup.
 | Async Compute | Implemented | graphics and compute queues |
 | Timeline Semaphore / Game of Life | Implemented | cross-queue image ping-pong |
 
-The shaders are compiled by `glslc` into the build tree. The source tree contains
-GLSL only. Set `vkexec_BUILD_EXAMPLES=ON` when configuring, then build the
+The source tree contains GLSL and committed SPIR-V. Normal builds copy the SPIR-V
+into the build tree and do not require a shader compiler. Set
+`vkexec_BUILD_EXAMPLES=ON` when configuring, then build the
 `vkexec_vs_triangle`, `vkexec_vs_compute_nbody`, `vkexec_vs_pipeline_barriers`,
 `vkexec_vs_async_compute`, or `vkexec_vs_timeline_semaphore`
 target. A Vulkan-capable
 display is needed to run them.
+
+When editing shaders, configure with `-Dvkexec_RECOMPILE_SAMPLE_SHADERS=ON` to
+compile them into the build tree with `glslc`. To update the committed `.spv`
+files, run `bash examples/vulkan_samples/regenerate_shaders.sh` with Shaderc
+2026.1. The repository's locked Nix package provides this version:
+`nix shell .#sample-shader-compiler --command bash examples/vulkan_samples/regenerate_shaders.sh`.
+CI uses the same package to run `validate_shaders.sh` and compare the output
+with the committed SPIR-V.
 
 These are workload adaptations, not copies of the Khronos implementation. The
 current triangle shaders were adapted from vkexec's existing triangle example.

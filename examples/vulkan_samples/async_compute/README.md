@@ -9,8 +9,7 @@ notices; texture and sampler descriptors are separate for vkexec.
 
 ## Run
 
-Build target `vkexec_vs_async_compute` with `vkexec_BUILD_EXAMPLES=ON` and `glslc`
-available. Run either:
+Build target `vkexec_vs_async_compute` with `vkexec_BUILD_EXAMPLES=ON`. Run either:
 
 ```sh
 vkexec_vs_async_compute --queues=single
