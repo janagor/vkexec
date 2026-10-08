@@ -179,8 +179,10 @@ template<static_pass_step... Steps>
 {
   assert(chain.pred.step_queues.empty() || chain.pred.step_queues.size() == chain.pred.steps.size());
   if (chain.pred.step_queues.empty()) { chain.pred.step_queues.resize(chain.pred.steps.size()); }
-  std::apply([&chain](Steps &&...step) -> void { (chain.pred.steps.emplace_back(std::move(step)), ...); },
-    std::move(chain.steps));
+  if constexpr (sizeof...(Steps) != 0) {
+    std::apply([&chain](Steps &&...step) -> void { (chain.pred.steps.emplace_back(std::move(step)), ...); },
+      std::move(chain.steps));
+  }
   chain.pred.step_queues.insert(chain.pred.step_queues.end(), chain.step_queues.begin(), chain.step_queues.end());
   chain.pred.current_queue = chain.current_queue;
   return std::move(chain.pred);

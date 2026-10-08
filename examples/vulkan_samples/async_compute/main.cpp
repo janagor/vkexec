@@ -7,10 +7,9 @@
 #include "load_gltf_mesh.hpp"
 #include "sync_wait_helpers.hpp"
 
-#include <vkexec/barrier.hpp>
-#include <vkexec/barrier_params.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
@@ -22,6 +21,7 @@
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/mesh.hpp>
+#include <vkexec_graphics/present.hpp>
 #include <vkexec_graphics/presenter.hpp>
 #include <vkexec_vma/allocator.hpp>
 #include <vkexec_vma/gpu_buffer.hpp>
@@ -37,9 +37,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <filesystem>
+#include <future>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -109,6 +112,7 @@ struct bloom_pass
 {
   vkexec::owned::compute_pipeline const *pipeline{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
+  vkexec::resource_table resources;
   std::size_t output_index{ 0 };
   VkExtent2D input_extent{};
 };
@@ -124,21 +128,12 @@ struct frame_resources
   std::vector<vkexec::owned::graphics_pipeline> forward;
   vkexec::owned::graphics_pipeline composite;
   std::vector<bloom_pass> passes;
-  VkCommandBuffer early_cmd{ VK_NULL_HANDLE };
-  VkCommandBuffer compute_cmd{ VK_NULL_HANDLE };
-  VkSemaphore graphics_done{ VK_NULL_HANDLE };
-  VkSemaphore compute_done{ VK_NULL_HANDLE };
   bool initialized{ false };
 };
 
 auto check(vkexec::status result) -> void
 {
   if (!result) { vkexec::examples::abort_with_error(result.error()); }
-}
-
-auto check_vk(VkResult result, char const *message) -> void
-{
-  if (result != VK_SUCCESS) { vkexec::examples::fail_check(message); }
 }
 
 [[nodiscard]] auto find_bounds(std::span<vkexec::mesh_vertex const> vertices) -> scene_bounds
@@ -245,13 +240,11 @@ auto check_vk(VkResult result, char const *message) -> void
   };
 }
 
-[[nodiscard]] auto make_semaphore(VkDevice device) -> VkSemaphore
+[[nodiscard]] constexpr auto color_range() -> VkImageSubresourceRange
 {
-  VkSemaphoreCreateInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-  VkSemaphore semaphore{ VK_NULL_HANDLE };
-  check_vk(vkCreateSemaphore(device, &info, nullptr, &semaphore), "vkCreateSemaphore failed");
-  return semaphore;
+  return {
+    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1
+  };
 }
 
 [[nodiscard]] auto make_frame(vkexec::examples::glfw_presenter &win,
@@ -261,8 +254,7 @@ auto check_vk(VkResult result, char const *message) -> void
   vkexec::examples::sampler_owner const &material_sampler,
   vkexec::examples::sampler_owner const &bloom_sampler,
   compute_pipelines const &compute,
-  light_data const &light,
-  vkexec::queue_ref compute_queue) -> frame_resources
+  light_data const &light) -> frame_resources
 {
   auto &ctx = win.ctx();
   auto shadow_result = vkexec::vma::offscreen_target::create(ctx,
@@ -358,10 +350,6 @@ auto check_vk(VkResult result, char const *message) -> void
       vkexec::resource_binding{ .slot = 1, .resource = vkexec::sampled_image_resource(bloom.back().view.handle()) },
       vkexec::resource_binding{ .slot = 2, .resource = vkexec::sampler_resource(bloom_sampler.handle) })));
 
-  auto early_result = ctx.allocate_command_buffer(ctx.graphics_queue_ref());
-  if (!early_result) { vkexec::examples::abort_with_error(early_result.error()); }
-  auto compute_result = ctx.allocate_command_buffer(compute_queue);
-  if (!compute_result) { vkexec::examples::abort_with_error(compute_result.error()); }
   frame_resources frame{
     .shadow = std::move(shadow),
     .hdr = std::move(hdr),
@@ -372,33 +360,44 @@ auto check_vk(VkResult result, char const *message) -> void
     .forward = std::move(forward),
     .composite = std::move(composite),
     .passes = {},
-    .early_cmd = *early_result,
-    .compute_cmd = *compute_result,
-    .graphics_done = make_semaphore(ctx.device()),
-    .compute_done = make_semaphore(ctx.device()),
   };
 
   auto add_pass = [&](vkexec::owned::compute_pipeline const &pipeline,
+                    VkImage input_image,
                     VkImageView input_view,
                     VkExtent2D input_extent,
                     std::size_t output_index) -> void {
     auto set_result = pipeline.allocate_set();
     if (!set_result) { vkexec::examples::abort_with_error(set_result.error()); }
     VkDescriptorSet set = *set_result;
-    check(pipeline.update_set(set,
-      vkexec::bindings(vkexec::resource_binding{ .slot = 0, .resource = vkexec::sampled_image_resource(input_view) },
-        vkexec::resource_binding{
-          .slot = 1, .resource = vkexec::storage_image_resource(frame.bloom.at(output_index).view.handle()) },
-        vkexec::resource_binding{ .slot = 2, .resource = vkexec::sampler_resource(bloom_sampler.handle) })));
-    frame.passes.push_back(
-      bloom_pass{ .pipeline = &pipeline, .set = set, .output_index = output_index, .input_extent = input_extent });
+    auto resources =
+      vkexec::bindings(vkexec::resource_binding{ .slot = 0,
+                         .resource = vkexec::sampled_image_resource(input_image, input_view, color_range()) },
+        vkexec::resource_binding{ .slot = 1,
+          .resource = vkexec::storage_image_resource(
+            frame.bloom.at(output_index).image.handle(), frame.bloom.at(output_index).view.handle(), color_range()) },
+        vkexec::resource_binding{ .slot = 2, .resource = vkexec::sampler_resource(bloom_sampler.handle) });
+    check(pipeline.update_set(set, resources));
+    frame.passes.push_back(bloom_pass{ .pipeline = &pipeline,
+      .set = set,
+      .resources = std::move(resources),
+      .output_index = output_index,
+      .input_extent = input_extent });
   };
-  add_pass(compute.threshold, frame.hdr.color_view(0), frame.hdr.extent(), 0);
+  add_pass(compute.threshold, frame.hdr.color_image(0), frame.hdr.color_view(0), frame.hdr.extent(), 0);
   for (std::size_t output = 1; output < k_bloom_levels; ++output) {
-    add_pass(compute.down, frame.bloom.at(output - 1).view.handle(), frame.bloom.at(output - 1).extent, output);
+    add_pass(compute.down,
+      frame.bloom.at(output - 1).image.handle(),
+      frame.bloom.at(output - 1).view.handle(),
+      frame.bloom.at(output - 1).extent,
+      output);
   }
   for (std::size_t output = k_bloom_levels; output < frame.bloom.size(); ++output) {
-    add_pass(compute.up, frame.bloom.at(output - 1).view.handle(), frame.bloom.at(output - 1).extent, output);
+    add_pass(compute.up,
+      frame.bloom.at(output - 1).image.handle(),
+      frame.bloom.at(output - 1).view.handle(),
+      frame.bloom.at(output - 1).extent,
+      output);
   }
   return frame;
 }
@@ -406,52 +405,13 @@ auto check_vk(VkResult result, char const *message) -> void
 auto destroy_frame(vkexec::context &ctx, frame_resources &frame) -> void
 {
   for (bloom_pass const &pass : frame.passes) { vkexec::free_compute_set(ctx, pass.pipeline->resources(), pass.set); }
-  ctx.free_command_buffer(frame.early_cmd);
-  ctx.free_command_buffer(frame.compute_cmd);
-  vkDestroySemaphore(ctx.device(), frame.graphics_done, nullptr);
-  vkDestroySemaphore(ctx.device(), frame.compute_done, nullptr);
-  frame.early_cmd = VK_NULL_HANDLE;
-  frame.compute_cmd = VK_NULL_HANDLE;
-  frame.graphics_done = VK_NULL_HANDLE;
-  frame.compute_done = VK_NULL_HANDLE;
 }
 
-auto begin_recording(VkCommandBuffer cmd) -> void
+[[nodiscard]] constexpr auto depth_range() -> VkImageSubresourceRange
 {
-  check_vk(vkResetCommandBuffer(cmd, 0), "vkResetCommandBuffer failed");
-  VkCommandBufferBeginInfo begin{};
-  begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-  check_vk(vkBeginCommandBuffer(cmd, &begin), "vkBeginCommandBuffer failed");
-}
-
-auto transition(vkexec::context &ctx,
-  VkCommandBuffer cmd,
-  VkImage image,
-  VkImageAspectFlags aspect,
-  VkImageLayout old_layout,
-  VkImageLayout new_layout,
-  VkPipelineStageFlags2 source_stage,
-  VkPipelineStageFlags2 destination_stage,
-  VkAccessFlags2 source_access,
-  VkAccessFlags2 destination_access,
-  std::uint32_t source_family = VK_QUEUE_FAMILY_IGNORED,
-  std::uint32_t destination_family = VK_QUEUE_FAMILY_IGNORED) -> void
-{
-  check(vkexec::image_barrier(ctx,
-    cmd,
-    vkexec::image_barrier_params{
-      .image = image,
-      .range = { .aspectMask = aspect, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1 },
-      .old_layout = old_layout,
-      .new_layout = new_layout,
-      .src_stage = source_stage,
-      .dst_stage = destination_stage,
-      .src_access = source_access,
-      .dst_access = destination_access,
-      .src_queue_family = source_family,
-      .dst_queue_family = destination_family,
-    }));
+  return {
+    .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1
+  };
 }
 
 auto begin_offscreen_pass(VkCommandBuffer cmd, vkexec::vma::offscreen_target const &target) -> void
@@ -467,154 +427,156 @@ auto begin_offscreen_pass(VkCommandBuffer cmd, vkexec::vma::offscreen_target con
   vkCmdBeginRenderPass(cmd, &begin, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-auto record_early(vkexec::context &ctx,
+struct frame_receiver
+{
+  using receiver_concept = stdexec::receiver_t;
+
+  std::promise<vkexec::status> *completion{ nullptr };
+
+  auto set_value() const && noexcept -> void { completion->set_value(vkexec::status{}); }
+  auto set_error(vkexec::error err) const && noexcept -> void { completion->set_value(vkexec::fail(std::move(err))); }
+  auto set_error(std::exception_ptr const & /*exception*/) const && noexcept -> void
+  { completion->set_value(vkexec::fail(vkexec::errc::unexpected_exception, "frame graph failed with an exception")); }
+  auto set_stopped() const && noexcept -> void
+  { completion->set_value(vkexec::fail(vkexec::errc::cancelled, "frame graph stopped")); }
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> stdexec::env<> { return {}; }
+};
+
+using frame_sender =
+  decltype(std::declval<vkexec::dynamic_pass_graph_sender>()
+           | vkexec::present(std::declval<vkexec::owned::presenter &>(), std::declval<vkexec::acquired_frame>()));
+
+struct frame_execution
+{
+  using operation = decltype(stdexec::connect(std::declval<frame_sender>(), frame_receiver{}));
+
+  std::promise<vkexec::status> completion;
+  std::future<vkexec::status> completed;
+  operation op;
+
+  explicit frame_execution(frame_sender sender)
+    : completed(completion.get_future()), op(stdexec::connect(std::move(sender), frame_receiver{ &completion }))
+  { stdexec::start(op); }
+
+  ~frame_execution()
+  {
+    if (completed.valid()) { completed.wait(); }
+  }
+
+  frame_execution(frame_execution const &) = delete;
+  auto operator=(frame_execution const &) -> frame_execution & = delete;
+  frame_execution(frame_execution &&) = delete;
+  auto operator=(frame_execution &&) -> frame_execution & = delete;
+
+  auto wait() -> void
+  {
+    if (completed.valid()) { check(completed.get()); }
+  }
+};
+
+using frame_executions = std::array<std::unique_ptr<frame_execution>, k_frames_in_flight>;
+
+auto drain_frames(frame_executions &in_flight) -> void
+{
+  for (auto &execution : in_flight) {
+    if (execution) {
+      execution->wait();
+      execution.reset();
+    }
+  }
+}
+
+auto rebuild_frames(vkexec::examples::glfw_presenter &win,
+  std::vector<frame_resources> &frames,
+  frame_executions &in_flight,
+  vkexec::vma::allocator &allocator,
+  std::filesystem::path const &shader_dir,
+  std::vector<vkexec::examples::ktx_texture> const &textures,
+  vkexec::examples::sampler_owner const &material_sampler,
+  vkexec::examples::sampler_owner const &bloom_sampler,
+  compute_pipelines const &compute,
+  light_data const &light) -> void
+{
+  drain_frames(in_flight);
+  win.wait_idle();
+  for (frame_resources &frame : frames) { destroy_frame(win.ctx(), frame); }
+  frames.clear();
+  frames.reserve(k_frames_in_flight);
+  for (std::size_t index = 0; index < k_frames_in_flight; ++index) {
+    frames.push_back(make_frame(win, allocator, shader_dir, textures, material_sampler, bloom_sampler, compute, light));
+  }
+}
+
+auto render_frame(vkexec::context &ctx,
   frame_resources const &frame,
   vkexec::examples::gltf_mesh_data const &scene,
   VkBuffer vertices,
   VkBuffer indices,
-  vkexec::queue_ref compute_queue) -> void
+  vkexec::acquired_frame present_frame,
+  vkexec::examples::glfw_presenter &win,
+  vkexec::queue_ref compute_queue) -> frame_sender
 {
-  VkCommandBuffer cmd = frame.early_cmd;
-  begin_recording(cmd);
-  transition(ctx,
-    cmd,
-    frame.shadow.depth_image(),
-    VK_IMAGE_ASPECT_DEPTH_BIT,
-    frame.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    frame.initialized ? VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_2_NONE,
-    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-    frame.initialized ? VK_ACCESS_2_SHADER_SAMPLED_READ_BIT : VK_ACCESS_2_NONE,
-    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-  begin_offscreen_pass(cmd, frame.shadow);
-  for (auto const &draw : scene.draws) {
-    frame.shadow_pipeline.record_draw(cmd,
-      frame.shadow.extent(),
-      vkexec::mesh_draw{ .vertex_buffer = vertices,
-        .index_buffer = indices,
-        .index_count = draw.index_count,
-        .first_index = draw.first_index });
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx.get_scheduler()));
+  graph.append(vkexec::on_queue(ctx.graphics_queue_ref()));
+  graph.append(vkexec::custom_pass(
+    vkexec::uses(vkexec::write(frame.shadow.depth_image(),
+                   depth_range(),
+                   vkexec::image_usage::depth_attachment,
+                   frame.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED),
+      vkexec::read(vertices, vkexec::buffer_usage::vertex),
+      vkexec::read(indices, vkexec::buffer_usage::index)),
+    [&frame, &scene, vertices, indices](VkCommandBuffer cmd) -> void {
+      begin_offscreen_pass(cmd, frame.shadow);
+      for (auto const &draw : scene.draws) {
+        frame.shadow_pipeline.record_draw(cmd,
+          frame.shadow.extent(),
+          vkexec::mesh_draw{ .vertex_buffer = vertices,
+            .index_buffer = indices,
+            .index_count = draw.index_count,
+            .first_index = draw.first_index });
+      }
+      vkCmdEndRenderPass(cmd);
+    }));
+  graph.append(vkexec::custom_pass(
+    vkexec::uses(vkexec::read(frame.shadow.depth_image(), depth_range(), vkexec::image_usage::sampled_fragment),
+      vkexec::write(frame.hdr.color_image(0),
+        color_range(),
+        vkexec::image_usage::color_attachment,
+        frame.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED),
+      vkexec::write(frame.hdr.depth_image(),
+        depth_range(),
+        vkexec::image_usage::depth_attachment,
+        frame.initialized ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED),
+      vkexec::read(vertices, vkexec::buffer_usage::vertex),
+      vkexec::read(indices, vkexec::buffer_usage::index)),
+    [&frame, &scene, vertices, indices](VkCommandBuffer cmd) -> void {
+      begin_offscreen_pass(cmd, frame.hdr);
+      for (auto const &draw : scene.draws) {
+        if (draw.material_index < 0 || std::cmp_greater_equal(draw.material_index, frame.forward.size())) {
+          vkexec::examples::fail_check("Bonza primitive has no base-color material");
+        }
+        frame.forward.at(static_cast<std::size_t>(draw.material_index))
+          .record_draw(cmd,
+            frame.hdr.extent(),
+            vkexec::mesh_draw{ .vertex_buffer = vertices,
+              .index_buffer = indices,
+              .index_count = draw.index_count,
+              .first_index = draw.first_index });
+      }
+      vkCmdEndRenderPass(cmd);
+    }));
+  if (frame.initialized) {
+    // Establish the previous frame's graphics ownership before compute writes this image again.
+    graph.append(vkexec::custom_pass(vkexec::uses(vkexec::read(frame.bloom.back().image.handle(),
+                                       color_range(),
+                                       vkexec::image_usage::sampled_fragment,
+                                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)),
+      [](VkCommandBuffer /*cmd*/) -> void {}));
   }
-  vkCmdEndRenderPass(cmd);
-  transition(ctx,
-    cmd,
-    frame.shadow.depth_image(),
-    VK_IMAGE_ASPECT_DEPTH_BIT,
-    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-    VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
-  transition(ctx,
-    cmd,
-    frame.hdr.color_image(0),
-    VK_IMAGE_ASPECT_COLOR_BIT,
-    frame.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    frame.initialized ? VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_2_NONE,
-    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-    frame.initialized ? VK_ACCESS_2_SHADER_SAMPLED_READ_BIT : VK_ACCESS_2_NONE,
-    VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
-  transition(ctx,
-    cmd,
-    frame.hdr.depth_image(),
-    VK_IMAGE_ASPECT_DEPTH_BIT,
-    frame.initialized ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-    VK_PIPELINE_STAGE_2_NONE,
-    VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-    VK_ACCESS_2_NONE,
-    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
-  begin_offscreen_pass(cmd, frame.hdr);
-  for (auto const &draw : scene.draws) {
-    if (draw.material_index < 0 || std::cmp_greater_equal(draw.material_index, frame.forward.size())) {
-      vkexec::examples::fail_check("Bonza primitive has no base-color material");
-    }
-    frame.forward.at(static_cast<std::size_t>(draw.material_index))
-      .record_draw(cmd,
-        frame.hdr.extent(),
-        vkexec::mesh_draw{ .vertex_buffer = vertices,
-          .index_buffer = indices,
-          .index_count = draw.index_count,
-          .first_index = draw.first_index });
-  }
-  vkCmdEndRenderPass(cmd);
-  bool const transfer = ctx.graphics_queue_family() != compute_queue.family;
-  transition(ctx,
-    cmd,
-    frame.hdr.color_image(0),
-    VK_IMAGE_ASPECT_COLOR_BIT,
-    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-    transfer ? VK_PIPELINE_STAGE_2_NONE : VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-    VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-    transfer ? VK_ACCESS_2_NONE : VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-    transfer ? ctx.graphics_queue_family() : VK_QUEUE_FAMILY_IGNORED,
-    transfer ? compute_queue.family : VK_QUEUE_FAMILY_IGNORED);
-  if (transfer && frame.initialized) {
-    transition(ctx,
-      cmd,
-      frame.bloom.back().image.handle(),
-      VK_IMAGE_ASPECT_COLOR_BIT,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-      VK_PIPELINE_STAGE_2_NONE,
-      VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-      VK_ACCESS_2_NONE,
-      ctx.graphics_queue_family(),
-      compute_queue.family);
-  }
-  check_vk(vkEndCommandBuffer(cmd), "vkEndCommandBuffer failed for early graphics");
-}
-
-auto record_compute(vkexec::context &ctx, frame_resources const &frame, vkexec::queue_ref compute_queue) -> void
-{
-  VkCommandBuffer cmd = frame.compute_cmd;
-  begin_recording(cmd);
-  bool const transfer = ctx.graphics_queue_family() != compute_queue.family;
-  if (transfer) {
-    transition(ctx,
-      cmd,
-      frame.hdr.color_image(0),
-      VK_IMAGE_ASPECT_COLOR_BIT,
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_PIPELINE_STAGE_2_NONE,
-      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_ACCESS_2_NONE,
-      VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-      ctx.graphics_queue_family(),
-      compute_queue.family);
-    if (frame.initialized) {
-      transition(ctx,
-        cmd,
-        frame.bloom.back().image.handle(),
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_2_NONE,
-        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-        VK_ACCESS_2_NONE,
-        VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-        ctx.graphics_queue_family(),
-        compute_queue.family);
-    }
-  }
+  graph.append(vkexec::on_queue(compute_queue));
   for (bloom_pass const &pass : frame.passes) {
     bloom_image const &output = frame.bloom.at(pass.output_index);
-    transition(ctx,
-      cmd,
-      output.image.handle(),
-      VK_IMAGE_ASPECT_COLOR_BIT,
-      frame.initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
-      VK_IMAGE_LAYOUT_GENERAL,
-      VK_PIPELINE_STAGE_2_NONE,
-      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_ACCESS_2_NONE,
-      VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT);
     bloom_params const params{
       .resolution = { output.extent.width, output.extent.height },
       .inv_resolution = { 1.0F / static_cast<float>(output.extent.width),
@@ -622,109 +584,24 @@ auto record_compute(vkexec::context &ctx, frame_resources const &frame, vkexec::
       .inv_input_resolution = { 1.0F / static_cast<float>(pass.input_extent.width),
         1.0F / static_cast<float>(pass.input_extent.height) },
     };
-    vkexec::record_pass(cmd,
-      pass.pipeline->bind(pass.set),
-      &params,
-      static_cast<std::uint32_t>(sizeof(params)),
+    graph.append(vkexec::compute_pass(pass.pipeline->bind(pass.set, pass.resources),
+      params,
       vkexec::dispatch{ .x = (output.extent.width + k_local_size - 1) / k_local_size,
         .y = (output.extent.height + k_local_size - 1) / k_local_size,
-        .z = 1 });
-    transition(ctx,
-      cmd,
-      output.image.handle(),
-      VK_IMAGE_ASPECT_COLOR_BIT,
-      VK_IMAGE_LAYOUT_GENERAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-      VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+        .z = 1 }));
   }
-  if (transfer) {
-    transition(ctx,
-      cmd,
-      frame.hdr.color_image(0),
-      VK_IMAGE_ASPECT_COLOR_BIT,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_PIPELINE_STAGE_2_NONE,
-      VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-      VK_ACCESS_2_NONE,
-      compute_queue.family,
-      ctx.graphics_queue_family());
-    transition(ctx,
-      cmd,
-      frame.bloom.back().image.handle(),
-      VK_IMAGE_ASPECT_COLOR_BIT,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-      VK_PIPELINE_STAGE_2_NONE,
-      VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT,
-      VK_ACCESS_2_NONE,
-      compute_queue.family,
-      ctx.graphics_queue_family());
-  }
-  check_vk(vkEndCommandBuffer(cmd), "vkEndCommandBuffer failed for compute");
-}
-
-auto record_final(vkexec::context &ctx,
-  frame_resources const &frame,
-  vkexec::frame const &present_frame,
-  vkexec::examples::glfw_presenter &win,
-  vkexec::queue_ref compute_queue) -> void
-{
-  VkCommandBuffer cmd = present_frame.command_buffer;
-  if (ctx.graphics_queue_family() != compute_queue.family) {
-    std::array const images{ frame.hdr.color_image(0), frame.bloom.back().image.handle() };
-    for (VkImage image : images) {
-      transition(ctx,
-        cmd,
-        image,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_PIPELINE_STAGE_2_NONE,
-        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-        VK_ACCESS_2_NONE,
-        VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-        compute_queue.family,
-        ctx.graphics_queue_family());
-    }
-  }
-  frame.composite.record_pass(
-    cmd, win.render_pass(), present_frame.framebuffer, present_frame.extent, k_fullscreen_vertices);
-}
-
-auto submit_frame(vkexec::context &ctx,
-  frame_resources const &frame,
-  vkexec::frame const &present_frame,
-  vkexec::examples::glfw_presenter &win,
-  vkexec::queue_ref compute_queue) -> void
-{
-  std::array<VkCommandBuffer, 1> const early_commands{ frame.early_cmd };
-  std::array<vkexec::semaphore_submit, 1> const early_signals{
-    vkexec::semaphore_submit{ .semaphore = frame.graphics_done },
-  };
-  check(ctx.submit(vkexec::queue_submit{
-    .command_buffers = early_commands, .signals = early_signals, .queue = ctx.graphics_queue() }));
-  std::array<VkCommandBuffer, 1> const compute_commands{ frame.compute_cmd };
-  std::array<vkexec::semaphore_submit, 1> const compute_waits{
-    vkexec::semaphore_submit{ .semaphore = frame.graphics_done, .stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT },
-  };
-  std::array<vkexec::semaphore_submit, 1> const compute_signals{
-    vkexec::semaphore_submit{ .semaphore = frame.compute_done },
-  };
-  check(ctx.submit(vkexec::queue_submit{ .command_buffers = compute_commands,
-    .waits = compute_waits,
-    .signals = compute_signals,
-    .queue = compute_queue.queue }));
-  std::array<vkexec::semaphore_submit, 1> const final_waits{
-    vkexec::semaphore_submit{ .semaphore = frame.compute_done, .stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT },
-  };
-  auto ended = win.end_frame(present_frame, vkexec::frame_submit_options{ .waits = final_waits });
-  if (!ended) { vkexec::examples::abort_with_error(ended.error()); }
+  graph.append(vkexec::on_queue(ctx.graphics_queue_ref()));
+  auto present_use = vkexec::write(present_frame.image, color_range(), vkexec::image_usage::color_attachment);
+  present_use.final_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  graph.append(vkexec::custom_pass(
+    vkexec::uses(vkexec::read(frame.hdr.color_image(0), color_range(), vkexec::image_usage::sampled_fragment),
+      vkexec::read(frame.bloom.back().image.handle(), color_range(), vkexec::image_usage::sampled_fragment),
+      present_use),
+    [&frame, &win, present_frame](VkCommandBuffer cmd) -> void {
+      frame.composite.record_pass(
+        cmd, win.render_pass(), present_frame.framebuffer, present_frame.extent, k_fullscreen_vertices);
+    }));
+  return std::move(graph) | vkexec::present(win.target(), present_frame);
 }
 
 [[nodiscard]] auto parse_mode(int argc, char const *const *argv) -> queue_mode
@@ -848,7 +725,7 @@ auto run(int argc, char const *const *argv) -> int
     textures.push_back(vkexec::examples::load_ktx_texture(ctx, allocator, asset_dir / "bonza" / texture_path));
   }
   auto uploads = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx.get_scheduler()));
-  uploads.append_queue(ctx.graphics_queue_ref());
+  uploads.append(vkexec::on_queue(ctx.graphics_queue_ref()));
   for (vkexec::examples::ktx_texture const &texture : textures) {
     VkImageSubresourceRange const range{
       .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -867,17 +744,9 @@ auto run(int argc, char const *const *argv) -> int
   std::filesystem::path const shader_dir{ VKEXEC_SAMPLE_SHADER_DIR };
   auto compute = make_compute_pipelines(ctx, shader_dir);
   std::vector<frame_resources> frames;
-  auto rebuild_frames = [&]() -> void {
-    win.wait_idle();
-    for (frame_resources &frame : frames) { destroy_frame(ctx, frame); }
-    frames.clear();
-    frames.reserve(k_frames_in_flight);
-    for (std::size_t index = 0; index < k_frames_in_flight; ++index) {
-      frames.push_back(make_frame(
-        win, allocator, shader_dir, textures, material_sampler, bloom_sampler, compute, light, compute_queue));
-    }
-  };
-  rebuild_frames();
+  frame_executions in_flight{};
+  rebuild_frames(
+    win, frames, in_flight, allocator, shader_dir, textures, material_sampler, bloom_sampler, compute, light);
   vkexec::examples::free_camera camera{
     { bounds.center.at(0),
       bounds.center.at(1) + (bounds.radius * k_camera_height_scale),
@@ -895,23 +764,27 @@ auto run(int argc, char const *const *argv) -> int
     VkExtent2D const wanted_extent = scaled_extent(window_extent);
     if (frames.front().hdr.extent().width != wanted_extent.width
         || frames.front().hdr.extent().height != wanted_extent.height) {
-      rebuild_frames();
+      rebuild_frames(
+        win, frames, in_flight, allocator, shader_dir, textures, material_sampler, bloom_sampler, compute, light);
     }
-    auto begun = win.begin_frame();
-    if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
-    if (!begun->has_value()) { continue; }
-    vkexec::frame const present_frame = **begun;
+    if (in_flight.at(frame_index)) {
+      in_flight.at(frame_index)->wait();
+      in_flight.at(frame_index).reset();
+    }
+    auto acquired = win.target().acquire_frame();
+    if (!acquired) { vkexec::examples::abort_with_error(acquired.error()); }
+    if (!acquired->has_value()) { continue; }
+    vkexec::acquired_frame const present_frame = **acquired;
     frame_resources &frame = frames.at(frame_index);
     vkexec::examples::camera_data const camera_uniform = camera.data(frame.hdr.extent());
     std::memcpy(frame.camera_buffer.mapped().data(), &camera_uniform, sizeof(camera_uniform));
     check(frame.camera_buffer.flush());
-    record_early(ctx, frame, scene, vertices.handle(), indices.handle(), compute_queue);
-    record_compute(ctx, frame, compute_queue);
-    record_final(ctx, frame, present_frame, win, compute_queue);
-    submit_frame(ctx, frame, present_frame, win, compute_queue);
+    in_flight.at(frame_index) = std::make_unique<frame_execution>(
+      render_frame(ctx, frame, scene, vertices.handle(), indices.handle(), present_frame, win, compute_queue));
     frame.initialized = true;
     frame_index = (frame_index + 1) % k_frames_in_flight;
   }
+  drain_frames(in_flight);
   win.wait_idle();
   for (frame_resources &frame : frames) { destroy_frame(ctx, frame); }
   return 0;
