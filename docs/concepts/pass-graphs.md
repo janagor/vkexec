@@ -27,4 +27,4 @@ Use `dynamic_pass_graph_sender::append_after()` when passes form a DAG. Nodes ar
 
 Set queue affinity with `append_queue()` before adding each node. Resource declarations on passes let the planner add missing dependencies for conflicting uses, including queue ownership transfers. The executor submits batches without a host wait. When several branches remain terminal, an internal join submission waits for all of them before the sender completes. With presentation, the final graphics batch serves as that join.
 
-Resource state tracking currently remembers one last use per resource. It therefore orders even compatible read-only uses on different queues. This conservative edge keeps a later write dependent on both readers through transitive ordering; parallel read frontiers require a separate state-tracking change.
+Compatible read-only uses can run on different queues in the same family when they preserve the resource layout. A later write waits for every reader in the frontier. Layout transitions and queue-family ownership changes establish a new ordered access; ownership transfers use one reader as the release handoff.

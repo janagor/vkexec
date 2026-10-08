@@ -872,7 +872,7 @@ namespace detail {
       auto release(VkDevice device) noexcept -> void
       {
         for (std::size_t index{}; index < fences.size(); ++index) {
-          VkFence fence = fences.at(index);
+          VkFence fence{ fences.at(index) };
           if (fence != VK_NULL_HANDLE && !is_borrowed_graph_fence(index, scopes.size(), presentation.has_value())) {
             vkDestroyFence(device, fence, nullptr);
           }
@@ -952,7 +952,7 @@ namespace detail {
         }
         if (presentation && index + std::size_t{ 1 } == scopes.size()) {
           signals.push_back(presentation->sync.render_finished_signal);
-          VkFence fence = fences.at(index);
+          VkFence fence{ fences.at(index) };
           if (VkResult const reset = vkResetFences(facade.device(), 1, &fence); reset != VK_SUCCESS) {
             return fail(reset, "vkResetFences failed for graph presentation");
           }
@@ -1004,7 +1004,7 @@ namespace detail {
             this->presented = true;
           }
           auto const token = detail::receiver_stop_token(receiver);
-          VkFence terminal_fence = fences.back();
+          VkFence terminal_fence{ fences.back() };
           fences.back() = VK_NULL_HANDLE;
           status enqueued;
 #if VKEXEC_HAS_EXCEPTIONS
@@ -1490,6 +1490,8 @@ namespace detail {
 //! Each branch must contain at least one pass; presentation belongs after the branches.
 template<detail::sender_adaptor_closure... Branches>
   requires(sizeof...(Branches) >= detail::k_min_branch_count)
+// Branches are forwarded into the tuple below.
+// NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
 [[nodiscard]] auto when_all(Branches &&...branches)
   -> detail::expr_closure<detail::when_all_t, detail::when_all_data<std::decay_t<Branches>...>>
 {

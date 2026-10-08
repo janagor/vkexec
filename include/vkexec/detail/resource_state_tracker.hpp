@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <ranges>
 #include <utility>
 #include <vector>
@@ -180,8 +181,8 @@ struct tracked_image
 {
   image_use use;
   usage_scope scope;
-  std::size_t step;
-  std::uint32_t family;
+  std::size_t step{};
+  std::uint32_t family{};
   VkQueue queue{ VK_NULL_HANDLE };
 };
 
@@ -189,16 +190,40 @@ struct tracked_buffer
 {
   buffer_use use;
   usage_scope scope;
-  std::size_t step;
-  std::uint32_t family;
+  std::size_t step{};
+  std::uint32_t family{};
   VkQueue queue{ VK_NULL_HANDLE };
+};
+
+template<class Access> struct access_frontier
+{
+  std::optional<Access> anchor;
+  std::vector<Access> readers;
+};
+
+struct tracked_image_state
+{
+  VkImage image{ VK_NULL_HANDLE };
+  VkImageSubresourceRange range{};
+  VkImageLayout layout{ VK_IMAGE_LAYOUT_UNDEFINED };
+  std::uint32_t family{ VK_QUEUE_FAMILY_IGNORED };
+  access_frontier<tracked_image> accesses;
+};
+
+struct tracked_buffer_state
+{
+  VkBuffer buffer{ VK_NULL_HANDLE };
+  VkDeviceSize offset{};
+  VkDeviceSize size{};
+  std::uint32_t family{ VK_QUEUE_FAMILY_IGNORED };
+  access_frontier<tracked_buffer> accesses;
 };
 
 class resource_state_tracker
 {
   resource_sync_plan plan_;
-  std::vector<tracked_image> images_;
-  std::vector<tracked_buffer> buffers_;
+  std::vector<tracked_image_state> images_;
+  std::vector<tracked_buffer_state> buffers_;
 
   [[nodiscard]] static auto same_range(VkImageSubresourceRange lhs, VkImageSubresourceRange rhs) noexcept -> bool
   {
@@ -206,16 +231,167 @@ class resource_state_tracker
            && lhs.baseArrayLayer == rhs.baseArrayLayer && lhs.layerCount == rhs.layerCount;
   }
 
-  auto record_image_dependency(tracked_image const &previous,
-    std::size_t step,
-    bool transfer,
-    bool hazard,
-    bool different_queue,
-    VkImageLayout next_layout) -> void
+  auto add_dependency(std::size_t source, std::size_t destination) -> void
   {
-    if (transfer || hazard || previous.scope.layout != next_layout || different_queue) {
-      plan_.dependencies.emplace_back(previous.step, step);
+    auto const edge = std::pair{ source, destination };
+    if (source != destination && std::ranges::find(plan_.dependencies, edge) == plan_.dependencies.end()) {
+      plan_.dependencies.push_back(edge);
     }
+  }
+
+  template<class Access> auto depend_on_frontier(access_frontier<Access> const &frontier, std::size_t step) -> void
+  {
+    if (frontier.readers.empty()) {
+      if (frontier.anchor) { add_dependency(frontier.anchor->step, step); }
+    } else {
+      for (auto const &reader : frontier.readers) { add_dependency(reader.step, step); }
+    }
+  }
+
+  template<class Access>
+  [[nodiscard]] auto collapse_frontier_for_transfer(access_frontier<Access> &frontier) -> std::optional<Access>
+  {
+    if (!frontier.readers.empty()) {
+      Access handoff = frontier.readers.back();
+      for (auto const &reader : frontier.readers) { add_dependency(reader.step, handoff.step); }
+      frontier.anchor = handoff;
+      frontier.readers.clear();
+    }
+    return frontier.anchor;
+  }
+
+  template<class Access>
+  [[nodiscard]] static auto source_scope(access_frontier<Access> const &frontier, VkQueue queue) -> usage_scope
+  {
+    usage_scope combined{};
+    auto const include = [&combined, queue](Access const &access) -> void {
+      if (access.queue == VK_NULL_HANDLE || queue == VK_NULL_HANDLE || access.queue == queue) {
+        combined.stage |= access.scope.stage;
+        combined.access |= access.scope.access;
+      }
+    };
+    if (frontier.readers.empty()) {
+      if (frontier.anchor) { include(*frontier.anchor); }
+    } else {
+      for (auto const &reader : frontier.readers) { include(reader); }
+    }
+    return combined;
+  }
+
+  [[nodiscard]] auto first_image_use(image_use declaration,
+    std::size_t step,
+    std::uint32_t family,
+    VkQueue queue,
+    bool render_pass_transition,
+    usage_scope next,
+    usage_scope after) -> status
+  {
+    if (declaration.access != resource_access::write && declaration.initial_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
+      return fail(errc::invalid_argument, "first graph image read requires an initial layout");
+    }
+    if (render_pass_transition) { next.layout = declaration.initial_layout; }
+    if (next.layout != VK_IMAGE_LAYOUT_UNDEFINED) {
+      plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
+        .range = declaration.range,
+        .old_layout = declaration.initial_layout,
+        .new_layout = next.layout,
+        .dst_stage = next.stage,
+        .dst_access = next.access });
+    }
+    auto const first_access =
+      tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue };
+    bool const imported_read = declaration.access == resource_access::read && declaration.initial_layout == next.layout
+                               && after.layout == next.layout && !render_pass_transition;
+    access_frontier<tracked_image> frontier{};
+    if (imported_read) {
+      frontier.readers.push_back(first_access);
+    } else {
+      frontier.anchor = first_access;
+    }
+    images_.push_back(tracked_image_state{ .image = declaration.image,
+      .range = declaration.range,
+      .layout = after.layout,
+      .family = family,
+      .accesses = std::move(frontier) });
+    return {};
+  }
+
+  auto append_compatible_image_reader(tracked_image_state &state,
+    image_use declaration,
+    std::size_t step,
+    std::uint32_t family,
+    VkQueue queue,
+    usage_scope next,
+    usage_scope after) -> void
+  {
+    auto &frontier = state.accesses;
+    if (frontier.anchor) {
+      auto const &anchor = *frontier.anchor;
+      add_dependency(anchor.step, step);
+      if (anchor.use.access != resource_access::read) {
+        auto const source = source_scope(access_frontier<tracked_image>{ .anchor = anchor, .readers = {} }, queue);
+        plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
+          .range = declaration.range,
+          .old_layout = state.layout,
+          .new_layout = next.layout,
+          .src_stage = source.stage,
+          .dst_stage = next.stage,
+          .src_access = source.access,
+          .dst_access = next.access });
+      }
+    }
+    frontier.readers.push_back(
+      tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue });
+  }
+
+  [[nodiscard]] auto advance_image_state(tracked_image_state &state,
+    image_use declaration,
+    std::size_t step,
+    std::uint32_t family,
+    VkQueue queue,
+    usage_scope next,
+    usage_scope after) -> status
+  {
+    auto &frontier = state.accesses;
+    depend_on_frontier(frontier, step);
+    if (state.family != family) {
+      auto const handoff = collapse_frontier_for_transfer(frontier);
+      if (!handoff) { return fail(errc::invalid_argument, "image transfer requires a previous access"); }
+      plan_.steps.at(handoff->step)
+        .images_after.push_back(image_barrier_params{ .image = declaration.image,
+          .range = declaration.range,
+          .old_layout = state.layout,
+          .new_layout = next.layout,
+          .src_stage = handoff->scope.stage,
+          .src_access = handoff->scope.access,
+          .src_queue_family = state.family,
+          .dst_queue_family = family });
+      plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
+        .range = declaration.range,
+        .old_layout = state.layout,
+        .new_layout = next.layout,
+        .dst_stage = next.stage,
+        .dst_access = next.access,
+        .src_queue_family = state.family,
+        .dst_queue_family = family });
+    } else {
+      auto const source = source_scope(frontier, queue);
+      plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
+        .range = declaration.range,
+        .old_layout = state.layout,
+        .new_layout = next.layout,
+        .src_stage = source.stage,
+        .dst_stage = next.stage,
+        .src_access = source.access,
+        .dst_access = next.access });
+    }
+    state.layout = after.layout;
+    state.family = family;
+    frontier.anchor =
+      tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue };
+    frontier.readers.clear();
+    if (declaration.access == resource_access::read) { frontier.readers.push_back(*frontier.anchor); }
+    return {};
   }
 
   [[nodiscard]] auto
@@ -233,65 +409,29 @@ class resource_state_tracker
     usage_scope after = next;
     if (declaration.final_layout != VK_IMAGE_LAYOUT_UNDEFINED) { after.layout = declaration.final_layout; }
     auto found = std::ranges::find_if(
-      images_, [declaration](tracked_image const &entry) -> bool { return entry.use.image == declaration.image; });
+      images_, [declaration](tracked_image_state const &entry) -> bool { return entry.image == declaration.image; });
     if (found == images_.end()) {
-      if (declaration.access != resource_access::write && declaration.initial_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
-        return fail(errc::invalid_argument, "first graph image read requires an initial layout");
-      }
-      if (render_pass_transition) { next.layout = declaration.initial_layout; }
-      if (next.layout != VK_IMAGE_LAYOUT_UNDEFINED) {
-        plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
-          .range = declaration.range,
-          .old_layout = declaration.initial_layout,
-          .new_layout = next.layout,
-          .dst_stage = next.stage,
-          .dst_access = next.access });
-      }
-      images_.push_back(
-        tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue });
-      return {};
+      return first_image_use(declaration, step, family, queue, render_pass_transition, next, after);
     }
-    if (found->step == step) {
+    auto &frontier = found->accesses;
+    if ((frontier.anchor && frontier.anchor->step == step)
+        || std::ranges::any_of(
+          frontier.readers, [step](tracked_image const &reader) -> bool { return reader.step == step; })) {
       return fail(errc::invalid_argument, "multiple image uses in one pass require one combined declaration");
     }
-    if (!same_range(found->use.range, declaration.range)) {
+    if (!same_range(found->range, declaration.range)) {
       return fail(errc::unsupported, "graph image uses require matching subresource ranges");
     }
     bool const transfer = found->family != family;
-    bool const different_queue = found->queue != VK_NULL_HANDLE && queue != VK_NULL_HANDLE && found->queue != queue;
-    bool const hazard = found->use.access != resource_access::read || declaration.access != resource_access::read;
-    record_image_dependency(*found, step, transfer, hazard, different_queue, next.layout);
-    if (render_pass_transition) { next.layout = found->scope.layout; }
-    if (transfer) {
-      plan_.steps.at(found->step)
-        .images_after.push_back(image_barrier_params{ .image = declaration.image,
-          .range = declaration.range,
-          .old_layout = found->scope.layout,
-          .new_layout = next.layout,
-          .src_stage = found->scope.stage,
-          .src_access = found->scope.access,
-          .src_queue_family = found->family,
-          .dst_queue_family = family });
-      plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
-        .range = declaration.range,
-        .old_layout = found->scope.layout,
-        .new_layout = next.layout,
-        .dst_stage = next.stage,
-        .dst_access = next.access,
-        .src_queue_family = found->family,
-        .dst_queue_family = family });
-    } else if (hazard || found->scope.layout != next.layout) {
-      plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
-        .range = declaration.range,
-        .old_layout = found->scope.layout,
-        .new_layout = next.layout,
-        .src_stage = different_queue ? VK_PIPELINE_STAGE_2_NONE : found->scope.stage,
-        .dst_stage = next.stage,
-        .src_access = different_queue ? VK_ACCESS_2_NONE : found->scope.access,
-        .dst_access = next.access });
+    if (render_pass_transition) { next.layout = found->layout; }
+    bool const compatible_read = declaration.access == resource_access::read && !transfer
+                                 && found->layout == next.layout && after.layout == next.layout
+                                 && !render_pass_transition;
+    if (compatible_read) {
+      append_compatible_image_reader(*found, declaration, step, family, queue, next, after);
+      return {};
     }
-    *found = tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue };
-    return {};
+    return advance_image_state(*found, declaration, step, family, queue, next, after);
   }
 
 public:
@@ -321,30 +461,59 @@ public:
     }
     if (!valid(declaration)) { return fail(errc::invalid_argument, "buffer usage and access are incompatible"); }
     usage_scope const next = buffer_scope(declaration);
-    auto found = std::ranges::find_if(
-      buffers_, [declaration](tracked_buffer const &entry) -> bool { return entry.use.buffer == declaration.buffer; });
+    auto found = std::ranges::find_if(buffers_,
+      [declaration](tracked_buffer_state const &entry) -> bool { return entry.buffer == declaration.buffer; });
     if (found == buffers_.end()) {
-      buffers_.push_back(
-        tracked_buffer{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue });
+      auto const first_access =
+        tracked_buffer{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue };
+      bool const imported_read = declaration.access == resource_access::read;
+      buffers_.push_back(tracked_buffer_state{ .buffer = declaration.buffer,
+        .offset = declaration.offset,
+        .size = declaration.size,
+        .family = family,
+        .accesses = { .anchor = imported_read ? std::optional<tracked_buffer>{} : std::optional{ first_access },
+          .readers = imported_read ? std::vector{ first_access } : std::vector<tracked_buffer>{} } });
       return {};
     }
-    if (found->step == step) {
+    auto &frontier = found->accesses;
+    if ((frontier.anchor && frontier.anchor->step == step)
+        || std::ranges::any_of(
+          frontier.readers, [step](tracked_buffer const &reader) -> bool { return reader.step == step; })) {
       return fail(errc::invalid_argument, "multiple buffer uses in one pass require one combined declaration");
     }
-    if (found->use.offset != declaration.offset || found->use.size != declaration.size) {
+    if (found->offset != declaration.offset || found->size != declaration.size) {
       return fail(errc::unsupported, "graph buffer uses require matching ranges");
     }
     bool const transfer = found->family != family;
-    bool const different_queue = found->queue != VK_NULL_HANDLE && queue != VK_NULL_HANDLE && found->queue != queue;
-    bool const hazard = found->use.access != resource_access::read || declaration.access != resource_access::read;
-    if (transfer || hazard || different_queue) { plan_.dependencies.emplace_back(found->step, step); }
+    if (declaration.access == resource_access::read && !transfer) {
+      if (frontier.anchor) {
+        auto const &anchor = *frontier.anchor;
+        add_dependency(anchor.step, step);
+        if (anchor.use.access != resource_access::read) {
+          auto const source = source_scope(access_frontier<tracked_buffer>{ .anchor = anchor, .readers = {} }, queue);
+          plan_.steps.at(step).buffers_before.push_back(buffer_barrier_params{ .buffer = declaration.buffer,
+            .offset = declaration.offset,
+            .size = declaration.size,
+            .src_stage = source.stage,
+            .dst_stage = next.stage,
+            .src_access = source.access,
+            .dst_access = next.access });
+        }
+      }
+      frontier.readers.push_back(
+        tracked_buffer{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue });
+      return {};
+    }
+    depend_on_frontier(frontier, step);
     if (transfer) {
-      plan_.steps.at(found->step)
+      auto const handoff = collapse_frontier_for_transfer(frontier);
+      if (!handoff) { return fail(errc::invalid_argument, "buffer transfer requires a previous access"); }
+      plan_.steps.at(handoff->step)
         .buffers_after.push_back(buffer_barrier_params{ .buffer = declaration.buffer,
           .offset = declaration.offset,
           .size = declaration.size,
-          .src_stage = found->scope.stage,
-          .src_access = found->scope.access,
+          .src_stage = handoff->scope.stage,
+          .src_access = handoff->scope.access,
           .src_queue_family = found->family,
           .dst_queue_family = family });
       plan_.steps.at(step).buffers_before.push_back(buffer_barrier_params{ .buffer = declaration.buffer,
@@ -354,16 +523,20 @@ public:
         .dst_access = next.access,
         .src_queue_family = found->family,
         .dst_queue_family = family });
-    } else if (hazard) {
+    } else {
+      auto const source = source_scope(frontier, queue);
       plan_.steps.at(step).buffers_before.push_back(buffer_barrier_params{ .buffer = declaration.buffer,
         .offset = declaration.offset,
         .size = declaration.size,
-        .src_stage = different_queue ? VK_PIPELINE_STAGE_2_NONE : found->scope.stage,
+        .src_stage = source.stage,
         .dst_stage = next.stage,
-        .src_access = different_queue ? VK_ACCESS_2_NONE : found->scope.access,
+        .src_access = source.access,
         .dst_access = next.access });
     }
-    *found = tracked_buffer{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue };
+    found->family = family;
+    frontier.anchor =
+      tracked_buffer{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue };
+    frontier.readers.clear();
     return {};
   }
 

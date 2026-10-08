@@ -1,8 +1,9 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/detail/pass_lowering.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/pass.hpp>
+// The lowering implementation depends on types defined by pass.hpp.
+#include <vkexec/detail/pass_lowering.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/resource_table.hpp>
@@ -13,6 +14,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -29,6 +31,8 @@ constexpr std::size_t k_second_step = 1;
 constexpr std::size_t k_pair_step_count = 2;
 constexpr std::size_t k_single_step_count = 1;
 constexpr std::size_t k_dag_step_count = 4;
+constexpr std::size_t k_third_step = 2;
+constexpr std::size_t k_fourth_step = 3;
 constexpr std::uint32_t k_default_family = 0;
 constexpr std::uint32_t k_other_family = 1;
 constexpr std::uint32_t k_sampled_binding = 0;
@@ -333,6 +337,128 @@ TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass
   REQUIRE(barrier.src_access == VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
   REQUIRE(barrier.dst_access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
   REQUIRE(barrier.src_queue_family == VK_QUEUE_FAMILY_IGNORED);
+}
+
+TEST_CASE("buffer readers fan out and a writer joins their frontier", "[vkexec][pass]")
+{
+  char storage{};
+  char first_queue_storage{};
+  char second_queue_storage{};
+  auto *const buffer = fake_buffer(&storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *const first_queue = reinterpret_cast<VkQueue>(&first_queue_storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *const second_queue = reinterpret_cast<VkQueue>(&second_queue_storage);
+  vkexec::detail::resource_state_tracker tracker{ k_dag_step_count };
+  REQUIRE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
+  REQUIRE(tracker.use(
+    vkexec::read(buffer, vkexec::buffer_usage::uniform_compute), k_second_step, k_default_family, first_queue));
+  REQUIRE(tracker.use(
+    vkexec::read(buffer, vkexec::buffer_usage::transfer_source), k_third_step, k_default_family, second_queue));
+  REQUIRE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::storage_compute), k_fourth_step, k_default_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.dependencies
+          == std::vector<std::pair<std::size_t, std::size_t>>{ { k_first_step, k_second_step },
+            { k_first_step, k_third_step },
+            { k_second_step, k_fourth_step },
+            { k_third_step, k_fourth_step } });
+  REQUIRE(plan.steps.at(k_fourth_step).buffers_before.size() == 1);
+  auto const &barrier = plan.steps.at(k_fourth_step).buffers_before.front();
+  REQUIRE(barrier.src_access == (VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT));
+}
+
+TEST_CASE("first buffer reads form a frontier", "[vkexec][pass]")
+{
+  char storage{};
+  char first_queue_storage{};
+  char second_queue_storage{};
+  auto *const buffer = fake_buffer(&storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *const first_queue = reinterpret_cast<VkQueue>(&first_queue_storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *const second_queue = reinterpret_cast<VkQueue>(&second_queue_storage);
+  vkexec::detail::resource_state_tracker tracker{ k_dag_step_count };
+  REQUIRE(tracker.use(
+    vkexec::read(buffer, vkexec::buffer_usage::uniform_compute), k_first_step, k_default_family, first_queue));
+  REQUIRE(tracker.use(
+    vkexec::read(buffer, vkexec::buffer_usage::uniform_fragment), k_second_step, k_default_family, second_queue));
+  REQUIRE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::storage_compute), k_third_step, k_default_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.dependencies
+          == std::vector<std::pair<std::size_t, std::size_t>>{
+            { k_first_step, k_third_step }, { k_second_step, k_third_step } });
+}
+
+TEST_CASE("imported image reads in an existing layout form a frontier", "[vkexec][pass]")
+{
+  char storage{};
+  char first_queue_storage{};
+  char second_queue_storage{};
+  auto *const image = fake_image(&storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *const first_queue = reinterpret_cast<VkQueue>(&first_queue_storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *const second_queue = reinterpret_cast<VkQueue>(&second_queue_storage);
+  vkexec::detail::resource_state_tracker tracker{ k_dag_step_count };
+  REQUIRE(tracker.use(
+    vkexec::read(image, k_color_range, vkexec::image_usage::sampled_compute, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+    k_first_step,
+    k_default_family,
+    first_queue));
+  REQUIRE(tracker.use(vkexec::read(image, k_color_range, vkexec::image_usage::sampled_fragment),
+    k_second_step,
+    k_default_family,
+    second_queue));
+  REQUIRE(tracker.use(
+    vkexec::write(image, k_color_range, vkexec::image_usage::storage_compute), k_third_step, k_default_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.dependencies
+          == std::vector<std::pair<std::size_t, std::size_t>>{
+            { k_first_step, k_third_step }, { k_second_step, k_third_step } });
+}
+
+TEST_CASE("image layout change anchors a new read frontier", "[vkexec][pass]")
+{
+  char storage{};
+  auto *const image = fake_image(&storage);
+  vkexec::detail::resource_state_tracker tracker{ k_dag_step_count };
+  REQUIRE(tracker.use(
+    vkexec::write(image, k_color_range, vkexec::image_usage::storage_compute), k_first_step, k_default_family));
+  REQUIRE(tracker.use(
+    vkexec::read(image, k_color_range, vkexec::image_usage::sampled_compute), k_second_step, k_default_family));
+  REQUIRE(tracker.use(
+    vkexec::read(image, k_color_range, vkexec::image_usage::sampled_fragment), k_third_step, k_default_family));
+  REQUIRE(tracker.use(
+    vkexec::write(image, k_color_range, vkexec::image_usage::storage_compute), k_fourth_step, k_default_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.dependencies
+          == std::vector<std::pair<std::size_t, std::size_t>>{ { k_first_step, k_second_step },
+            { k_second_step, k_third_step },
+            { k_second_step, k_fourth_step },
+            { k_third_step, k_fourth_step } });
+  REQUIRE(plan.steps.at(k_fourth_step).images_before.size() == 1);
+  REQUIRE(plan.steps.at(k_fourth_step).images_before.front().old_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+TEST_CASE("ownership transfer collapses a reader frontier to one release", "[vkexec][pass]")
+{
+  char storage{};
+  auto *const buffer = fake_buffer(&storage);
+  vkexec::detail::resource_state_tracker tracker{ k_dag_step_count };
+  REQUIRE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
+  REQUIRE(tracker.use(vkexec::read(buffer, vkexec::buffer_usage::uniform_compute), k_second_step, k_default_family));
+  REQUIRE(tracker.use(vkexec::read(buffer, vkexec::buffer_usage::uniform_fragment), k_third_step, k_default_family));
+  REQUIRE(tracker.use(vkexec::read(buffer, vkexec::buffer_usage::uniform_compute), k_fourth_step, k_other_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(std::ranges::find(plan.dependencies, std::pair{ k_second_step, k_third_step }) != plan.dependencies.end());
+  REQUIRE(plan.steps.at(k_second_step).buffers_after.empty());
+  REQUIRE(plan.steps.at(k_third_step).buffers_after.size() == 1);
+  REQUIRE(plan.steps.at(k_fourth_step).buffers_before.size() == 1);
 }
 
 TEST_CASE("compute binding preserves a sampled descriptor's GENERAL layout", "[vkexec][pass]")

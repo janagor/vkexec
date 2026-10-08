@@ -53,13 +53,14 @@ struct pass_fragment_root
 }
 
 template<class Env>
-[[nodiscard]] auto collect_pass_chain(pass_fragment_root root, Env const & /*env*/) -> pass_chain<pass_fragment_root>
+[[nodiscard]] auto collect_pass_chain(pass_fragment_root const &root, Env const & /*env*/)
+  -> pass_chain<pass_fragment_root>
 {
   return { .pred = {},
     .steps = {},
     .step_queues = {},
     .step_predecessors = {},
-    .frontier = std::move(root.frontier),
+    .frontier = root.frontier,
     .base_index = root.base_index,
     .dag_mode = true,
     .current_queue = root.current_queue };
@@ -176,6 +177,7 @@ template<std::size_t Index = 0, class Chain, class Branches, class Env>
 template<class Tag, class Data, class Child, class Env>
   requires(std::same_as<Tag, on_queue_t> || std::same_as<Tag, when_all_t>
            || requires(Tag tag, Data &&data, Env const &env) { lower_vkexec_pass_step(tag, std::move(data), env); })
+// NOLINTNEXTLINE(performance-unnecessary-value-param) -- child and data may be move-only
 [[nodiscard]] auto collect_pass_chain(sender_expr<Tag, Data, Child> expr, Env const &env)
 {
   auto chain = collect_pass_chain(std::move(expr.child), env);
