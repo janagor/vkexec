@@ -246,7 +246,8 @@ namespace owned {
     [[nodiscard]] auto config() const noexcept -> graphics_pipeline_config const & { return resources_->cfg; }
 
     //! Builds a `graphics_bind` for recording with the retained descriptor set.
-    [[nodiscard]] auto bind() const -> graphics_bind { return bind_graphics(*resources_, descriptor_set_); }
+    [[nodiscard]] auto bind() const -> graphics_bind
+    { return bind_graphics(*resources_, descriptor_set_, resources_table_); }
 
     /**
      * Requires a recording command buffer and an active compatible render pass.
@@ -290,5 +291,7 @@ namespace owned {
 }// namespace owned
 
 }// namespace vkexec
+
+#include <vkexec_graphics/pass.hpp>
 
 #endif// VKEXEC_GRAPHICS_GRAPHICS_HPP

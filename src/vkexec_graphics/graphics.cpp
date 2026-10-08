@@ -243,6 +243,8 @@ auto create(context &ctx,
   std::vector<VkDescriptorSetLayoutBinding> layout_bindings;
   layout_bindings.reserve(resources.size());
   for (resource_binding const &binding : resources.entries()) {
+    owned.binding_slots.push_back(binding.slot);
+    owned.binding_kinds.push_back(binding.resource.kind);
     VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     switch (binding.resource.kind) {
     case resource_kind::storage_buffer:
@@ -383,7 +385,7 @@ auto begin_graphics_pass(VkCommandBuffer cmd,
 
 namespace {
 
-  auto bind_graphics_draw_state(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent) -> void
+  auto bind_graphics_draw_state(VkCommandBuffer cmd, graphics_bind const &bind, VkExtent2D extent) -> void
   {
     (void)detail::bind_and_push<detail::set_descriptor_backend>(
       nullptr, cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind, {});
@@ -393,13 +395,13 @@ namespace {
 
 }// namespace
 
-auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, std::uint32_t vertex_count) -> void
+auto record_draw(VkCommandBuffer cmd, graphics_bind const &bind, VkExtent2D extent, std::uint32_t vertex_count) -> void
 {
   bind_graphics_draw_state(cmd, bind, extent);
   vkCmdDraw(cmd, vertex_count, 1, 0, 0);
 }
 
-auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mesh_draw const &drawn) -> void
+auto record_draw(VkCommandBuffer cmd, graphics_bind const &bind, VkExtent2D extent, mesh_draw const &drawn) -> void
 {
   bind_graphics_draw_state(cmd, bind, extent);
   VkDeviceSize const vertex_offset = 0;
@@ -413,7 +415,7 @@ auto record_draw_pass(VkCommandBuffer cmd,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
-  graphics_bind bind,
+  graphics_bind const &bind,
   std::uint32_t vertex_count) -> void
 {
   begin_graphics_pass(cmd, render_pass, framebuffer, extent, cfg);
@@ -426,7 +428,7 @@ auto record_draw_pass(VkCommandBuffer cmd,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
-  graphics_bind bind,
+  graphics_bind const &bind,
   mesh_draw const &drawn) -> void
 {
   begin_graphics_pass(cmd, render_pass, framebuffer, extent, cfg);

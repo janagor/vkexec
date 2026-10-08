@@ -67,6 +67,10 @@ namespace {
       return;
     }
     if (resource.kind == resource_kind::storage_buffer) {
+      if (resource.buffer == VK_NULL_HANDLE || resource.byte_size == 0) {
+        bind.complete_resource_metadata = false;
+        return;
+      }
       bind.buffers.push_back(buffer_use{ .buffer = resource.buffer,
         .size = resource.byte_size,
         .usage = buffer_usage::storage_compute,

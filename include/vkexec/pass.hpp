@@ -247,6 +247,7 @@ namespace detail {
 
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
       {
+        if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
         if constexpr (requires { step.bind.resource_metadata; }) { return step.bind.resource_metadata; }
         return requires { step.resources; };
       }
@@ -530,8 +531,18 @@ namespace detail {
     if constexpr (requires { step.resources; }) {
       return tracker.use(step.resources, index, queue.family, queue.queue);
     } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
-      if (crosses_families && !step.bind.resource_metadata) {
-        return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+      if (crosses_families) {
+        if constexpr (requires { step.has_resource_declarations(); }) {
+          if (!step.has_resource_declarations()) {
+            return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+          }
+        } else if constexpr (requires { step.bind.resource_metadata; }) {
+          if (!step.bind.resource_metadata) {
+            return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+          }
+        } else {
+          return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+        }
       }
       return step.declare_resources(tracker, index, queue);
     } else {

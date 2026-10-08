@@ -23,7 +23,9 @@ enum class resource_access : std::uint8_t { read, write, read_write };
 enum class image_usage : std::uint8_t {
   sampled_compute,
   sampled_fragment,
+  sampled_graphics,
   storage_compute,
+  storage_graphics,
   color_attachment,
   depth_attachment,
   transfer_source,
@@ -38,6 +40,7 @@ enum class buffer_usage : std::uint8_t {
   uniform_vertex,
   uniform_fragment,
   storage_compute,
+  storage_graphics,
   transfer_source,
   transfer_destination,
 };
@@ -51,6 +54,8 @@ struct image_use
   VkImageLayout initial_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
   //! Overrides the usage's default layout when a descriptor requires another valid layout.
   VkImageLayout layout{ VK_IMAGE_LAYOUT_UNDEFINED };
+  //! Layout after this use, for render-pass finalLayout transitions.
+  VkImageLayout final_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
 };
 
 struct buffer_use

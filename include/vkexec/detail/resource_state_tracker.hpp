@@ -53,11 +53,13 @@ struct usage_scope
   switch (use.usage) {
   case image_usage::sampled_compute:
   case image_usage::sampled_fragment:
+  case image_usage::sampled_graphics:
   case image_usage::transfer_source:
     return use.access == resource_access::read;
   case image_usage::transfer_destination:
     return use.access == resource_access::write;
   case image_usage::storage_compute:
+  case image_usage::storage_graphics:
   case image_usage::color_attachment:
   case image_usage::depth_attachment:
     return true;
@@ -79,6 +81,7 @@ struct usage_scope
   case buffer_usage::transfer_destination:
     return use.access == resource_access::write;
   case buffer_usage::storage_compute:
+  case buffer_usage::storage_graphics:
     return true;
   }
   return false;
@@ -95,8 +98,16 @@ struct usage_scope
     return { .stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
       .access = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
       .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+  case image_usage::sampled_graphics:
+    return { .stage = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+      .access = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+      .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
   case image_usage::storage_compute:
     return { .stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+      .access = access_mask(use.access, VK_ACCESS_2_SHADER_STORAGE_READ_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT),
+      .layout = VK_IMAGE_LAYOUT_GENERAL };
+  case image_usage::storage_graphics:
+    return { .stage = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
       .access = access_mask(use.access, VK_ACCESS_2_SHADER_STORAGE_READ_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT),
       .layout = VK_IMAGE_LAYOUT_GENERAL };
   case image_usage::color_attachment:
@@ -145,6 +156,9 @@ struct usage_scope
   case buffer_usage::storage_compute:
     return { .stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
       .access = access_mask(use.access, VK_ACCESS_2_SHADER_STORAGE_READ_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT) };
+  case buffer_usage::storage_graphics:
+    return { .stage = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+      .access = access_mask(use.access, VK_ACCESS_2_SHADER_STORAGE_READ_BIT, VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT) };
   case buffer_usage::transfer_source:
     return { .stage = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT, .access = VK_ACCESS_2_TRANSFER_READ_BIT };
   case buffer_usage::transfer_destination:
@@ -183,32 +197,35 @@ class resource_state_tracker
            && lhs.baseArrayLayer == rhs.baseArrayLayer && lhs.layerCount == rhs.layerCount;
   }
 
-public:
-  explicit resource_state_tracker(std::size_t step_count) { plan_.steps.resize(step_count); }
-
-  [[nodiscard]] auto use(image_use declaration, std::size_t step, std::uint32_t family, VkQueue queue = VK_NULL_HANDLE)
-    -> status
+  [[nodiscard]] auto
+    use_image(image_use declaration, std::size_t step, std::uint32_t family, VkQueue queue, bool render_pass_transition)
+      -> status
   {
     if (declaration.image == VK_NULL_HANDLE || declaration.range.aspectMask == 0 || declaration.range.levelCount == 0
         || declaration.range.layerCount == 0) {
       return fail(errc::invalid_argument, "invalid graph image use");
     }
     if (!valid(declaration)) { return fail(errc::invalid_argument, "image usage and access are incompatible"); }
-    usage_scope const next = image_scope(declaration);
+    usage_scope next = image_scope(declaration);
+    usage_scope after = next;
+    if (declaration.final_layout != VK_IMAGE_LAYOUT_UNDEFINED) { after.layout = declaration.final_layout; }
     auto found = std::ranges::find_if(
       images_, [declaration](tracked_image const &entry) -> bool { return entry.use.image == declaration.image; });
     if (found == images_.end()) {
       if (declaration.access != resource_access::write && declaration.initial_layout == VK_IMAGE_LAYOUT_UNDEFINED) {
         return fail(errc::invalid_argument, "first graph image read requires an initial layout");
       }
-      plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
-        .range = declaration.range,
-        .old_layout = declaration.initial_layout,
-        .new_layout = next.layout,
-        .dst_stage = next.stage,
-        .dst_access = next.access });
+      if (render_pass_transition) { next.layout = declaration.initial_layout; }
+      if (next.layout != VK_IMAGE_LAYOUT_UNDEFINED) {
+        plan_.steps.at(step).images_before.push_back(image_barrier_params{ .image = declaration.image,
+          .range = declaration.range,
+          .old_layout = declaration.initial_layout,
+          .new_layout = next.layout,
+          .dst_stage = next.stage,
+          .dst_access = next.access });
+      }
       images_.push_back(
-        tracked_image{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue });
+        tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue });
       return {};
     }
     if (found->step == step) {
@@ -220,6 +237,7 @@ public:
     bool const transfer = found->family != family;
     bool const different_queue = found->queue != VK_NULL_HANDLE && queue != VK_NULL_HANDLE && found->queue != queue;
     bool const hazard = found->use.access != resource_access::read || declaration.access != resource_access::read;
+    if (render_pass_transition) { next.layout = found->scope.layout; }
     if (transfer) {
       plan_.steps.at(found->step)
         .images_after.push_back(image_barrier_params{ .image = declaration.image,
@@ -248,8 +266,27 @@ public:
         .src_access = different_queue ? VK_ACCESS_2_NONE : found->scope.access,
         .dst_access = next.access });
     }
-    *found = tracked_image{ .use = declaration, .scope = next, .step = step, .family = family, .queue = queue };
+    *found = tracked_image{ .use = declaration, .scope = after, .step = step, .family = family, .queue = queue };
     return {};
+  }
+
+public:
+  explicit resource_state_tracker(std::size_t step_count) { plan_.steps.resize(step_count); }
+
+  [[nodiscard]] auto use(image_use declaration, std::size_t step, std::uint32_t family, VkQueue queue = VK_NULL_HANDLE)
+    -> status
+  { return use_image(declaration, step, family, queue, false); }
+
+  //! Synchronizes an attachment to the layout required at vkCmdBeginRenderPass.
+  //! UNDEFINED leaves the layout transition to the render pass itself.
+  [[nodiscard]] auto use_attachment(image_use declaration,
+    VkImageLayout render_pass_initial_layout,
+    std::size_t step,
+    std::uint32_t family,
+    VkQueue queue = VK_NULL_HANDLE) -> status
+  {
+    if (render_pass_initial_layout != VK_IMAGE_LAYOUT_UNDEFINED) { declaration.layout = render_pass_initial_layout; }
+    return use_image(declaration, step, family, queue, render_pass_initial_layout == VK_IMAGE_LAYOUT_UNDEFINED);
   }
 
   [[nodiscard]] auto use(buffer_use declaration, std::size_t step, std::uint32_t family, VkQueue queue = VK_NULL_HANDLE)

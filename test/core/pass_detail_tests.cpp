@@ -195,6 +195,18 @@ TEST_CASE("compute binding preserves a sampled descriptor's GENERAL layout", "[v
   REQUIRE(barrier.dst_access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
 }
 
+TEST_CASE("compute binding rejects missing storage buffer metadata", "[vkexec][pass]")
+{
+  constexpr std::uint32_t k_storage_binding = 0;
+  vkexec::handles::compute_pipeline pipe{};
+  pipe.binding_accesses = { vkexec::buffer_access::readonly };
+  auto const table = vkexec::bindings(vkexec::resource_binding{
+    .slot = k_storage_binding, .resource = vkexec::buffer_resource(VK_NULL_HANDLE, sizeof(std::uint32_t)) });
+  auto const bind = vkexec::bind_compute(pipe, VK_NULL_HANDLE, table);
+  REQUIRE(bind.resource_metadata);
+  REQUIRE_FALSE(bind.complete_resource_metadata);
+}
+
 TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][pass]")
 {
   char storage{};

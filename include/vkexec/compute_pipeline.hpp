@@ -197,6 +197,11 @@ namespace owned {
     [[nodiscard]] auto bind(VkDescriptorSet set = VK_NULL_HANDLE) const -> compute_bind
     { return bind_compute(*resources_, set); }
 
+    //! Retains descriptor resource metadata for automatic compute-pass synchronization.
+    //! The table must describe the resources currently written into `set`.
+    [[nodiscard]] auto bind(VkDescriptorSet set, resource_table const &table) const -> compute_bind
+    { return bind_compute(*resources_, set, table); }
+
     //! Returns the specialized local workgroup size as a `dispatch`.
     [[nodiscard]] auto local_size() const noexcept -> dispatch { return vkexec::local_size(*resources_); }
 
