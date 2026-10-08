@@ -143,7 +143,7 @@ template<resource_use... Uses> [[nodiscard]] constexpr auto uses(Uses... declara
   resource_uses<Uses...> result{};
   std::size_t image_index{};
   std::size_t buffer_index{};
-  auto append = [&]<resource_use Use>(Use declaration) constexpr -> void {
+  [[maybe_unused]] auto append = [&]<resource_use Use>(Use declaration) constexpr -> void {
     if constexpr (std::same_as<Use, image_use>) {
       result.images.at(image_index++) = declaration;
     } else {
