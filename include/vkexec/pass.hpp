@@ -12,6 +12,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/presentation_abort_state.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
@@ -44,6 +45,25 @@ namespace ex = stdexec;
 
 //! An unset affinity uses the graph's default queue during execution planning.
 using queue_affinity = std::optional<queue_ref>;
+
+//! Synchronization borrowed from a presenter for one graph execution.
+struct graph_presentation_sync
+{
+  semaphore_submit image_available_wait;
+  semaphore_submit render_finished_signal;
+  VkFence fence{ VK_NULL_HANDLE };
+};
+
+//! External swapchain boundary attached to a complete pass graph.
+struct graph_presentation
+{
+  queue_ref queue;
+  VkImage image{ VK_NULL_HANDLE };
+  std::function<result<graph_presentation_sync>()> prepare;
+  std::function<status()> present;
+  std::function<status(presentation_abort_state)> abort;
+  graph_presentation_sync sync;
+};
 
 //! Workgroup counts for `vkCmdDispatch` (X/Y/Z).
 struct dispatch
@@ -642,15 +662,36 @@ namespace detail {
     return {};
   }
 
+  [[nodiscard]] inline auto
+    validate_presentation_image(resource_sync_plan const &sync, execution_plan const &plan, VkImage image) -> status
+  {
+    if (image == VK_NULL_HANDLE) { return {}; }
+    bool saw_image{};
+    for (auto const &use : sync.image_uses) {
+      if (use.image != image) { continue; }
+      saw_image = true;
+      if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment
+          || use.final_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+        return fail(errc::invalid_argument,
+          "presented image must be used as a color attachment only in the final batch and finish in present layout");
+      }
+    }
+    if (!saw_image) { return fail(errc::invalid_argument, "presented image has no declared graph use"); }
+    return {};
+  }
+
   template<class StepStorage>
-  [[nodiscard]] auto record_execution(context_handle const &state, execution_plan const &plan, StepStorage &steps)
-    -> result<std::vector<submit_scope>>
+  [[nodiscard]] auto record_execution(context_handle const &state,
+    execution_plan const &plan,
+    StepStorage &steps,
+    VkImage presentation_image = VK_NULL_HANDLE) -> result<std::vector<submit_scope>>
   {
     if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
     auto const step_count = pass_step_count(steps);
     if (auto validated = validate_execution_batches(plan, step_count); !validated) { return fail(validated); }
     auto synchronization = plan_resource_sync(plan, steps);
     if (!synchronization) { return fail(synchronization); }
+    VKEXEC_TRY(validate_presentation_image(*synchronization, plan, presentation_image));
     auto facade = context_access::facade(state);
     std::vector<submit_scope> scopes;
     scopes.reserve(plan.batches.empty() ? std::size_t{ 1 } : plan.batches.size());
@@ -722,6 +763,7 @@ namespace detail {
     using completion_signatures = pass_graph_completion_signatures;
 
     std::vector<submit_scope> scopes;
+    std::optional<graph_presentation> presentation;
 
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
     [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
@@ -733,11 +775,16 @@ namespace detail {
       std::vector<VkSemaphore> semaphores;
       std::vector<VkFence> fences;
       bool timeline{};
+      std::optional<graph_presentation> presentation;
+      bool presented{};
 
       auto release(VkDevice device) noexcept -> void
       {
-        for (VkFence fence : fences) {
-          if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+        for (std::size_t index{}; index < fences.size(); ++index) {
+          VkFence fence = fences.at(index);
+          if (fence != VK_NULL_HANDLE && (!presentation || index + std::size_t{ 1 } != fences.size())) {
+            vkDestroyFence(device, fence, nullptr);
+          }
         }
         fences.clear();
         for (VkSemaphore semaphore : semaphores) {
@@ -754,6 +801,10 @@ namespace detail {
         semaphores.reserve(timeline ? std::size_t{ 1 } : boundary_count);
         fences.reserve(scopes.size());
         for (std::size_t index{}; index < scopes.size(); ++index) {
+          if (presentation && index + std::size_t{ 1 } == scopes.size()) {
+            fences.push_back(presentation->sync.fence);
+            continue;
+          }
           VkFence fence{ VK_NULL_HANDLE };
           VkFenceCreateInfo fence_info{};
           fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -786,25 +837,36 @@ namespace detail {
         auto const boundary_count = scopes.size() - std::size_t{ 1 };
         auto const &scope = scopes.at(index);
         std::array<VkCommandBuffer, 1> const commands{ scope.cmd };
-        std::array<semaphore_submit, 1> waits{};
-        std::array<semaphore_submit, 1> signals{};
+        std::array<semaphore_submit, 2> waits{};
+        std::array<semaphore_submit, 2> signals{};
+        std::size_t wait_count{};
+        std::size_t signal_count{};
         if (index != 0) {
-          waits.front() = semaphore_submit{
+          waits.at(wait_count++) = semaphore_submit{
             .semaphore = semaphores.at(timeline ? std::size_t{} : index - std::size_t{ 1 }),
             .value = timeline ? index : std::size_t{},
           };
         }
         if (index < boundary_count) {
-          signals.front() = semaphore_submit{
+          signals.at(signal_count++) = semaphore_submit{
             .semaphore = semaphores.at(timeline ? std::size_t{} : index),
             .value = timeline ? index + std::size_t{ 1 } : std::size_t{},
           };
         }
+        if (presentation && index == boundary_count) {
+          waits.at(wait_count++) = presentation->sync.image_available_wait;
+        }
+        if (presentation && index == boundary_count) {
+          signals.at(signal_count++) = presentation->sync.render_finished_signal;
+          VkFence fence = fences.at(index);
+          if (VkResult const reset = vkResetFences(facade.device(), 1, &fence); reset != VK_SUCCESS) {
+            return fail(reset, "vkResetFences failed for graph presentation");
+          }
+        }
         return facade.submit(queue_submit{
           .command_buffers = commands,
-          .waits = index == 0 ? std::span<semaphore_submit const>{} : std::span<semaphore_submit const>{ waits },
-          .signals = index == boundary_count ? std::span<semaphore_submit const>{}
-                                             : std::span<semaphore_submit const>{ signals },
+          .waits = std::span<semaphore_submit const>{ waits.data(), wait_count },
+          .signals = std::span<semaphore_submit const>{ signals.data(), signal_count },
           .fence = fences.at(index),
           .queue = scope.queue.queue,
         });
@@ -813,6 +875,12 @@ namespace detail {
       auto start() noexcept -> void
       {
         if (detail::receiver_stop_requested(receiver)) {
+          if (presentation) {
+            if (auto abandoned = presentation->abort(presentation_abort_state::acquired_only); !abandoned) {
+              ex::set_error(std::move(receiver), std::move(abandoned.error()));
+              return;
+            }
+          }
           ex::set_stopped(std::move(receiver));
           return;
         }
@@ -834,6 +902,13 @@ namespace detail {
             }
             ++submitted;
           }
+          if (presentation) {
+            if (auto present_result = presentation->present(); !present_result) {
+              finish_error(facade, submitted, std::move(present_result.error()));
+              return;
+            }
+            this->presented = true;
+          }
           auto const token = detail::receiver_stop_token(receiver);
           VkFence terminal_fence = fences.back();
           fences.back() = VK_NULL_HANDLE;
@@ -841,13 +916,15 @@ namespace detail {
 #if VKEXEC_HAS_EXCEPTIONS
           try {
 #endif
-            enqueued = facade.enqueue_fence_wait(VK_NULL_HANDLE,
-              terminal_fence,
-              token,
-              [this, device](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
-                release(device);
-                detail::complete_after_reclaim(std::move(receiver), std::move(wait_error), stopped);
-              });
+            auto completed = [this, device](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+              release(device);
+              detail::complete_after_reclaim(std::move(receiver), std::move(wait_error), stopped);
+            };
+            if (presentation) {
+              enqueued = facade.enqueue_borrowed_fence_wait(terminal_fence, token, std::move(completed));
+            } else {
+              enqueued = facade.enqueue_fence_wait(VK_NULL_HANDLE, terminal_fence, token, std::move(completed));
+            }
 #if VKEXEC_HAS_EXCEPTIONS
           } catch (...) {
             fences.back() = terminal_fence;
@@ -868,6 +945,11 @@ namespace detail {
           auto const count = static_cast<std::uint32_t>(submitted);
           (void)vkWaitForFences(facade.device(), count, fences.data(), VK_TRUE, UINT64_MAX);
         }
+        if (presentation && !presented) {
+          auto const abort_state = submitted == scopes.size() ? presentation_abort_state::final_submit_completed
+                                                              : presentation_abort_state::acquired_only;
+          if (auto abandoned = presentation->abort(abort_state); !abandoned) { failure = std::move(abandoned.error()); }
+        }
         release(facade.device());
         ex::set_error(std::move(receiver), std::move(failure));
       }
@@ -881,6 +963,8 @@ namespace detail {
         .semaphores = {},
         .fences = {},
         .timeline = false,
+        .presentation = std::move(presentation),
+        .presented = false,
       };
     }
   };
@@ -890,6 +974,7 @@ namespace detail {
     context_handle state;
     StepStorage steps;
     std::vector<queue_affinity> step_queues;
+    std::optional<graph_presentation> presentation;
     Receiver receiver;
     using child_receiver_t = pass_graph_after_gpu_receiver<StepStorage, Receiver>;
     using fence_sender_t = detail::graph_submit_sender;
@@ -911,9 +996,25 @@ namespace detail {
 
     std::optional<submit_op_holder> submit_op;
 
+    auto fail_before_submit(error failure) noexcept -> void
+    {
+      if (presentation) {
+        if (auto abandoned = presentation->abort(presentation_abort_state::acquired_only); !abandoned) {
+          failure = std::move(abandoned.error());
+        }
+      }
+      ex::set_error(std::move(receiver), std::move(failure));
+    }
+
     auto start() noexcept -> void
     {
       if (detail::receiver_stop_requested(receiver)) {
+        if (presentation) {
+          if (auto abandoned = presentation->abort(presentation_abort_state::acquired_only); !abandoned) {
+            ex::set_error(std::move(receiver), std::move(abandoned.error()));
+            return;
+          }
+        }
         ex::set_stopped(std::move(receiver));
         return;
       }
@@ -921,27 +1022,50 @@ namespace detail {
       try {
 #endif
         if (!state) {
-          ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "pass graph requires a context"));
+          fail_before_submit(make_error(errc::invalid_argument, "pass graph requires a context"));
           return;
         }
         auto facade = context_access::facade(state);
         auto planned = detail::plan_execution(detail::pass_step_count(steps), step_queues, facade.compute_queue_ref());
         if (!planned) {
-          ex::set_error(std::move(receiver), std::move(planned.error()));
+          fail_before_submit(std::move(planned.error()));
           return;
         }
-        auto prepared = detail::record_execution(state, *planned, steps);
+        if (presentation) {
+          if (planned->batches.empty() || !detail::same_queue(planned->batches.back().queue, presentation->queue)) {
+            fail_before_submit(make_error(
+              errc::invalid_argument, "presentation requires a final batch on the presenter's graphics queue"));
+            return;
+          }
+          auto sync = presentation->prepare();
+          if (!sync) {
+            error failure = std::move(sync.error());
+            (void)presentation->abort(presentation_abort_state::acquired_only);
+            ex::set_error(std::move(receiver), std::move(failure));
+            return;
+          }
+          presentation->sync = expected_take(sync);
+          if (presentation->sync.fence == VK_NULL_HANDLE
+              || presentation->sync.image_available_wait.semaphore == VK_NULL_HANDLE
+              || presentation->sync.render_finished_signal.semaphore == VK_NULL_HANDLE) {
+            fail_before_submit(make_error(errc::invalid_argument, "presentation returned incomplete synchronization"));
+            return;
+          }
+        }
+        auto prepared =
+          detail::record_execution(state, *planned, steps, presentation ? presentation->image : VK_NULL_HANDLE);
         if (!prepared) {
-          ex::set_error(std::move(receiver), std::move(prepared.error()));
+          fail_before_submit(std::move(prepared.error()));
           return;
         }
-        auto &child = submit_op.emplace(detail::graph_submit_sender{ .scopes = expected_take(prepared) },
+        auto &child = submit_op.emplace(
+          detail::graph_submit_sender{ .scopes = expected_take(prepared), .presentation = std::move(presentation) },
           scheduler_access::make(state),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
-        ex::set_error(std::move(receiver), unexpected_exception_error());
+        fail_before_submit(unexpected_exception_error());
       }
 #endif
     }
@@ -977,6 +1101,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
   detail::context_handle state;
   std::tuple<Steps...> steps;
   std::vector<queue_affinity> step_queues;
+  std::optional<graph_presentation> presentation;
   queue_affinity current_queue;
 
   using step_storage_t = std::tuple<Steps...>;
@@ -995,6 +1120,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
       .state = state,
       .steps = steps,
       .step_queues = step_queues,
+      .presentation = presentation,
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };
@@ -1009,6 +1135,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
       .state = std::move(state),
       .steps = std::move(steps),
       .step_queues = std::move(step_queues),
+      .presentation = std::move(presentation),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };
@@ -1024,6 +1151,7 @@ struct dynamic_pass_graph_sender
   detail::context_handle state;
   step_storage_t steps;
   std::vector<queue_affinity> step_queues;
+  std::optional<graph_presentation> presentation;
   queue_affinity current_queue;
 
   dynamic_pass_graph_sender() = default;
@@ -1066,6 +1194,7 @@ struct dynamic_pass_graph_sender
       .state = std::move(state),
       .steps = std::move(steps),
       .step_queues = std::move(step_queues),
+      .presentation = std::move(presentation),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };

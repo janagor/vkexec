@@ -619,6 +619,7 @@ TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler]
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .presentation = {},
     .current_queue = {},
   };
 
@@ -763,6 +764,7 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .presentation = {},
     .current_queue = {},
   };
 
@@ -891,6 +893,7 @@ TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][sc
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .presentation = {},
     .current_queue = {},
   };
 
@@ -926,6 +929,7 @@ TEST_CASE("pass_graph_sender completes on the context host scheduler", "[vkexec]
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .presentation = {},
     .current_queue = {},
   };
 

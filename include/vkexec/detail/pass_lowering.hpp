@@ -125,6 +125,7 @@ template<static_pass_step... Steps> struct materialize_pass_graph_fn
     return { .state = std::move(state),
       .steps = std::move(steps),
       .step_queues = std::move(step_queues),
+      .presentation = std::nullopt,
       .current_queue = current_queue };
   }
 };
@@ -150,6 +151,7 @@ template<static_pass_step... Steps>
   return { .state = std::move(chain.pred.state),
     .steps = std::move(chain.steps),
     .step_queues = std::move(chain.step_queues),
+    .presentation = std::nullopt,
     .current_queue = chain.current_queue };
 }
 
@@ -166,6 +168,7 @@ template<static_pass_step... Old, static_pass_step... Steps>
   return { .state = std::move(state),
     .steps = std::tuple_cat(std::move(chain.pred.steps), std::move(chain.steps)),
     .step_queues = std::move(queues),
+    .presentation = std::move(chain.pred.presentation),
     .current_queue = chain.current_queue };
 }
 

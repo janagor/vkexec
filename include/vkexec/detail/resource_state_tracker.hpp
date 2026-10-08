@@ -25,6 +25,14 @@ struct resource_sync_point
 struct resource_sync_plan
 {
   std::vector<resource_sync_point> steps;
+  struct image_access
+  {
+    VkImage image{ VK_NULL_HANDLE };
+    image_usage usage{};
+    VkImageLayout final_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
+    std::size_t step{};
+  };
+  std::vector<image_access> image_uses;
 };
 
 struct usage_scope
@@ -206,6 +214,8 @@ class resource_state_tracker
       return fail(errc::invalid_argument, "invalid graph image use");
     }
     if (!valid(declaration)) { return fail(errc::invalid_argument, "image usage and access are incompatible"); }
+    plan_.image_uses.push_back(resource_sync_plan::image_access{
+      .image = declaration.image, .usage = declaration.usage, .final_layout = declaration.final_layout, .step = step });
     usage_scope next = image_scope(declaration);
     usage_scope after = next;
     if (declaration.final_layout != VK_IMAGE_LAYOUT_UNDEFINED) { after.layout = declaration.final_layout; }
