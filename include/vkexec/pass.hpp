@@ -331,18 +331,83 @@ namespace detail {
     return scope.end_recording();
   }
 
+  struct execution_batch
+  {
+    queue_ref queue{};
+    std::size_t first_step{};
+    std::size_t end_step{};
+  };
+
+  struct execution_plan
+  {
+    std::vector<execution_batch> batches;
+  };
+
+  [[nodiscard]] inline auto same_queue(queue_ref lhs, queue_ref rhs) noexcept -> bool
+  { return lhs.queue == rhs.queue && lhs.family == rhs.family; }
+
+  [[nodiscard]] inline auto plan_batches(std::span<queue_affinity const> queues, queue_ref default_queue)
+    -> execution_plan
+  {
+    execution_plan plan;
+    std::size_t index{};
+    for (queue_affinity const &affinity : queues) {
+      queue_ref const queue = affinity.value_or(default_queue);
+      if (plan.batches.empty() || !same_queue(plan.batches.back().queue, queue)) {
+        plan.batches.push_back(execution_batch{ .queue = queue, .first_step = index, .end_step = index + 1 });
+      } else {
+        plan.batches.back().end_step = index + 1;
+      }
+      ++index;
+    }
+    return plan;
+  }
+
+  [[nodiscard]] inline auto plan_execution(std::size_t step_count,
+    std::span<queue_affinity const> queues,
+    queue_ref default_queue) -> result<execution_plan>
+  {
+    if (!queues.empty() && queues.size() != step_count) {
+      return fail(errc::invalid_argument, "pass queue count mismatch");
+    }
+    std::vector<queue_affinity> default_queues;
+    if (queues.empty()) { default_queues.resize(step_count); }
+    return plan_batches(queues.empty() ? std::span<queue_affinity const>{ default_queues } : queues, default_queue);
+  }
+
   template<class StepStorage>
-  [[nodiscard]] auto open_and_record_pass(context_handle state, StepStorage &steps) -> result<submit_scope>
+  [[nodiscard]] constexpr auto pass_step_count(StepStorage const &steps) noexcept -> std::size_t
+  {
+    if constexpr (requires { steps.size(); }) {
+      return steps.size();
+    } else {
+      return std::tuple_size_v<StepStorage>;
+    }
+  }
+
+  template<class StepStorage>
+  [[nodiscard]] auto record_execution(context_handle const &state, execution_plan const &plan, StepStorage &steps)
+    -> result<submit_scope>
   {
     if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
-    auto facade = context_access::facade(std::move(state));
-    auto opened = submit_scope::open(facade);
+    if (plan.batches.size() > 1) {
+      return fail(errc::unsupported, "multi-batch pass graphs require synchronization planning");
+    }
+    auto const step_count = pass_step_count(steps);
+    if (plan.batches.empty()) {
+      if (step_count != 0) { return fail(errc::invalid_argument, "invalid empty execution plan"); }
+    } else {
+      auto const &batch = plan.batches.front();
+      if (batch.first_step != 0 || batch.end_step != step_count) {
+        return fail(errc::invalid_argument, "invalid single-batch execution plan");
+      }
+    }
+    auto facade = context_access::facade(state);
+    queue_ref const queue = plan.batches.empty() ? facade.compute_queue_ref() : plan.batches.front().queue;
+    auto opened = submit_scope::open(facade, queue);
     if (!opened) { return fail(opened); }
     submit_scope scope = expected_take(opened);
-    if (auto recorded = record_pass_steps(scope, steps); !recorded) {
-      scope.release();
-      return fail(recorded);
-    }
+    if (auto recorded = record_pass_steps(scope, steps); !recorded) { return fail(recorded); }
     return scope;
   }
 
@@ -394,6 +459,7 @@ namespace detail {
   {
     context_handle state;
     StepStorage steps;
+    std::vector<queue_affinity> step_queues;
     Receiver receiver;
     using child_receiver_t = pass_graph_after_gpu_receiver<StepStorage, Receiver>;
     using fence_sender_t = detail::submit_fence_sender;
@@ -424,7 +490,17 @@ namespace detail {
 #if VKEXEC_HAS_EXCEPTIONS
       try {
 #endif
-        auto prepared = detail::open_and_record_pass(state, steps);
+        if (!state) {
+          ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "pass graph requires a context"));
+          return;
+        }
+        auto facade = context_access::facade(state);
+        auto planned = detail::plan_execution(detail::pass_step_count(steps), step_queues, facade.compute_queue_ref());
+        if (!planned) {
+          ex::set_error(std::move(receiver), std::move(planned.error()));
+          return;
+        }
+        auto prepared = detail::record_execution(state, *planned, steps);
         if (!prepared) {
           ex::set_error(std::move(receiver), std::move(prepared.error()));
           return;
@@ -488,6 +564,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
     return op_state<Receiver>{
       .state = state,
       .steps = steps,
+      .step_queues = step_queues,
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };
@@ -501,6 +578,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
     return op_state<Receiver>{
       .state = std::move(state),
       .steps = std::move(steps),
+      .step_queues = std::move(step_queues),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };
@@ -557,6 +635,7 @@ struct dynamic_pass_graph_sender
     return op_state<Receiver>{
       .state = std::move(state),
       .steps = std::move(steps),
+      .step_queues = std::move(step_queues),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
     };
