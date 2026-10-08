@@ -1,4 +1,5 @@
 #include <vkexec/barrier.hpp>
+#include <vkexec/barrier_params.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/result.hpp>
 

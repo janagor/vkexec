@@ -1,16 +1,35 @@
 #include <vkexec/pass.hpp>
 
+#include <vkexec/barrier.hpp>
+#include <vkexec/barrier_params.hpp>
+
 #include <vkexec/detail/descriptor_backend.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/result.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace vkexec {
+
+namespace detail {
+
+  auto record_sync(context &facade,
+    VkCommandBuffer cmd,
+    std::vector<image_barrier_params> const &images,
+    std::vector<buffer_barrier_params> const &buffers) -> status
+  {
+    for (auto const &barrier : images) { VKEXEC_TRY(image_barrier(facade, cmd, barrier)); }
+    for (auto const &barrier : buffers) { VKEXEC_TRY(buffer_barrier(facade, cmd, barrier)); }
+    return {};
+  }
+
+}// namespace detail
 
 auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set) -> compute_bind
 { return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }

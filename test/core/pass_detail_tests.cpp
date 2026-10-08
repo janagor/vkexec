@@ -1,20 +1,40 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <span>
+#include <utility>
 
 namespace {
 
 constexpr VkDeviceSize k_byte_size = 64;
+constexpr std::size_t k_first_step = 0;
+constexpr std::size_t k_second_step = 1;
+constexpr std::size_t k_pair_step_count = 2;
+constexpr std::size_t k_single_step_count = 1;
+constexpr std::uint32_t k_default_family = 0;
 
 [[nodiscard]] auto fake_buffer(void *storage) -> VkBuffer { return static_cast<VkBuffer>(storage); }
+
+[[nodiscard]] auto fake_image(void *storage) -> VkImage { return static_cast<VkImage>(storage); }
+
+constexpr VkImageSubresourceRange k_color_range{
+  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+  .baseMipLevel = 0,
+  .levelCount = 1,
+  .baseArrayLayer = 0,
+  .layerCount = 1,
+};
 
 }// namespace
 
@@ -125,4 +145,142 @@ TEST_CASE("pass batches group adjacent steps by resolved queue", "[vkexec][pass]
   REQUIRE(planned.has_value());
   REQUIRE(planned->batches.size() == mixed_plan.batches.size());
   REQUIRE_FALSE(vkexec::detail::plan_execution(mixed.size() - 1, mixed, graphics).has_value());
+}
+
+TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass]")
+{
+  char storage{};
+  vkexec::detail::resource_state_tracker tracker{ k_pair_step_count };
+  REQUIRE(tracker.use(vkexec::write(fake_image(&storage), k_color_range, vkexec::image_usage::color_attachment),
+    k_first_step,
+    k_default_family));
+  REQUIRE(tracker.use(vkexec::read(fake_image(&storage), k_color_range, vkexec::image_usage::sampled_fragment),
+    k_second_step,
+    k_default_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.steps.at(k_first_step).images_before.size() == 1);
+  REQUIRE(plan.steps.at(k_first_step).images_before.front().old_layout == VK_IMAGE_LAYOUT_UNDEFINED);
+  REQUIRE(plan.steps.at(k_second_step).images_before.size() == 1);
+  auto const &barrier = plan.steps.at(k_second_step).images_before.front();
+  REQUIRE(barrier.old_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  REQUIRE(barrier.new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  REQUIRE(barrier.src_access == VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+  REQUIRE(barrier.dst_access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+  REQUIRE(barrier.src_queue_family == VK_QUEUE_FAMILY_IGNORED);
+}
+
+TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][pass]")
+{
+  char storage{};
+  constexpr std::uint32_t k_graphics_family = 2;
+  constexpr std::uint32_t k_compute_family = 3;
+  vkexec::detail::resource_state_tracker tracker{ k_pair_step_count };
+  REQUIRE(tracker.use(vkexec::write(fake_image(&storage), k_color_range, vkexec::image_usage::color_attachment),
+    k_first_step,
+    k_graphics_family));
+  REQUIRE(tracker.use(vkexec::read(fake_image(&storage), k_color_range, vkexec::image_usage::sampled_compute),
+    k_second_step,
+    k_compute_family));
+
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.steps.at(k_first_step).images_after.size() == 1);
+  REQUIRE(plan.steps.at(k_second_step).images_before.size() == 1);
+  auto const &release = plan.steps.at(k_first_step).images_after.front();
+  auto const &acquire = plan.steps.at(k_second_step).images_before.front();
+  REQUIRE(release.src_queue_family == k_graphics_family);
+  REQUIRE(release.dst_queue_family == k_compute_family);
+  REQUIRE(release.dst_stage == VK_PIPELINE_STAGE_2_NONE);
+  REQUIRE(acquire.src_stage == VK_PIPELINE_STAGE_2_NONE);
+  REQUIRE(acquire.dst_stage == VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  REQUIRE(release.new_layout == acquire.new_layout);
+}
+
+TEST_CASE("resource tracking requires an initial layout for first reads", "[vkexec][pass]")
+{
+  char storage{};
+  vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
+  REQUIRE_FALSE(tracker.use(vkexec::read(fake_image(&storage), k_color_range, vkexec::image_usage::sampled_compute),
+    k_first_step,
+    k_default_family));
+  REQUIRE(tracker.use(vkexec::read(fake_image(&storage),
+                        k_color_range,
+                        vkexec::image_usage::sampled_compute,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+    k_first_step,
+    k_default_family));
+}
+
+TEST_CASE("resource tracking uses semaphore ordering across queues in one family", "[vkexec][pass]")
+{
+  char image_storage{};
+  char first_queue_storage{};
+  char second_queue_storage{};
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *first_queue = reinterpret_cast<VkQueue>(&first_queue_storage);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  auto *second_queue = reinterpret_cast<VkQueue>(&second_queue_storage);
+  vkexec::detail::resource_state_tracker tracker{ k_pair_step_count };
+  REQUIRE(tracker.use(vkexec::write(fake_image(&image_storage), k_color_range, vkexec::image_usage::color_attachment),
+    k_first_step,
+    k_default_family,
+    first_queue));
+  REQUIRE(tracker.use(vkexec::read(fake_image(&image_storage), k_color_range, vkexec::image_usage::sampled_compute),
+    k_second_step,
+    k_default_family,
+    second_queue));
+
+  auto const plan = std::move(tracker).finish();
+  auto const &barrier = plan.steps.at(k_second_step).images_before.front();
+  REQUIRE(barrier.src_stage == VK_PIPELINE_STAGE_2_NONE);
+  REQUIRE(barrier.src_access == VK_ACCESS_2_NONE);
+  REQUIRE(barrier.dst_stage == VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  REQUIRE(barrier.src_queue_family == VK_QUEUE_FAMILY_IGNORED);
+}
+
+TEST_CASE("resource tracking rejects access incompatible with image usage", "[vkexec][pass]")
+{
+  char storage{};
+  vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
+  auto *const image = fake_image(&storage);
+  REQUIRE_FALSE(tracker.use(
+    vkexec::write(image, k_color_range, vkexec::image_usage::sampled_fragment), k_first_step, k_default_family));
+  REQUIRE_FALSE(tracker.use(
+    vkexec::read(image, k_color_range, vkexec::image_usage::transfer_destination), k_first_step, k_default_family));
+}
+
+TEST_CASE("resource tracking rejects access incompatible with buffer usage", "[vkexec][pass]")
+{
+  char storage{};
+  vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
+  auto *const buffer = fake_buffer(&storage);
+  REQUIRE_FALSE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::vertex), k_first_step, k_default_family));
+  REQUIRE_FALSE(
+    tracker.use(vkexec::read(buffer, vkexec::buffer_usage::transfer_destination), k_first_step, k_default_family));
+}
+
+TEST_CASE("uniform buffer usage selects one shader stage", "[vkexec][pass]")
+{
+  char compute_storage{};
+  char vertex_storage{};
+  auto const compute = vkexec::read(fake_buffer(&compute_storage), vkexec::buffer_usage::uniform_compute);
+  auto const vertex = vkexec::read(fake_buffer(&vertex_storage), vkexec::buffer_usage::uniform_vertex);
+  REQUIRE(vkexec::detail::buffer_scope(compute).stage == VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  REQUIRE(vkexec::detail::buffer_scope(vertex).stage == VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
+}
+
+TEST_CASE("resource tracking rejects two declarations in one pass", "[vkexec][pass]")
+{
+  char image_storage{};
+  char buffer_storage{};
+  auto *const image = fake_image(&image_storage);
+  auto *const buffer = fake_buffer(&buffer_storage);
+  vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
+  REQUIRE(tracker.use(
+    vkexec::write(image, k_color_range, vkexec::image_usage::color_attachment), k_first_step, k_default_family));
+  REQUIRE_FALSE(tracker.use(
+    vkexec::read(image, k_color_range, vkexec::image_usage::sampled_fragment), k_first_step, k_default_family));
+  REQUIRE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
+  REQUIRE_FALSE(
+    tracker.use(vkexec::read(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
 }

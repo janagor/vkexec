@@ -3,6 +3,10 @@
 
 //! \file
 //! Resource declarations for custom pass recording.
+//!
+//! Repeated uses of one resource across graph passes must declare the same
+//! image subresource or buffer range. A single graph pass may declare each
+//! resource only once; use read_write for a combined storage access.
 
 #include <vulkan/vulkan.h>
 
@@ -29,7 +33,9 @@ enum class image_usage : std::uint8_t {
 enum class buffer_usage : std::uint8_t {
   vertex,
   index,
-  uniform,
+  uniform_compute,
+  uniform_vertex,
+  uniform_fragment,
   storage_compute,
   transfer_source,
   transfer_destination,
@@ -41,6 +47,7 @@ struct image_use
   VkImageSubresourceRange range{};
   image_usage usage{};
   resource_access access{};
+  VkImageLayout initial_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
 };
 
 struct buffer_use
@@ -55,13 +62,43 @@ struct buffer_use
 [[nodiscard]] constexpr auto read(VkImage image, VkImageSubresourceRange range, image_usage usage) noexcept -> image_use
 { return { .image = image, .range = range, .usage = usage, .access = resource_access::read }; }
 
+//! Declares the known layout of an image before its first graph access.
+[[nodiscard]] constexpr auto
+  read(VkImage image, VkImageSubresourceRange range, image_usage usage, VkImageLayout initial_layout) noexcept
+  -> image_use
+{
+  return {
+    .image = image, .range = range, .usage = usage, .access = resource_access::read, .initial_layout = initial_layout
+  };
+}
+
 [[nodiscard]] constexpr auto write(VkImage image, VkImageSubresourceRange range, image_usage usage) noexcept
   -> image_use
 { return { .image = image, .range = range, .usage = usage, .access = resource_access::write }; }
 
+[[nodiscard]] constexpr auto
+  write(VkImage image, VkImageSubresourceRange range, image_usage usage, VkImageLayout initial_layout) noexcept
+  -> image_use
+{
+  return {
+    .image = image, .range = range, .usage = usage, .access = resource_access::write, .initial_layout = initial_layout
+  };
+}
+
 [[nodiscard]] constexpr auto read_write(VkImage image, VkImageSubresourceRange range, image_usage usage) noexcept
   -> image_use
 { return { .image = image, .range = range, .usage = usage, .access = resource_access::read_write }; }
+
+[[nodiscard]] constexpr auto
+  read_write(VkImage image, VkImageSubresourceRange range, image_usage usage, VkImageLayout initial_layout) noexcept
+  -> image_use
+{
+  return { .image = image,
+    .range = range,
+    .usage = usage,
+    .access = resource_access::read_write,
+    .initial_layout = initial_layout };
+}
 
 [[nodiscard]] constexpr auto read(VkBuffer buffer, buffer_usage usage) noexcept -> buffer_use
 { return { .buffer = buffer, .usage = usage, .access = resource_access::read }; }

@@ -8,6 +8,7 @@
 #include "sync_wait_helpers.hpp"
 
 #include <vkexec/barrier.hpp>
+#include <vkexec/barrier_params.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec_features/feature.hpp>

@@ -4,8 +4,10 @@
 //! \file
 //! Compute pass recording, pass graphs, and stdexec pipe adaptors.
 
+#include <vkexec/barrier_params.hpp>
 #include <vkexec/config.hpp>
 #include <vkexec/detail/attributes.hpp>
+#include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
@@ -205,6 +207,8 @@ namespace detail {
 
       virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status = 0;
       virtual auto after_gpu() -> void = 0;
+      virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status = 0;
+      [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
     };
 
     template<static_pass_step Step> struct model final : interface
@@ -217,6 +221,19 @@ namespace detail {
       { return step.record(ctx, cmd, cleanup); }
 
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
+
+      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue) -> status override
+      {
+        if constexpr (requires { step.resources; }) {
+          return tracker.use(step.resources, index, queue.family, queue.queue);
+        }
+        return {};
+      }
+
+      [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
+      {
+        return requires { step.resources; };
+      }
     };
 
     std::unique_ptr<interface> impl_;
@@ -239,6 +256,11 @@ namespace detail {
     { return impl_->record(ctx, cmd, cleanup); }
 
     auto after_gpu() -> void { impl_->after_gpu(); }
+
+    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status
+    { return impl_->declare_resources(tracker, step, queue); }
+
+    [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return impl_->has_resource_declarations(); }
   };
 
   static_assert(std::move_constructible<dynamic_pass_step>);
@@ -446,18 +468,127 @@ namespace detail {
       return fail(errc::invalid_argument, "invalid empty execution plan");
     }
     std::size_t validated_step{};
-    queue_affinity previous_queue;
     for (auto const &batch : plan.batches) {
       if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {
         return fail(errc::invalid_argument, "invalid execution batch");
       }
-      if (previous_queue && previous_queue->family != batch.queue.family) {
-        return fail(errc::unsupported, "cross-family pass graphs require resource ownership planning");
-      }
       validated_step = batch.end_step;
-      previous_queue = batch.queue;
     }
     if (validated_step != step_count) { return fail(errc::invalid_argument, "incomplete execution plan"); }
+    return {};
+  }
+
+  [[nodiscard]] inline auto crosses_queue_families(execution_plan const &execution) -> bool
+  {
+    for (std::size_t index = 1; index < execution.batches.size(); ++index) {
+      if (execution.batches.at(index - 1).queue.family != execution.batches.at(index).queue.family) { return true; }
+    }
+    return false;
+  }
+
+  template<class Step>
+  [[nodiscard]] auto declare_step_resources(Step const &step,
+    resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) -> status
+  {
+    if constexpr (requires { step.resources; }) {
+      return tracker.use(step.resources, index, queue.family, queue.queue);
+    } else {
+      if (crosses_families) { return fail(errc::unsupported, "cross-family pass steps require resource declarations"); }
+      return {};
+    }
+  }
+
+  [[nodiscard]] inline auto declare_step_resources(dynamic_pass_step &step,
+    resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) -> status
+  {
+    if (crosses_families && !step.has_resource_declarations()) {
+      return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+    }
+    return step.declare_resources(tracker, index, queue);
+  }
+
+  template<class... Steps>
+  [[nodiscard]] auto declare_indexed_step(std::tuple<Steps...> const &steps,
+    resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) -> status
+  {
+    status declared{};
+    std::size_t position{};
+    std::apply(
+      [&](auto const &...step) -> void {
+        auto declare_one = [&](auto const &current) -> void {
+          if (position == index) {
+            declared = declare_step_resources(current, tracker, index, queue, crosses_families);
+          }
+          ++position;
+        };
+        (declare_one(step), ...);
+      },
+      steps);
+    return declared;
+  }
+
+  template<class StepStorage>
+  [[nodiscard]] auto plan_resource_sync(execution_plan const &execution, StepStorage &steps)
+    -> result<resource_sync_plan>
+  {
+    resource_state_tracker tracker{ pass_step_count(steps) };
+    bool const crosses_families = crosses_queue_families(execution);
+    for (auto const &batch : execution.batches) {
+      for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
+        status declared{};
+        if constexpr (requires { steps.size(); }) {
+          declared = declare_step_resources(steps.at(index), tracker, index, batch.queue, crosses_families);
+        } else {
+          declared = declare_indexed_step(steps, tracker, index, batch.queue, crosses_families);
+        }
+        if (!declared) { return fail(declared); }
+      }
+    }
+    return std::move(tracker).finish();
+  }
+
+  [[nodiscard]] auto record_sync(context &facade,
+    VkCommandBuffer cmd,
+    std::vector<image_barrier_params> const &images,
+    std::vector<buffer_barrier_params> const &buffers) -> status;
+
+  template<class StepStorage>
+  [[nodiscard]] auto record_sync_batch(context &facade,
+    submit_scope &scope,
+    execution_batch const &batch,
+    resource_sync_plan const &sync,
+    StepStorage &steps) -> status
+  {
+    for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
+      auto const &point = sync.steps.at(index);
+      VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_before, point.buffers_before));
+      if constexpr (requires { steps.size(); }) {
+        VKEXEC_TRY(steps.at(index).record(facade, scope.cmd, scope.cleanup));
+      } else {
+        status recorded{};
+        std::size_t position{};
+        std::apply(
+          [&](auto &...step) -> void {
+            auto record_one = [&](auto &current) -> void {
+              if (position == index) { recorded = current.record(facade, scope.cmd, scope.cleanup); }
+              ++position;
+            };
+            (record_one(step), ...);
+          },
+          steps);
+        VKEXEC_TRY(recorded);
+      }
+      VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_after, point.buffers_after));
+    }
     return {};
   }
 
@@ -468,6 +599,8 @@ namespace detail {
     if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
     auto const step_count = pass_step_count(steps);
     if (auto validated = validate_execution_batches(plan, step_count); !validated) { return fail(validated); }
+    auto synchronization = plan_resource_sync(plan, steps);
+    if (!synchronization) { return fail(synchronization); }
     auto facade = context_access::facade(state);
     std::vector<submit_scope> scopes;
     scopes.reserve(plan.batches.empty() ? std::size_t{ 1 } : plan.batches.size());
@@ -476,7 +609,7 @@ namespace detail {
       if (!opened) { return fail(opened); }
       scopes.push_back(expected_take(opened));
       auto &scope = scopes.back();
-      auto recorded = record_batch_steps(facade, scope, batch, steps);
+      auto recorded = record_sync_batch(facade, scope, batch, *synchronization, steps);
       if (!recorded) { return fail(recorded); }
       if (auto ended = scope.end_recording(); !ended) { return fail(ended); }
     }
@@ -1013,10 +1146,13 @@ namespace detail {
  * Records raw Vulkan commands as a graph step. The graph owns command-buffer
  * creation, recording boundaries, submission, and completion. `resources`
  * describes accesses made by the recorder, including their buffer ranges or
- * image subresources. It does not describe the final layout or ownership of
- * resources changed by manual barriers. Callers must still record required
- * barriers explicitly; a future synchronization planner must account for
- * those final states before using these declarations to generate barriers.
+ * image subresources. The graph uses these declarations to insert layout
+ * transitions, memory barriers, and queue-family ownership transfers. The
+ * first image read must declare its known initial layout. Manual barriers
+ * inside the recorder must not change a declared resource's tracked state.
+ * Cross-family transfers assume exclusive sharing. The first queue family
+ * using a resource is assumed to own it already; imported resources must be
+ * synchronized externally before their first graph use.
  *
  * The recorder accepts a recording VkCommandBuffer and returns void or status.
  */
