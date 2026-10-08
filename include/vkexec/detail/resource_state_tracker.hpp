@@ -68,6 +68,7 @@ struct usage_scope
 [[nodiscard]] constexpr auto valid(buffer_use const &use) noexcept -> bool
 {
   switch (use.usage) {
+  case buffer_usage::indirect:
   case buffer_usage::vertex:
   case buffer_usage::index:
   case buffer_usage::uniform_compute:
@@ -83,7 +84,7 @@ struct usage_scope
   return false;
 }
 
-[[nodiscard]] constexpr auto image_scope(image_use use) noexcept -> usage_scope
+[[nodiscard]] constexpr auto default_image_scope(image_use use) noexcept -> usage_scope
 {
   switch (use.usage) {
   case image_usage::sampled_compute:
@@ -119,9 +120,18 @@ struct usage_scope
   return {};
 }
 
+[[nodiscard]] constexpr auto image_scope(image_use use) noexcept -> usage_scope
+{
+  auto scope = default_image_scope(use);
+  if (use.layout != VK_IMAGE_LAYOUT_UNDEFINED) { scope.layout = use.layout; }
+  return scope;
+}
+
 [[nodiscard]] constexpr auto buffer_scope(buffer_use use) noexcept -> usage_scope
 {
   switch (use.usage) {
+  case buffer_usage::indirect:
+    return { .stage = VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, .access = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT };
   case buffer_usage::vertex:
     return { .stage = VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, .access = VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT };
   case buffer_usage::index:

@@ -76,10 +76,20 @@ struct compute_bind
   VkPipeline pipeline{ VK_NULL_HANDLE };
   VkPipelineLayout layout{ VK_NULL_HANDLE };
   VkDescriptorSet set{ VK_NULL_HANDLE };
+  std::vector<image_use> images;
+  std::vector<buffer_use> buffers;
+  bool resource_metadata{ false };
+  bool complete_resource_metadata{ true };
 };
 
 //! Builds a `compute_bind` from pipeline resources and an optional set.
+//! Raw descriptor sets and descriptor-heap binds have no resource metadata;
+//! graph synchronization cannot infer their descriptor accesses.
 [[nodiscard]] auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
+  -> compute_bind;
+
+//! Builds a binding that retains the descriptor resources for graph planning.
+[[nodiscard]] auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set, resource_table const &table)
   -> compute_bind;
 
 /**
@@ -91,8 +101,11 @@ struct compute_bind
  * @param push_bytes Size of the push-constant blob.
  * @param groups Workgroup counts for `vkCmdDispatch`.
  */
-auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::uint32_t push_bytes, dispatch groups)
-  -> void;
+auto record_pass(VkCommandBuffer cmd,
+  compute_bind const &bind,
+  void const *push,
+  std::uint32_t push_bytes,
+  dispatch groups) -> void;
 
 /**
  * Records bind, optional push constants, and an indirect dispatch on `cmd`.
@@ -100,7 +113,7 @@ auto record_pass(VkCommandBuffer cmd, compute_bind bind, void const *push, std::
  * @param groups Buffer and offset containing `VkDispatchIndirectCommand`.
  */
 auto record_pass(VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   void const *push,
   std::uint32_t push_bytes,
   indirect_dispatch groups) -> void;
@@ -226,12 +239,15 @@ namespace detail {
       {
         if constexpr (requires { step.resources; }) {
           return tracker.use(step.resources, index, queue.family, queue.queue);
+        } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
+          return step.declare_resources(tracker, index, queue);
         }
         return {};
       }
 
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
       {
+        if constexpr (requires { step.bind.resource_metadata; }) { return step.bind.resource_metadata; }
         return requires { step.resources; };
       }
     };
@@ -279,6 +295,24 @@ namespace detail {
     compute_bind bind{};
     VKEXEC_NO_UNIQUE_ADDRESS Push push{};
     Dispatch dispatch_info{};
+
+    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) const -> status
+    {
+      if (!bind.resource_metadata) { return {}; }
+      if (!bind.complete_resource_metadata) {
+        return fail(errc::invalid_argument, "compute binding lacks resource or layout metadata");
+      }
+      for (auto const &image : bind.images) { VKEXEC_TRY(tracker.use(image, step, queue.family, queue.queue)); }
+      for (auto const &buffer : bind.buffers) { VKEXEC_TRY(tracker.use(buffer, step, queue.family, queue.queue)); }
+      if constexpr (std::same_as<Dispatch, indirect_dispatch>) {
+        VKEXEC_TRY(tracker.use(
+          read(dispatch_info.buffer, dispatch_info.offset, sizeof(VkDispatchIndirectCommand), buffer_usage::indirect),
+          step,
+          queue.family,
+          queue.queue));
+      }
+      return {};
+    }
 
     auto record(context & /*ctx*/, VkCommandBuffer cmd, pass_cleanup & /*cleanup*/) -> status
     {
@@ -495,6 +529,11 @@ namespace detail {
   {
     if constexpr (requires { step.resources; }) {
       return tracker.use(step.resources, index, queue.family, queue.queue);
+    } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
+      if (crosses_families && !step.bind.resource_metadata) {
+        return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+      }
+      return step.declare_resources(tracker, index, queue);
     } else {
       if (crosses_families) { return fail(errc::unsupported, "cross-family pass steps require resource declarations"); }
       return {};
@@ -1057,6 +1096,22 @@ struct compute_pass_t
   [[nodiscard]] auto
     operator()(handles::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count) const;
 
+  template<class Bound, detail::push_constant_type Params>
+    requires requires(Bound const &bound, std::uint32_t count) {
+      { bound.bind() } -> std::same_as<compute_bind>;
+      { bound.pipe->groups_for(count) } -> std::same_as<dispatch>;
+    }
+  [[nodiscard]] auto operator()(Bound const &bound, Params const &params, std::uint32_t work_count) const
+  { return (*this)(bound.bind(), params, bound.pipe->groups_for(work_count)); }
+
+  template<class Bound>
+    requires requires(Bound const &bound, std::uint32_t count) {
+      { bound.bind() } -> std::same_as<compute_bind>;
+      { bound.pipe->groups_for(count) } -> std::same_as<dispatch>;
+    }
+  [[nodiscard]] auto operator()(Bound const &bound, std::uint32_t work_count) const
+  { return (*this)(bound.bind(), bound.pipe->groups_for(work_count)); }
+
   template<class Pipe, detail::push_constant_type Params>
     requires requires(Pipe const &pipe, VkDescriptorSet set, std::uint32_t count) {
       pipe.bind(set);
@@ -1180,19 +1235,22 @@ template<detail::static_pass_step Step>
 { return dynamic_pass_graph_sender{ std::move(snd.state) }; }
 
 template<detail::push_constant_type Params>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto compute_pass_t::operator()(compute_bind bind, Params const &params, dispatch groups) const
   -> detail::expr_closure<compute_pass_t, detail::compute_pass_data<Params, dispatch>>
 {
-  return detail::make_expr_closure(
-    *this, detail::compute_pass_data<Params, dispatch>{ .bind = bind, .push = params, .dispatch_info = groups });
+  return detail::make_expr_closure(*this,
+    detail::compute_pass_data<Params, dispatch>{ .bind = std::move(bind), .push = params, .dispatch_info = groups });
 }
 
 template<detail::push_constant_type Params>
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto compute_pass_t::operator()(compute_bind bind, Params const &params, indirect_dispatch groups) const
   -> detail::expr_closure<compute_pass_t, detail::compute_pass_data<Params, indirect_dispatch>>
 {
   return detail::make_expr_closure(*this,
-    detail::compute_pass_data<Params, indirect_dispatch>{ .bind = bind, .push = params, .dispatch_info = groups });
+    detail::compute_pass_data<Params, indirect_dispatch>{
+      .bind = std::move(bind), .push = params, .dispatch_info = groups });
 }
 
 inline auto compute_pass_t::operator()(compute_bind bind, dispatch groups) const
@@ -1200,7 +1258,7 @@ inline auto compute_pass_t::operator()(compute_bind bind, dispatch groups) const
 {
   return detail::make_expr_closure(*this,
     detail::compute_pass_data<detail::no_push_constants, dispatch>{
-      .bind = bind, .push = {}, .dispatch_info = groups });
+      .bind = std::move(bind), .push = {}, .dispatch_info = groups });
 }
 
 inline auto compute_pass_t::operator()(compute_bind bind, indirect_dispatch groups) const
@@ -1208,7 +1266,7 @@ inline auto compute_pass_t::operator()(compute_bind bind, indirect_dispatch grou
 {
   return detail::make_expr_closure(*this,
     detail::compute_pass_data<detail::no_push_constants, indirect_dispatch>{
-      .bind = bind, .push = {}, .dispatch_info = groups });
+      .bind = std::move(bind), .push = {}, .dispatch_info = groups });
 }
 
 template<detail::push_constant_type Params>

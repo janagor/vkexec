@@ -1,5 +1,4 @@
 #include "sync_wait_helpers.hpp"
-#include <vkexec/barrier.hpp>
 #include <vkexec/buffer.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
@@ -78,15 +77,10 @@ static auto run() -> int
   auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
   auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::compute_pass(*bound.pipe,
-                 bound.set,
-                 pass_params{ .value = k_add, .op = k_op_add },
-                 static_cast<std::uint32_t>(k_element_count))
-               | vkexec::barrier::compute_to_compute()
-               | vkexec::compute_pass(*bound.pipe,
-                 bound.set,
-                 pass_params{ .value = k_scale, .op = k_op_mul },
-                 static_cast<std::uint32_t>(k_element_count));
+               | vkexec::compute_pass(
+                 bound, pass_params{ .value = k_add, .op = k_op_add }, static_cast<std::uint32_t>(k_element_count))
+               | vkexec::compute_pass(
+                 bound, pass_params{ .value = k_scale, .op = k_op_mul }, static_cast<std::uint32_t>(k_element_count));
   vkexec::examples::sync_wait_graph(graph);
 
   float const expected = (k_initial + k_add) * k_scale;

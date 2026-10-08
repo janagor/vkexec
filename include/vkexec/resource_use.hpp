@@ -31,6 +31,7 @@ enum class image_usage : std::uint8_t {
 };
 
 enum class buffer_usage : std::uint8_t {
+  indirect,
   vertex,
   index,
   uniform_compute,
@@ -48,6 +49,8 @@ struct image_use
   image_usage usage{};
   resource_access access{};
   VkImageLayout initial_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
+  //! Overrides the usage's default layout when a descriptor requires another valid layout.
+  VkImageLayout layout{ VK_IMAGE_LAYOUT_UNDEFINED };
 };
 
 struct buffer_use

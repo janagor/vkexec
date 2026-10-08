@@ -198,7 +198,7 @@ template<push_constant_type Push, dispatch_kind Dispatch, class Env>
 [[nodiscard]] auto lower_vkexec_pass_step(compute_pass_t /*tag*/,
   compute_pass_data<Push, Dispatch> data,
   Env const & /*env*/) -> compute_pass_step<Push, Dispatch>
-{ return { .bind = data.bind, .push = std::move(data.push), .dispatch_info = data.dispatch_info }; }
+{ return { .bind = std::move(data.bind), .push = std::move(data.push), .dispatch_info = data.dispatch_info }; }
 
 template<class Tag, class Data, class Child, class Env>
 [[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/, sender_expr<Tag, Data, Child> expr, Env const &env)

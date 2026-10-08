@@ -17,6 +17,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -70,8 +71,13 @@ auto create(context &ctx, std::span<std::uint32_t const> spirv, layout_desc cons
     .push_bytes = desc.push_constant_size,
     .specialization = desc.specialization,
     .local_size = desc.local_size };
-  return detail::create_compute_resources_with<detail::set_descriptor_backend>(
-    ctx, spirv, info, "create requires non-empty SPIR-V");
+  VKEXEC_TRY_ASSIGN(resources,
+    detail::create_compute_resources_with<detail::set_descriptor_backend>(
+      ctx, spirv, info, "create requires non-empty SPIR-V"));
+  resources.binding_accesses = desc.bindings;
+  resources.binding_slots = desc.binding_slots;
+  resources.binding_kinds = desc.binding_kinds;
+  return resources;
 }
 
 auto allocate_compute_set(context const &ctx, handles::compute_pipeline const &pipe) -> result<VkDescriptorSet>
@@ -127,7 +133,13 @@ auto detail::bind_storage_factory::operator()() const -> result<bound_compute_pi
 {
   VKEXEC_TRY_ASSIGN(set, pipe->allocate_set());
   VKEXEC_TRY(pipe->update_set(set, buffers));
-  return bound_compute_pipeline{ .pipe = pipe, .set = set };
+  std::vector<resource_binding> entries;
+  entries.reserve(buffers.size());
+  for (auto const &buffer : buffers) {
+    entries.push_back(
+      resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) });
+  }
+  return bound_compute_pipeline{ .pipe = pipe, .set = set, .resources = resource_table{ std::move(entries) } };
 }
 
 auto detail::update_resources_factory::operator()() const -> status { return pipe->update_set(set, resources); }
@@ -139,7 +151,7 @@ auto detail::bind_resources_factory::operator()() const -> result<bound_compute_
     free_compute_set(*pipe->ctx_, pipe->resources(), set);
     return fail(updated);
   }
-  return bound_compute_pipeline{ .pipe = pipe, .set = set };
+  return bound_compute_pipeline{ .pipe = pipe, .set = set, .resources = resources };
 }
 
 auto owned::compute_pipeline::allocate_set() const -> result<VkDescriptorSet>

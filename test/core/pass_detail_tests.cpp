@@ -4,6 +4,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/resource_table.hpp>
 #include <vkexec/resource_use.hpp>
 #include <vkexec/submit_scope.hpp>
 
@@ -23,6 +24,7 @@ constexpr std::size_t k_second_step = 1;
 constexpr std::size_t k_pair_step_count = 2;
 constexpr std::size_t k_single_step_count = 1;
 constexpr std::uint32_t k_default_family = 0;
+constexpr std::uint32_t k_sampled_binding = 0;
 
 [[nodiscard]] auto fake_buffer(void *storage) -> VkBuffer { return static_cast<VkBuffer>(storage); }
 
@@ -168,6 +170,29 @@ TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass
   REQUIRE(barrier.src_access == VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
   REQUIRE(barrier.dst_access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
   REQUIRE(barrier.src_queue_family == VK_QUEUE_FAMILY_IGNORED);
+}
+
+TEST_CASE("compute binding preserves a sampled descriptor's GENERAL layout", "[vkexec][pass]")
+{
+  char image_storage{};
+  auto *const image = fake_image(&image_storage);
+  vkexec::handles::compute_pipeline pipe{};
+  pipe.binding_accesses = { vkexec::buffer_access::readonly };
+  pipe.binding_kinds = { vkexec::resource_kind::sampled_image };
+  auto const table = vkexec::bindings(vkexec::resource_binding{ .slot = k_sampled_binding,
+    .resource = vkexec::sampled_image_resource(
+      image, VK_NULL_HANDLE, k_color_range, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) });
+  auto const bind = vkexec::bind_compute(pipe, VK_NULL_HANDLE, table);
+  REQUIRE(bind.complete_resource_metadata);
+  REQUIRE(bind.images.size() == k_single_step_count);
+
+  vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
+  REQUIRE(tracker.use(bind.images.front(), k_first_step, k_default_family));
+  auto const plan = std::move(tracker).finish();
+  auto const &barrier = plan.steps.front().images_before.front();
+  REQUIRE(barrier.old_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  REQUIRE(barrier.new_layout == VK_IMAGE_LAYOUT_GENERAL);
+  REQUIRE(barrier.dst_access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
 }
 
 TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][pass]")

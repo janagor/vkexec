@@ -252,6 +252,11 @@ struct bound_compute_pipeline
 {
   owned::compute_pipeline const *pipe{ nullptr };
   VkDescriptorSet set{ VK_NULL_HANDLE };
+  resource_table resources;
+
+  //! Retains the table's resource uses in the resulting compute binding.
+  //! Images need an underlying VkImage and subresource range for graph tracking.
+  [[nodiscard]] auto bind() const -> compute_bind { return bind_compute(pipe->resources(), set, resources); }
 };
 
 /**
