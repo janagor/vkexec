@@ -339,6 +339,7 @@ TEST_CASE("pass graph completes with set_stopped when stop is already requested"
     .state = {},
     .steps = {},
     .step_queues = {},
+    .step_predecessors = {},
     .presentation = {},
     .current_queue = {},
   };

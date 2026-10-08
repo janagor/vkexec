@@ -25,6 +25,7 @@ struct resource_sync_point
 struct resource_sync_plan
 {
   std::vector<resource_sync_point> steps;
+  std::vector<std::pair<std::size_t, std::size_t>> dependencies;
   struct image_access
   {
     VkImage image{ VK_NULL_HANDLE };
@@ -205,6 +206,18 @@ class resource_state_tracker
            && lhs.baseArrayLayer == rhs.baseArrayLayer && lhs.layerCount == rhs.layerCount;
   }
 
+  auto record_image_dependency(tracked_image const &previous,
+    std::size_t step,
+    bool transfer,
+    bool hazard,
+    bool different_queue,
+    VkImageLayout next_layout) -> void
+  {
+    if (transfer || hazard || previous.scope.layout != next_layout || different_queue) {
+      plan_.dependencies.emplace_back(previous.step, step);
+    }
+  }
+
   [[nodiscard]] auto
     use_image(image_use declaration, std::size_t step, std::uint32_t family, VkQueue queue, bool render_pass_transition)
       -> status
@@ -247,6 +260,7 @@ class resource_state_tracker
     bool const transfer = found->family != family;
     bool const different_queue = found->queue != VK_NULL_HANDLE && queue != VK_NULL_HANDLE && found->queue != queue;
     bool const hazard = found->use.access != resource_access::read || declaration.access != resource_access::read;
+    record_image_dependency(*found, step, transfer, hazard, different_queue, next.layout);
     if (render_pass_transition) { next.layout = found->scope.layout; }
     if (transfer) {
       plan_.steps.at(found->step)
@@ -323,6 +337,7 @@ public:
     bool const transfer = found->family != family;
     bool const different_queue = found->queue != VK_NULL_HANDLE && queue != VK_NULL_HANDLE && found->queue != queue;
     bool const hazard = found->use.access != resource_access::read || declaration.access != resource_access::read;
+    if (transfer || hazard || different_queue) { plan_.dependencies.emplace_back(found->step, step); }
     if (transfer) {
       plan_.steps.at(found->step)
         .buffers_after.push_back(buffer_barrier_params{ .buffer = declaration.buffer,

@@ -6,6 +6,7 @@
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/resource_use.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/submit_scope.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -15,6 +16,7 @@
 #include <cstdint>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -23,6 +25,7 @@ constexpr std::size_t k_first_step = 0;
 constexpr std::size_t k_second_step = 1;
 constexpr std::size_t k_pair_step_count = 2;
 constexpr std::size_t k_single_step_count = 1;
+constexpr std::size_t k_dag_step_count = 4;
 constexpr std::uint32_t k_default_family = 0;
 constexpr std::uint32_t k_sampled_binding = 0;
 
@@ -149,6 +152,75 @@ TEST_CASE("pass batches group adjacent steps by resolved queue", "[vkexec][pass]
   REQUIRE_FALSE(vkexec::detail::plan_execution(mixed.size() - 1, mixed, graphics).has_value());
 }
 
+TEST_CASE("DAG planner keeps independent branches separate", "[vkexec][pass]")
+{
+  char first_storage{};
+  char second_storage{};
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  vkexec::queue_ref const first{ .queue = reinterpret_cast<VkQueue>(&first_storage), .family = 0 };
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
+  vkexec::queue_ref const second{ .queue = reinterpret_cast<VkQueue>(&second_storage), .family = 1 };
+  std::array<vkexec::queue_affinity, k_dag_step_count> const queues{ first, first, second, first };
+  std::array<std::vector<std::size_t>, k_dag_step_count> const predecessors{
+    std::vector<std::size_t>{},
+    std::vector<std::size_t>{ k_first_step },
+    std::vector<std::size_t>{ k_first_step },
+    std::vector<std::size_t>{ k_second_step, k_second_step + std::size_t{ 1 } },
+  };
+  auto planned = vkexec::detail::plan_dag(queues, predecessors, first);
+  REQUIRE(planned.has_value());
+  REQUIRE(planned->batches.size() == k_dag_step_count);
+  REQUIRE(planned->batches.at(k_second_step).predecessors == predecessors.at(k_second_step));
+  REQUIRE(planned->batches.at(k_second_step + std::size_t{ 1 }).predecessors
+          == predecessors.at(k_second_step + std::size_t{ 1 }));
+  REQUIRE(planned->batches.back().predecessors == predecessors.back());
+  REQUIRE(
+    vkexec::detail::terminal_batches(*planned) == std::vector<std::size_t>{ k_dag_step_count - std::size_t{ 1 } });
+
+  auto invalid = predecessors;
+  invalid.at(k_second_step).push_back(k_second_step);
+  REQUIRE_FALSE(vkexec::detail::plan_dag(queues, invalid, first).has_value());
+
+  invalid = predecessors;
+  invalid.at(k_second_step).push_back(k_first_step);
+  REQUIRE_FALSE(vkexec::detail::plan_dag(queues, invalid, first).has_value());
+
+  invalid = predecessors;
+  invalid.back().clear();
+  auto independent = vkexec::detail::plan_dag(queues, invalid, first);
+  REQUIRE(independent.has_value());
+  REQUIRE(vkexec::detail::terminal_batches(*independent).size() == k_dag_step_count - std::size_t{ 1 });
+}
+
+TEST_CASE("partial graph fence creation retains ownership of internal fences", "[vkexec][pass]")
+{
+  REQUIRE_FALSE(vkexec::detail::is_borrowed_graph_fence(k_second_step, k_dag_step_count, true));
+  REQUIRE(vkexec::detail::is_borrowed_graph_fence(k_dag_step_count - std::size_t{ 1 }, k_dag_step_count, true));
+  REQUIRE_FALSE(vkexec::detail::is_borrowed_graph_fence(k_dag_step_count - std::size_t{ 1 }, k_dag_step_count, false));
+}
+
+TEST_CASE("dynamic pass graph records branch predecessors", "[vkexec][pass]")
+{
+  vkexec::dynamic_pass_graph_sender graph{};
+  auto make_step = []() -> decltype(auto) {
+    return vkexec::make_pass_adaptor(vkexec::detail::make_callback_pass_step(
+      [](vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status { return {}; }));
+  };
+  auto const root = graph.append_after({}, make_step());
+  std::array const root_dependency{ root };
+  auto const left = graph.append_after(root_dependency, make_step());
+  auto const right = graph.append_after(root_dependency, make_step());
+  std::array const join_dependencies{ left, right };
+  auto const joined = graph.append_after(join_dependencies, make_step());
+
+  REQUIRE(joined == k_dag_step_count - std::size_t{ 1 });
+  REQUIRE(graph.step_predecessors.at(left) == std::vector<std::size_t>{ root });
+  REQUIRE(graph.step_predecessors.at(right) == std::vector<std::size_t>{ root });
+  REQUIRE(graph.step_predecessors.at(joined).size() == k_pair_step_count);
+  REQUIRE(graph.step_predecessors.at(joined).at(k_first_step) == left);
+  REQUIRE(graph.step_predecessors.at(joined).at(k_second_step) == right);
+}
+
 TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass]")
 {
   char storage{};
@@ -161,6 +233,9 @@ TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass
     k_default_family));
 
   auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.dependencies.size() == k_single_step_count);
+  REQUIRE(plan.dependencies.front().first == k_first_step);
+  REQUIRE(plan.dependencies.front().second == k_second_step);
   REQUIRE(plan.steps.at(k_first_step).images_before.size() == 1);
   REQUIRE(plan.steps.at(k_first_step).images_before.front().old_layout == VK_IMAGE_LAYOUT_UNDEFINED);
   REQUIRE(plan.steps.at(k_second_step).images_before.size() == 1);

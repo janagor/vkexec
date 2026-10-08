@@ -13,6 +13,7 @@
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -619,6 +620,7 @@ TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler]
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .step_predecessors = {},
     .presentation = {},
     .current_queue = {},
   };
@@ -764,6 +766,7 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .step_predecessors = {},
     .presentation = {},
     .current_queue = {},
   };
@@ -873,6 +876,52 @@ TEST_CASE("dynamic pass graph executes multiple runtime steps", "[vkexec][pass][
   REQUIRE(second_after_gpu == 1);
 }
 
+TEST_CASE("DAG fan-out and fan-in completes all submitted branches", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  auto make_empty_node = []() -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {});
+  };
+
+  graph.append_queue(compute);
+  auto const root = graph.append_after({}, make_empty_node());
+  std::array const root_dependency{ root };
+  auto const left = graph.append_after(root_dependency, make_empty_node());
+  if (graphics.queue != VK_NULL_HANDLE) { graph.append_queue(graphics); }
+  auto const right = graph.append_after(root_dependency, make_empty_node());
+  std::array const join_dependencies{ left, right };
+  graph.append_queue(compute);
+  (void)graph.append_after(join_dependencies, make_empty_node());
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(result));
+}
+
+TEST_CASE("DAG terminal join waits for independent queue branches", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  if (graphics.queue == VK_NULL_HANDLE || vkexec::detail::same_queue(compute, graphics)) {
+    SKIP("Distinct graphics and compute queues are unavailable");
+  }
+
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  graph.append_queue(compute);
+  auto const compute_branch =
+    graph.append_after({}, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {}));
+  graph.append_queue(graphics);
+  auto const graphics_branch =
+    graph.append_after({}, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {}));
+  REQUIRE(compute_branch != graphics_branch);
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(result));
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][scheduler][gpu]")
 {
@@ -893,6 +942,7 @@ TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][sc
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .step_predecessors = {},
     .presentation = {},
     .current_queue = {},
   };
@@ -929,6 +979,7 @@ TEST_CASE("pass_graph_sender completes on the context host scheduler", "[vkexec]
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
     .step_queues = {},
+    .step_predecessors = {},
     .presentation = {},
     .current_queue = {},
   };

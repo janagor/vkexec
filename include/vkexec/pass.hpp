@@ -22,6 +22,7 @@
 #include <stdexec/execution.hpp>
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <concepts>
@@ -33,6 +34,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -443,6 +445,7 @@ namespace detail {
     queue_ref queue{};
     std::size_t first_step{};
     std::size_t end_step{};
+    std::vector<std::size_t> predecessors;
   };
 
   struct execution_plan
@@ -461,11 +464,40 @@ namespace detail {
     for (queue_affinity const &affinity : queues) {
       queue_ref const queue = affinity.value_or(default_queue);
       if (plan.batches.empty() || !same_queue(plan.batches.back().queue, queue)) {
-        plan.batches.push_back(execution_batch{ .queue = queue, .first_step = index, .end_step = index + 1 });
+        plan.batches.push_back(execution_batch{
+          .queue = queue, .first_step = index, .end_step = index + std::size_t{ 1 }, .predecessors = {} });
+        if (plan.batches.size() > std::size_t{ 1 }) {
+          plan.batches.back().predecessors.push_back(plan.batches.size() - std::size_t{ 2 });
+        }
       } else {
         plan.batches.back().end_step = index + 1;
       }
       ++index;
+    }
+    return plan;
+  }
+
+  //! DAG nodes are appended in topological order. Each node gets its own batch
+  //! so independent nodes can run on separate queues without an implicit wait.
+  [[nodiscard]] inline auto plan_dag(std::span<queue_affinity const> queues,
+    std::span<std::vector<std::size_t> const> predecessors,
+    queue_ref default_queue) -> result<execution_plan>
+  {
+    if (queues.size() != predecessors.size()) { return fail(errc::invalid_argument, "DAG queue count mismatch"); }
+    execution_plan plan;
+    plan.batches.reserve(queues.size());
+    for (std::size_t index{}; index < queues.size(); ++index) {
+      auto const &incoming = predecessors.subspan(index).front();
+      for (std::size_t const predecessor : incoming) {
+        if (predecessor >= index) { return fail(errc::invalid_argument, "DAG predecessor must precede its node"); }
+        if (std::ranges::count(incoming, predecessor) != std::size_t{ 1 }) {
+          return fail(errc::invalid_argument, "duplicate DAG predecessor");
+        }
+      }
+      plan.batches.push_back(execution_batch{ .queue = queues.subspan(index).front().value_or(default_queue),
+        .first_step = index,
+        .end_step = index + std::size_t{ 1 },
+        .predecessors = incoming });
     }
     return plan;
   }
@@ -523,11 +555,15 @@ namespace detail {
       return fail(errc::invalid_argument, "invalid empty execution plan");
     }
     std::size_t validated_step{};
-    for (auto const &batch : plan.batches) {
+    for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {
+      auto const &batch = plan.batches.at(batch_index);
       if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {
         return fail(errc::invalid_argument, "invalid execution batch");
       }
       validated_step = batch.end_step;
+      for (std::size_t const predecessor : batch.predecessors) {
+        if (predecessor >= batch_index) { return fail(errc::invalid_argument, "invalid execution dependency"); }
+      }
     }
     if (validated_step != step_count) { return fail(errc::invalid_argument, "incomplete execution plan"); }
     return {};
@@ -539,6 +575,19 @@ namespace detail {
       if (execution.batches.at(index - 1).queue.family != execution.batches.at(index).queue.family) { return true; }
     }
     return false;
+  }
+
+  [[nodiscard]] inline auto terminal_batches(execution_plan const &plan) -> std::vector<std::size_t>
+  {
+    std::vector<bool> has_successor(plan.batches.size());
+    for (auto const &batch : plan.batches) {
+      for (std::size_t const predecessor : batch.predecessors) { has_successor.at(predecessor) = true; }
+    }
+    std::vector<std::size_t> terminals;
+    for (std::size_t index{}; index < has_successor.size(); ++index) {
+      if (!has_successor.at(index)) { terminals.push_back(index); }
+    }
+    return terminals;
   }
 
   template<class Step>
@@ -680,9 +729,25 @@ namespace detail {
     return {};
   }
 
+  inline auto add_resource_dependencies(execution_plan &plan, resource_sync_plan const &sync) -> void
+  {
+    for (auto const &[source, destination] : sync.dependencies) {
+      std::size_t source_batch{};
+      std::size_t destination_batch{};
+      for (std::size_t index{}; index < plan.batches.size(); ++index) {
+        auto const &batch = plan.batches.at(index);
+        if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }
+        if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }
+      }
+      if (source_batch == destination_batch) { continue; }
+      auto &incoming = plan.batches.at(destination_batch).predecessors;
+      if (std::ranges::find(incoming, source_batch) == incoming.end()) { incoming.push_back(source_batch); }
+    }
+  }
+
   template<class StepStorage>
   [[nodiscard]] auto record_execution(context_handle const &state,
-    execution_plan const &plan,
+    execution_plan &plan,
     StepStorage &steps,
     VkImage presentation_image = VK_NULL_HANDLE) -> result<std::vector<submit_scope>>
   {
@@ -691,6 +756,7 @@ namespace detail {
     if (auto validated = validate_execution_batches(plan, step_count); !validated) { return fail(validated); }
     auto synchronization = plan_resource_sync(plan, steps);
     if (!synchronization) { return fail(synchronization); }
+    add_resource_dependencies(plan, *synchronization);
     VKEXEC_TRY(validate_presentation_image(*synchronization, plan, presentation_image));
     auto facade = context_access::facade(state);
     std::vector<submit_scope> scopes;
@@ -757,12 +823,17 @@ namespace detail {
     { return ex::get_env(std::as_const(*rcvr)); }
   };
 
+  [[nodiscard]] constexpr auto
+    is_borrowed_graph_fence(std::size_t index, std::size_t scope_count, bool has_presentation) noexcept -> bool
+  { return has_presentation && index + std::size_t{ 1 } == scope_count; }
+
   struct graph_submit_sender
   {
     using sender_concept = ex::sender_t;
     using completion_signatures = pass_graph_completion_signatures;
 
     std::vector<submit_scope> scopes;
+    execution_plan plan;
     std::optional<graph_presentation> presentation;
 
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -771,10 +842,19 @@ namespace detail {
     template<class Receiver> struct op_state
     {
       std::vector<submit_scope> scopes;
+      execution_plan plan;
       Receiver receiver;
       std::vector<VkSemaphore> semaphores;
+      struct binary_edge
+      {
+        std::size_t source{};
+        std::size_t destination{};
+        VkSemaphore semaphore{ VK_NULL_HANDLE };
+      };
+      std::vector<binary_edge> edges;
       std::vector<VkFence> fences;
       bool timeline{};
+      static constexpr std::uint64_t k_timeline_signal_value = 1;
       std::optional<graph_presentation> presentation;
       bool presented{};
 
@@ -782,7 +862,7 @@ namespace detail {
       {
         for (std::size_t index{}; index < fences.size(); ++index) {
           VkFence fence = fences.at(index);
-          if (fence != VK_NULL_HANDLE && (!presentation || index + std::size_t{ 1 } != fences.size())) {
+          if (fence != VK_NULL_HANDLE && !is_borrowed_graph_fence(index, scopes.size(), presentation.has_value())) {
             vkDestroyFence(device, fence, nullptr);
           }
         }
@@ -796,9 +876,13 @@ namespace detail {
 
       [[nodiscard]] auto create_sync(context &facade) -> status
       {
-        auto const boundary_count = scopes.size() - std::size_t{ 1 };
-        timeline = facade.capabilities().timeline_semaphore && boundary_count != 0;
-        semaphores.reserve(timeline ? std::size_t{ 1 } : boundary_count);
+        timeline = facade.capabilities().timeline_semaphore && scopes.size() > std::size_t{ 1 };
+        for (std::size_t destination{}; destination < plan.batches.size(); ++destination) {
+          for (std::size_t const source : plan.batches.at(destination).predecessors) {
+            edges.push_back(binary_edge{ .source = source, .destination = destination });
+          }
+        }
+        semaphores.reserve(timeline ? scopes.size() : edges.size());
         fences.reserve(scopes.size());
         for (std::size_t index{}; index < scopes.size(); ++index) {
           if (presentation && index + std::size_t{ 1 } == scopes.size()) {
@@ -814,7 +898,7 @@ namespace detail {
           }
           fences.push_back(fence);
         }
-        auto const semaphore_count = timeline ? std::size_t{ 1 } : boundary_count;
+        auto const semaphore_count = timeline ? scopes.size() : edges.size();
         for (std::size_t index{}; index < semaphore_count; ++index) {
           VkSemaphore semaphore{ VK_NULL_HANDLE };
           VkSemaphoreTypeCreateInfo type_info{};
@@ -829,35 +913,34 @@ namespace detail {
           }
           semaphores.push_back(semaphore);
         }
+        if (!timeline) {
+          for (std::size_t index{}; index < edges.size(); ++index) { edges.at(index).semaphore = semaphores.at(index); }
+        }
         return {};
       }
 
       [[nodiscard]] auto submit_batch(context &facade, std::size_t index) -> status
       {
-        auto const boundary_count = scopes.size() - std::size_t{ 1 };
         auto const &scope = scopes.at(index);
         std::array<VkCommandBuffer, 1> const commands{ scope.cmd };
-        std::array<semaphore_submit, 2> waits{};
-        std::array<semaphore_submit, 2> signals{};
-        std::size_t wait_count{};
-        std::size_t signal_count{};
-        if (index != 0) {
-          waits.at(wait_count++) = semaphore_submit{
-            .semaphore = semaphores.at(timeline ? std::size_t{} : index - std::size_t{ 1 }),
-            .value = timeline ? index : std::size_t{},
-          };
+        std::vector<semaphore_submit> waits;
+        std::vector<semaphore_submit> signals;
+        for (auto const &edge : edges) {
+          if (edge.destination == index) {
+            waits.push_back(semaphore_submit{ .semaphore = timeline ? semaphores.at(edge.source) : edge.semaphore,
+              .value = timeline ? k_timeline_signal_value : std::uint64_t{} });
+          }
+          if (!timeline && edge.source == index) { signals.push_back(semaphore_submit{ .semaphore = edge.semaphore }); }
         }
-        if (index < boundary_count) {
-          signals.at(signal_count++) = semaphore_submit{
-            .semaphore = semaphores.at(timeline ? std::size_t{} : index),
-            .value = timeline ? index + std::size_t{ 1 } : std::size_t{},
-          };
+        if (timeline
+            && std::ranges::any_of(edges, [index](binary_edge const &edge) -> bool { return edge.source == index; })) {
+          signals.push_back(semaphore_submit{ .semaphore = semaphores.at(index), .value = k_timeline_signal_value });
         }
-        if (presentation && index == boundary_count) {
-          waits.at(wait_count++) = presentation->sync.image_available_wait;
+        if (presentation && index + std::size_t{ 1 } == scopes.size()) {
+          waits.push_back(presentation->sync.image_available_wait);
         }
-        if (presentation && index == boundary_count) {
-          signals.at(signal_count++) = presentation->sync.render_finished_signal;
+        if (presentation && index + std::size_t{ 1 } == scopes.size()) {
+          signals.push_back(presentation->sync.render_finished_signal);
           VkFence fence = fences.at(index);
           if (VkResult const reset = vkResetFences(facade.device(), 1, &fence); reset != VK_SUCCESS) {
             return fail(reset, "vkResetFences failed for graph presentation");
@@ -865,8 +948,8 @@ namespace detail {
         }
         return facade.submit(queue_submit{
           .command_buffers = commands,
-          .waits = std::span<semaphore_submit const>{ waits.data(), wait_count },
-          .signals = std::span<semaphore_submit const>{ signals.data(), signal_count },
+          .waits = waits,
+          .signals = signals,
           .fence = fences.at(index),
           .queue = scope.queue.queue,
         });
@@ -959,8 +1042,10 @@ namespace detail {
     {
       return op_state<Receiver>{
         .scopes = std::move(scopes),
+        .plan = std::move(plan),
         .receiver = std::move(receiver),
         .semaphores = {},
+        .edges = {},
         .fences = {},
         .timeline = false,
         .presentation = std::move(presentation),
@@ -974,6 +1059,7 @@ namespace detail {
     context_handle state;
     StepStorage steps;
     std::vector<queue_affinity> step_queues;
+    std::vector<std::vector<std::size_t>> step_predecessors;
     std::optional<graph_presentation> presentation;
     Receiver receiver;
     using child_receiver_t = pass_graph_after_gpu_receiver<StepStorage, Receiver>;
@@ -1006,6 +1092,56 @@ namespace detail {
       ex::set_error(std::move(receiver), std::move(failure));
     }
 
+    [[nodiscard]] auto plan_graph(context &facade) const -> result<execution_plan>
+    {
+      if (step_predecessors.empty()) {
+        return detail::plan_execution(detail::pass_step_count(steps), step_queues, facade.compute_queue_ref());
+      }
+      return detail::plan_dag(step_queues, step_predecessors, facade.compute_queue_ref());
+    }
+
+    [[nodiscard]] auto prepare_presentation(execution_plan const &plan) -> status
+    {
+      if (!presentation) { return {}; }
+      if (plan.batches.empty() || !detail::same_queue(plan.batches.back().queue, presentation->queue)) {
+        return fail(errc::invalid_argument, "presentation requires a final batch on the presenter's graphics queue");
+      }
+      auto sync = presentation->prepare();
+      if (!sync) { return fail(sync); }
+      presentation->sync = expected_take(sync);
+      if (presentation->sync.fence == VK_NULL_HANDLE
+          || presentation->sync.image_available_wait.semaphore == VK_NULL_HANDLE
+          || presentation->sync.render_finished_signal.semaphore == VK_NULL_HANDLE) {
+        return fail(errc::invalid_argument, "presentation returned incomplete synchronization");
+      }
+      return {};
+    }
+
+    [[nodiscard]] auto prepare_terminal(context &facade, execution_plan &plan, std::vector<submit_scope> &scopes)
+      -> status
+    {
+      if (step_predecessors.empty()) { return {}; }
+      auto sinks = detail::terminal_batches(plan);
+      if (presentation) {
+        auto const final_index = plan.batches.size() - std::size_t{ 1 };
+        for (std::size_t const index : sinks) {
+          if (index != final_index) { plan.batches.back().predecessors.push_back(index); }
+        }
+        return {};
+      }
+      if (sinks.size() <= std::size_t{ 1 }) { return {}; }
+      detail::execution_batch join{ .queue = facade.compute_queue_ref(),
+        .first_step = detail::pass_step_count(steps),
+        .end_step = detail::pass_step_count(steps),
+        .predecessors = std::move(sinks) };
+      auto opened = submit_scope::open(facade, join.queue);
+      if (!opened) { return fail(opened); }
+      scopes.push_back(expected_take(opened));
+      VKEXEC_TRY(scopes.back().end_recording());
+      plan.batches.push_back(std::move(join));
+      return {};
+    }
+
     auto start() noexcept -> void
     {
       if (detail::receiver_stop_requested(receiver)) {
@@ -1026,31 +1162,14 @@ namespace detail {
           return;
         }
         auto facade = context_access::facade(state);
-        auto planned = detail::plan_execution(detail::pass_step_count(steps), step_queues, facade.compute_queue_ref());
+        auto planned = plan_graph(facade);
         if (!planned) {
           fail_before_submit(std::move(planned.error()));
           return;
         }
-        if (presentation) {
-          if (planned->batches.empty() || !detail::same_queue(planned->batches.back().queue, presentation->queue)) {
-            fail_before_submit(make_error(
-              errc::invalid_argument, "presentation requires a final batch on the presenter's graphics queue"));
-            return;
-          }
-          auto sync = presentation->prepare();
-          if (!sync) {
-            error failure = std::move(sync.error());
-            (void)presentation->abort(presentation_abort_state::acquired_only);
-            ex::set_error(std::move(receiver), std::move(failure));
-            return;
-          }
-          presentation->sync = expected_take(sync);
-          if (presentation->sync.fence == VK_NULL_HANDLE
-              || presentation->sync.image_available_wait.semaphore == VK_NULL_HANDLE
-              || presentation->sync.render_finished_signal.semaphore == VK_NULL_HANDLE) {
-            fail_before_submit(make_error(errc::invalid_argument, "presentation returned incomplete synchronization"));
-            return;
-          }
+        if (auto ready = prepare_presentation(*planned); !ready) {
+          fail_before_submit(std::move(ready.error()));
+          return;
         }
         auto prepared =
           detail::record_execution(state, *planned, steps, presentation ? presentation->image : VK_NULL_HANDLE);
@@ -1058,8 +1177,14 @@ namespace detail {
           fail_before_submit(std::move(prepared.error()));
           return;
         }
+        auto scopes = expected_take(prepared);
+        if (auto terminal = prepare_terminal(facade, *planned, scopes); !terminal) {
+          fail_before_submit(std::move(terminal.error()));
+          return;
+        }
         auto &child = submit_op.emplace(
-          detail::graph_submit_sender{ .scopes = expected_take(prepared), .presentation = std::move(presentation) },
+          detail::graph_submit_sender{
+            .scopes = std::move(scopes), .plan = std::move(*planned), .presentation = std::move(presentation) },
           scheduler_access::make(state),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         ex::start(child.op);
@@ -1101,6 +1226,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
   detail::context_handle state;
   std::tuple<Steps...> steps;
   std::vector<queue_affinity> step_queues;
+  std::vector<std::vector<std::size_t>> step_predecessors;
   std::optional<graph_presentation> presentation;
   queue_affinity current_queue;
 
@@ -1120,6 +1246,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
       .state = state,
       .steps = steps,
       .step_queues = step_queues,
+      .step_predecessors = step_predecessors,
       .presentation = presentation,
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
@@ -1135,6 +1262,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
       .state = std::move(state),
       .steps = std::move(steps),
       .step_queues = std::move(step_queues),
+      .step_predecessors = std::move(step_predecessors),
       .presentation = std::move(presentation),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
@@ -1151,6 +1279,7 @@ struct dynamic_pass_graph_sender
   detail::context_handle state;
   step_storage_t steps;
   std::vector<queue_affinity> step_queues;
+  std::vector<std::vector<std::size_t>> step_predecessors;
   std::optional<graph_presentation> presentation;
   queue_affinity current_queue;
 
@@ -1178,6 +1307,14 @@ struct dynamic_pass_graph_sender
     }
   auto append(detail::expr_closure<Tag, Data> operation) -> dynamic_pass_graph_sender &;
 
+  //! Adds a node after explicit predecessors. An empty span starts a branch.
+  template<class Tag, class Data>
+    requires requires(Tag tag, Data &&data, scheduler_env const &env) {
+      lower_vkexec_pass_step(tag, std::move(data), env);
+    }
+  [[nodiscard]] auto append_after(std::span<std::size_t const> predecessors, detail::expr_closure<Tag, Data> operation)
+    -> std::size_t;
+
   auto append(detail::expr_closure<detail::on_queue_t, queue_ref> operation) -> dynamic_pass_graph_sender &
   { return append_queue(operation.data); }
 
@@ -1194,6 +1331,7 @@ struct dynamic_pass_graph_sender
       .state = std::move(state),
       .steps = std::move(steps),
       .step_queues = std::move(step_queues),
+      .step_predecessors = std::move(step_predecessors),
       .presentation = std::move(presentation),
       .receiver = std::move(receiver),
       .submit_op = std::nullopt,
@@ -1441,9 +1579,34 @@ auto dynamic_pass_graph_sender::append(detail::expr_closure<Tag, Data> operation
 {
   assert(step_queues.empty() || step_queues.size() == steps.size());
   if (step_queues.empty()) { step_queues.resize(steps.size()); }
+  if (!step_predecessors.empty()) {
+    std::vector<std::size_t> predecessors;
+    if (!steps.empty()) { predecessors.push_back(steps.size() - std::size_t{ 1 }); }
+    step_predecessors.push_back(std::move(predecessors));
+  }
   steps.emplace_back(lower_vkexec_pass_step(std::move(operation.tag), std::move(operation.data), get_env()));
   step_queues.push_back(current_queue);
   return *this;
+}
+
+template<class Tag, class Data>
+  requires requires(Tag tag, Data &&data, scheduler_env const &env) {
+    lower_vkexec_pass_step(tag, std::move(data), env);
+  }
+auto dynamic_pass_graph_sender::append_after(std::span<std::size_t const> predecessors,
+  detail::expr_closure<Tag, Data> operation) -> std::size_t
+{
+  if (step_predecessors.empty()) {
+    step_predecessors.resize(steps.size());
+    for (auto index = std::size_t{ 1 }; index < steps.size(); ++index) {
+      step_predecessors.at(index).push_back(index - std::size_t{ 1 });
+    }
+  }
+  auto const node = steps.size();
+  steps.emplace_back(lower_vkexec_pass_step(std::move(operation.tag), std::move(operation.data), get_env()));
+  step_queues.push_back(current_queue);
+  step_predecessors.emplace_back(predecessors.begin(), predecessors.end());
+  return node;
 }
 
 

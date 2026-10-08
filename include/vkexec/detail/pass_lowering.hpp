@@ -151,6 +151,7 @@ template<static_pass_step... Steps>
   return { .state = std::move(chain.pred.state),
     .steps = std::move(chain.steps),
     .step_queues = std::move(chain.step_queues),
+    .step_predecessors = {},
     .presentation = std::nullopt,
     .current_queue = chain.current_queue };
 }
@@ -162,12 +163,25 @@ template<static_pass_step... Old, static_pass_step... Steps>
 {
   auto state = std::move(chain.pred.state);
   auto queues = std::move(chain.pred.step_queues);
+  auto predecessors = std::move(chain.pred.step_predecessors);
   assert(queues.empty() || queues.size() == sizeof...(Old));
   if (queues.empty()) { queues.resize(sizeof...(Old)); }
   queues.insert(queues.end(), chain.step_queues.begin(), chain.step_queues.end());
+  if (!predecessors.empty()) {
+    for (std::size_t index{}; index < sizeof...(Steps); ++index) {
+      std::vector<std::size_t> incoming;
+      if constexpr (sizeof...(Old) != 0) {
+        incoming.push_back(sizeof...(Old) + index - std::size_t{ 1 });
+      } else if (index != 0) {
+        incoming.push_back(index - std::size_t{ 1 });
+      }
+      predecessors.push_back(std::move(incoming));
+    }
+  }
   return { .state = std::move(state),
     .steps = std::tuple_cat(std::move(chain.pred.steps), std::move(chain.steps)),
     .step_queues = std::move(queues),
+    .step_predecessors = std::move(predecessors),
     .presentation = std::move(chain.pred.presentation),
     .current_queue = chain.current_queue };
 }
@@ -180,6 +194,15 @@ template<static_pass_step... Steps>
   assert(chain.pred.step_queues.empty() || chain.pred.step_queues.size() == chain.pred.steps.size());
   if (chain.pred.step_queues.empty()) { chain.pred.step_queues.resize(chain.pred.steps.size()); }
   if constexpr (sizeof...(Steps) != 0) {
+    if (!chain.pred.step_predecessors.empty()) {
+      for (std::size_t index{}; index < sizeof...(Steps); ++index) {
+        std::vector<std::size_t> predecessors;
+        if (!chain.pred.steps.empty() || index != 0) {
+          predecessors.push_back(chain.pred.steps.size() + index - std::size_t{ 1 });
+        }
+        chain.pred.step_predecessors.push_back(std::move(predecessors));
+      }
+    }
     std::apply([&chain](Steps &&...step) -> void { (chain.pred.steps.emplace_back(std::move(step)), ...); },
       std::move(chain.steps));
   }
