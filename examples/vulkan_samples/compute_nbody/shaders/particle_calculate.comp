@@ -1,0 +1,25 @@
+#version 450
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) readonly buffer PosX { float data[]; } pos_x;
+layout(set = 0, binding = 1) readonly buffer PosY { float data[]; } pos_y;
+layout(set = 0, binding = 2) writeonly buffer AccX { float data[]; } acc_x;
+layout(set = 0, binding = 3) writeonly buffer AccY { float data[]; } acc_y;
+
+const uint particle_count = 1024u;
+const float softening = 0.0025;
+const float gravity = 0.0004;
+
+void main() {
+  uint i = gl_GlobalInvocationID.x;
+  vec2 origin = vec2(pos_x.data[i], pos_y.data[i]);
+  vec2 acceleration = vec2(0.0);
+  for (uint j = 0u; j < particle_count; ++j) {
+    vec2 displacement = vec2(pos_x.data[j], pos_y.data[j]) - origin;
+    float distance_squared = dot(displacement, displacement) + softening;
+    float inverse_distance = inversesqrt(distance_squared);
+    acceleration += gravity * displacement * inverse_distance * inverse_distance * inverse_distance;
+  }
+  acc_x.data[i] = acceleration.x;
+  acc_y.data[i] = acceleration.y;
+}

@@ -4,6 +4,7 @@ add_library(
   timeline_semaphore.cpp
   buffer_device_address.cpp
   dynamic_rendering.cpp
+  shader_demote_to_helper_invocation.cpp
   synchronization2.cpp)
 add_library(vkexec::features ALIAS vkexec_features)
 set_target_properties(vkexec_features PROPERTIES EXPORT_NAME features)

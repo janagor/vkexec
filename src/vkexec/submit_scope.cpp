@@ -6,6 +6,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 
@@ -164,9 +165,14 @@ namespace detail {
     return allocated;
   }
 
-  auto submit_scope::open(context &host) -> result<submit_scope>
+  auto submit_scope::open(context &host) -> result<submit_scope> { return open(host, host.compute_queue_ref()); }
+
+  auto submit_scope::open(context &host, queue_ref queue) -> result<submit_scope>
   {
-    VKEXEC_TRY_ASSIGN(pool, host.acquire_command_pool(host.queue_family()));
+    if (queue.queue == VK_NULL_HANDLE || queue.family == VK_QUEUE_FAMILY_IGNORED) {
+      return fail(errc::invalid_argument, "submit_scope requires a valid queue");
+    }
+    VKEXEC_TRY_ASSIGN(pool, host.acquire_command_pool(queue.family));
     VkCommandBufferAllocateInfo allocate_info{};
     allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocate_info.commandPool = pool;
@@ -175,7 +181,7 @@ namespace detail {
     VkCommandBuffer cmd_buf{ VK_NULL_HANDLE };
     if (VkResult const result = vkAllocateCommandBuffers(host.device(), &allocate_info, &cmd_buf);
       result != VK_SUCCESS) {
-      host.release_command_pool(host.queue_family(), pool);
+      host.release_command_pool(queue.family, pool);
       return fail(result, "vkAllocateCommandBuffers failed");
     }
 
@@ -184,7 +190,7 @@ namespace detail {
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (VkResult const result = vkBeginCommandBuffer(cmd_buf, &begin); result != VK_SUCCESS) {
       vkFreeCommandBuffers(host.device(), pool, 1, &cmd_buf);
-      host.release_command_pool(host.queue_family(), pool);
+      host.release_command_pool(queue.family, pool);
       return fail(result, "vkBeginCommandBuffer failed");
     }
 
@@ -192,6 +198,7 @@ namespace detail {
     scope.state = context_access::state(host);
     scope.pool = pool;
     scope.cmd = cmd_buf;
+    scope.queue = queue;
     return scope;
   }
 
@@ -219,7 +226,7 @@ namespace detail {
         vkFreeCommandBuffers(facade.device(), pool, 1, &cmd);
         cmd = VK_NULL_HANDLE;
       }
-      facade.release_command_pool(facade.queue_family(), pool);
+      facade.release_command_pool(queue.family, pool);
       pool = VK_NULL_HANDLE;
 
       cleanup.release(facade);
@@ -252,9 +259,19 @@ namespace detail {
   { return enter_submit_scope(ctx != nullptr ? context_access::state(*ctx) : context_handle{}); }
 
   auto enter_submit_scope(context_handle state) -> enter_submit_scope_sender
-  { return enter_submit_scope_sender{ .state = std::move(state) }; }
+  {
+    queue_ref queue{};
+    if (state) {
+      auto facade = context_access::facade(state);
+      queue = facade.compute_queue_ref();
+    }
+    return enter_submit_scope_sender{ .state = std::move(state), .queue = queue };
+  }
 
   auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender { return enter_submit_scope(&ctx); }
+
+  auto enter_submit_scope(context &ctx, queue_ref queue) -> enter_submit_scope_sender
+  { return enter_submit_scope_sender{ .state = context_access::state(ctx), .queue = queue }; }
 
   auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender
   { return submit_and_wait_sender{ .scope = std::move(scope) }; }

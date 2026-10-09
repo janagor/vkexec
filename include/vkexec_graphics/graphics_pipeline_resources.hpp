@@ -7,14 +7,19 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <vector>
 
 namespace vkexec {
 
@@ -31,6 +36,7 @@ constexpr std::uint32_t k_stencil_clear_value = 0;
  * Configuration for classic graphics pipelines.
  *
  * When `use_mesh_vertices` is true, the pipeline expects `mesh_vertex` attributes.
+ * Set `mesh_position_only` for shaders that read only the position attribute.
  */
 struct graphics_pipeline_config
 {
@@ -43,6 +49,8 @@ struct graphics_pipeline_config
   bool depth_test{ false };
   bool depth_write{ true };
   bool use_mesh_vertices{ false };
+  bool mesh_position_only{ false };
+  std::uint32_t color_attachment_count{ 1 };
 };
 
 //! Builds color + depth clear values from `cfg`.
@@ -88,6 +96,8 @@ namespace handles {
     VkPipeline pipeline{ VK_NULL_HANDLE };
     VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
     std::uint32_t binding_count{ 0 };
+    std::vector<std::uint32_t> binding_slots;
+    std::vector<resource_kind> binding_kinds;
   };
 
 }// namespace handles
@@ -105,6 +115,14 @@ namespace handles {
   std::span<std::uint32_t const> vertex_spirv,
   std::span<std::uint32_t const> fragment_spirv,
   std::uint32_t storage_binding_count = 0) -> result<handles::graphics_pipeline>;
+
+//! Creates a pipeline whose descriptor layout follows a logical resource table.
+[[nodiscard]] auto create(context &ctx,
+  VkRenderPass render_pass,
+  graphics_pipeline_config cfg,
+  std::span<std::uint32_t const> vertex_spirv,
+  std::span<std::uint32_t const> fragment_spirv,
+  resource_table const &resources) -> result<handles::graphics_pipeline>;
 
 /**
  * Compiles GLSL to SPIR-V then creates classic graphics Vulkan objects.
@@ -147,6 +165,11 @@ struct bound_graphics
   handles::graphics_pipeline const &pipe,
   std::span<storage_binding const> buffers) -> result<bound_graphics>;
 
+//! Allocates and writes all resource kinds supported by resource_table.
+[[nodiscard]] auto bind_graphics_resources(context &ctx,
+  handles::graphics_pipeline const &pipe,
+  resource_table const &resources) -> result<bound_graphics>;
+
 /**
  * Returns `set` to `pipe.descriptor_pool`.
  *
@@ -162,12 +185,79 @@ struct graphics_bind
   VkPipeline pipeline{ VK_NULL_HANDLE };
   VkPipelineLayout layout{ VK_NULL_HANDLE };
   VkDescriptorSet set{ VK_NULL_HANDLE };
+  graphics_pipeline_config config{};
+  std::vector<image_use> images;
+  std::vector<buffer_use> buffers;
+  bool resource_metadata{ false };
+  bool complete_resource_metadata{ true };
 };
 
 //! Builds a `graphics_bind` from pipeline resources and an optional set.
 [[nodiscard]] inline auto bind_graphics(handles::graphics_pipeline const &pipe, VkDescriptorSet set = VK_NULL_HANDLE)
   -> graphics_bind
-{ return graphics_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = set }; }
+{
+  return graphics_bind{ .pipeline = pipe.pipeline,
+    .layout = pipe.pipeline_layout,
+    .set = set,
+    .config = pipe.cfg,
+    .images = {},
+    .buffers = {},
+    .resource_metadata = pipe.binding_count == 0,
+    .complete_resource_metadata = true };
+}
+
+//! Builds a graphics binding with descriptor resources retained for graph planning.
+[[nodiscard]] inline auto bind_graphics(handles::graphics_pipeline const &pipe,
+  VkDescriptorSet set,
+  resource_table const &table) -> graphics_bind
+{
+  auto bind = bind_graphics(pipe, set);
+  bind.resource_metadata = true;
+  bind.complete_resource_metadata = table.size() == pipe.binding_count
+                                    && pipe.binding_slots.size() == pipe.binding_count
+                                    && pipe.binding_kinds.size() == pipe.binding_count;
+  std::vector<bool> seen(pipe.binding_count);
+  for (auto const &entry : table.entries()) {
+    auto const &resource = entry.resource;
+    auto const found = std::ranges::find(pipe.binding_slots, entry.slot);
+    if (found == pipe.binding_slots.end()) {
+      bind.complete_resource_metadata = false;
+      continue;
+    }
+    auto const index = static_cast<std::size_t>(found - pipe.binding_slots.begin());
+    if (index >= seen.size() || seen.at(index) || index >= pipe.binding_kinds.size()
+        || resource.kind != pipe.binding_kinds.at(index)) {
+      bind.complete_resource_metadata = false;
+      continue;
+    }
+    seen.at(index) = true;
+    if (resource.kind == resource_kind::sampler) { continue; }
+    if (resource.kind == resource_kind::storage_buffer) {
+      if (resource.buffer == VK_NULL_HANDLE || resource.byte_size == 0) {
+        bind.complete_resource_metadata = false;
+        continue;
+      }
+      bind.buffers.push_back(buffer_use{ .buffer = resource.buffer,
+        .size = resource.byte_size,
+        .usage = buffer_usage::storage_graphics,
+        .access = resource_access::read_write });
+      continue;
+    }
+    if (resource.image == VK_NULL_HANDLE || resource.image_range.aspectMask == 0) {
+      bind.complete_resource_metadata = false;
+      continue;
+    }
+    bind.images.push_back(image_use{ .image = resource.image,
+      .range = resource.image_range,
+      .usage =
+        resource.kind == resource_kind::sampled_image ? image_usage::sampled_graphics : image_usage::storage_graphics,
+      .access = resource.kind == resource_kind::sampled_image ? resource_access::read : resource_access::read_write,
+      .initial_layout = resource.initial_layout,
+      .layout = resource.image_layout });
+  }
+  if (std::ranges::find(seen, false) != seen.end()) { bind.complete_resource_metadata = false; }
+  return bind;
+}
 
 //! Vertex/index buffer handles for an indexed mesh draw.
 struct mesh_draw
@@ -175,6 +265,7 @@ struct mesh_draw
   VkBuffer vertex_buffer{ VK_NULL_HANDLE };
   VkBuffer index_buffer{ VK_NULL_HANDLE };
   std::uint32_t index_count{ 0 };
+  std::uint32_t first_index{ 0 };
 };
 
 //! Begins a render pass using clear values from `cfg`.
@@ -188,32 +279,34 @@ auto begin_graphics_pass(VkCommandBuffer cmd,
 inline auto end_graphics_pass(VkCommandBuffer cmd) -> void { vkCmdEndRenderPass(cmd); }
 
 /**
- * Records viewport/scissor, bind, and a non-indexed draw into an open render pass.
+ * Requires a recording command buffer and an active compatible render pass.
+ * The render pass and command buffer remain open.
  */
-auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, std::uint32_t vertex_count) -> void;
+auto record_draw(VkCommandBuffer cmd, graphics_bind const &bind, VkExtent2D extent, std::uint32_t vertex_count) -> void;
 
-//! Records viewport/scissor, bind, and an indexed mesh draw into an open render pass.
-auto record_draw(VkCommandBuffer cmd, graphics_bind bind, VkExtent2D extent, mesh_draw const &drawn) -> void;
+//! Records an indexed mesh draw; the active render pass and command buffer remain open.
+auto record_draw(VkCommandBuffer cmd, graphics_bind const &bind, VkExtent2D extent, mesh_draw const &drawn) -> void;
 
 /**
- * Begins a render pass, records a non-indexed draw, ends the pass, and ends `cmd`.
+ * Requires a recording command buffer with no active render pass. Begins a
+ * render pass, records a non-indexed draw, and ends the pass. `cmd` remains recording.
  */
-auto draw_pass(VkCommandBuffer cmd,
+auto record_draw_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
-  graphics_bind bind,
-  std::uint32_t vertex_count) -> status;
+  graphics_bind const &bind,
+  std::uint32_t vertex_count) -> void;
 
-//! Begins a render pass, records a mesh draw, ends the pass, and ends `cmd`.
-auto draw_pass(VkCommandBuffer cmd,
+//! Records a mesh draw in a complete render pass; `cmd` remains recording.
+auto record_draw_pass(VkCommandBuffer cmd,
   VkRenderPass render_pass,
   VkFramebuffer framebuffer,
   VkExtent2D extent,
   graphics_pipeline_config const &cfg,
-  graphics_bind bind,
-  mesh_draw const &drawn) -> status;
+  graphics_bind const &bind,
+  mesh_draw const &drawn) -> void;
 
 }// namespace vkexec
 

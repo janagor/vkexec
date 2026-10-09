@@ -12,6 +12,8 @@
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/queue_submit.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -24,6 +26,8 @@
 #include <atomic>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
+#include <cstdint>
 #if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
 #include <stdexcept>
@@ -36,6 +40,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace ex = stdexec;
 
@@ -616,6 +621,10 @@ TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler]
   vkexec::pass_graph_sender<decltype(step)> graph{
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
+    .step_queues = {},
+    .step_predecessors = {},
+    .presentation = {},
+    .current_queue = {},
   };
 
   auto outcome = vkexec::test::sync_wait_sender(graph);
@@ -758,6 +767,10 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
   vkexec::pass_graph_sender<decltype(step)> graph{
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
+    .step_queues = {},
+    .step_predecessors = {},
+    .presentation = {},
+    .current_queue = {},
   };
 
   auto operation = ex::connect(graph, completion_probe_receiver{ .completed = &receiver_completed });
@@ -865,6 +878,81 @@ TEST_CASE("dynamic pass graph executes multiple runtime steps", "[vkexec][pass][
   REQUIRE(second_after_gpu == 1);
 }
 
+TEST_CASE("DAG fan-out and fan-in completes all submitted branches", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  auto make_empty_node = []() -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {});
+  };
+
+  graph.append_queue(compute);
+  auto const root = graph.append_after({}, make_empty_node());
+  std::array const root_dependency{ root };
+  auto const left = graph.append_after(root_dependency, make_empty_node());
+  if (graphics.queue != VK_NULL_HANDLE) { graph.append_queue(graphics); }
+  auto const right = graph.append_after(root_dependency, make_empty_node());
+  std::array const join_dependencies{ left, right };
+  graph.append_queue(compute);
+  (void)graph.append_after(join_dependencies, make_empty_node());
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(result));
+}
+
+TEST_CASE("DAG terminal join waits for independent queue branches", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  if (graphics.queue == VK_NULL_HANDLE || vkexec::detail::same_queue(compute, graphics)) {
+    SKIP("Distinct graphics and compute queues are unavailable");
+  }
+
+  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  graph.append_queue(compute);
+  auto const compute_branch =
+    graph.append_after({}, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {}));
+  graph.append_queue(graphics);
+  auto const graphics_branch =
+    graph.append_after({}, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {}));
+  REQUIRE(compute_branch != graphics_branch);
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(result));
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("typed DAG executes branches and their join", "[vkexec][pass][gpu]")
+{
+  constexpr int k_recorded_once = 1;
+  auto ctx = vkexec::test::require_context();
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  auto const right_queue = graphics.queue == VK_NULL_HANDLE ? compute : graphics;
+
+  int root_recorded{};
+  int left_recorded{};
+  int right_recorded{};
+  int joined_recorded{};
+  auto make_step = [](int &count) -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [&count](VkCommandBuffer /*unused*/) -> void { ++count; });
+  };
+  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::on_queue(compute) | make_step(root_recorded)
+               | vkexec::when_all(vkexec::on_queue(compute) | make_step(left_recorded),
+                 vkexec::on_queue(right_queue) | make_step(right_recorded))
+               | make_step(joined_recorded);
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(result));
+  REQUIRE(root_recorded == k_recorded_once);
+  REQUIRE(left_recorded == k_recorded_once);
+  REQUIRE(right_recorded == k_recorded_once);
+  REQUIRE(joined_recorded == k_recorded_once);
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][scheduler][gpu]")
 {
@@ -884,6 +972,10 @@ TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][sc
   vkexec::pass_graph_sender<decltype(step)> graph{
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
+    .step_queues = {},
+    .step_predecessors = {},
+    .presentation = {},
+    .current_queue = {},
   };
 
   std::thread waiter{ [&]() -> void {
@@ -917,6 +1009,10 @@ TEST_CASE("pass_graph_sender completes on the context host scheduler", "[vkexec]
   vkexec::pass_graph_sender<decltype(step)> graph{
     .state = vkexec::detail::context_access::state(*ctx),
     .steps = { step },
+    .step_queues = {},
+    .step_predecessors = {},
+    .presentation = {},
+    .current_queue = {},
   };
 
   auto waited = vkexec::test::sync_wait_sender(
@@ -947,21 +1043,104 @@ TEST_CASE("pass composition retains each concrete step type", "[vkexec][pass]")
   REQUIRE(!graph3.state);
 }
 
+TEST_CASE("typed graph appended after materialization joins branch sinks", "[vkexec][pass]")
+{
+  constexpr std::size_t k_root = 0;
+  constexpr std::size_t k_left = 1;
+  constexpr std::size_t k_right = 2;
+  constexpr std::size_t k_joined = 3;
+  constexpr std::size_t k_step_count = 4;
+  vkexec::scheduler sched{ nullptr };
+  auto make_step = []() -> decltype(auto) {
+    return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {});
+  };
+
+  auto branched =
+    ex::transform_sender(ex::schedule(sched) | make_step() | vkexec::when_all(make_step(), make_step()), ex::env<>{});
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(branched)>);
+  REQUIRE(branched.step_predecessors == std::vector<std::vector<std::size_t>>{ {}, { k_root }, { k_root } });
+
+  auto graph = ex::transform_sender(std::move(branched) | make_step(), ex::env<>{});
+  STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph)>);
+  STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == k_step_count);
+  REQUIRE(graph.step_predecessors.at(k_joined) == std::vector<std::size_t>{ k_left, k_right });
+}
+
+// NOLINTBEGIN(bugprone-unchecked-optional-access)
 TEST_CASE("dynamic pass graph keeps one sender type", "[vkexec][pass]")
 {
+  constexpr std::uint32_t k_queue_family = 2U;
+  constexpr std::uint32_t k_next_queue_family = 3U;
   vkexec::scheduler sched{ nullptr };
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
+  auto const queue = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_queue_family };
+  auto const next_queue = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_next_queue_family };
+
+  graph.append(vkexec::on_queue(queue));
+  REQUIRE(graph.steps.empty());
 
   graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
   STATIC_REQUIRE(std::same_as<decltype(graph), vkexec::dynamic_pass_graph_sender>);
   REQUIRE(graph.steps.size() == 1);
+  REQUIRE(graph.step_queues.at(0).has_value());
+  REQUIRE(graph.step_queues.at(0)->family == queue.family);
 
   graph.append(vkexec::barrier::compute_to_compute());
   REQUIRE(graph.steps.size() == 2);
 
+  graph.append(vkexec::on_queue(next_queue));
   graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
   REQUIRE(graph.steps.size() == 3);
+  REQUIRE(graph.step_queues.size() == graph.steps.size());
+  REQUIRE(graph.step_queues.at(1).has_value());
+  REQUIRE(graph.step_queues.at(1)->family == queue.family);
+  REQUIRE(graph.step_queues.at(2).has_value());
+  REQUIRE(graph.step_queues.at(2)->family == next_queue.family);
 }
+
+TEST_CASE("queue affinity survives static graph composition", "[vkexec][pass]")
+{
+  constexpr std::uint32_t k_queue_family = 2U;
+  vkexec::scheduler sched{ nullptr };
+  auto const queue = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_queue_family };
+
+  auto first = ex::transform_sender(
+    ex::schedule(sched) | vkexec::on_queue(queue) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}),
+    ex::env<>{});
+  auto second = ex::transform_sender(
+    std::move(first) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}), ex::env<>{});
+
+  STATIC_REQUIRE(std::tuple_size_v<decltype(second.steps)> == 2);
+  REQUIRE(second.step_queues.size() == std::tuple_size_v<decltype(second.steps)>);
+  REQUIRE(second.step_queues.at(0).has_value());
+  REQUIRE(second.step_queues.at(1).has_value());
+  REQUIRE(second.step_queues.at(0)->family == queue.family);
+  REQUIRE(second.step_queues.at(1)->family == queue.family);
+}
+
+TEST_CASE("on_queue marks subsequent static pass steps", "[vkexec][pass]")
+{
+  constexpr std::uint32_t k_graphics_family = 1U;
+  constexpr std::uint32_t k_compute_family = 2U;
+  vkexec::scheduler sched{ nullptr };
+  auto const graphics = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_graphics_family };
+  auto const compute = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_compute_family };
+
+  auto graph = ex::transform_sender(
+    ex::schedule(sched) | vkexec::on_queue(graphics) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
+      | vkexec::on_queue(compute) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}),
+    ex::env<>{});
+
+  STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == 2);
+  REQUIRE(graph.step_queues.size() == std::tuple_size_v<decltype(graph.steps)>);
+  REQUIRE(graph.step_queues.at(0).has_value());
+  REQUIRE(graph.step_queues.at(1).has_value());
+  REQUIRE(graph.step_queues.at(0)->family == graphics.family);
+  REQUIRE(graph.step_queues.at(1)->family == compute.family);
+  REQUIRE(graph.current_queue.has_value());
+  REQUIRE(graph.current_queue->family == compute.family);
+}
+// NOLINTEND(bugprone-unchecked-optional-access)
 
 TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
 {

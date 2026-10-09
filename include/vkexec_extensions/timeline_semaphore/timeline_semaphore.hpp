@@ -12,6 +12,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <limits>
 
 namespace vkexec {
 
@@ -57,8 +58,16 @@ namespace owned {
      * No-op when `value == 0`.
      *
      * @param value Timeline value to wait for.
+     * @param timeout Timeout in nanoseconds (`UINT64_MAX` waits indefinitely).
      */
-    [[nodiscard]] auto wait(std::uint64_t value) const -> status;
+    [[nodiscard]] auto wait(std::uint64_t value,
+      std::uint64_t timeout = std::numeric_limits<std::uint64_t>::max()) const -> status;
+
+    //! Host-signals a counter value greater than the current value.
+    [[nodiscard]] auto signal(std::uint64_t value) -> status;
+
+    //! Reads the current counter value.
+    [[nodiscard]] auto counter() const -> result<std::uint64_t>;
 
   private:
     friend auto detail::make_timeline_semaphore(context &ctx, std::uint64_t initial_value)
@@ -87,7 +96,7 @@ namespace factory {
     [[nodiscard]] auto operator()(context &ctx, std::uint64_t initial_value = 0) const
     {
       return make_sender([ctx = &ctx, initial_value]() -> result<owned::timeline_semaphore> {
-        return detail::make_timeline_semaphore(*ctx, initial_value);
+        return ::vkexec::detail::make_timeline_semaphore(*ctx, initial_value);
       });
     }
   };

@@ -51,7 +51,13 @@ struct heap_descriptor_backend
 
   [[nodiscard]] static auto make_bind(handles::compute_pipeline const &pipe, bound_type const & /*bound*/)
     -> compute_bind
-  { return compute_bind{ .pipeline = pipe.pipeline, .layout = pipe.pipeline_layout, .set = VK_NULL_HANDLE }; }
+  {
+    // Descriptor-heap binds do not yet retain a logical resource table for graph synchronization.
+    compute_bind bind{};
+    bind.pipeline = pipe.pipeline;
+    bind.layout = pipe.pipeline_layout;
+    return bind;
+  }
 
   static auto release(context & /*ctx*/, handles::compute_pipeline const & /*pipe*/, bound_type const & /*bound*/)
     -> void

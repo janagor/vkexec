@@ -19,6 +19,8 @@ struct mesh_vertex
 {
   std::array<float, k_mesh_vertex_components> position{};
   std::array<float, k_mesh_vertex_components> color{};
+  std::array<float, k_mesh_vertex_components> normal{};
+  std::array<float, 2> texcoord{};
 };
 
 namespace handles {

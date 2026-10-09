@@ -15,6 +15,7 @@
 #include <span>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace vkexec {
 
@@ -44,6 +45,9 @@ struct image_create_info
   VkSampleCountFlagBits samples{ VK_SAMPLE_COUNT_1_BIT };
   VkImageTiling tiling{ VK_IMAGE_TILING_OPTIMAL };
   VkImageCreateFlags flags{};
+  //! Concurrent sharing requires at least two family indices; the sender owns this copy.
+  VkSharingMode sharing_mode{ VK_SHARING_MODE_EXCLUSIVE };
+  std::vector<std::uint32_t> queue_families;
 };
 
 // Customizations are found through ADL and keep the backend's allocation token typed.
@@ -68,7 +72,7 @@ struct allocate_image_t
     }
   [[nodiscard]] auto operator()(A &allocator, image_create_info info) const
     -> decltype(tag_invoke(*this, allocator, info))
-  { return tag_invoke(*this, allocator, info); }
+  { return tag_invoke(*this, allocator, std::move(info)); }
 };
 
 // NOLINTNEXTLINE(readability-identifier-naming)

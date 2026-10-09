@@ -11,6 +11,7 @@ enum class capability_id : std::uint8_t {
   timeline_semaphore,
   buffer_device_address,
   dynamic_rendering,
+  shader_demote_to_helper_invocation,
 };
 
 }// namespace vkexec::detail

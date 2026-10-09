@@ -199,9 +199,11 @@ namespace detail {
   };
 }// namespace detail
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler
 { return detail::scheduler_access::make(state); }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 inline auto context::get_scheduler() noexcept -> scheduler { return detail::scheduler_access::make(impl_); }
 
 /**

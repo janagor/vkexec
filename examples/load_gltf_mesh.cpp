@@ -24,7 +24,10 @@ namespace {
 
   constexpr int k_gltf_component_float = TG3_COMPONENT_TYPE_FLOAT;
   constexpr int k_gltf_component_unsigned_int = TG3_COMPONENT_TYPE_UNSIGNED_INT;
+  constexpr int k_gltf_component_unsigned_short = TG3_COMPONENT_TYPE_UNSIGNED_SHORT;
+  constexpr int k_gltf_component_unsigned_byte = TG3_COMPONENT_TYPE_UNSIGNED_BYTE;
   constexpr int k_gltf_type_vec3 = TG3_TYPE_VEC3;
+  constexpr int k_gltf_type_vec2 = TG3_TYPE_VEC2;
   constexpr int k_gltf_type_scalar = TG3_TYPE_SCALAR;
   constexpr int k_gltf_mode_triangles = TG3_MODE_TRIANGLES;
   constexpr std::size_t k_mat4_element_count = 16;
@@ -382,21 +385,69 @@ namespace {
     return normals;
   }
 
+  auto read_vec2_texcoords(tg3_model const &model, std::int32_t accessor_index, std::size_t expected_count)
+    -> vkexec::result<std::vector<std::array<float, 2>>>
+  {
+    auto accessor_result = accessor_at(model, accessor_index);
+    if (!accessor_result) { return fail(accessor_result); }
+    tg3_accessor const &accessor = *accessor_result.value();
+    if (accessor.type != k_gltf_type_vec2 || accessor.component_type != k_gltf_component_float
+        || static_cast<std::size_t>(accessor.count) != expected_count) {
+      return fail(errc::parse_error, "gltf TEXCOORD_0 accessor must be VEC2/float with one value per vertex");
+    }
+    auto view_result = buffer_view_at(model, accessor.buffer_view);
+    if (!view_result) { return fail(view_result); }
+    tg3_buffer_view const &view = *view_result.value();
+    auto buffer_result = buffer_at(model, view.buffer);
+    if (!buffer_result) { return fail(buffer_result); }
+    tg3_buffer const &buffer = *buffer_result.value();
+    int const stride = tg3_accessor_byte_stride(&accessor, &view);
+    if (stride <= 0) { return fail(errc::parse_error, "gltf TEXCOORD_0 accessor has invalid stride"); }
+    std::span<std::uint8_t const> const bytes(buffer.data.data, buffer.data.count);
+    std::size_t const base_offset =
+      static_cast<std::size_t>(view.byte_offset) + static_cast<std::size_t>(accessor.byte_offset);
+    std::vector<std::array<float, 2>> texcoords(expected_count);
+    for (std::size_t index = 0; index < expected_count; ++index) {
+      std::size_t const offset = base_offset + (index * static_cast<std::size_t>(stride));
+      if (offset + sizeof(texcoords.front()) > bytes.size()) {
+        return fail(errc::parse_error, "gltf TEXCOORD_0 accessor exceeds buffer bounds");
+      }
+      std::memcpy(
+        texcoords.at(index).data(), bytes.subspan(offset, sizeof(texcoords.front())).data(), sizeof(texcoords.front()));
+    }
+    return texcoords;
+  }
+
   auto read_indices(tg3_model const &model, std::int32_t accessor_index) -> vkexec::result<std::vector<std::uint32_t>>
   {
     auto accessor_result = accessor_at(model, accessor_index);
     if (!accessor_result) { return fail(accessor_result); }
     tg3_accessor const &accessor = *accessor_result.value();
 
-    if (accessor.type != k_gltf_type_scalar || accessor.component_type != k_gltf_component_unsigned_int) {
-      return fail(errc::parse_error, "gltf indices accessor must be SCALAR/unsigned int");
+    if (accessor.type != k_gltf_type_scalar
+        || (accessor.component_type != k_gltf_component_unsigned_int
+            && accessor.component_type != k_gltf_component_unsigned_short
+            && accessor.component_type != k_gltf_component_unsigned_byte)) {
+      return fail(errc::parse_error, "gltf indices accessor must be unsigned scalar");
     }
     auto bytes_result = accessor_bytes(model, accessor_index);
     if (!bytes_result) { return fail(bytes_result); }
     std::span<std::uint8_t const> const bytes = bytes_result.value();
 
     std::vector<std::uint32_t> indices(static_cast<std::size_t>(accessor.count));
-    std::memcpy(indices.data(), bytes.data(), bytes.size());
+    for (std::size_t index = 0; index < indices.size(); ++index) {
+      if (accessor.component_type == k_gltf_component_unsigned_int) {
+        std::uint32_t value = 0;
+        std::memcpy(&value, bytes.subspan(index * sizeof(value), sizeof(value)).data(), sizeof(value));
+        indices.at(index) = value;
+      } else if (accessor.component_type == k_gltf_component_unsigned_short) {
+        std::uint16_t value = 0;
+        std::memcpy(&value, bytes.subspan(index * sizeof(value), sizeof(value)).data(), sizeof(value));
+        indices.at(index) = value;
+      } else {
+        indices.at(index) = bytes.subspan(index, 1).front();
+      }
+    }
     return indices;
   }
 
@@ -413,9 +464,11 @@ namespace {
   auto append_primitive(tg3_model const &model,
     tg3_primitive const &primitive,
     mat4 const &world,
-    std::vector<mesh_vertex> &vertices,
-    std::vector<std::uint32_t> &indices) -> vkexec::status
+    gltf_mesh_data &mesh_data,
+    bool bake_vertex_lighting) -> vkexec::status
   {
+    auto &vertices = mesh_data.vertices;
+    auto &indices = mesh_data.indices;
     int const mode = primitive.mode < 0 ? k_gltf_mode_triangles : primitive.mode;
     if (mode != k_gltf_mode_triangles) { return {}; }
 
@@ -442,18 +495,32 @@ namespace {
     }
     bool const has_normals = local_normals.size() == local_positions.size();
 
+    std::vector<std::array<float, 2>> texcoords;
+    std::int32_t const texcoord_accessor = find_primitive_attribute(primitive, "TEXCOORD_0");
+    if (texcoord_accessor >= 0) {
+      auto texcoords_result = read_vec2_texcoords(model, texcoord_accessor, local_positions.size());
+      if (!texcoords_result) { return fail(texcoords_result); }
+      texcoords = std::move(texcoords_result.value());
+    }
+
+    auto const first_index = static_cast<std::uint32_t>(indices.size());
+
     auto const base_vertex = static_cast<std::uint32_t>(vertices.size());
     vertices.reserve(vertices.size() + local_positions.size());
     for (std::size_t index = 0; index < local_positions.size(); ++index) {
       vec3 const world_position = transform_point(world, local_positions.at(index));
       std::array<float, k_mesh_vertex_components> color = base_color;
+      std::array<float, k_mesh_vertex_components> normal{ 0.0F, 0.0F, 1.0F };
       if (has_normals) {
         vec3 const world_normal = normalize_vec3(transform_normal(world, local_normals.at(index)));
-        color = shade_vertex(world_normal, base_color);
+        if (bake_vertex_lighting) { color = shade_vertex(world_normal, base_color); }
+        normal = { world_normal.x, world_normal.y, world_normal.z };
       }
       vertices.push_back(mesh_vertex{
         .position = { world_position.x, world_position.y, world_position.z },
         .color = color,
+        .normal = normal,
+        .texcoord = texcoords.empty() ? std::array<float, 2>{} : texcoords.at(index),
       });
     }
 
@@ -461,14 +528,19 @@ namespace {
     std::ranges::transform(local_indices,
       std::back_inserter(indices),
       [base_vertex](std::uint32_t local_index) -> std::uint32_t { return base_vertex + local_index; });
+    mesh_data.draws.push_back(gltf_mesh_data::primitive_draw{
+      .first_index = first_index,
+      .index_count = static_cast<std::uint32_t>(local_indices.size()),
+      .material_index = primitive.material,
+    });
     return {};
   }
 
   auto append_mesh(tg3_model const &model,
     std::int32_t mesh_index,
     mat4 const &world,
-    std::vector<mesh_vertex> &vertices,
-    std::vector<std::uint32_t> &indices) -> vkexec::status
+    gltf_mesh_data &mesh_data,
+    bool bake_vertex_lighting) -> vkexec::status
   {
     if (mesh_index < 0) { return {}; }
     if (std::cmp_greater_equal(mesh_index, model.meshes_count)) { return {}; }
@@ -476,7 +548,8 @@ namespace {
     tg3_mesh const &mesh = model.meshes[static_cast<std::size_t>(mesh_index)];
     for (std::uint32_t primitive_index = 0; primitive_index < mesh.primitives_count; ++primitive_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      if (auto status = append_primitive(model, mesh.primitives[primitive_index], world, vertices, indices); !status) {
+      tg3_primitive const &primitive = mesh.primitives[primitive_index];
+      if (auto status = append_primitive(model, primitive, world, mesh_data, bake_vertex_lighting); !status) {
         return fail(status);
       }
     }
@@ -486,8 +559,8 @@ namespace {
   auto traverse_nodes(tg3_model const &model,
     std::int32_t node_index,
     mat4 const &parent,
-    std::vector<mesh_vertex> &vertices,
-    std::vector<std::uint32_t> &indices) -> vkexec::status
+    gltf_mesh_data &mesh_data,
+    bool bake_vertex_lighting) -> vkexec::status
   {
     if (node_index < 0) { return {}; }
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
@@ -495,10 +568,13 @@ namespace {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     tg3_node const &node = model.nodes[static_cast<std::size_t>(node_index)];
     mat4 const world = multiply(parent, node_local_matrix(node));
-    if (auto status = append_mesh(model, node.mesh, world, vertices, indices); !status) { return fail(status); }
+    if (auto status = append_mesh(model, node.mesh, world, mesh_data, bake_vertex_lighting); !status) {
+      return fail(status);
+    }
     for (std::uint32_t child_index = 0; child_index < node.children_count; ++child_index) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      if (auto status = traverse_nodes(model, node.children[child_index], world, vertices, indices); !status) {
+      if (auto status = traverse_nodes(model, node.children[child_index], world, mesh_data, bake_vertex_lighting);
+        !status) {
         return fail(status);
       }
     }
@@ -579,16 +655,34 @@ auto detail::load_gltf_mesh_factory::operator()() const -> vkexec::result<gltf_m
   tg3_scene const &scene = gltf.scenes[static_cast<std::size_t>(scene_index)];
   for (std::uint32_t node_index = 0; node_index < scene.nodes_count; ++node_index) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-    if (auto status = traverse_nodes(gltf, scene.nodes[node_index], identity, mesh_data.vertices, mesh_data.indices);
-      !status) {
+    if (auto status = traverse_nodes(gltf, scene.nodes[node_index], identity, mesh_data, fit_to_clip_space); !status) {
       return fail(status);
     }
+  }
+
+  mesh_data.base_color_textures.reserve(gltf.materials_count);
+  for (std::uint32_t index = 0; index < gltf.materials_count; ++index) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_material const &material = gltf.materials[index];
+    std::int32_t const texture_index = material.pbr_metallic_roughness.base_color_texture.index;
+    if (texture_index < 0 || std::cmp_greater_equal(texture_index, gltf.textures_count)) {
+      mesh_data.base_color_textures.emplace_back();
+      continue;
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::int32_t const image_index = gltf.textures[static_cast<std::size_t>(texture_index)].source;
+    if (image_index < 0 || std::cmp_greater_equal(image_index, gltf.images_count)) {
+      return fail(errc::parse_error, "gltf material texture has no image");
+    }
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    tg3_str const uri = gltf.images[static_cast<std::size_t>(image_index)].uri;
+    mesh_data.base_color_textures.emplace_back(uri.data, uri.len);
   }
 
   if (mesh_data.vertices.empty() || mesh_data.indices.empty()) {
     return fail(errc::empty_result, "gltf file contained no triangle geometry");
   }
-  fit_mesh_to_clip_space(mesh_data.vertices);
+  if (fit_to_clip_space) { fit_mesh_to_clip_space(mesh_data.vertices); }
   return mesh_data;
 }
 

@@ -44,6 +44,8 @@ private:
 template<typename T> class result
 {
 public:
+  // A successful result must engage value_; a defaulted constructor would leave it empty.
+  // NOLINTNEXTLINE(hicpp-use-equals-default,modernize-use-equals-default)
   result() : value_(std::in_place) {}
 
   result(result const &) = default;
@@ -88,6 +90,7 @@ public:
 
 private:
   std::optional<T> value_{};
+  // NOLINTNEXTLINE(readability-identifier-naming)
   std::optional<error_type> error_;
 };
 
@@ -117,6 +120,7 @@ public:
   // NOLINTBEGIN(bugprone-unchecked-optional-access)
   [[nodiscard]] auto error() & -> error_type & { return *error_; }
   [[nodiscard]] auto error() const & -> error_type const & { return *error_; }
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   [[nodiscard]] auto error() && -> error_type && { return std::move(*error_); }
   // NOLINTEND(bugprone-unchecked-optional-access)
 
@@ -128,9 +132,11 @@ private:
 using status = result<void>;
 
 //! Wraps `err` as `unexpected` for `return fail(...)`.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 [[nodiscard]] inline auto fail(error_type err) -> unexpected<error_type> { return unexpected(std::move(err)); }
 
 //! Builds `unexpected` from an `errc` and optional detail string.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 [[nodiscard]] inline auto fail(errc code, std::string detail = {}) -> unexpected<error_type>
 { return fail(make_error(code, std::move(detail))); }
 

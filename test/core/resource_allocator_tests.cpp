@@ -98,7 +98,7 @@ struct wrong_image_allocator
 
 [[nodiscard]] auto tag_invoke(vkexec::allocate_image_t /*tag*/,
   wrong_image_allocator & /*allocator*/,
-  vkexec::image_create_info /*info*/)
+  vkexec::image_create_info const & /*info*/)
 { return stdexec::just(k_wrong_value); }
 
 // docs: custom allocator customizations begin
@@ -112,8 +112,9 @@ struct wrong_image_allocator
   });
 }
 
-[[nodiscard]] auto
-  tag_invoke(vkexec::allocate_image_t /*tag*/, test_allocator & /*allocator*/, vkexec::image_create_info /*info*/)
+[[nodiscard]] auto tag_invoke(vkexec::allocate_image_t /*tag*/,
+  test_allocator & /*allocator*/,
+  vkexec::image_create_info const & /*info*/)
 {
   return vkexec::make_sender([]() -> vkexec::result<test_image> { return test_image{}; });
 }

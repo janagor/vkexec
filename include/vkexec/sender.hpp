@@ -87,19 +87,13 @@ namespace detail {
 
     auto produced = factory();
 
+    factory_completion<value_type> completion{};
     if (!produced) {
-      if constexpr (std::is_void_v<value_type>) {
-        return factory_completion<value_type>{ .failure = std::move(produced.error()) };
-      } else {
-        return factory_completion<value_type>{ .value = std::nullopt, .failure = std::move(produced.error()) };
-      }
+      completion.failure = std::move(produced.error());
+    } else if constexpr (!std::is_void_v<value_type>) {
+      completion.value.emplace(expected_take(produced));
     }
-
-    if constexpr (std::is_void_v<value_type>) {
-      return factory_completion<value_type>{};
-    } else {
-      return factory_completion<value_type>{ .value = expected_take(produced), .failure = std::nullopt };
-    }
+    return completion;
   }
 
   template<class Receiver, class T>

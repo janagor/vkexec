@@ -244,6 +244,9 @@ public:
   [[nodiscard]] auto graphics_queue_family() const noexcept -> std::uint32_t;
   //! Queue family index for `present_queue()`.
   [[nodiscard]] auto present_queue_family() const noexcept -> std::uint32_t;
+  [[nodiscard]] auto compute_queue_ref() const noexcept -> queue_ref;
+  [[nodiscard]] auto graphics_queue_ref() const noexcept -> queue_ref;
+  [[nodiscard]] auto present_queue_ref() const noexcept -> queue_ref;
   //! True when the retained runtime destroys the Vulkan instance at final release.
   [[nodiscard]] auto owns_instance() const noexcept -> bool;
   //! True when the retained runtime destroys the Vulkan device at final release.
@@ -263,6 +266,8 @@ public:
    * Recording separate returned buffers may proceed concurrently.
    */
   [[nodiscard]] auto allocate_command_buffer() -> result<VkCommandBuffer>;
+  //! Allocates a command buffer from the requested queue family's pool.
+  [[nodiscard]] auto allocate_command_buffer(queue_ref queue) -> result<VkCommandBuffer>;
 
   //! Frees `cmd` and returns its exclusive pool to the cache. `cmd` must have
   //! been returned by this context's `allocate_command_buffer()`.
@@ -277,6 +282,7 @@ public:
    * @param cmd Primary command buffer previously begun and ended by the caller.
    */
   [[nodiscard]] auto submit_and_wait(VkCommandBuffer cmd) -> status;
+  [[nodiscard]] auto submit_and_wait(VkCommandBuffer cmd, queue_ref queue) -> status;
 
   /**
    * Submits `cmd` without blocking; optionally returns a binary semaphore and fence.
@@ -289,6 +295,8 @@ public:
    * @param out_fence Optional destination for a fence signalled on completion.
    */
   [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence = nullptr)
+    -> status;
+  [[nodiscard]] auto submit_async(VkCommandBuffer cmd, VkSemaphore *out_semaphore, VkFence *out_fence, queue_ref queue)
     -> status;
 
   /**

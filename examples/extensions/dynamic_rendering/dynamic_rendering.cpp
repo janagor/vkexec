@@ -126,9 +126,6 @@ auto run() -> int
     if (auto recorded = record_swapchain_clear(win.ctx(), *chain, frame.command_buffer, frame, phase); !recorded) {
       vkexec::examples::abort_with_error(recorded.error());
     }
-    if (vkEndCommandBuffer(frame.command_buffer) != VK_SUCCESS) {
-      vkexec::examples::fail_check("vkEndCommandBuffer failed");
-    }
     if (auto fence = win.end_frame(frame); !fence) { vkexec::examples::abort_with_error(fence.error()); }
 
     phase += k_phase_step;

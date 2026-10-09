@@ -221,7 +221,8 @@ void main() {}
     vkexec::image_create_info{ .extent = { .width = 1, .height = 1, .depth = 1 },
       .format = VK_FORMAT_R16G16B16A16_SFLOAT,
       .usage = static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_STORAGE_BIT)
-               | static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_SAMPLED_BIT) }));
+               | static_cast<VkImageUsageFlags>(VK_IMAGE_USAGE_SAMPLED_BIT),
+      .queue_families = {} }));
   auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   auto image_sampler = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   auto resources_result =
@@ -337,6 +338,10 @@ TEST_CASE("pass graph completes with set_stopped when stop is already requested"
   vkexec::pass_graph_sender<> sender{
     .state = {},
     .steps = {},
+    .step_queues = {},
+    .step_predecessors = {},
+    .presentation = {},
+    .current_queue = {},
   };
 
   auto const waited =

@@ -8,6 +8,7 @@
 
 #include <vkexec_graphics/depth_attachment.hpp>
 #include <vkexec_graphics/graphics.hpp>
+#include <vkexec_graphics/pass.hpp>
 #include <vkexec_graphics/presenter.hpp>
 
 namespace vkexec {}// namespace vkexec

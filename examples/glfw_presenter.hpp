@@ -65,13 +65,12 @@ public:
       surface_extensions.push_back(extensions[index]);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
 
-    GLFWwindow *const native_window = created.window_;
     created.presenter_ = std::make_unique<owned::presenter>(sync_wait_value(factory::make_presenter({
       .width = cfg.width,
       .height = cfg.height,
       .validation_layers = cfg.validation_layers,
       .surface_instance_extensions = std::move(surface_extensions),
-      .create_surface = [native_window](VkInstance instance) -> result<VkSurfaceKHR> {
+      .create_surface = [native_window = created.window_](VkInstance instance) -> result<VkSurfaceKHR> {
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         if (VkResult const result = glfwCreateWindowSurface(instance, native_window, nullptr, &surface);
           result != VK_SUCCESS) {
@@ -113,6 +112,7 @@ public:
   }
 
   [[nodiscard]] auto should_close() const noexcept -> bool { return glfwWindowShouldClose(window_) == GLFW_TRUE; }
+  [[nodiscard]] auto native_window() const noexcept -> GLFWwindow * { return window_; }
 
   auto poll_events() -> void
   {
@@ -135,6 +135,8 @@ public:
   { return target().borrowed_swapchain(); }
   [[nodiscard]] auto begin_frame() -> result<std::optional<frame>> { return target().begin_frame(); }
   [[nodiscard]] auto end_frame(frame const &drawn) -> result<VkFence> { return target().end_frame(drawn); }
+  [[nodiscard]] auto end_frame(frame const &drawn, frame_submit_options options) -> result<VkFence>
+  { return target().end_frame(drawn, options); }
   auto wait_idle() -> void { target().wait_idle(); }
 
 private:

@@ -4,6 +4,7 @@
 //! \file
 //! Global and resource-scoped barriers, plus pipeable steps for pass graphs.
 
+#include <vkexec/barrier_params.hpp>
 #include <vkexec/pass.hpp>
 
 #include <vulkan/vulkan.h>
@@ -13,68 +14,13 @@
 
 namespace vkexec {
 
-//! Parameters for a global memory dependency recorded with `memory_barrier`.
-struct memory_barrier_params
-{
-  VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
-  VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
-  VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
-  VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
-};
-
-/**
- * Records a global memory barrier on `cmd`.
- *
- * @param ctx Context whose enabled features select the recording backend.
- * @param cmd Command buffer in the recording state.
- * @param params Source/destination stages and access masks.
- */
+/** Records a global memory dependency on a recording command buffer. */
 [[nodiscard]] auto memory_barrier(context &ctx, VkCommandBuffer cmd, memory_barrier_params const &params) -> status;
 
-//! Parameters for a buffer dependency recorded with `buffer_barrier`.
-struct buffer_barrier_params
-{
-  VkBuffer buffer{ VK_NULL_HANDLE };
-  VkDeviceSize offset{ 0 };
-  VkDeviceSize size{ VK_WHOLE_SIZE };
-  VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
-  VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
-  VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
-  VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
-  std::uint32_t src_queue_family{ VK_QUEUE_FAMILY_IGNORED };
-  std::uint32_t dst_queue_family{ VK_QUEUE_FAMILY_IGNORED };
-};
-
+/** Records a buffer memory barrier on a recording command buffer. */
 [[nodiscard]] auto buffer_barrier(context &ctx, VkCommandBuffer cmd, buffer_barrier_params const &params) -> status;
 
-//! Parameters for an image dependency or layout transition.
-struct image_barrier_params
-{
-  VkImage image{ VK_NULL_HANDLE };
-  VkImageSubresourceRange range{
-    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-    .baseMipLevel = 0,
-    .levelCount = 1,
-    .baseArrayLayer = 0,
-    .layerCount = 1,
-  };
-  VkImageLayout old_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
-  VkImageLayout new_layout{ VK_IMAGE_LAYOUT_GENERAL };
-  VkPipelineStageFlags2 src_stage{ VK_PIPELINE_STAGE_2_NONE };
-  VkPipelineStageFlags2 dst_stage{ VK_PIPELINE_STAGE_2_NONE };
-  VkAccessFlags2 src_access{ VK_ACCESS_2_NONE };
-  VkAccessFlags2 dst_access{ VK_ACCESS_2_NONE };
-  std::uint32_t src_queue_family{ VK_QUEUE_FAMILY_IGNORED };
-  std::uint32_t dst_queue_family{ VK_QUEUE_FAMILY_IGNORED };
-};
-
-/**
- * Records an image memory barrier / layout transition on `cmd`.
- *
- * @param ctx Context whose enabled features select the recording backend.
- * @param cmd Command buffer in the recording state.
- * @param params Image, layouts, and stage/access masks.
- */
+/** Records an image layout transition or memory barrier on a recording command buffer. */
 [[nodiscard]] auto image_barrier(context &ctx, VkCommandBuffer cmd, image_barrier_params const &params) -> status;
 
 /**

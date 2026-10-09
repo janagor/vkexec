@@ -20,7 +20,7 @@ auto detail::make_allocator_factory::operator()() const -> result<allocator>
   info.physicalDevice = ctx->physical_device();
   info.device = ctx->device();
   info.vulkanApiVersion = ctx->api_version();
-  if (ctx->procs().get_buffer_device_address != nullptr) {
+  if (ctx->capabilities().buffer_device_address) {
     info.flags |= static_cast<decltype(info.flags)>(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT);
   }
 

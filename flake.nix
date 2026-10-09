@@ -98,6 +98,8 @@
         );
       in
       {
+        packages.sample-shader-compiler = pkgs.shaderc;
+
         devShells = {
           default = clangShell;
           gcc = gccShell;

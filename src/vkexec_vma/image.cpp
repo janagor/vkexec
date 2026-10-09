@@ -7,6 +7,8 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
+#include <cstdint>
+
 namespace vkexec {
 namespace {
 
@@ -48,7 +50,8 @@ auto detail::make_image_factory::operator()() const -> result<::vkexec::vma::ima
     .allocator = allocator,
     .info = { .extent = { .width = info.width, .height = info.height, .depth = 1 },
       .format = vk_format,
-      .usage = usg_flags },
+      .usage = usg_flags,
+      .queue_families = {} },
   }();
 }
 
@@ -60,6 +63,9 @@ auto detail::make_generic_image_factory::operator()() const -> result<::vkexec::
   if (info.extent.width == 0 || info.extent.height == 0 || info.extent.depth == 0 || info.format == VK_FORMAT_UNDEFINED
       || info.usage == 0 || info.mip_levels == 0 || info.array_layers == 0) {
     return fail(errc::invalid_argument, "allocate_image requires an extent, format, usage, mips, and layers");
+  }
+  if (info.sharing_mode == VK_SHARING_MODE_CONCURRENT && info.queue_families.size() < 2) {
+    return fail(errc::invalid_argument, "concurrent image sharing requires at least two queue families");
   }
 
   // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
@@ -75,7 +81,11 @@ auto detail::make_generic_image_factory::operator()() const -> result<::vkexec::
   create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   create_info.usage = info.usage;
   create_info.samples = info.samples;
-  create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  create_info.sharingMode = info.sharing_mode;
+  if (info.sharing_mode == VK_SHARING_MODE_CONCURRENT) {
+    create_info.queueFamilyIndexCount = static_cast<std::uint32_t>(info.queue_families.size());
+    create_info.pQueueFamilyIndices = info.queue_families.data();
+  }
 
   VmaAllocationCreateInfo allocation_info{};
   allocation_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;

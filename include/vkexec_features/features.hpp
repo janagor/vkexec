@@ -8,6 +8,7 @@
 #include <vkexec_features/dynamic_rendering.hpp>
 #include <vkexec_features/feature.hpp>
 #include <vkexec_features/registry.hpp>
+#include <vkexec_features/shader_demote_to_helper_invocation.hpp>
 #include <vkexec_features/synchronization2.hpp>
 #include <vkexec_features/timeline_semaphore.hpp>
 

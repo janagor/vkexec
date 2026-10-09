@@ -14,6 +14,7 @@
 #include <vulkan/vulkan.h>
 
 #include <cstdint>
+#include <utility>
 
 namespace vkexec {
 
@@ -191,7 +192,7 @@ namespace factory {
 }// namespace factory
 
 [[nodiscard]] inline auto tag_invoke(allocate_image_t /*tag*/, allocator &alloc, ::vkexec::image_create_info info)
-{ return make_sender(::vkexec::detail::make_generic_image_factory{ .allocator = &alloc, .info = info }); }
+{ return make_sender(::vkexec::detail::make_generic_image_factory{ .allocator = &alloc, .info = std::move(info) }); }
 
 static_assert(image_allocator<allocator>);
 

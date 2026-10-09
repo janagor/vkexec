@@ -7,6 +7,8 @@
 #include <vkexec/context.hpp>
 #include <vkexec/detail/move_only_function.hpp>
 #include <vkexec/error.hpp>
+#include <vkexec/presentation_abort_state.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 #include <vkexec_graphics/swapchain.hpp>
@@ -15,6 +17,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -97,6 +100,30 @@ struct frame
   VkFramebuffer framebuffer{ VK_NULL_HANDLE };
   VkExtent2D extent{};
   std::uint32_t image_index{ 0 };
+};
+
+//! Swapchain image acquired for graph-owned command recording.
+struct acquired_frame
+{
+  VkImage image{ VK_NULL_HANDLE };
+  VkImageView image_view{ VK_NULL_HANDLE };
+  VkFramebuffer framebuffer{ VK_NULL_HANDLE };
+  VkExtent2D extent{};
+  std::uint32_t image_index{ 0 };
+};
+
+//! Additional GPU waits for the graphics submit that presents a frame.
+struct frame_submit_options
+{
+  std::span<semaphore_submit const> waits;
+};
+
+//! Presenter-owned binary semaphores and fence for one external graphics submit.
+struct frame_submit_sync
+{
+  semaphore_submit image_available_wait;
+  semaphore_submit render_finished_signal;
+  VkFence fence{ VK_NULL_HANDLE };
 };
 
 /**
@@ -233,16 +260,39 @@ namespace owned {
      */
     [[nodiscard]] auto begin_frame() -> result<std::optional<frame>>;
 
+    //! Acquires a frame without allocating or beginning a command buffer.
+    [[nodiscard]] auto acquire_frame() -> result<std::optional<acquired_frame>>;
+
     /**
-     * Submits the recorded command buffer and presents.
+     * Ends command-buffer recording if still open, submits, and presents.
      *
-     * The command buffer must already be ended. Returns the per-frame `in_flight`
-     * fence signalled by the submit (owned by the presenter).
+     * The frame must come from `begin_frame`. On success, recording is ended
+     * and the per-frame `in_flight` fence (owned by the presenter) is returned.
      *
      * @param drawn Frame from a successful `begin_frame`.
      * @param options Optional `VkPresentInfoKHR::pNext` chain.
      */
     [[nodiscard]] auto end_frame(frame const &drawn, present_options options = {}) -> result<VkFence>;
+    //! Submits with caller GPU waits in addition to the swapchain image wait.
+    [[nodiscard]] auto end_frame(frame const &drawn, frame_submit_options submit_options, present_options options = {})
+      -> result<VkFence>;
+
+    //! Ends recording for the current frame before caller-managed submission.
+    //! Requires an open frame with recording still active; the frame remains open.
+    [[nodiscard]] auto finish_frame_recording(frame const &drawn) -> status;
+
+    //! Borrows swapchain synchronization for a caller-submitted graphics frame.
+    //! Does not end command-buffer recording; call `finish_frame_recording` before submission.
+    [[nodiscard]] auto submission_sync(frame const &drawn) const -> result<frame_submit_sync>;
+    //! Synchronization for a graph-owned submission targeting an acquired frame.
+    [[nodiscard]] auto submission_sync(acquired_frame const &drawn) const -> result<frame_submit_sync>;
+    //! Presents a frame after the caller has ended recording and submitted it using `submission_sync`.
+    [[nodiscard]] auto present_submitted(frame const &drawn, present_options options = {}) -> result<VkFence>;
+    //! Presents after the graph has submitted its final swapchain-writing batch.
+    [[nodiscard]] auto present_submitted(acquired_frame const &drawn, present_options options = {}) -> result<VkFence>;
+    //! Recovers an acquired graph frame after cancellation or failed submission.
+    [[nodiscard]] auto abandon_frame(acquired_frame const &drawn,
+      presentation_abort_state state = presentation_abort_state::acquired_only) -> status;
 
   private:
     friend struct detail::make_presenter_factory;
@@ -268,6 +318,10 @@ namespace owned {
     auto destroy_swapchain_sync() noexcept -> void;
     auto cleanup_swapchain() -> void;
     auto recreate_swapchain(std::uint32_t width, std::uint32_t height) -> status;
+    [[nodiscard]] auto validate_current_frame(frame const &drawn) const -> status;
+    [[nodiscard]] auto validate_current_frame(acquired_frame const &drawn) const -> status;
+    [[nodiscard]] auto consume_acquired_image_wait() -> status;
+    [[nodiscard]] auto replace_abandoned_frame_sync() -> status;
 
     config cfg_;
     std::unique_ptr<context> ctx_;
@@ -292,6 +346,8 @@ namespace owned {
     bool resize_required_{ false };
     bool suspended_{ false };
     bool frame_open_{ false };
+    bool recording_open_{ false };
+    bool acquired_wait_consumed_{ false };
   };
 
 }// namespace owned

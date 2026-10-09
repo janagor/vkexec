@@ -11,6 +11,13 @@
 
 namespace vkexec {
 
+//! A queue and the family that owns command buffers submitted to it.
+struct queue_ref
+{
+  VkQueue queue{ VK_NULL_HANDLE };
+  std::uint32_t family{ VK_QUEUE_FAMILY_IGNORED };
+};
+
 /**
  * Wait or signal entry for `queue_submit`.
  *

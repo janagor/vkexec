@@ -39,7 +39,8 @@ struct tensor_pass_t
   }
 
   template<detail::push_constant_type Params, class... Values>
-  [[nodiscard]] auto operator()(compute_bind bind, Params const &params, dispatch groups, Values &...values) const
+  [[nodiscard]] auto
+    operator()(compute_bind const &bind, Params const &params, dispatch groups, Values &...values) const
   { return (*this)(compute_pass(bind, params, groups), values...); }
 
   template<detail::push_constant_type Params, class... Values>

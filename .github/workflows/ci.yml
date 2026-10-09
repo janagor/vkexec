@@ -23,6 +23,16 @@ env:
 
 
 jobs:
+  sample-shaders:
+    name: Validate committed sample shaders
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v21
+      - name: Compare compiled shaders with committed SPIR-V
+        run: nix shell .#sample-shader-compiler --command bash examples/vulkan_samples/validate_shaders.sh
+
   compiler-floor:
     if: github.event_name != 'schedule'
     name: compiler floor ${{ matrix.compiler }} ${{ matrix.build_type }} exceptions ${{ matrix.exceptions || 'ON' }}

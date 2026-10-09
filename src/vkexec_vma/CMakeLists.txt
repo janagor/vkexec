@@ -3,6 +3,7 @@ add_library(
   allocator.cpp
   gpu_buffer.cpp
   image.cpp
+  offscreen_target.cpp
   copy.cpp
   vma.cpp)
 

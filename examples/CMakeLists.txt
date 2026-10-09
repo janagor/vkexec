@@ -2,6 +2,7 @@ add_library(vkexec_examples_glfw INTERFACE)
 target_link_libraries(vkexec_examples_glfw INTERFACE glfw)
 
 add_subdirectory(extensions)
+add_subdirectory(vulkan_samples)
 
 add_executable(compute compute.cpp)
 add_executable(compute_execution compute_execution.cpp)

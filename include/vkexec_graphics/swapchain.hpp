@@ -11,6 +11,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -142,8 +143,12 @@ namespace owned {
     [[nodiscard]] auto extent() const noexcept -> VkExtent2D { return extent_; }
     //! Swapchain images (owned by the swapchain).
     [[nodiscard]] auto images() const noexcept -> std::span<VkImage const> { return images_; }
+    //! One swapchain image by acquired index.
+    [[nodiscard]] auto image_at(std::size_t index) const -> VkImage { return images_.at(index); }
     //! Image views for `images()` (owned by this object).
     [[nodiscard]] auto image_views() const noexcept -> std::span<VkImageView const> { return views_; }
+    //! One swapchain image view by acquired index.
+    [[nodiscard]] auto image_view_at(std::size_t index) const -> VkImageView { return views_.at(index); }
     //! Borrowed surface handle.
     [[nodiscard]] auto surface() const noexcept -> VkSurfaceKHR { return surface_; }
 

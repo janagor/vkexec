@@ -12,6 +12,8 @@ A static pass step is move-constructible and provides `record(context&, VkComman
 
 `dynamic_pass_graph_sender` stores a vector of type-erased `dynamic_pass_step` objects. It is the runtime construction escape hatch. Its `append()` lowers primitive semantic operations; statically known sender composition should remain a typed graph.
 
+`append_after(predecessors, operation)` adds a node with explicit incoming edges and returns its index. Nodes must be appended in topological order. The execution planner keeps DAG nodes in separate batches, adds edges for resource hazards, and submits each batch with GPU semaphore waits for its predecessors. A terminal join submission is added when more than one branch remains terminal. When the graph presents, its final graphics batch serves as that join.
+
 ## Composite operations
 
 A composite operation expands through `lower_vkexec_expression`, for example into binding, a barrier, and dispatch. It is normalized before step collection so its internal operations participate in the surrounding graph.

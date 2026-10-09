@@ -28,6 +28,9 @@ struct resource_ref
   VkImageView image_view{ VK_NULL_HANDLE };
   VkImageLayout image_layout{ VK_IMAGE_LAYOUT_GENERAL };
   VkSampler sampler{ VK_NULL_HANDLE };
+  VkImage image{ VK_NULL_HANDLE };
+  VkImageSubresourceRange image_range{};
+  VkImageLayout initial_layout{ VK_IMAGE_LAYOUT_UNDEFINED };
 };
 
 //! Creates a storage-buffer resource reference.
@@ -53,6 +56,20 @@ struct resource_ref
     .sampler = VK_NULL_HANDLE };
 }
 
+//! Supplies the image, descriptor layout, and optional layout on graph entry.
+[[nodiscard]] inline auto storage_image_resource(VkImage image,
+  VkImageView image_view,
+  VkImageSubresourceRange range,
+  VkImageLayout image_layout = VK_IMAGE_LAYOUT_GENERAL,
+  VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED) noexcept -> resource_ref
+{
+  auto result = storage_image_resource(image_view, image_layout);
+  result.image = image;
+  result.image_range = range;
+  result.initial_layout = initial_layout;
+  return result;
+}
+
 //! Creates a sampled-image resource reference.
 [[nodiscard]] inline auto sampled_image_resource(VkImageView image_view,
   VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) noexcept -> resource_ref
@@ -63,6 +80,20 @@ struct resource_ref
     .image_view = image_view,
     .image_layout = image_layout,
     .sampler = VK_NULL_HANDLE };
+}
+
+//! Supplies the image, descriptor layout, and optional layout on graph entry.
+[[nodiscard]] inline auto sampled_image_resource(VkImage image,
+  VkImageView image_view,
+  VkImageSubresourceRange range,
+  VkImageLayout image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+  VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED) noexcept -> resource_ref
+{
+  auto result = sampled_image_resource(image_view, image_layout);
+  result.image = image;
+  result.image_range = range;
+  result.initial_layout = initial_layout;
+  return result;
 }
 
 //! Creates a sampler resource reference.

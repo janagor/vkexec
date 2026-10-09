@@ -30,7 +30,7 @@ namespace detail {
 template<detail::push_constant_type Params>
 auto compute_pass_custom(compute_pass_t const & /*cpo*/,
   descriptor_heap_t /*strategy*/,
-  compute_bind bind,
+  compute_bind const &bind,
   Params const &params,
   dispatch groups) -> detail::expr_closure<compute_pass_t, detail::descriptor_compute_pass_data<Params, dispatch>>
 {
@@ -41,7 +41,7 @@ auto compute_pass_custom(compute_pass_t const & /*cpo*/,
 template<detail::push_constant_type Params>
 auto compute_pass_custom(compute_pass_t const & /*cpo*/,
   descriptor_heap_t /*strategy*/,
-  compute_bind bind,
+  compute_bind const &bind,
   Params const &params,
   indirect_dispatch groups)
   -> detail::expr_closure<compute_pass_t, detail::descriptor_compute_pass_data<Params, indirect_dispatch>>
@@ -53,7 +53,7 @@ auto compute_pass_custom(compute_pass_t const & /*cpo*/,
 
 [[nodiscard]] inline auto compute_pass_custom(compute_pass_t const & /*cpo*/,
   descriptor_heap_t /*strategy*/,
-  compute_bind bind,
+  compute_bind const &bind,
   dispatch groups)
   -> detail::expr_closure<compute_pass_t, detail::descriptor_compute_pass_data<detail::no_push_constants, dispatch>>
 {
@@ -64,7 +64,7 @@ auto compute_pass_custom(compute_pass_t const & /*cpo*/,
 
 [[nodiscard]] inline auto compute_pass_custom(compute_pass_t const & /*cpo*/,
   descriptor_heap_t /*strategy*/,
-  compute_bind bind,
+  compute_bind const &bind,
   indirect_dispatch groups) -> detail::expr_closure<compute_pass_t,
   detail::descriptor_compute_pass_data<detail::no_push_constants, indirect_dispatch>>
 {
@@ -81,7 +81,7 @@ namespace detail {
     Env const & /*env*/) -> descriptor_compute_pass_step<Push, Dispatch>
   {
     return { .inner = compute_pass_step<Push, Dispatch>{
-               .bind = data.bind, .push = std::move(data.push), .dispatch_info = data.dispatch_info } };
+               .bind = std::move(data.bind), .push = std::move(data.push), .dispatch_info = data.dispatch_info } };
   }
 
 }// namespace detail

@@ -209,7 +209,12 @@ namespace owned {
 
     //! Builds a bindless bind (null layout and descriptor set).
     [[nodiscard]] auto bind() const -> compute_bind
-    { return compute_bind{ .pipeline = resources_->pipeline, .layout = resources_->pipeline_layout }; }
+    {
+      compute_bind result{};
+      result.pipeline = resources_->pipeline;
+      result.layout = resources_->pipeline_layout;
+      return result;
+    }
 
   private:
     descriptor_graphics_pipeline(context *ctx, std::unique_ptr<handles::graphics_pipeline> resources) noexcept

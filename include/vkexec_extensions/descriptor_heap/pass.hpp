@@ -22,7 +22,7 @@ namespace vkexec {
  */
 [[nodiscard]] auto record_pass(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   std::span<std::byte const> push,
   dispatch groups) -> status;
 
@@ -33,7 +33,7 @@ namespace vkexec {
  */
 [[nodiscard]] auto record_pass(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   std::span<std::byte const> push,
   indirect_dispatch groups) -> status;
 
@@ -49,7 +49,7 @@ namespace vkexec {
  */
 auto record_draw(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   VkExtent2D extent,
   std::uint32_t vertex_count) -> void;
 
@@ -61,7 +61,7 @@ auto record_draw(context const &ctx,
  */
 auto record_draw_indirect(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   VkExtent2D extent,
   VkBuffer buffer,
   VkDeviceSize offset) -> void;
@@ -69,7 +69,7 @@ auto record_draw_indirect(context const &ctx,
 //! Embedder alias for descriptor-heap `record_pass` (bind + push-data + dispatch).
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   std::span<std::byte const> push,
   dispatch groups) -> status
 { return record_pass(ctx, cmd, bind, push, groups); }
@@ -77,7 +77,7 @@ auto record_draw_indirect(context const &ctx,
 //! Embedder alias for descriptor-heap indirect `record_pass`.
 [[nodiscard]] inline auto record_bindless_compute_pass(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   std::span<std::byte const> push,
   indirect_dispatch groups) -> status
 { return record_pass(ctx, cmd, bind, push, groups); }

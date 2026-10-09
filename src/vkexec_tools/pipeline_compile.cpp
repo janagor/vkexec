@@ -15,7 +15,6 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -65,7 +64,7 @@ auto detail::make_graphics_pipeline_glsl_factory::operator()() -> result<::vkexe
     set = bound->set;
   }
   return ::vkexec::owned::graphics_pipeline::make(
-    *ctx, std::make_unique<handles::graphics_pipeline>(gfx_resources), set, std::move(buffers));
+    *ctx, std::make_unique<handles::graphics_pipeline>(gfx_resources), set, buffers);
 }
 
 }// namespace vkexec

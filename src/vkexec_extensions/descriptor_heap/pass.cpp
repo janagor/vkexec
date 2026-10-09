@@ -18,7 +18,7 @@ namespace vkexec {
 
 auto record_pass(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   std::span<std::byte const> push,
   dispatch groups) -> status
 {
@@ -33,7 +33,7 @@ auto record_pass(context const &ctx,
 
 auto record_pass(context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   std::span<std::byte const> push,
   indirect_dispatch groups) -> status
 {
@@ -48,7 +48,7 @@ auto record_pass(context const &ctx,
 
 namespace {
 
-  auto bind_heap_graphics_draw_state(VkCommandBuffer cmd, compute_bind bind, VkExtent2D extent) -> void
+  auto bind_heap_graphics_draw_state(VkCommandBuffer cmd, compute_bind const &bind, VkExtent2D extent) -> void
   {
     (void)detail::bind_and_push<detail::heap_descriptor_backend>(
       nullptr, cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, bind, {});
@@ -60,7 +60,7 @@ namespace {
 
 auto record_draw([[maybe_unused]] context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   VkExtent2D extent,
   std::uint32_t vertex_count) -> void
 {
@@ -70,7 +70,7 @@ auto record_draw([[maybe_unused]] context const &ctx,
 
 auto record_draw_indirect([[maybe_unused]] context const &ctx,
   VkCommandBuffer cmd,
-  compute_bind bind,
+  compute_bind const &bind,
   VkExtent2D extent,
   VkBuffer buffer,
   VkDeviceSize offset) -> void
