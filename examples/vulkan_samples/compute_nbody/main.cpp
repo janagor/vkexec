@@ -149,11 +149,9 @@ auto run() -> int
     last = now;
 
     vkexec::examples::sync_wait_graph(
-      ex::schedule(ctx.get_scheduler())
-      | vkexec::compute_pass(*calculate_bound.pipe, calculate_bound.set, k_particle_count)
+      ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(calculate_bound, k_particle_count)
       | vkexec::barrier::compute_to_compute()
-      | vkexec::compute_pass(
-        *integrate_bound.pipe, integrate_bound.set, integrate_params{ delta_time }, k_particle_count));
+      | vkexec::compute_pass(integrate_bound, integrate_params{ delta_time }, k_particle_count));
     vkexec::examples::sync_wait_graph(
       ex::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), graphics, k_particle_count));
     win.wait_idle();

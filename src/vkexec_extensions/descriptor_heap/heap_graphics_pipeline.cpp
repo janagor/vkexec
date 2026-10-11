@@ -183,6 +183,7 @@ auto create([[maybe_unused]] descriptor_heap_t strategy,
   if (desc.color_formats.empty()) { return fail(errc::invalid_argument, "create requires at least one color format"); }
 
   handles::graphics_pipeline resources{};
+  resources.opaque_descriptors = true;
   VkDevice device = ctx.device();
   detail::descriptor_layout_info const layout_info{ .bindings = {},
     .push_stages = 0,

@@ -3,6 +3,9 @@
 
 //! \file
 //! Descriptor-strategy overloads for `compute_pass`.
+//! Heap shaders require complete `image_use` and `buffer_use` declarations for
+//! every potentially indexed descriptor before graph planning. The overloads
+//! taking vectors make this explicit; empty vectors assert no resource access.
 
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/detail/attributes.hpp>
@@ -13,6 +16,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace vkexec {
 
@@ -94,11 +98,39 @@ auto compute_pass_custom(compute_pass_t const &cpo,
   std::uint32_t work_count) -> decltype(cpo(strategy, pipe.bind(), params, pipe.groups_for(work_count)))
 { return cpo(strategy, pipe.bind(), params, pipe.groups_for(work_count)); }
 
+template<detail::push_constant_type Params>
+[[nodiscard]] auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
+  owned::compute_pipeline const &pipe,
+  std::vector<image_use> images,
+  std::vector<buffer_use> buffers,
+  Params const &params,
+  std::uint32_t work_count) -> decltype(cpo(strategy,
+  pipe.bind().with_resources(std::move(images), std::move(buffers)),
+  params,
+  pipe.groups_for(work_count)))
+{
+  return cpo(
+    strategy, pipe.bind().with_resources(std::move(images), std::move(buffers)), params, pipe.groups_for(work_count));
+}
+
 inline auto compute_pass_custom(compute_pass_t const &cpo,
   descriptor_heap_t strategy,
   owned::compute_pipeline const &pipe,
   std::uint32_t work_count) -> decltype(cpo(strategy, pipe.bind(), pipe.groups_for(work_count)))
 { return cpo(strategy, pipe.bind(), pipe.groups_for(work_count)); }
+
+[[nodiscard]] inline auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
+  owned::compute_pipeline const &pipe,
+  std::vector<image_use> images,
+  std::vector<buffer_use> buffers,
+  std::uint32_t work_count) -> decltype(cpo(strategy,
+  pipe.bind().with_resources(std::move(images), std::move(buffers)),
+  pipe.groups_for(work_count)))
+{
+  return cpo(strategy, pipe.bind().with_resources(std::move(images), std::move(buffers)), pipe.groups_for(work_count));
+}
 
 template<detail::push_constant_type Params>
 auto compute_pass_custom(compute_pass_t const &cpo,
@@ -108,11 +140,31 @@ auto compute_pass_custom(compute_pass_t const &cpo,
   indirect_dispatch groups) -> decltype(cpo(strategy, pipe.bind(), params, groups))
 { return cpo(strategy, pipe.bind(), params, groups); }
 
+template<detail::push_constant_type Params>
+[[nodiscard]] auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
+  owned::compute_pipeline const &pipe,
+  std::vector<image_use> images,
+  std::vector<buffer_use> buffers,
+  Params const &params,
+  indirect_dispatch groups)
+  -> decltype(cpo(strategy, pipe.bind().with_resources(std::move(images), std::move(buffers)), params, groups))
+{ return cpo(strategy, pipe.bind().with_resources(std::move(images), std::move(buffers)), params, groups); }
+
 inline auto compute_pass_custom(compute_pass_t const &cpo,
   descriptor_heap_t strategy,
   owned::compute_pipeline const &pipe,
   indirect_dispatch groups) -> decltype(cpo(strategy, pipe.bind(), groups))
 { return cpo(strategy, pipe.bind(), groups); }
+
+[[nodiscard]] inline auto compute_pass_custom(compute_pass_t const &cpo,
+  descriptor_heap_t strategy,
+  owned::compute_pipeline const &pipe,
+  std::vector<image_use> images,
+  std::vector<buffer_use> buffers,
+  indirect_dispatch groups)
+  -> decltype(cpo(strategy, pipe.bind().with_resources(std::move(images), std::move(buffers)), groups))
+{ return cpo(strategy, pipe.bind().with_resources(std::move(images), std::move(buffers)), groups); }
 
 }// namespace vkexec
 

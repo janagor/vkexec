@@ -188,6 +188,9 @@ namespace {
     case detail::capability_id::shader_demote_to_helper_invocation:
       caps.shader_demote_to_helper_invocation = true;
       break;
+    case detail::capability_id::shader_untyped_pointers:
+      caps.shader_untyped_pointers = true;
+      break;
     case detail::capability_id::none:
       break;
     }

@@ -40,6 +40,7 @@
 #include <iostream>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace ex = stdexec;
 namespace {
@@ -282,8 +283,8 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
       .memory = vkexec::vma::buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::examples::sync_wait_value(
-    vkexec::factory::make_descriptor_heap_buffer(allocator, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+  auto heap = vkexec::examples::sync_wait_value(vkexec::factory::make_descriptor_heap_buffer(
+    allocator, vkexec::descriptor_heap_byte_size(layout, k_heap_slots), layout.resource_heap_alignment));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { return false; }
@@ -293,6 +294,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     !written) {
     return false;
   }
+  if (!heap.flush()) { return false; }
 
   auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     ctx,
@@ -301,8 +303,13 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     "heap_present.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome = vkexec::try_sync_wait(
-    ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
+  auto outcome = vkexec::try_sync_wait(ex::schedule(ctx.get_scheduler())
+                                       | vkexec::compute_pass(vkexec::descriptor_heap,
+                                         pipe,
+                                         std::vector<vkexec::image_use>{},
+                                         std::vector<vkexec::buffer_use>{},
+                                         params,
+                                         k_work_count));
   return !outcome.failed() && outcome.values.has_value() && !outcome.stopped;
 }
 

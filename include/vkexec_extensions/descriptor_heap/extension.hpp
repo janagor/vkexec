@@ -7,6 +7,8 @@ namespace vkexec::ext {
 
 /**
  * Extension tag for `VK_EXT_descriptor_heap` bindless resource heaps.
+ * Configuration also enables shader untyped pointers when available, so
+ * shaders can use `GL_EXT_descriptor_heap` without private feature setup.
  *
  * @see extension_traits, configure, available
  */

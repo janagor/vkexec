@@ -88,8 +88,8 @@ static auto run() -> int
   push.addr = k_placeholder_bda;
   push.count = static_cast<std::uint32_t>(k_element_count);
 
-  auto graph = ex::schedule(ctx->get_scheduler())
-               | vkexec::compute_pass(*bound.pipe, bound.set, push, static_cast<std::uint32_t>(k_element_count));
+  auto graph =
+    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(bound, push, static_cast<std::uint32_t>(k_element_count));
   vkexec::examples::sync_wait_graph(graph);
 
   float const expected = k_initial * k_scale;

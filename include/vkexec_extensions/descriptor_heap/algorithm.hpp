@@ -9,6 +9,8 @@
 #include <vkexec_extensions/descriptor_heap/strategy.hpp>
 
 #include <cstdint>
+#include <utility>
+#include <vector>
 
 namespace vkexec {
 
@@ -20,8 +22,25 @@ template<detail::push_constant_type Params>
   dispatch_compute(descriptor_heap_t strategy, algorithm const &algo, Params const &params, std::uint32_t work_count)
 { return compute_pass(strategy, algo, params, work_count); }
 
+template<detail::push_constant_type Params>
+[[nodiscard]] auto dispatch_compute(descriptor_heap_t strategy,
+  algorithm const &algo,
+  std::vector<image_use> images,
+  std::vector<buffer_use> buffers,
+  Params const &params,
+  std::uint32_t work_count)
+  -> decltype(compute_pass(strategy, algo, std::move(images), std::move(buffers), params, work_count))
+{ return compute_pass(strategy, algo, std::move(images), std::move(buffers), params, work_count); }
+
 [[nodiscard]] inline auto dispatch_compute(descriptor_heap_t strategy, algorithm const &algo, std::uint32_t work_count)
 { return compute_pass(strategy, algo, work_count); }
+
+[[nodiscard]] inline auto dispatch_compute(descriptor_heap_t strategy,
+  algorithm const &algo,
+  std::vector<image_use> images,
+  std::vector<buffer_use> buffers,
+  std::uint32_t work_count) -> decltype(compute_pass(strategy, algo, std::move(images), std::move(buffers), work_count))
+{ return compute_pass(strategy, algo, std::move(images), std::move(buffers), work_count); }
 
 }// namespace vkexec
 

@@ -10,6 +10,8 @@
 #include <vkexec/result.hpp>
 #include <vkexec/sender.hpp>
 
+#include <algorithm>
+
 #include <vulkan/vulkan.h>
 
 #include <cstddef>
@@ -51,35 +53,39 @@ private:
 namespace factory {
   struct make_descriptor_heap_buffer_t
   {
+    //! Pass the queried resource or sampler heap alignment when available.
     template<buffer_allocator A>
       requires flushable_buffer_resource<typename A::buffer_type>
                && device_addressable_buffer_resource<typename A::buffer_type>
-    [[nodiscard]] auto operator()(A &allocator, VkDeviceSize size) const
+    [[nodiscard]] auto operator()(A &allocator,
+      VkDeviceSize size,
+      VkDeviceSize required_alignment = k_descriptor_heap_buffer_alignment) const -> decltype(auto)
     {
       using resource_type = A::buffer_type;
       auto prepared = make_sender([size]() -> result<VkDeviceSize> {
         if (size == 0) { return fail(errc::invalid_argument, "descriptor heap size must be > 0"); }
         return size;
       });
-      auto composed = std::move(prepared) | stdexec::let_value([&allocator](VkDeviceSize &bytes) -> auto {
-        return allocate_buffer(allocator,
-                 buffer_create_info{
-                   .size = bytes,
-                   .usage = static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT)
-                            | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT),
-                   .memory = memory_domain::host_visible,
-                   .shader_device_address = true,
-                   .alignment = k_descriptor_heap_buffer_alignment,
-                 })
-               | stdexec::let_value([bytes](resource_type &resource) -> auto {
-                   return make_sender([&resource, bytes]() -> result<descriptor_heap_buffer<resource_type>> {
-                     if (resource.size() < bytes || resource.mapped().size() < bytes) {
-                       return fail(errc::unsupported, "descriptor heap allocation is too small or unmapped");
-                     }
-                     return descriptor_heap_buffer<resource_type>{ std::move(resource) };
+      auto composed =
+        std::move(prepared) | stdexec::let_value([&allocator, required_alignment](VkDeviceSize &bytes) -> auto {
+          return allocate_buffer(allocator,
+                   buffer_create_info{
+                     .size = bytes,
+                     .usage = static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT)
+                              | static_cast<VkBufferUsageFlags>(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT),
+                     .memory = memory_domain::host_visible,
+                     .shader_device_address = true,
+                     .alignment = std::max(k_descriptor_heap_buffer_alignment, required_alignment),
+                   })
+                 | stdexec::let_value([bytes](resource_type &resource) -> auto {
+                     return make_sender([&resource, bytes]() -> result<descriptor_heap_buffer<resource_type>> {
+                       if (resource.size() < bytes || resource.mapped().size() < bytes) {
+                         return fail(errc::unsupported, "descriptor heap allocation is too small or unmapped");
+                       }
+                       return descriptor_heap_buffer<resource_type>{ std::move(resource) };
+                     });
                    });
-                 });
-      });
+        });
       return ::vkexec::detail::normalize_errors(std::move(composed));
     }
   };

@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace vkexec {
@@ -96,6 +97,7 @@ namespace handles {
     VkPipeline pipeline{ VK_NULL_HANDLE };
     VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
     std::uint32_t binding_count{ 0 };
+    bool opaque_descriptors{ false };
     std::vector<std::uint32_t> binding_slots;
     std::vector<resource_kind> binding_kinds;
   };
@@ -188,8 +190,19 @@ struct graphics_bind
   graphics_pipeline_config config{};
   std::vector<image_use> images;
   std::vector<buffer_use> buffers;
-  bool resource_metadata{ false };
-  bool complete_resource_metadata{ true };
+  resource_metadata_state metadata{ resource_metadata_state::none };
+
+  //! Supply every shader-accessed resource, including all possible bindless entries.
+  //! Descriptors and resources must remain valid until GPU use completes.
+  [[nodiscard]] auto with_resources(std::vector<image_use> declared_images,
+    std::vector<buffer_use> declared_buffers) const -> graphics_bind
+  {
+    auto result = *this;
+    result.images = std::move(declared_images);
+    result.buffers = std::move(declared_buffers);
+    result.metadata = resource_metadata_state::complete;
+    return result;
+  }
 };
 
 //! Builds a `graphics_bind` from pipeline resources and an optional set.
@@ -202,8 +215,8 @@ struct graphics_bind
     .config = pipe.cfg,
     .images = {},
     .buffers = {},
-    .resource_metadata = pipe.binding_count == 0,
-    .complete_resource_metadata = true };
+    .metadata = !pipe.opaque_descriptors && pipe.binding_count == 0 ? resource_metadata_state::complete
+                                                                    : resource_metadata_state::none };
 }
 
 //! Builds a graphics binding with descriptor resources retained for graph planning.
@@ -212,29 +225,30 @@ struct graphics_bind
   resource_table const &table) -> graphics_bind
 {
   auto bind = bind_graphics(pipe, set);
-  bind.resource_metadata = true;
-  bind.complete_resource_metadata = table.size() == pipe.binding_count
-                                    && pipe.binding_slots.size() == pipe.binding_count
-                                    && pipe.binding_kinds.size() == pipe.binding_count;
+  bind.metadata = !pipe.opaque_descriptors && table.size() == pipe.binding_count
+                      && pipe.binding_slots.size() == pipe.binding_count
+                      && pipe.binding_kinds.size() == pipe.binding_count
+                    ? resource_metadata_state::complete
+                    : resource_metadata_state::partial;
   std::vector<bool> seen(pipe.binding_count);
   for (auto const &entry : table.entries()) {
     auto const &resource = entry.resource;
     auto const found = std::ranges::find(pipe.binding_slots, entry.slot);
     if (found == pipe.binding_slots.end()) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       continue;
     }
     auto const index = static_cast<std::size_t>(found - pipe.binding_slots.begin());
     if (index >= seen.size() || seen.at(index) || index >= pipe.binding_kinds.size()
         || resource.kind != pipe.binding_kinds.at(index)) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       continue;
     }
     seen.at(index) = true;
     if (resource.kind == resource_kind::sampler) { continue; }
     if (resource.kind == resource_kind::storage_buffer) {
       if (resource.buffer == VK_NULL_HANDLE || resource.byte_size == 0) {
-        bind.complete_resource_metadata = false;
+        bind.metadata = resource_metadata_state::partial;
         continue;
       }
       bind.buffers.push_back(buffer_use{ .buffer = resource.buffer,
@@ -244,7 +258,7 @@ struct graphics_bind
       continue;
     }
     if (resource.image == VK_NULL_HANDLE || resource.image_range.aspectMask == 0) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       continue;
     }
     bind.images.push_back(image_use{ .image = resource.image,
@@ -255,7 +269,7 @@ struct graphics_bind
       .initial_layout = resource.initial_layout,
       .layout = resource.image_layout });
   }
-  if (std::ranges::find(seen, false) != seen.end()) { bind.complete_resource_metadata = false; }
+  if (std::ranges::find(seen, false) != seen.end()) { bind.metadata = resource_metadata_state::partial; }
   return bind;
 }
 

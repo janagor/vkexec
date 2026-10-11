@@ -24,8 +24,11 @@ auto create([[maybe_unused]] descriptor_heap_t strategy,
     .specialization = desc.specialization,
     .local_size = desc.local_size,
     .create_binding_objects = false };
-  return detail::create_compute_resources_with<detail::heap_descriptor_backend>(
-    ctx, spirv, info, "create requires non-empty SPIR-V");
+  VKEXEC_TRY_ASSIGN(resources,
+    detail::create_compute_resources_with<detail::heap_descriptor_backend>(
+      ctx, spirv, info, "create requires non-empty SPIR-V"));
+  resources.opaque_descriptors = true;
+  return resources;
 }
 
 auto detail::create_heap_compute_pipeline_spirv_factory::operator()() const -> result<owned::compute_pipeline>

@@ -97,7 +97,7 @@ static auto run() -> int
 
   auto make_phase = [&](std::size_t phase) -> auto {
     sort_params const params{ .offset = static_cast<int>(phase % 2), .n = static_cast<int>(k_element_count) };
-    return vkexec::compute_pass(*bound.pipe, bound.set, params, static_cast<std::uint32_t>(k_element_count / 2));
+    return vkexec::compute_pass(bound, params, static_cast<std::uint32_t>(k_element_count / 2));
   };
 
   auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));

@@ -93,6 +93,11 @@ template<class Push, class Dispatch> struct descriptor_compute_pass_step
 {
   detail::compute_pass_step<Push, Dispatch> inner;
 
+  [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return inner.has_resource_declarations(); }
+
+  auto declare_resources(detail::resource_state_tracker &tracker, std::size_t step, queue_ref queue) const -> status
+  { return inner.declare_resources(tracker, step, queue); }
+
   auto record(context &ctx, VkCommandBuffer cmd, detail::pass_cleanup & /*cleanup*/) -> status
   {
     auto const bytes = detail::push_bytes(inner.push);

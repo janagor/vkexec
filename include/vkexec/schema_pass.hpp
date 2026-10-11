@@ -88,10 +88,12 @@ namespace detail {
     schema_pass_data<Params> const &data,
     Child child,
     Env const & /*env*/) -> decltype(std::move(child) | bind_resources(*data.pipe, data.table, data.params)
-                                     | compute_pass(bind_compute(*data.pipe), groups_for(*data.pipe, data.work_count)))
+                                     | compute_pass(bind_compute(*data.pipe, VK_NULL_HANDLE, data.table),
+                                       groups_for(*data.pipe, data.work_count)))
   {
     auto bind = bind_resources(*data.pipe, data.table, data.params);
-    auto compute = compute_pass(bind_compute(*data.pipe), groups_for(*data.pipe, data.work_count));
+    auto compute =
+      compute_pass(bind_compute(*data.pipe, VK_NULL_HANDLE, data.table), groups_for(*data.pipe, data.work_count));
     return std::move(child) | std::move(bind) | std::move(compute);
   }
 

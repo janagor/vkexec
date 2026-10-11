@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <iostream>
 #include <string_view>
+#include <vector>
 
 namespace ex = stdexec;
 
@@ -71,8 +72,8 @@ auto run() -> int
       .memory = vkexec::vma::buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::examples::sync_wait_value(
-    vkexec::factory::make_descriptor_heap_buffer(allocator, vkexec::descriptor_heap_byte_size(layout, k_heap_slots)));
+  auto heap = vkexec::examples::sync_wait_value(vkexec::factory::make_descriptor_heap_buffer(
+    allocator, vkexec::descriptor_heap_byte_size(layout, k_heap_slots), layout.resource_heap_alignment));
 
   auto const storage_addr = storage.device_address();
   if (!storage_addr) { vkexec::examples::fail_check("storage buffer device address unavailable"); }
@@ -82,6 +83,7 @@ auto run() -> int
     !written) {
     vkexec::examples::abort_with_error(written.error());
   }
+  if (auto const flushed = heap.flush(); !flushed) { vkexec::examples::abort_with_error(flushed.error()); }
 
   auto pipe = vkexec::examples::sync_wait_value(vkexec::factory::make_compute_pipeline(vkexec::descriptor_heap,
     *ctx,
@@ -90,8 +92,13 @@ auto run() -> int
     "descriptor_heap.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome = vkexec::try_sync_wait(
-    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(vkexec::descriptor_heap, pipe, params, k_work_count));
+  auto outcome = vkexec::try_sync_wait(ex::schedule(ctx->get_scheduler())
+                                       | vkexec::compute_pass(vkexec::descriptor_heap,
+                                         pipe,
+                                         std::vector<vkexec::image_use>{},
+                                         std::vector<vkexec::buffer_use>{},
+                                         params,
+                                         k_work_count));
   if (outcome.failed() || outcome.stopped || !outcome.values.has_value()) {
     vkexec::examples::fail_check("bindless compute dispatch failed");
   }

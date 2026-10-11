@@ -83,9 +83,8 @@ static auto run() -> int
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
 
-  vkexec::examples::sync_wait_graph(
-    ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_pass(*bound.pipe, bound.set, params, static_cast<std::uint32_t>(k_element_count)));
+  vkexec::examples::sync_wait_graph(ex::schedule(ctx->get_scheduler())
+                                    | vkexec::compute_pass(bound, params, static_cast<std::uint32_t>(k_element_count)));
 
   float const expected_v = k_initial_velocity * k_damping;
   float const expected_p = expected_v * k_timestep;

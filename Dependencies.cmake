@@ -94,7 +94,11 @@ function(vkexec_setup_dependencies)
   endif()
 
   if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
-    find_package(glslang CONFIG QUIET)
+    find_package(
+      glslang
+      16.4.0
+      CONFIG
+      QUIET)
   endif()
   if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
     cpmaddpackage(
@@ -103,7 +107,7 @@ function(vkexec_setup_dependencies)
       GITHUB_REPOSITORY
       "KhronosGroup/glslang"
       GIT_TAG
-      "15.4.0"
+      "16.4.0"
       SYSTEM
       YES
       OPTIONS

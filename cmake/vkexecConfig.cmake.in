@@ -41,7 +41,7 @@ if(@vkexec_BUILD_VMA@)
   find_dependency(VulkanMemoryAllocator CONFIG)
 endif()
 if(@VKEXEC_PACKAGE_NEEDS_GLSLANG@)
-  find_dependency(glslang CONFIG)
+  find_dependency(glslang 16.4.0 CONFIG)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/vkexecTargets.cmake")

@@ -9,8 +9,22 @@
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/extension.hpp>
 
+#include <vulkan/vulkan_core.h>
+
 #include <memory>
+#include <string_view>
 #include <utility>
+
+TEST_CASE("descriptor heap configuration requests untyped shader support", "[vkexec][extension]")
+{
+  vkexec::vulkan_requirements requirements{};
+  vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
+  bool found{};
+  for (char const *extension : requirements.optional_device_extensions) {
+    if (std::string_view{ extension } == VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME) { found = true; }
+  }
+  REQUIRE(found);
+}
 
 TEST_CASE("ext::configure enables descriptor_heap when device supports it", "[vkexec][extension][gpu]")
 {

@@ -73,7 +73,7 @@ namespace detail {
 
     [[nodiscard]] auto has_resource_declarations() const noexcept -> bool
     {
-      if (!bind.resource_metadata || !bind.complete_resource_metadata
+      if (bind.metadata != resource_metadata_state::complete
           || target.colors.size() != bind.config.color_attachment_count || (bind.config.depth_test && !target.depth)) {
         return false;
       }
@@ -86,7 +86,7 @@ namespace detail {
 
     auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) const -> status
     {
-      if (!bind.resource_metadata || !bind.complete_resource_metadata) {
+      if (bind.metadata != resource_metadata_state::complete) {
         return fail(errc::invalid_argument, "graphics binding lacks resource or layout metadata");
       }
       if (target.colors.size() != bind.config.color_attachment_count) {

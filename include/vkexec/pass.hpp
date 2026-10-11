@@ -100,8 +100,20 @@ struct compute_bind
   VkDescriptorSet set{ VK_NULL_HANDLE };
   std::vector<image_use> images;
   std::vector<buffer_use> buffers;
-  bool resource_metadata{ false };
-  bool complete_resource_metadata{ true };
+  resource_metadata_state metadata{ resource_metadata_state::none };
+
+  //! The caller must include every resource the shader may access, including every
+  //! potentially indexed bindless entry and device-address target. Keep them alive
+  //! and do not update their descriptors until the GPU has finished using them.
+  [[nodiscard]] auto with_resources(std::vector<image_use> declared_images,
+    std::vector<buffer_use> declared_buffers) const -> compute_bind
+  {
+    auto result = *this;
+    result.images = std::move(declared_images);
+    result.buffers = std::move(declared_buffers);
+    result.metadata = resource_metadata_state::complete;
+    return result;
+  }
 };
 
 //! Builds a `compute_bind` from pipeline resources and an optional set.
@@ -113,6 +125,9 @@ struct compute_bind
 //! Builds a binding that retains the descriptor resources for graph planning.
 [[nodiscard]] auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set, resource_table const &table)
   -> compute_bind;
+
+//! Returns workgroup counts covering `work_count` invocations along X.
+[[nodiscard]] auto groups_for(handles::compute_pipeline const &pipe, std::uint32_t work_count) noexcept -> dispatch;
 
 /**
  * Records bind, optional push constants, and a direct dispatch on `cmd`.
@@ -255,6 +270,7 @@ namespace detail {
       virtual auto after_gpu() -> void = 0;
       virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status = 0;
       [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
+      [[nodiscard]] virtual auto requires_complete_metadata() const noexcept -> bool = 0;
     };
 
     template<static_pass_step Step> struct model final : interface
@@ -281,8 +297,15 @@ namespace detail {
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
       {
         if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
-        if constexpr (requires { step.bind.resource_metadata; }) { return step.bind.resource_metadata; }
+        if constexpr (requires { step.bind.metadata; }) {
+          return step.bind.metadata == resource_metadata_state::complete;
+        }
         return requires { step.resources; };
+      }
+
+      [[nodiscard]] auto requires_complete_metadata() const noexcept -> bool override
+      {
+        return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
       }
     };
 
@@ -311,6 +334,9 @@ namespace detail {
     { return impl_->declare_resources(tracker, step, queue); }
 
     [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return impl_->has_resource_declarations(); }
+
+    [[nodiscard]] auto requires_complete_metadata() const noexcept -> bool
+    { return impl_->requires_complete_metadata(); }
   };
 
   static_assert(std::move_constructible<dynamic_pass_step>);
@@ -330,14 +356,14 @@ namespace detail {
     VKEXEC_NO_UNIQUE_ADDRESS Push push{};
     Dispatch dispatch_info{};
 
+    [[nodiscard]] auto has_resource_declarations() const noexcept -> bool
+    { return bind.metadata == resource_metadata_state::complete; }
+
     auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) const -> status
     {
-      if (!bind.resource_metadata) { return {}; }
-      if (!bind.complete_resource_metadata) {
+      if (!has_resource_declarations()) {
         return fail(errc::invalid_argument, "compute binding lacks resource or layout metadata");
       }
-      for (auto const &image : bind.images) { VKEXEC_TRY(tracker.use(image, step, queue.family, queue.queue)); }
-      for (auto const &buffer : bind.buffers) { VKEXEC_TRY(tracker.use(buffer, step, queue.family, queue.queue)); }
       if constexpr (std::same_as<Dispatch, indirect_dispatch>) {
         VKEXEC_TRY(tracker.use(
           read(dispatch_info.buffer, dispatch_info.offset, sizeof(VkDispatchIndirectCommand), buffer_usage::indirect),
@@ -345,6 +371,8 @@ namespace detail {
           queue.family,
           queue.queue));
       }
+      for (auto const &image : bind.images) { VKEXEC_TRY(tracker.use(image, step, queue.family, queue.queue)); }
+      for (auto const &buffer : bind.buffers) { VKEXEC_TRY(tracker.use(buffer, step, queue.family, queue.queue)); }
       return {};
     }
 
@@ -611,18 +639,16 @@ namespace detail {
     if constexpr (requires { step.resources; }) {
       return tracker.use(step.resources, index, queue.family, queue.queue);
     } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
-      if (crosses_families) {
-        if constexpr (requires { step.has_resource_declarations(); }) {
-          if (!step.has_resource_declarations()) {
-            return fail(errc::unsupported, "cross-family pass steps require resource declarations");
-          }
-        } else if constexpr (requires { step.bind.resource_metadata; }) {
-          if (!step.bind.resource_metadata) {
-            return fail(errc::unsupported, "cross-family pass steps require resource declarations");
-          }
-        } else {
-          return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+      if constexpr (requires { step.has_resource_declarations(); }) {
+        if (!step.has_resource_declarations()) {
+          return fail(errc::invalid_argument, "pass step lacks complete resource declarations");
         }
+      } else if constexpr (requires { step.bind.metadata; }) {
+        if (step.bind.metadata != resource_metadata_state::complete) {
+          return fail(errc::invalid_argument, "pass step lacks complete resource declarations");
+        }
+      } else if (crosses_families) {
+        return fail(errc::unsupported, "cross-family pass steps require resource declarations");
       }
       return step.declare_resources(tracker, index, queue);
     } else {
@@ -637,8 +663,8 @@ namespace detail {
     queue_ref queue,
     bool crosses_families) -> status
   {
-    if (crosses_families && !step.has_resource_declarations()) {
-      return fail(errc::unsupported, "cross-family pass steps require resource declarations");
+    if (!step.has_resource_declarations() && (crosses_families || step.requires_complete_metadata())) {
+      return fail(errc::invalid_argument, "pass step lacks complete resource declarations");
     }
     return step.declare_resources(tracker, index, queue);
   }
@@ -1229,9 +1255,9 @@ namespace detail {
  *
  * ~~~~~~~~~~~{.cpp}
  * auto graph = ex::schedule(ctx->get_scheduler())
- *   | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000)
+ *   | vkexec::compute_pass(bound, params, work_count)
  *   | vkexec::barrier::compute_to_compute()
- *   | vkexec::compute_pass(*bound.pipe, bound.set, params, 10000);
+ *   | vkexec::compute_pass(bound, params, work_count);
  * vkexec::sync_wait(std::move(graph));
  * ~~~~~~~~~~~
  *
@@ -1393,6 +1419,45 @@ struct compute_pass_t
   [[nodiscard]] auto
     operator()(handles::compute_pipeline const &pipe, VkDescriptorSet set, std::uint32_t work_count) const;
 
+  template<detail::push_constant_type Params>
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    VkDescriptorSet set,
+    resource_table const &resources,
+    Params const &params,
+    std::uint32_t work_count) const -> detail::expr_closure<compute_pass_t, detail::compute_pass_data<Params, dispatch>>
+  { return (*this)(bind_compute(pipe, set, resources), params, groups_for(pipe, work_count)); }
+
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    VkDescriptorSet set,
+    resource_table const &resources,
+    std::uint32_t work_count) const
+    -> detail::expr_closure<compute_pass_t, detail::compute_pass_data<detail::no_push_constants, dispatch>>
+  { return (*this)(bind_compute(pipe, set, resources), groups_for(pipe, work_count)); }
+
+  template<detail::push_constant_type Params>
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    VkDescriptorSet set,
+    std::vector<image_use> images,
+    std::vector<buffer_use> buffers,
+    Params const &params,
+    std::uint32_t work_count) const -> detail::expr_closure<compute_pass_t, detail::compute_pass_data<Params, dispatch>>
+  {
+    return (*this)(bind_compute(pipe, set).with_resources(std::move(images), std::move(buffers)),
+      params,
+      groups_for(pipe, work_count));
+  }
+
+  [[nodiscard]] auto operator()(handles::compute_pipeline const &pipe,
+    VkDescriptorSet set,
+    std::vector<image_use> images,
+    std::vector<buffer_use> buffers,
+    std::uint32_t work_count) const
+    -> detail::expr_closure<compute_pass_t, detail::compute_pass_data<detail::no_push_constants, dispatch>>
+  {
+    return (*this)(
+      bind_compute(pipe, set).with_resources(std::move(images), std::move(buffers)), groups_for(pipe, work_count));
+  }
+
   template<class Bound, detail::push_constant_type Params>
     requires requires(Bound const &bound, std::uint32_t count) {
       { bound.bind() } -> std::same_as<compute_bind>;
@@ -1417,6 +1482,60 @@ struct compute_pass_t
   [[nodiscard]] auto
     operator()(Pipe const &pipe, VkDescriptorSet set, Params const &params, std::uint32_t work_count) const
   { return (*this)(pipe.bind(set), params, pipe.groups_for(work_count)); }
+
+  template<class Pipe, detail::push_constant_type Params>
+    requires requires(Pipe const &pipe, VkDescriptorSet set, resource_table const &resources, std::uint32_t count) {
+      pipe.bind(set, resources);
+      pipe.groups_for(count);
+    }
+  [[nodiscard]] auto operator()(Pipe const &pipe,
+    VkDescriptorSet set,
+    resource_table const &resources,
+    Params const &params,
+    std::uint32_t work_count) const -> decltype((*this)(pipe.bind(set, resources), params, pipe.groups_for(work_count)))
+  { return (*this)(pipe.bind(set, resources), params, pipe.groups_for(work_count)); }
+
+  template<class Pipe>
+    requires requires(Pipe const &pipe, VkDescriptorSet set, resource_table const &resources, std::uint32_t count) {
+      pipe.bind(set, resources);
+      pipe.groups_for(count);
+    }
+  [[nodiscard]] auto
+    operator()(Pipe const &pipe, VkDescriptorSet set, resource_table const &resources, std::uint32_t work_count) const
+    -> decltype((*this)(pipe.bind(set, resources), pipe.groups_for(work_count)))
+  { return (*this)(pipe.bind(set, resources), pipe.groups_for(work_count)); }
+
+  template<class Pipe, detail::push_constant_type Params>
+    requires requires(Pipe const &pipe, VkDescriptorSet set, std::uint32_t count) {
+      pipe.bind(set);
+      pipe.groups_for(count);
+    }
+  [[nodiscard]] auto operator()(Pipe const &pipe,
+    VkDescriptorSet set,
+    std::vector<image_use> images,
+    std::vector<buffer_use> buffers,
+    Params const &params,
+    std::uint32_t work_count) const
+    -> decltype((
+      *this)(pipe.bind(set).with_resources(std::move(images), std::move(buffers)), params, pipe.groups_for(work_count)))
+  {
+    return (*this)(
+      pipe.bind(set).with_resources(std::move(images), std::move(buffers)), params, pipe.groups_for(work_count));
+  }
+
+  template<class Pipe>
+    requires requires(Pipe const &pipe, VkDescriptorSet set, std::uint32_t count) {
+      pipe.bind(set);
+      pipe.groups_for(count);
+    }
+  [[nodiscard]] auto operator()(Pipe const &pipe,
+    VkDescriptorSet set,
+    std::vector<image_use> images,
+    std::vector<buffer_use> buffers,
+    std::uint32_t work_count) const
+    -> decltype((
+      *this)(pipe.bind(set).with_resources(std::move(images), std::move(buffers)), pipe.groups_for(work_count)))
+  { return (*this)(pipe.bind(set).with_resources(std::move(images), std::move(buffers)), pipe.groups_for(work_count)); }
 
   template<class Pipe>
     requires requires(Pipe const &pipe, VkDescriptorSet set, std::uint32_t count) {

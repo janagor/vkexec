@@ -2,6 +2,14 @@
 
 A pass graph is a collection of GPU pass steps with explicit dependencies. Static composition keeps the concrete step types in `pass_graph_sender<Steps...>`; this lets several adjacent operations lower into one graph without an accidental submission boundary. A dynamic pass graph is available when the graph structure is genuinely chosen at runtime.
 
+Compute and graphics bindings must have complete resource metadata before graph planning. A binding built from a complete `resource_table` supplies it automatically. For a raw `VkDescriptorSet` or descriptor heap, call `with_resources(images, buffers)` on the binding with `image_use` and `buffer_use` values built with `read()`, `write()`, or `read_write()`. An empty pair is valid only when the shader genuinely accesses no tracked resources. Missing or partial metadata fails planning before command recording and submission, including in dynamic graphs and `when_all()` branches. Indirect dispatch buffers are tracked separately from descriptors.
+
+The caller is responsible for declaring every shader-accessed resource, including every potentially accessed entry of a bindless range and resources reached through device addresses or GPU-generated indices. The heap's backing buffer is separate from the resources its descriptors reference. Keep descriptor contents and referenced resources valid while GPU work is in flight. vkexec cannot verify declaration completeness without shader reflection or descriptor-content tracking.
+
+The classic convenience overload accepts a `resource_table` alongside a raw set: `compute_pass(pipe, set, resources, params, work_count)`. The descriptor-heap convenience overload and `dispatch_compute()` accept image and buffer use vectors before the parameters. Existing overloads without declarations remain available for genuinely descriptor-free classic pipelines; opaque descriptor consumers fail planning until the caller supplies complete uses.
+
+When allocating a descriptor heap, pass the queried resource or sampler heap alignment to `make_descriptor_heap_buffer(allocator, size, alignment)` and flush host descriptor writes before submission. The heap's device address must meet that alignment.
+
 `connect()` transfers the graph into an operation state with a receiver. During `start()`, the graph plans its batches and records steps into graph-owned command buffers according to their dependencies. A barrier adaptor between passes describes a GPU memory and execution dependency, so a compute → barrier → compute sequence can remain one submission.
 
 The compiled [multi-pass program](../examples/multi-pass.md) shows this sequence. For how semantic operations become primitive steps, see [Domain lowering](../architecture/domain-lowering.md).

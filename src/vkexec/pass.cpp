@@ -63,12 +63,12 @@ namespace {
   {
     if (resource.kind == resource_kind::sampler) { return; }
     if (resource.kind == resource_kind::sampled_image && binding_access != buffer_access::readonly) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       return;
     }
     if (resource.kind == resource_kind::storage_buffer) {
       if (resource.buffer == VK_NULL_HANDLE || resource.byte_size == 0) {
-        bind.complete_resource_metadata = false;
+        bind.metadata = resource_metadata_state::partial;
         return;
       }
       bind.buffers.push_back(buffer_use{ .buffer = resource.buffer,
@@ -78,7 +78,7 @@ namespace {
       return;
     }
     if (resource.image == VK_NULL_HANDLE || resource.image_range.aspectMask == 0) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       return;
     }
     bind.images.push_back(image_use{ .image = resource.image,
@@ -100,39 +100,41 @@ auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set) ->
     .set = set,
     .images = {},
     .buffers = {},
-    .resource_metadata = false,
-    .complete_resource_metadata = true };
+    .metadata = !pipe.opaque_descriptors && pipe.binding_count == 0 && pipe.binding_accesses.empty()
+                  ? resource_metadata_state::complete
+                  : resource_metadata_state::none };
 }
 
 auto bind_compute(handles::compute_pipeline const &pipe, VkDescriptorSet set, resource_table const &table)
   -> compute_bind
 {
   auto bind = bind_compute(pipe, set);
-  bind.resource_metadata = true;
-  bind.complete_resource_metadata =
-    pipe.binding_accesses.size() == table.size()
-    && (pipe.binding_kinds.empty() || pipe.binding_kinds.size() == pipe.binding_accesses.size());
+  bind.metadata = !pipe.opaque_descriptors && pipe.binding_count == pipe.binding_accesses.size()
+                      && pipe.binding_accesses.size() == table.size()
+                      && (pipe.binding_kinds.empty() || pipe.binding_kinds.size() == pipe.binding_accesses.size())
+                    ? resource_metadata_state::complete
+                    : resource_metadata_state::partial;
   std::vector<bool> seen(pipe.binding_accesses.size());
   for (auto const &entry : table.entries()) {
     auto const index = binding_index(pipe, entry.slot);
     if (!index || *index >= seen.size() || seen.at(*index)) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       continue;
     }
     seen.at(*index) = true;
     if (!pipe.binding_kinds.empty() && *index >= pipe.binding_kinds.size()) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       continue;
     }
     resource_kind const expected_kind =
       pipe.binding_kinds.empty() ? resource_kind::storage_buffer : pipe.binding_kinds.at(*index);
     if (expected_kind != entry.resource.kind) {
-      bind.complete_resource_metadata = false;
+      bind.metadata = resource_metadata_state::partial;
       continue;
     }
     append_resource_use(bind, entry.resource, pipe.binding_accesses.at(*index));
   }
-  if (std::ranges::find(seen, false) != seen.end()) { bind.complete_resource_metadata = false; }
+  if (std::ranges::find(seen, false) != seen.end()) { bind.metadata = resource_metadata_state::partial; }
   return bind;
 }
 

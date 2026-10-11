@@ -16,6 +16,7 @@ struct device_capabilities
   bool buffer_device_address{ false };
   bool dynamic_rendering{ false };
   bool shader_demote_to_helper_invocation{ false };
+  bool shader_untyped_pointers{ false };
 };
 
 }// namespace vkexec

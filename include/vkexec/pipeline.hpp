@@ -95,6 +95,7 @@ namespace handles {
     VkPipeline pipeline{ VK_NULL_HANDLE };
     VkDescriptorPool descriptor_pool{ VK_NULL_HANDLE };
     std::uint32_t binding_count{ 0 };
+    bool opaque_descriptors{ false };
     std::size_t push_bytes{ 0 };
     std::array<std::uint32_t, 3> local_size{ k_default_local_size };
     std::vector<buffer_access> binding_accesses;

@@ -25,6 +25,9 @@ namespace vkexec {
 
 enum class resource_access : std::uint8_t { read, write, read_write };
 
+//! Graph synchronization can rely only on complete shader resource metadata.
+enum class resource_metadata_state : std::uint8_t { none, partial, complete };
+
 enum class image_usage : std::uint8_t {
   sampled_compute,
   sampled_fragment,

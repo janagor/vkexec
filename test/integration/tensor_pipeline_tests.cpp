@@ -5,6 +5,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/result.hpp>
@@ -75,7 +76,9 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
     },
     "tensor_pass.comp");
   REQUIRE(resources_result);
-  auto resources = vkexec::expected_take(resources_result);
+  auto pipeline = vkexec::owned::compute_pipeline::make(
+    *ctx, std::make_unique<vkexec::handles::compute_pipeline>(vkexec::expected_take(resources_result)));
+  auto &resources = pipeline.resources();
 
   std::array const bindings{ values.storage_binding(0) };
   auto bound_result = vkexec::bind_storage(*ctx, resources, bindings);
@@ -83,15 +86,17 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
   auto bound = vkexec::expected_take(bound_result);
 
   scale_params const params{ .scale = 2.0F };
+  auto const bind =
+    vkexec::bind_compute(resources, bound.set)
+      .with_resources({}, { vkexec::read_write(values.vk_buffer(), vkexec::buffer_usage::storage_compute) });
   auto completed = vkexec::test::sync_wait_sender(
     ex::schedule(ctx->get_scheduler())
-    | vkexec::tensor_pass(resources, bound.set, params, static_cast<std::uint32_t>(k_count), values));
+    | vkexec::tensor_pass(bind, params, vkexec::groups_for(resources, static_cast<std::uint32_t>(k_count)), values));
   REQUIRE(vkexec::test::sync_wait_completed(completed));
   REQUIRE(values.span().front() == k_fill * params.scale);
   REQUIRE(values.span().back() == k_fill * params.scale);
 
   vkexec::free_compute_set(*ctx, resources, bound.set);
-  vkexec::destroy(*ctx, resources);
 }
 
 // NOLINTEND(readability-function-cognitive-complexity)

@@ -158,9 +158,16 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   };
   REQUIRE(pipe.update_set(set, bindings));
 
+  auto const resources =
+    vkexec::bindings(vkexec::resource_binding{ .slot = 0,
+                       .resource = vkexec::buffer_resource(positions.vk_buffer(), bindings[0].byte_size) },
+      vkexec::resource_binding{
+        .slot = 1, .resource = vkexec::buffer_resource(velocities.vk_buffer(), bindings[1].byte_size) });
+
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(pipe, set, params, static_cast<std::uint32_t>(k_count)));
+    ex::schedule(ctx->get_scheduler())
+    | vkexec::compute_pass(pipe, set, resources, params, static_cast<std::uint32_t>(k_count)));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   float const expected_v = k_initial_velocity * k_damping;
@@ -235,7 +242,7 @@ void main() {}
     vkexec::sampler_resource(image_sampler.handle()));
 
   auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::bind_resources(resources, table)
-               | vkexec::compute_pass(vkexec::bind_compute(resources), vkexec::dispatch{});
+               | vkexec::compute_pass(vkexec::bind_compute(resources).with_resources({}, {}), vkexec::dispatch{});
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -269,11 +276,14 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   REQUIRE(add_pipe.update_set(set, std::span{ &binding, 1 }));
   REQUIRE(scale_pipe.update_set(set, std::span{ &binding, 1 }));
 
-  auto graph =
-    ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
-    | vkexec::barrier::compute_to_compute()
-    | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
+  auto const access =
+    vkexec::read_write(binding.buffer, VkDeviceSize{}, binding.byte_size, vkexec::buffer_usage::storage_compute);
+
+  auto graph = ex::schedule(ctx->get_scheduler())
+               | vkexec::compute_pass(
+                 add_pipe, set, {}, { access }, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
+               | vkexec::compute_pass(
+                 scale_pipe, set, {}, { access }, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
   auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -312,11 +322,15 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
   REQUIRE(add_pipe.update_set(set, std::span{ &binding, 1 }));
   REQUIRE(scale_pipe.update_set(set, std::span{ &binding, 1 }));
 
+  auto const resources = vkexec::bindings(vkexec::resource_binding{
+    .slot = binding.binding, .resource = vkexec::buffer_resource(binding.buffer, binding.byte_size) });
+
   auto graph =
     ex::schedule(ctx->get_scheduler())
-    | vkexec::compute_pass(add_pipe, set, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
+    | vkexec::compute_pass(add_pipe, set, resources, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
     | vkexec::barrier::compute_to_compute()
-    | vkexec::compute_pass(scale_pipe, set, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
+    | vkexec::compute_pass(
+      scale_pipe, set, resources, pass_params{ .value = k_scale }, static_cast<std::uint32_t>(k_count));
   auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 

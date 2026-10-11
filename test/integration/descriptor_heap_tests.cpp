@@ -61,7 +61,8 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
       .memory = vkexec::vma::buffer_memory::device_local,
       .shader_device_address = true,
     }));
-  auto heap = vkexec::test::sync_wait_value(vkexec::factory::make_descriptor_heap_buffer(allocator, heap_bytes));
+  auto heap = vkexec::test::sync_wait_value(
+    vkexec::factory::make_descriptor_heap_buffer(allocator, heap_bytes, layout.resource_heap_alignment));
   std::vector<std::byte> slot(layout.buffer_descriptor_size);
   auto const storage_addr = storage.device_address();
   REQUIRE(storage_addr.has_value());
@@ -201,7 +202,8 @@ TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descri
   REQUIRE(vkexec::write_sampler_descriptor(*ctx, sampler_info, slot));
 
   auto const heap_bytes = vkexec::sampler_heap_byte_size(layout, k_slot_count);
-  auto heap = vkexec::test::sync_wait_value(vkexec::factory::make_descriptor_heap_buffer(allocator, heap_bytes));
+  auto heap = vkexec::test::sync_wait_value(
+    vkexec::factory::make_descriptor_heap_buffer(allocator, heap_bytes, layout.sampler_heap_alignment));
   auto mapped = heap.mapped();
   REQUIRE(mapped.size() >= slot.size());
   std::ranges::copy(slot, mapped.begin());

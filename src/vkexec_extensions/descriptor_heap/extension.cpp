@@ -23,8 +23,15 @@ auto extension_traits<descriptor_heap>::configure(vulkan_requirements &req) -> v
   features_heap.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_HEAP_FEATURES_EXT;
   features_heap.descriptorHeap = VK_TRUE;
 
+  VkPhysicalDeviceShaderUntypedPointersFeaturesKHR features_untyped{};
+  features_untyped.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNTYPED_POINTERS_FEATURES_KHR;
+  features_untyped.shaderUntypedPointers = VK_TRUE;
+
   req.optional_device_extensions.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
+  req.optional_device_extensions.push_back(VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME);
   ::vkexec::detail::enable_extension_feature_if_present(req, features_heap);
+  ::vkexec::detail::enable_extension_feature_if_present(
+    req, features_untyped, ::vkexec::detail::capability_id::shader_untyped_pointers);
 }
 
 }// namespace vkexec::ext

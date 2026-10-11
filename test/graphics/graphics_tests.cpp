@@ -176,6 +176,28 @@ TEST_CASE("graphics descriptors synchronize after compute writes", "[vkexec][gra
   REQUIRE(plan.steps.at(k_second_step).images_before.front().dst_access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
 }
 
+TEST_CASE("opaque graphics descriptors require explicit complete resources", "[vkexec][graphics][pass]")
+{
+  char storage{};
+  auto *const buffer = fake_buffer(&storage);
+  vkexec::handles::graphics_pipeline pipe{};
+  pipe.binding_count = k_one_binding;
+  pipe.cfg.color_attachment_count = k_no_colors;
+  auto const raw = vkexec::bind_graphics(pipe);
+  vkexec::detail::graphics_pass_step<std::uint32_t> const missing{ .target = {}, .bind = raw, .draw = k_vertex_count };
+  vkexec::detail::resource_state_tracker tracker{ k_two_step_count };
+  REQUIRE_FALSE(vkexec::detail::declare_step_resources(
+    missing, tracker, k_second_step, vkexec::queue_ref{ .family = k_graphics_family }, false));
+  REQUIRE(tracker.use(vkexec::write(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_graphics_family));
+  vkexec::detail::graphics_pass_step<std::uint32_t> const declared{ .target = {},
+    .bind = raw.with_resources({}, { vkexec::read(buffer, vkexec::buffer_usage::storage_graphics) }),
+    .draw = k_vertex_count };
+  REQUIRE(vkexec::detail::declare_step_resources(
+    declared, tracker, k_second_step, vkexec::queue_ref{ .family = k_graphics_family }, false));
+  auto const plan = std::move(tracker).finish();
+  REQUIRE_FALSE(plan.steps.at(k_second_step).buffers_before.empty());
+}
+
 TEST_CASE("graphics pass rejects incomplete descriptor metadata", "[vkexec][graphics][pass]")
 {
   char color_storage{};

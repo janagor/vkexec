@@ -22,6 +22,7 @@
 namespace {
 
 constexpr VkDeviceSize k_heap_bytes = 64;
+constexpr VkDeviceSize k_requested_heap_alignment = 8192;
 
 struct test_buffer
 {
@@ -70,6 +71,15 @@ TEST_CASE("descriptor heap buffer uses a custom allocator", "[vkexec][descriptor
   REQUIRE(allocator.allocations == 1);
   REQUIRE(allocator.last_info.alignment == vkexec::k_descriptor_heap_buffer_alignment);
   REQUIRE(heap->mapped().size() == k_heap_bytes);
+}
+
+TEST_CASE("descriptor heap buffer honors device alignment", "[vkexec][descriptor_heap][resource_allocator]")
+{
+  test_allocator allocator;
+  auto heap = vkexec::try_sync_wait_value(
+    vkexec::factory::make_descriptor_heap_buffer(allocator, k_heap_bytes, k_requested_heap_alignment));
+  REQUIRE(heap.has_value());
+  REQUIRE(allocator.last_info.alignment == k_requested_heap_alignment);
 }
 
 // NOLINTEND(readability-function-cognitive-complexity)
