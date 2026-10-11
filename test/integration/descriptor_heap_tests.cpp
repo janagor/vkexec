@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -30,7 +32,6 @@ constexpr VkDeviceSize k_storage_bytes = 256;
 constexpr std::uint32_t k_image_extent = 64;
 
 }// namespace
-// NOLINTBEGIN(readability-function-cognitive-complexity)
 TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][descriptor_heap][gpu]")
 {
   vkexec::vulkan_requirements requirements{};
@@ -91,7 +92,6 @@ TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   ctx->free_command_buffer(cmd);
 }
-// NOLINTEND(readability-function-cognitive-complexity)
 
 TEST_CASE("write_storage_image_descriptor fills a heap slot", "[vkexec][descriptor_heap][gpu]")
 {
@@ -173,7 +173,6 @@ TEST_CASE("write_sampled_image_descriptor fills a heap slot", "[vkexec][descript
   REQUIRE(vkexec::write_sampled_image_descriptor(*ctx, view_info, VK_IMAGE_LAYOUT_GENERAL, slot));
 }
 
-// NOLINTBEGIN(readability-function-cognitive-complexity)
 TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descriptor_heap][gpu]")
 {
   vkexec::vulkan_requirements requirements{};
@@ -229,4 +228,5 @@ TEST_CASE("write_sampler_descriptor and cmd_bind_sampler_heap", "[vkexec][descri
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   ctx->free_command_buffer(cmd);
 }
+
 // NOLINTEND(readability-function-cognitive-complexity)

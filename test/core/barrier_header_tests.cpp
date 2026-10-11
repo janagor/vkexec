@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <vkexec/barrier.hpp>
 #include <vkexec/barrier_params.hpp>
 #include <vkexec/context.hpp>
@@ -24,3 +26,5 @@ static_assert(requires { vkexec::barrier::image(vkexec::image_barrier_params{});
 static_assert(std::is_same_v<decltype(vkexec::barrier::compute_to_compute(std::declval<vkexec::context &>(),
                                std::declval<VkCommandBuffer>())),
   vkexec::status>);
+
+// NOLINTEND(readability-function-cognitive-complexity)

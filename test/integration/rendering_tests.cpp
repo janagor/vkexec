@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -85,3 +87,5 @@ TEST_CASE("dynamic rendering begins and ends on a color target", "[vkexec][rende
   REQUIRE(ctx->submit_and_wait(cmd));
   ctx->free_command_buffer(cmd);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

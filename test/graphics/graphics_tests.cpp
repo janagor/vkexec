@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_approx.hpp>
@@ -410,3 +412,5 @@ TEST_CASE("draw senders retain runtime after context destruction", "[vkexec][gra
   auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(async_sender));
   REQUIRE(vkexec::detail::scheduler_access::state(completion).get() == runtime.lock().get());
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

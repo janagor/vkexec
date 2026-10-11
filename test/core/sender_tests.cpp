@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -292,3 +294,5 @@ TEST_CASE("factory_sender maps factory exceptions to set_error", "[vkexec][sende
   REQUIRE(outcome.take_error().code == vkexec::unexpected_exception_error().code);
 }
 #endif
+
+// NOLINTEND(readability-function-cognitive-complexity)

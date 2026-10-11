@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -52,3 +54,5 @@ TEST_CASE("cmd_push_data records when descriptor heap is available", "[vkexec][p
   REQUIRE(vkEndCommandBuffer(cmd) == VK_SUCCESS);
   ctx->free_command_buffer(cmd);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

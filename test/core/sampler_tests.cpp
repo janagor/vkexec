@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -14,3 +16,5 @@ TEST_CASE("sampler creates a linear clamp sampler", "[vkexec][sampler][gpu]")
   auto samp = vkexec::test::sync_wait_value(vkexec::factory::make_sampler(*ctx));
   REQUIRE(samp.handle() != VK_NULL_HANDLE);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

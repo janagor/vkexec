@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
@@ -18,3 +20,5 @@ TEST_CASE("vkexec headers compile", "[vkexec]")
   (void)opts;
   REQUIRE(true);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

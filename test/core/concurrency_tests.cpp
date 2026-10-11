@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -194,3 +196,5 @@ TEST_CASE("descriptor pools allocate under contention", "[vkexec][concurrency][g
   vkDestroyDescriptorSetLayout(ctx->device(), layout, nullptr);
   REQUIRE(allocated.load() == k_thread_count * iterations);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

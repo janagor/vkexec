@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -118,3 +120,5 @@ TEST_CASE("automatic view supports cube-compatible images with seven layers", "[
   auto view = vkexec::test::sync_wait_value(vkexec::vma::factory::make_image_view(*ctx, img));
   REQUIRE(view.handle() != VK_NULL_HANDLE);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <vkexec/buffer.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/resource_allocator.hpp>
@@ -170,3 +172,5 @@ TEST_CASE("generic resources use a non-VMA allocator without a context", "[vkexe
   REQUIRE_FALSE(rejected.has_value());
   REQUIRE(allocator.buffer_allocations == 3);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

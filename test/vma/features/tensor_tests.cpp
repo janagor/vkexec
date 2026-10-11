@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -119,3 +121,5 @@ TEST_CASE("sync_to_device/sync_to_host round-trip via pass graph", "[vkexec][ten
   REQUIRE(values.span().front() == k_host_write);
   REQUIRE(values.span().back() == k_host_write);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <vkexec/context.hpp>
 #include <vkexec/execution.hpp>
 #include <vkexec/vulkan_requirements.hpp>
@@ -16,3 +18,5 @@ auto main() -> int
   static_assert(!std::is_copy_constructible_v<vkexec::context>);
   return 0;
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

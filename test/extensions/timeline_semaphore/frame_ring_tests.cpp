@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -158,3 +160,5 @@ TEST_CASE("frame_ring reset preserves live timeline sequence", "[vkexec][frame_r
   ring.reset_completion_tracking();
   REQUIRE(ring.allocate_signal_value() == 5);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

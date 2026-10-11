@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier.hpp>
@@ -159,3 +161,5 @@ TEST_CASE("descriptor_schema assigns image and sampler resource kinds", "[vkexec
   REQUIRE(layout.binding_kinds.at(1) == vkexec::resource_kind::sampled_image);
   REQUIRE(layout.binding_kinds.at(2) == vkexec::resource_kind::sampler);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

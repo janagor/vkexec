@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -69,3 +71,5 @@ TEST_CASE("context::submit signals a timeline semaphore", "[vkexec][timeline][gp
   REQUIRE(timeline.wait(k_signal_value));
   ctx->free_command_buffer(cmd);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

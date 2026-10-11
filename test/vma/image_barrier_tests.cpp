@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -136,3 +138,5 @@ TEST_CASE("resource barrier pass steps execute", "[vkexec][barrier][gpu]")
   auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/vulkan_requirements.hpp>
@@ -43,3 +45,5 @@ TEST_CASE("Vulkan 1.3 synchronization2 requires no KHR extensions", "[vkexec][sy
   REQUIRE(requirements.device_extensions.empty());
   REQUIRE(requirements.required_extension_features.size() == 1);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #ifndef VKEXEC_VMA_TEST_HELPERS_HPP
 #define VKEXEC_VMA_TEST_HELPERS_HPP
 
@@ -13,3 +15,5 @@ namespace vkexec::test {
 }// namespace vkexec::test
 
 #endif// VKEXEC_VMA_TEST_HELPERS_HPP
+
+// NOLINTEND(readability-function-cognitive-complexity)

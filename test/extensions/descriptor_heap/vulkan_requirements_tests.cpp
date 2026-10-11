@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -44,3 +46,5 @@ TEST_CASE("context can require bufferDeviceAddress and dynamicRendering", "[vkex
   REQUIRE(VK_API_VERSION_MINOR(ctx->api_version()) >= 3);
   REQUIRE(ctx->procs().get_buffer_device_address != nullptr);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

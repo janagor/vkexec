@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/error.hpp>
@@ -69,3 +71,5 @@ TEST_CASE("descriptor heap buffer uses a custom allocator", "[vkexec][descriptor
   REQUIRE(allocator.last_info.alignment == vkexec::k_descriptor_heap_buffer_alignment);
   REQUIRE(heap->mapped().size() == k_heap_bytes);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

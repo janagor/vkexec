@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -131,3 +133,5 @@ TEST_CASE("factory::make_context succeeds for default requirements", "[vkexec][e
   auto ctx = vkexec::test::require_context();
   REQUIRE(ctx->device() != VK_NULL_HANDLE);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

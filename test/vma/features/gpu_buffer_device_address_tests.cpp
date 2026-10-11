@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -38,3 +40,5 @@ TEST_CASE("gpu_buffer device_address works with bufferDeviceAddress enabled", "[
   REQUIRE(addr_result.has_value());
   REQUIRE(*addr_result != 0);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

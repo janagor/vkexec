@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -51,3 +53,5 @@ TEST_CASE("adopted context uses declared capabilities", "[vkexec][capabilities][
   REQUIRE_FALSE(limited->capabilities().timeline_semaphore);
   REQUIRE_FALSE(vkexec::feat::available<vkexec::feat::timeline_semaphore>(*limited));
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -282,3 +284,5 @@ TEST_CASE("graphics_pipeline tag factory owns null-layout DR pipeline", "[vkexec
   REQUIRE(pipe.bind().layout == VK_NULL_HANDLE);
   REQUIRE(pipe.bind().set == VK_NULL_HANDLE);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

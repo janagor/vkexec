@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -59,3 +61,5 @@ TEST_CASE("try_sync_wait_value completes factory::make_buffer", "[vkexec][buffer
   REQUIRE(values.has_value());
   REQUIRE(values->size() == k_count);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/pass.hpp>
@@ -36,3 +38,5 @@ TEST_CASE("dispatch_groups_for does not overflow when rounding up", "[vkexec][di
   REQUIRE(vkexec::dispatch_groups_for(k_max_work_count, k_local_size).x == k_max_groups_for_local_size);
   REQUIRE(vkexec::dispatch_groups_for(k_max_work_count, k_max_work_count).x == 1U);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

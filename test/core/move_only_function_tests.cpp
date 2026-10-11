@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/context.hpp>
@@ -180,3 +182,5 @@ TEST_CASE("noexcept callback stores a callable with a throwing move", "[vkexec][
 }
 
 }// namespace
+
+// NOLINTEND(readability-function-cognitive-complexity)

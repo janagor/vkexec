@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -25,3 +27,5 @@ TEST_CASE("ext::configure enables descriptor_heap when device supports it", "[vk
   }
   REQUIRE(vkexec::ext::name<vkexec::ext::descriptor_heap>() == "descriptor_heap");
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

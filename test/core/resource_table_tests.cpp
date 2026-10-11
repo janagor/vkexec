@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/resource_table.hpp>
@@ -28,3 +30,5 @@ TEST_CASE("resource_table represents image and sampler kinds", "[vkexec][resourc
   REQUIRE(table.entries().subspan(1).front().resource.kind == vkexec::resource_kind::sampled_image);
   REQUIRE(table.entries().back().resource.kind == vkexec::resource_kind::sampler);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

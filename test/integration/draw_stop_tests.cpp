@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -454,3 +456,5 @@ TEST_CASE("draw_layers presents with presenter-owned recording", "[vkexec][draw]
   REQUIRE(vkexec::test::sync_wait_completed(waited));
   fixture.win.wait_idle();
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -91,3 +93,5 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
   vkexec::free_compute_set(*ctx, resources, bound.set);
   vkexec::destroy(*ctx, resources);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

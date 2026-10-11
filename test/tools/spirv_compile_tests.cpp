@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec_tools/spirv_compile.hpp>
@@ -50,3 +52,5 @@ TEST_CASE("compile_glsl_to_spirv targets SPIR-V 1.6 for Vulkan 1.3", "[vkexec][s
   REQUIRE(spirv.has_value());
   REQUIRE(spirv_version(*spirv) == 0x00010600U);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

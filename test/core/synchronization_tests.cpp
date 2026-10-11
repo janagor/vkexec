@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/detail/object_synchronization.hpp>
@@ -156,3 +158,5 @@ TEST_CASE("synchronization2 submission lowering preserves stages and values", "[
   REQUIRE(submission.pWaitSemaphoreInfos == lowered.waits.data());
   REQUIRE(submission.pSignalSemaphoreInfos == lowered.signals.data());
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

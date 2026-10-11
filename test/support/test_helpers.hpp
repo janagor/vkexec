@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #ifndef VKEXEC_TEST_HELPERS_HPP
 #define VKEXEC_TEST_HELPERS_HPP
 
@@ -79,3 +81,5 @@ template<class Sender> [[nodiscard]] auto sync_wait_sender(Sender &&sender)
 }// namespace vkexec::test
 
 #endif// VKEXEC_TEST_HELPERS_HPP
+
+// NOLINTEND(readability-function-cognitive-complexity)

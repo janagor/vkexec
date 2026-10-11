@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -68,3 +70,5 @@ TEST_CASE("upload_to_device copies staging bytes into device-local buffer", "[vk
   payload.fill(k_marker);
   REQUIRE(vkexec::vma::upload_to_device(*ctx, staging, device, payload));
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

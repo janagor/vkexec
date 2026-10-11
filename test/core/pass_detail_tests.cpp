@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/detail/resource_state_tracker.hpp>
@@ -610,3 +612,5 @@ TEST_CASE("resource tracking rejects two declarations in one pass", "[vkexec][pa
   REQUIRE_FALSE(
     tracker.use(vkexec::read(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

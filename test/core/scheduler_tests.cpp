@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -1208,3 +1210,5 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   REQUIRE(failing_count == 1);
   REQUIRE(skipped_count == 0);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

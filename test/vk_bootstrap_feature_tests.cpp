@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <vkexec/detail/vk_bootstrap_feature.hpp>
 
 #include <catch2/catch_test_macros.hpp>
@@ -30,3 +32,5 @@ TEST_CASE("private feature adapter retains required and optional requests", "[vk
   REQUIRE(moved.required_extension_features.size() == 1);
   REQUIRE(moved.optional_extension_features.size() == 1);
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

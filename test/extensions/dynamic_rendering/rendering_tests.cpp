@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include <catch2/catch_test_macros.hpp>
 #include <vkexec_extensions/dynamic_rendering/rendering.hpp>
 
@@ -8,3 +10,5 @@ TEST_CASE("dynamic rendering defaults to one layer", "[vkexec][dynamic_rendering
   REQUIRE(info.depth == nullptr);
   REQUIRE(info.color.empty());
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

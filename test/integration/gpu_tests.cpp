@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 #include "vma_test_helpers.hpp"
 
@@ -348,3 +350,5 @@ TEST_CASE("pass graph completes with set_stopped when stop is already requested"
     vkexec::test::sync_wait_sender(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)

@@ -1,3 +1,5 @@
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+
 #include "test_helpers.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -54,3 +56,5 @@ TEST_CASE("feat::configure_vulkan_13 enables registered 1.2 and 1.3 features", "
   REQUIRE(vkexec::feat::available<vkexec::feat::dynamic_rendering>(*ctx));
   REQUIRE(vkexec::feat::available<vkexec::feat::synchronization2>(*ctx));
 }
+
+// NOLINTEND(readability-function-cognitive-complexity)
