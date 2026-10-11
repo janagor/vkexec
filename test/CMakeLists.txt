@@ -78,6 +78,9 @@ vkexec_add_test_executable(
   core/resource_table_tests.cpp
   core/descriptor_schema_tests.cpp
   core/pass_detail_tests.cpp
+  core/resource_ranges_tests.cpp
+  core/buffer_region_tests.cpp
+  core/image_region_tests.cpp
   core/dispatch_tests.cpp
   core/error_tests.cpp
   core/move_only_function_tests.cpp
@@ -85,6 +88,8 @@ vkexec_add_test_executable(
   core/scheduler_tests.cpp
   core/resource_allocator_tests.cpp
   core/synchronization_tests.cpp)
+# Whole-target define keeps inline fault-injection bodies ODR-consistent across this executable.
+target_compile_definitions(vkexec_core_tests PRIVATE VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION=1)
 
 vkexec_add_test_executable(
   vkexec_features_tests
@@ -150,7 +155,8 @@ if(vkexec_BUILD_VMA)
     vma/buffer_tests.cpp
     vma/gpu_buffer_tests.cpp
     vma/image_tests.cpp
-    vma/image_barrier_tests.cpp)
+    vma/image_barrier_tests.cpp
+    integration/resource_region_tests.cpp)
   vkexec_add_test_executable(
     vkexec_vma_features_tests
     vma_features

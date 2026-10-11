@@ -413,4 +413,42 @@ TEST_CASE("draw senders retain runtime after context destruction", "[vkexec][gra
   REQUIRE(vkexec::detail::scheduler_access::state(completion).get() == runtime.lock().get());
 }
 
+TEST_CASE("graphics attachment final layout leaves other mips unchanged", "[vkexec][graphics][pass]")
+{
+  constexpr std::uint32_t k_two_mips = 2;
+  constexpr std::uint32_t k_attachment_mip = 1;
+  constexpr std::size_t k_third_step = 2;
+  constexpr std::size_t k_three_steps = 3;
+  char storage{};
+  auto *const image = fake_image(&storage);
+  auto whole = k_color_range;
+  whole.levelCount = k_two_mips;
+  auto attachment_range = k_color_range;
+  attachment_range.baseMipLevel = k_attachment_mip;
+  vkexec::handles::graphics_pipeline const pipe{};
+  vkexec::graphics_target target{};
+  target.colors.push_back(vkexec::graphics_attachment{ .image = image,
+    .range = attachment_range,
+    .render_pass_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .final_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    .access = vkexec::resource_access::write });
+  vkexec::detail::graphics_pass_step<std::uint32_t> const step{
+    .target = std::move(target), .bind = vkexec::bind_graphics(pipe), .draw = k_vertex_count
+  };
+  vkexec::detail::resource_state_tracker tracker{ k_three_steps };
+  REQUIRE(
+    tracker.use(vkexec::write(image, whole, vkexec::image_usage::storage_compute), k_first_step, k_graphics_family));
+  REQUIRE(step.declare_resources(tracker, k_second_step, vkexec::queue_ref{ .family = k_graphics_family }));
+  REQUIRE(
+    tracker.use(vkexec::read(image, whole, vkexec::image_usage::sampled_fragment), k_third_step, k_graphics_family));
+  auto const plan = std::move(tracker).finish();
+  REQUIRE(plan.steps.at(k_second_step).images_before.front().range.baseMipLevel == k_attachment_mip);
+  REQUIRE(plan.steps.at(k_third_step).images_before.size() == k_two_mips);
+  for (auto const &barrier : plan.steps.at(k_third_step).images_before) {
+    REQUIRE(barrier.old_layout
+            == (barrier.range.baseMipLevel == k_attachment_mip ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                                                               : VK_IMAGE_LAYOUT_GENERAL));
+  }
+}
+
 // NOLINTEND(readability-function-cognitive-complexity)

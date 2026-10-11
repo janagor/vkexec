@@ -613,4 +613,47 @@ TEST_CASE("resource tracking rejects two declarations in one pass", "[vkexec][pa
     tracker.use(vkexec::read(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
 }
 
+TEST_CASE("presentation validation checks the declared image subresources", "[vkexec][pass]")
+{
+  char storage{};
+  auto *const image = fake_image(&storage);
+  vkexec::detail::execution_plan execution{};
+  execution.batches.push_back(vkexec::detail::execution_batch{
+    .queue = {}, .first_step = k_first_step, .end_step = k_single_step_count, .predecessors = {} });
+  auto declaration = vkexec::write(image, k_color_range, vkexec::image_usage::color_attachment);
+  declaration.final_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
+  REQUIRE(tracker.use(declaration, k_first_step, k_default_family));
+  auto plan = std::move(tracker).finish();
+  REQUIRE(vkexec::detail::validate_presentation_image(plan, execution, image));
+  plan.image_uses.front().range.baseMipLevel = 1;
+  REQUIRE_FALSE(vkexec::detail::validate_presentation_image(plan, execution, image));
+  plan.image_uses.front().range = k_color_range;
+  plan.image_uses.front().range.baseArrayLayer = 1;
+  REQUIRE_FALSE(vkexec::detail::validate_presentation_image(plan, execution, image));
+}
+
+TEST_CASE("resource planning keeps disjoint dynamic graph branches independent", "[vkexec][pass][ranges]")
+{
+  char storage{};
+  auto *const buffer = fake_buffer(&storage);
+  vkexec::dynamic_pass_graph_sender graph{};
+  auto const record = [](VkCommandBuffer) -> void {};
+  auto const first = graph.append_after({},
+    vkexec::custom_pass(
+      vkexec::uses(vkexec::write(buffer, 0, k_byte_size, vkexec::buffer_usage::storage_compute)), record));
+  auto const second = graph.append_after({},
+    vkexec::custom_pass(
+      vkexec::uses(vkexec::write(buffer, k_byte_size, k_byte_size, vkexec::buffer_usage::storage_compute)), record));
+  vkexec::queue_ref const queue{ .family = k_default_family };
+  auto execution = vkexec::detail::plan_dag(graph.step_queues, graph.step_predecessors, queue);
+  REQUIRE(execution);
+  auto synchronization = vkexec::detail::plan_resource_sync(*execution, graph.steps);
+  REQUIRE(synchronization);
+  REQUIRE(synchronization->dependencies.empty());
+  vkexec::detail::add_resource_dependencies(*execution, *synchronization);
+  REQUIRE(execution->batches.at(first).predecessors.empty());
+  REQUIRE(execution->batches.at(second).predecessors.empty());
+}
+
 // NOLINTEND(readability-function-cognitive-complexity)

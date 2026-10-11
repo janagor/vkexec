@@ -75,6 +75,24 @@ function(vkexec_setup_dependencies)
     target_compile_features(Catch2 PRIVATE cxx_std_17)
   endif()
 
+  if(vkexec_BUILD_BENCHMARKS AND NOT TARGET benchmark::benchmark)
+    cpmaddpackage(
+      NAME
+      benchmark
+      GITHUB_REPOSITORY
+      "google/benchmark"
+      GIT_TAG
+      "v1.9.5"
+      SYSTEM
+      YES
+      OPTIONS
+      "BENCHMARK_ENABLE_TESTING OFF"
+      "BENCHMARK_ENABLE_INSTALL OFF"
+      "BENCHMARK_ENABLE_GTEST_TESTS OFF"
+      "BENCHMARK_ENABLE_WERROR OFF"
+      "BENCHMARK_FORCE_WERROR OFF")
+  endif()
+
   if(vkexec_BUILD_TOOLS AND NOT TARGET glslang::glslang)
     find_package(glslang CONFIG QUIET)
   endif()

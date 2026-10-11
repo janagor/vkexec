@@ -726,10 +726,18 @@ namespace detail {
     validate_presentation_image(resource_sync_plan const &sync, execution_plan const &plan, VkImage image) -> status
   {
     if (image == VK_NULL_HANDLE) { return {}; }
+    if (plan.batches.empty()) { return fail(errc::invalid_argument, "presented image requires a final batch"); }
     bool saw_image{};
     for (auto const &use : sync.image_uses) {
       if (use.image != image) { continue; }
       saw_image = true;
+      constexpr std::uint32_t k_single_subresource = 1;
+      if (use.range.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT || use.range.baseMipLevel != 0
+          || (use.range.levelCount != k_single_subresource && use.range.levelCount != VK_REMAINING_MIP_LEVELS)
+          || use.range.baseArrayLayer != 0
+          || (use.range.layerCount != k_single_subresource && use.range.layerCount != VK_REMAINING_ARRAY_LAYERS)) {
+        return fail(errc::invalid_argument, "presented image use must cover the swapchain color subresource");
+      }
       if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment
           || use.final_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
         return fail(errc::invalid_argument,
@@ -1508,13 +1516,17 @@ template<detail::sender_adaptor_closure... Branches>
  * transitions, memory barriers, and queue-family ownership transfers. The
  * first image read must declare its known initial layout. Manual barriers
  * inside the recorder must not change a declared resource's tracked state.
- * Cross-family transfers assume exclusive sharing. The first queue family
+ * Cross-family transfers assume exclusive sharing unless extent metadata
+ * declares concurrent sharing. The first queue family
  * using a resource is assumed to own it already; imported resources must be
  * synchronized externally before their first graph use.
+ * Optional buffer_extent/image_extent declarations register bounds and sharing
+ * mode before accesses in this pass. Register bounds before the first use when
+ * mixing symbolic ends with finite ranges that may reach the resource end.
  *
  * The recorder accepts a recording VkCommandBuffer and returns void or status.
  */
-template<resource_use... Uses, class Record>
+template<resource_declaration... Uses, class Record>
   requires std::move_constructible<std::decay_t<Record>> && std::invocable<std::decay_t<Record> &, VkCommandBuffer>
            && (std::same_as<std::invoke_result_t<std::decay_t<Record> &, VkCommandBuffer>, void>
                || std::same_as<std::invoke_result_t<std::decay_t<Record> &, VkCommandBuffer>, status>)

@@ -138,7 +138,6 @@ TEST_CASE("draw | submit presents multiple headless frames without leaking frame
   fixture.win.wait_idle();
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("presenter suspends at zero extent and resumes after resize", "[vkexec][draw][gpu]")
 {
   auto win = make_headless_presenter();
@@ -272,7 +271,6 @@ TEST_CASE("presenter rejects presenting a recording frame", "[vkexec][draw][gpu]
   fixture.win.wait_idle();
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("cancelled presentation graph releases its acquired frame", "[vkexec][draw][gpu]")
 {
   auto win = make_headless_presenter();
@@ -370,7 +368,6 @@ TEST_CASE("abandoning a frame restores a reset presentation fence", "[vkexec][dr
   REQUIRE(win.abandon_frame(retry_frame));
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("presentation graph submits and presents an acquired frame", "[vkexec][draw][gpu]")
 {
   headless_fixture fixture;

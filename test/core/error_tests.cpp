@@ -59,7 +59,6 @@ TEST_CASE("vulkan error category maps VkResult values", "[vkexec][error][vulkan]
 }
 
 #ifdef __unix__
-// NOLINTNEXTLINE(readability-function-cognitive-complexity) -- Catch2 assertion macros inflate the count.
 TEST_CASE("nonfailure Vulkan results violate the error-code contract", "[vkexec][error][vulkan]")
 {
   for (int const value : { VK_SUCCESS, VK_TIMEOUT }) {
@@ -89,7 +88,6 @@ TEST_CASE("make_vk_error attaches optional context detail", "[vkexec][error][vul
   REQUIRE(without_context.message() == "device lost");
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("vulkan library floors document instance and device requests", "[vkexec][vulkan]")
 {
   auto const headless_instance = vkexec::vulkan_library::required_headless_surface_instance_extensions();

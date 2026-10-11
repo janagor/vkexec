@@ -128,7 +128,6 @@ TEST_CASE("direct command buffers submit concurrently", "[vkexec][concurrency][g
   REQUIRE(completed.load() == k_thread_count * stress_iterations());
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("descriptor pools allocate under contention", "[vkexec][concurrency][gpu]")
 {
   bool same_pool = false;

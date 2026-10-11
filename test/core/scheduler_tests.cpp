@@ -571,7 +571,6 @@ TEST_CASE("descriptor sets allocate concurrently from distinct pools", "[vkexec]
   REQUIRE(allocated.load() == 2);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
@@ -750,7 +749,6 @@ TEST_CASE("semantic pass expressions materialize across a then boundary", "[vkex
   STATIC_REQUIRE(ex::sender<lowered_t>);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
@@ -799,7 +797,6 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
   REQUIRE(receiver_status_after_release == std::future_status::ready);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("dynamic pass graph start returns before GPU completion", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
@@ -926,7 +923,6 @@ TEST_CASE("DAG terminal join waits for independent queue branches", "[vkexec][pa
   REQUIRE(vkexec::test::sync_wait_completed(result));
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("typed DAG executes branches and their join", "[vkexec][pass][gpu]")
 {
   constexpr int k_recorded_once = 1;
@@ -955,7 +951,6 @@ TEST_CASE("typed DAG executes branches and their join", "[vkexec][pass][gpu]")
   REQUIRE(joined_recorded == k_recorded_once);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("sync_wait still waits for pass_graph_sender completion", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();

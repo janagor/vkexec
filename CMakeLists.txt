@@ -181,6 +181,10 @@ elseif(vkexec_BUILD_EXAMPLES)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL)
+  if(vkexec_BUILD_BENCHMARKS)
+    add_subdirectory(benchmark)
+  endif()
+
   include(cmake/Format.cmake)
   vkexec_enable_formatting()
 

@@ -134,7 +134,6 @@ TEST_CASE("compute pipeline rejects zero local size dimensions", "[vkexec][gpu]"
   }
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
 {
   constexpr std::size_t k_count = 128;
@@ -172,7 +171,6 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][gpu][execution]")
 {
   constexpr std::size_t k_count = 128;
@@ -244,7 +242,6 @@ void main() {}
   vkexec::destroy(*ctx, resources);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]")
 {
   constexpr std::size_t k_count = 64;
@@ -288,7 +285,6 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]")
 {
   constexpr std::size_t k_count = 64;

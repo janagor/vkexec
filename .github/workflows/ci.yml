@@ -247,10 +247,13 @@ jobs:
         run: cmake --build build-validation --target vkexec_tests
 
       - name: Run unit tests with validation
+        env:
+          VK_LAYER_VALIDATE_SYNC: "1"
+          VK_LAYER_ENABLES: VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
         run: |
           set -o pipefail
           ctest --test-dir build-validation -R '^unittests\..*' -V 2>&1 | tee validation-ctest.log
-          if grep -Eq 'Validation Error|VUID-' validation-ctest.log; then
+          if grep -Eq 'Validation Error|VUID-|SYNC-HAZARD' validation-ctest.log; then
             echo "Vulkan validation reported an error" >&2
             exit 1
           fi
