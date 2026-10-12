@@ -25,8 +25,6 @@
 #include <string_view>
 #include <vector>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr std::size_t k_heap_slots = 1;
@@ -92,7 +90,7 @@ auto run() -> int
     "descriptor_heap.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome = vkexec::try_sync_wait(ex::schedule(ctx->get_scheduler())
+  auto outcome = vkexec::try_sync_wait(stdexec::schedule(ctx->get_scheduler())
                                        | vkexec::compute_pass(vkexec::descriptor_heap,
                                          pipe,
                                          std::vector<vkexec::image_use>{},

@@ -21,8 +21,6 @@
 #include <tuple>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 
 using positions = vkexec::storage_buffer<0>;
@@ -96,7 +94,7 @@ TEST_CASE("descriptor_schema builds an ordered resource_table", "[vkexec][descri
 TEST_CASE("schema_pass recursively lowers into one typed pass graph", "[vkexec][descriptor_schema]")
 {
   vkexec::handles::compute_pipeline const pipe{};
-  auto expr = ex::schedule(vkexec::scheduler{ nullptr })
+  auto expr = stdexec::schedule(vkexec::scheduler{ nullptr })
               | vkexec::schema_pass(sim_schema{},
                 pipe,
                 typed_push_constants{},
@@ -107,7 +105,7 @@ TEST_CASE("schema_pass recursively lowers into one typed pass graph", "[vkexec][
   STATIC_REQUIRE(vkexec::detail::is_sender_expr_v<decltype(expr)>);
   STATIC_REQUIRE(std::same_as<vkexec::detail::expression_tag_t<decltype(expr)>, vkexec::schema_pass_t>);
 
-  auto lowered = ex::transform_sender(std::move(expr), ex::env<>{});
+  auto lowered = stdexec::transform_sender(std::move(expr), stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(lowered)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(lowered.steps)> == 2);
 }
@@ -115,7 +113,7 @@ TEST_CASE("schema_pass recursively lowers into one typed pass graph", "[vkexec][
 TEST_CASE("composite semantic passes fuse with surrounding primitive passes", "[vkexec][descriptor_schema]")
 {
   vkexec::handles::compute_pipeline const pipe{};
-  auto expr = ex::schedule(vkexec::scheduler{ nullptr })
+  auto expr = stdexec::schedule(vkexec::scheduler{ nullptr })
               | vkexec::schema_pass(sim_schema{},
                 pipe,
                 typed_push_constants{},
@@ -125,7 +123,7 @@ TEST_CASE("composite semantic passes fuse with surrounding primitive passes", "[
               | vkexec::barrier::compute_to_compute()
               | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
 
-  auto lowered = ex::transform_sender(std::move(expr), ex::env<>{});
+  auto lowered = stdexec::transform_sender(std::move(expr), stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(lowered)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(lowered.steps)> == 4);
 }

@@ -26,8 +26,8 @@ template<class Pred, static_pass_step... Steps> struct pass_chain
 
 struct pass_fragment_root
 {
-  using sender_concept = ex::sender_t;
-  using completion_signatures = ex::completion_signatures<ex::set_value_t()>;
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures = stdexec::completion_signatures<stdexec::set_value_t()>;
   std::vector<std::size_t> frontier;
   std::size_t base_index{};
   queue_affinity current_queue;
@@ -262,11 +262,11 @@ template<static_pass_step... Steps> struct materialize_pass_graph_fn
 template<vkexec_predecessor Pred, static_pass_step... Steps>
 // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved)
 [[nodiscard]] auto materialize_pass_chain(pass_chain<Pred, Steps...> &&chain)
-  -> decltype(ex::let_value(std::declval<Pred>(), std::declval<materialize_pass_graph_fn<Steps...>>()))
+  -> decltype(stdexec::let_value(std::declval<Pred>(), std::declval<materialize_pass_graph_fn<Steps...>>()))
 {
-  scheduler const sched = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(chain.pred));
+  scheduler const sched = stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(chain.pred));
   auto state = scheduler_access::state(sched);
-  return ex::let_value(std::move(chain.pred),
+  return stdexec::let_value(std::move(chain.pred),
     materialize_pass_graph_fn<Steps...>{ .state = std::move(state),
       .steps = std::move(chain.steps),
       .step_queues = std::move(chain.step_queues),
@@ -361,7 +361,7 @@ template<push_constant_type Push, dispatch_kind Dispatch, class Env>
 { return { .bind = std::move(data.bind), .push = std::move(data.push), .dispatch_info = data.dispatch_info }; }
 
 template<class Tag, class Data, class Child, class Env>
-[[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/, sender_expr<Tag, Data, Child> expr, Env const &env)
+[[nodiscard]] auto lower_vkexec_sender(stdexec::set_value_t /*tag*/, sender_expr<Tag, Data, Child> expr, Env const &env)
   -> decltype(materialize_pass_chain(collect_pass_chain(normalize_vkexec_expression(std::move(expr), env), env)))
 {
   auto normalized = normalize_vkexec_expression(std::move(expr), env);

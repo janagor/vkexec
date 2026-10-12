@@ -28,8 +28,6 @@
 
 namespace vkexec {
 
-namespace ex = stdexec;
-
 namespace detail {
 
   /**
@@ -185,11 +183,11 @@ namespace detail {
   auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
   {
     if (failure) {
-      ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
+      stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
     } else if (stopped) {
-      ex::set_stopped(std::forward<Receiver>(receiver));
+      stdexec::set_stopped(std::forward<Receiver>(receiver));
     } else {
-      ex::set_value(std::forward<Receiver>(receiver));
+      stdexec::set_value(std::forward<Receiver>(receiver));
     }
   }
 
@@ -213,9 +211,9 @@ namespace detail {
    */
   struct enter_submit_scope_sender
   {
-    using sender_concept = ex::sender_t;
-    using completion_signatures =
-      ex::completion_signatures<ex::set_value_t(submit_scope), ex::set_error_t(error), ex::set_stopped_t()>;
+    using sender_concept = stdexec::sender_t;
+    using completion_signatures = stdexec::
+      completion_signatures<stdexec::set_value_t(submit_scope), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
     context_handle state;
     queue_ref queue{};
@@ -233,12 +231,13 @@ namespace detail {
       auto start() noexcept -> void
       {
         if (detail::receiver_stop_requested(receiver)) {
-          ex::set_stopped(std::move(receiver));
+          stdexec::set_stopped(std::move(receiver));
           return;
         }
 
         if (!state) {
-          ex::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
+          stdexec::set_error(
+            std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
           return;
         }
 
@@ -248,7 +247,7 @@ namespace detail {
           auto facade = context_access::facade(state);
           opened = submit_scope::open(facade, queue);
         } catch (...) {
-          ex::set_error(std::move(receiver), unexpected_exception_error());
+          stdexec::set_error(std::move(receiver), unexpected_exception_error());
           return;
         }
 #else
@@ -256,10 +255,10 @@ namespace detail {
         opened = submit_scope::open(facade, queue);
 #endif
         if (!opened) {
-          ex::set_error(std::move(receiver), std::move(opened.error()));
+          stdexec::set_error(std::move(receiver), std::move(opened.error()));
           return;
         }
-        ex::set_value(std::move(receiver), expected_take(opened));
+        stdexec::set_value(std::move(receiver), expected_take(opened));
       }
     };
 
@@ -295,9 +294,9 @@ namespace detail {
    */
   struct submit_and_wait_sender
   {
-    using sender_concept = ex::sender_t;
+    using sender_concept = stdexec::sender_t;
     using completion_signatures =
-      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+      stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
     submit_scope scope;
 
@@ -314,7 +313,7 @@ namespace detail {
       {
         if (detail::receiver_stop_requested(receiver)) {
           scope.release();
-          ex::set_stopped(std::move(receiver));
+          stdexec::set_stopped(std::move(receiver));
           return;
         }
 
@@ -326,7 +325,7 @@ namespace detail {
           submitted = host->submit_and_wait(scope.cmd, scope.queue);
         } catch (...) {
           scope.release();
-          ex::set_error(std::move(receiver), unexpected_exception_error());
+          stdexec::set_error(std::move(receiver), unexpected_exception_error());
           return;
         }
 #else
@@ -334,11 +333,11 @@ namespace detail {
 #endif
         if (!submitted) {
           scope.release();
-          ex::set_error(std::move(receiver), std::move(submitted.error()));
+          stdexec::set_error(std::move(receiver), std::move(submitted.error()));
           return;
         }
         scope.release();
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
       }
     };
 
@@ -370,9 +369,9 @@ namespace detail {
    */
   struct submit_fence_sender
   {
-    using sender_concept = ex::sender_t;
+    using sender_concept = stdexec::sender_t;
     using completion_signatures =
-      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+      stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
     submit_scope scope;
 
@@ -390,7 +389,7 @@ namespace detail {
         auto const token = detail::receiver_stop_token(receiver);
         if (detail::stop_requested(token)) {
           scope.release();
-          ex::set_stopped(std::move(receiver));
+          stdexec::set_stopped(std::move(receiver));
           return;
         }
 
@@ -405,7 +404,7 @@ namespace detail {
           if (auto submitted = host->submit_async(scope.cmd, &done, &fence, scope.queue); !submitted) {
             reclaim_submission_sync(*host, scope.queue.queue, done, fence);
             scope.release();
-            ex::set_error(std::move(receiver), std::move(submitted.error()));
+            stdexec::set_error(std::move(receiver), std::move(submitted.error()));
             return;
           }
 #if VKEXEC_HAS_EXCEPTIONS
@@ -426,7 +425,7 @@ namespace detail {
         } catch (...) {
           if (submitted_to_gpu) { reclaim_submission_sync(*host, scope.queue.queue, done, fence); }
           scope.release();
-          ex::set_error(std::move(receiver), unexpected_exception_error());
+          stdexec::set_error(std::move(receiver), unexpected_exception_error());
         }
 #endif
       }

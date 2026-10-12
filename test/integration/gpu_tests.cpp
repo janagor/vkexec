@@ -35,8 +35,6 @@
 #include <string_view>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr std::uint32_t k_local_size = 64;
@@ -166,7 +164,7 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler())
+    stdexec::schedule(ctx->get_scheduler())
     | vkexec::compute_pass(pipe, set, resources, params, static_cast<std::uint32_t>(k_count)));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
@@ -200,7 +198,7 @@ TEST_CASE("classic compute borrowable path without owning pipeline", "[vkexec][g
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto graph =
-    ex::schedule(ctx->get_scheduler())
+    stdexec::schedule(ctx->get_scheduler())
     | vkexec::schema_pass(sim_schema{}, resources, params, static_cast<std::uint32_t>(k_count), positions, velocities);
   auto waited = vkexec::test::sync_wait_sender(graph);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
@@ -241,7 +239,7 @@ void main() {}
     vkexec::sampled_image_resource(view.handle(), VK_IMAGE_LAYOUT_GENERAL),
     vkexec::sampler_resource(image_sampler.handle()));
 
-  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::bind_resources(resources, table)
+  auto graph = stdexec::schedule(ctx->get_scheduler()) | vkexec::bind_resources(resources, table)
                | vkexec::compute_pass(vkexec::bind_compute(resources).with_resources({}, {}), vkexec::dispatch{});
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
@@ -279,7 +277,7 @@ TEST_CASE("chained compute passes reuse descriptor sets safely", "[vkexec][gpu]"
   auto const access =
     vkexec::read_write(binding.buffer, VkDeviceSize{}, binding.byte_size, vkexec::buffer_usage::storage_compute);
 
-  auto graph = ex::schedule(ctx->get_scheduler())
+  auto graph = stdexec::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(
                  add_pipe, set, {}, { access }, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
                | vkexec::compute_pass(
@@ -326,7 +324,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
     .slot = binding.binding, .resource = vkexec::buffer_resource(binding.buffer, binding.byte_size) });
 
   auto graph =
-    ex::schedule(ctx->get_scheduler())
+    stdexec::schedule(ctx->get_scheduler())
     | vkexec::compute_pass(add_pipe, set, resources, pass_params{ .value = k_add }, static_cast<std::uint32_t>(k_count))
     | vkexec::barrier::compute_to_compute()
     | vkexec::compute_pass(
@@ -345,7 +343,7 @@ TEST_CASE("chained compute_pass graph completes asynchronously", "[vkexec][gpu]"
 TEST_CASE("pass graph completes with set_stopped when stop is already requested", "[vkexec][pass]")
 {
   // A direct pass sender verifies its own boundary independently of schedule().
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
   vkexec::pass_graph_sender<> sender{
     .state = {},
@@ -356,8 +354,8 @@ TEST_CASE("pass graph completes with set_stopped when stop is already requested"
     .current_queue = {},
   };
 
-  auto const waited =
-    vkexec::test::sync_wait_sender(ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() }));
+  auto const waited = vkexec::test::sync_wait_sender(
+    stdexec::write_env(sender, stdexec::prop{ stdexec::get_stop_token, source.get_token() }));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
 

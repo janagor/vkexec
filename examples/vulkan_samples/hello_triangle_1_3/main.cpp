@@ -12,8 +12,6 @@
 #include <filesystem>
 #include <iostream>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::uint32_t k_window_width = 800;
 constexpr std::uint32_t k_window_height = 600;
@@ -40,7 +38,7 @@ auto run() -> int
   while (!win.should_close()) {
     win.poll_events();
     vkexec::examples::sync_wait_graph(
-      ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win.target(), pipeline, k_triangle_vertices));
+      stdexec::schedule(win.ctx().get_scheduler()) | vkexec::draw(win.target(), pipeline, k_triangle_vertices));
   }
   win.wait_idle();
   return 0;

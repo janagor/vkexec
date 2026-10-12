@@ -12,7 +12,7 @@ vkexec is a C++20 stdexec backend for composing asynchronous Vulkan compute and 
 A sender scheduled on a vkexec context can compose a compute pass:
 
 ```cpp
-auto graph = ex::schedule(ctx->get_scheduler())
+auto graph = stdexec::schedule(ctx->get_scheduler())
   | vkexec::compute_pass(resources, bound.set, params, work_count);
 auto completion = vkexec::sync_wait(std::move(graph));
 ```

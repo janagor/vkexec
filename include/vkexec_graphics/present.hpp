@@ -51,7 +51,7 @@ namespace detail {
   }
 
   template<class Child, class Env>
-  [[nodiscard]] auto lower_vkexec_sender(ex::set_value_t /*tag*/,
+  [[nodiscard]] auto lower_vkexec_sender(stdexec::set_value_t /*tag*/,
     sender_expr<present_graph_t, present_graph_data, Child> expr,
     Env const &env)
     -> decltype(materialize_pass_chain(

@@ -29,8 +29,6 @@
 
 namespace vkexec {
 
-namespace ex = stdexec;
-
 namespace detail {
 
   [[nodiscard]] inline auto try_begin_frame(owned::presenter &win) -> result<std::optional<frame>>
@@ -43,11 +41,11 @@ namespace detail {
   auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
   {
     if (failure) {
-      ex::set_error(std::forward<Receiver>(receiver), std::move(*failure));
+      stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
     } else if (stopped) {
-      ex::set_stopped(std::forward<Receiver>(receiver));
+      stdexec::set_stopped(std::forward<Receiver>(receiver));
     } else {
-      ex::set_value(std::forward<Receiver>(receiver));
+      stdexec::set_value(std::forward<Receiver>(receiver));
     }
   }
 
@@ -58,17 +56,17 @@ namespace detail {
     try {
 #endif
       if (receiver_stop_requested(receiver)) {
-        ex::set_stopped(std::move(receiver));
+        stdexec::set_stopped(std::move(receiver));
         return;
       }
       if (!state) {
-        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
+        stdexec::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
         return;
       }
       std::forward<Operation>(operation)();
 #if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
-      ex::set_error(std::move(receiver), unexpected_exception_error());
+      stdexec::set_error(std::move(receiver), unexpected_exception_error());
     }
 #endif
   }
@@ -84,27 +82,27 @@ namespace detail {
 #endif
       auto const token = receiver_stop_token(receiver);
       if (stop_requested(token)) {
-        ex::set_stopped(std::move(receiver));
+        stdexec::set_stopped(std::move(receiver));
         return;
       }
       if (!state) {
-        ex::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
+        stdexec::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
         return;
       }
 
       auto frame_result = try_begin_frame(*win);
       if (!frame_result) {
-        ex::set_error(std::move(receiver), std::move(frame_result.error()));
+        stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
         return;
       }
       if (!frame_result->has_value()) {
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
         return;
       }
 
       auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
       if (!fence_result) {
-        ex::set_error(std::move(receiver), std::move(fence_result.error()));
+        stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
         return;
       }
 
@@ -116,7 +114,7 @@ namespace detail {
         });
 #if VKEXEC_HAS_EXCEPTIONS
     } catch (...) {
-      ex::set_error(std::move(receiver), unexpected_exception_error());
+      stdexec::set_error(std::move(receiver), unexpected_exception_error());
     }
 #endif
   }
@@ -220,9 +218,9 @@ inline auto draw_layers(owned::presenter &win, std::initializer_list<draw_layer>
  */
 struct draw_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -244,21 +242,21 @@ struct draw_sender
       detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
-          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
           return;
         }
         if (!frame_result->has_value()) {
-          ex::set_value(std::move(receiver));
+          stdexec::set_value(std::move(receiver));
           return;
         }
 
         frame const &drawn = **frame_result;
         pipeline->record_pass(drawn.command_buffer, win->render_pass(), drawn.framebuffer, drawn.extent, vertex_count);
         if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
         }
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
       });
     }
   };
@@ -284,9 +282,9 @@ struct draw_sender
  */
 struct draw_async_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -355,9 +353,9 @@ struct draw_async_sender
  */
 struct draw_layers_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -376,18 +374,18 @@ struct draw_layers_sender
     {
       detail::start_draw_sync(state, receiver, [this]() -> void {
         if (layers.empty()) {
-          ex::set_error(
+          stdexec::set_error(
             std::move(receiver), make_error(errc::invalid_argument, "draw_layers requires at least one layer"));
           return;
         }
 
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
-          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
           return;
         }
         if (!frame_result->has_value()) {
-          ex::set_value(std::move(receiver));
+          stdexec::set_value(std::move(receiver));
           return;
         }
 
@@ -410,10 +408,10 @@ struct draw_layers_sender
         }
         vkCmdEndRenderPass(drawn.command_buffer);
         if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
         }
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
       });
     }
   };
@@ -448,9 +446,9 @@ struct draw_layers_sender
 //! Async variant of `draw_layers_sender` (fence-agent completion via `| submit`).
 struct draw_layers_async_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -543,9 +541,9 @@ inline auto operator|(schedule_sender snd, draw_closure closure) -> draw_sender
  */
 struct draw_mesh_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -567,11 +565,11 @@ struct draw_mesh_sender
       detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
-          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
           return;
         }
         if (!frame_result->has_value()) {
-          ex::set_value(std::move(receiver));
+          stdexec::set_value(std::move(receiver));
           return;
         }
 
@@ -579,10 +577,10 @@ struct draw_mesh_sender
         pipeline->record_pass(
           drawn_frame.command_buffer, win->render_pass(), drawn_frame.framebuffer, drawn_frame.extent, *drawn);
         if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
-          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
         }
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
       });
     }
   };
@@ -604,9 +602,9 @@ struct draw_mesh_sender
 //! Async variant of `draw_mesh_sender` (fence-agent completion via `| submit`).
 struct draw_mesh_async_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -695,9 +693,9 @@ inline auto operator|(schedule_sender snd, draw_layers_closure closure) -> draw_
 
 struct draw_bind_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -721,11 +719,11 @@ struct draw_bind_sender
       detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
-          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
           return;
         }
         if (!frame_result->has_value()) {
-          ex::set_value(std::move(receiver));
+          stdexec::set_value(std::move(receiver));
           return;
         }
 
@@ -738,10 +736,10 @@ struct draw_bind_sender
           bind_graphics(*resources, set),
           vertex_count);
         if (auto fence_result = detail::try_end_frame(*win, drawn); !fence_result) {
-          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
         }
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
       });
     }
   };
@@ -763,9 +761,9 @@ struct draw_bind_sender
 
 struct draw_bind_async_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -838,9 +836,9 @@ struct draw_bind_async_sender
 
 struct draw_mesh_bind_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };
@@ -864,11 +862,11 @@ struct draw_mesh_bind_sender
       detail::start_draw_sync(state, receiver, [this]() -> void {
         auto frame_result = detail::try_begin_frame(*win);
         if (!frame_result) {
-          ex::set_error(std::move(receiver), std::move(frame_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
           return;
         }
         if (!frame_result->has_value()) {
-          ex::set_value(std::move(receiver));
+          stdexec::set_value(std::move(receiver));
           return;
         }
 
@@ -881,10 +879,10 @@ struct draw_mesh_bind_sender
           bind_graphics(*resources, set),
           drawn);
         if (auto fence_result = detail::try_end_frame(*win, drawn_frame); !fence_result) {
-          ex::set_error(std::move(receiver), std::move(fence_result.error()));
+          stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
           return;
         }
-        ex::set_value(std::move(receiver));
+        stdexec::set_value(std::move(receiver));
       });
     }
   };
@@ -906,9 +904,9 @@ struct draw_mesh_bind_sender
 
 struct draw_mesh_bind_async_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
   owned::presenter *win{ nullptr };

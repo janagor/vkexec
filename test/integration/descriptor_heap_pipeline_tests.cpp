@@ -40,8 +40,6 @@
 #include <utility>
 #include <vector>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr std::uint32_t k_work_count = 64;
@@ -148,7 +146,7 @@ TEST_CASE("compute_pass records push data for descriptor-heap pipelines", "[vkex
     "heap_pass.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto waited = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler())
+  auto waited = vkexec::test::sync_wait_sender(stdexec::schedule(ctx->get_scheduler())
                                                | vkexec::compute_pass(vkexec::descriptor_heap,
                                                  pipe,
                                                  std::vector<vkexec::image_use>{},
@@ -177,7 +175,7 @@ TEST_CASE("dispatch_compute builds descriptor-heap algorithm passes", "[vkexec][
 
   heap_push const params{ .count = k_work_count };
   auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler())
+    stdexec::schedule(ctx->get_scheduler())
     | vkexec::dispatch_compute(vkexec::descriptor_heap, algo, {}, {}, params, k_work_count));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 }
@@ -242,7 +240,7 @@ TEST_CASE("descriptor-heap shader accesses explicitly declared storage", "[vkexe
     });
   auto const access =
     vkexec::read_write(storage.handle(), VkDeviceSize{}, storage.size(), vkexec::buffer_usage::storage_compute);
-  auto graph = ex::schedule(ctx->get_scheduler()) | bind_heap
+  auto graph = stdexec::schedule(ctx->get_scheduler()) | bind_heap
                | vkexec::compute_pass(vkexec::descriptor_heap,
                  pipe,
                  std::vector<vkexec::image_use>{},
@@ -310,7 +308,7 @@ TEST_CASE("tagged create draws without owning pipeline", "[vkexec][descriptor_he
 
   heap_push const params{ .count = k_work_count };
   auto const groups = vkexec::groups_for(resources, k_work_count);
-  auto graph = ex::schedule(ctx->get_scheduler())
+  auto graph = stdexec::schedule(ctx->get_scheduler())
                | vkexec::bind_resources(vkexec::descriptor_heap, resources, table, lower_env, params)
                | vkexec::compute_pass(vkexec::bind_compute(resources).with_resources({}, {}), groups);
   auto waited = vkexec::test::sync_wait_sender(std::move(graph));

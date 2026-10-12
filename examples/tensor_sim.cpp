@@ -19,8 +19,6 @@
 #include <string_view>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::size_t k_element_count = 10000;
 constexpr float k_initial_velocity = 1.5F;
@@ -97,7 +95,7 @@ static auto run() -> int
 
   // Upload -> dispatch -> download on the existing pass graph.
   vkexec::examples::sync_wait_graph(
-    ex::schedule(ctx->get_scheduler())
+    stdexec::schedule(ctx->get_scheduler())
     | vkexec::tensor_pass(
       resources, bound.set, params, static_cast<std::uint32_t>(k_element_count), positions, velocities));
 

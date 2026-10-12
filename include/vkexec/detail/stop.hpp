@@ -10,14 +10,12 @@
 
 namespace vkexec::detail {
 
-namespace ex = stdexec;
-
 template<class Receiver> [[nodiscard]] auto receiver_stop_token(Receiver &receiver) noexcept
-{ return ex::get_stop_token(ex::get_env(receiver)); }
+{ return stdexec::get_stop_token(stdexec::get_env(receiver)); }
 
 template<class StopToken> [[nodiscard]] constexpr auto stop_requested(StopToken const &token) noexcept -> bool
 {
-  if constexpr (ex::unstoppable_token<std::remove_cvref_t<StopToken>>) {
+  if constexpr (stdexec::unstoppable_token<std::remove_cvref_t<StopToken>>) {
     return false;
   } else {
     return token.stop_requested();

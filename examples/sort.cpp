@@ -19,8 +19,6 @@
 #include <utility>
 #include <vector>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::size_t k_element_count = 256;
 constexpr unsigned k_rng_seed = 42;
@@ -100,7 +98,7 @@ static auto run() -> int
     return vkexec::compute_pass(bound, params, static_cast<std::uint32_t>(k_element_count / 2));
   };
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   graph.reserve((2 * k_element_count) - 1);
   graph.append(make_phase(0));
 

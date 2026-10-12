@@ -42,7 +42,6 @@
 #include <utility>
 #include <vector>
 
-namespace ex = stdexec;
 namespace {
 
 constexpr std::uint32_t k_width = 64;
@@ -303,7 +302,7 @@ auto run_heap_compute(vkexec::context &ctx) -> bool
     "heap_present.comp"));
 
   heap_push const params{ .count = k_work_count };
-  auto outcome = vkexec::try_sync_wait(ex::schedule(ctx.get_scheduler())
+  auto outcome = vkexec::try_sync_wait(stdexec::schedule(ctx.get_scheduler())
                                        | vkexec::compute_pass(vkexec::descriptor_heap,
                                          pipe,
                                          std::vector<vkexec::image_use>{},
@@ -317,7 +316,7 @@ auto present_frames(vkexec::owned::presenter &win, vkexec::owned::graphics_pipel
 {
   for (std::uint32_t frame = 0; frame < k_present_frames; ++frame) {
     vkexec::examples::sync_wait_graph(
-      ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices) | vkexec::submit);
+      stdexec::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices) | vkexec::submit);
   }
 }
 

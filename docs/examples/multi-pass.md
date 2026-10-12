@@ -4,7 +4,7 @@ The compiled [`passes.cpp`](https://github.com/janagor/vkexec/blob/main/examples
 
 ```{literalinclude} ../../examples/passes.cpp
 :language: cpp
-:start-at: auto graph = ex::schedule(ctx->get_scheduler())
+:start-at: auto graph = stdexec::schedule(ctx->get_scheduler())
 :end-at: vkexec::examples::sync_wait_graph(graph);
 ```
 

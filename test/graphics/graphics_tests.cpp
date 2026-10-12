@@ -30,8 +30,6 @@
 #include <type_traits>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr float k_clear_r = 0.1F;
@@ -414,24 +412,25 @@ TEST_CASE("draw | submit yields stop-aware async sender", "[vkexec][graphics][sc
 
   STATIC_REQUIRE(std::same_as<std::remove_cvref_t<decltype(async_sender)>, vkexec::draw_async_sender>);
 
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(async_sender));
+  auto const completion = stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(async_sender));
   REQUIRE(completion == sched);
 
   using signatures = vkexec::draw_async_sender::completion_signatures;
   STATIC_REQUIRE(std::same_as<signatures,
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
+    stdexec::
+      completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(vkexec::error), stdexec::set_stopped_t()>>);
 }
 
 TEST_CASE("draw senders retain runtime after context destruction", "[vkexec][graphics][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
   std::weak_ptr<vkexec::detail::context_state> const runtime = vkexec::detail::context_access::state(*ctx);
-  auto sender = ex::schedule(ctx->get_scheduler()) | vkexec::draw_closure{};
+  auto sender = stdexec::schedule(ctx->get_scheduler()) | vkexec::draw_closure{};
   auto async_sender = std::move(sender) | vkexec::submit;
   ctx.reset();
 
   REQUIRE(!runtime.expired());
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(async_sender));
+  auto const completion = stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(async_sender));
   REQUIRE(vkexec::detail::scheduler_access::state(completion).get() == runtime.lock().get());
 }
 

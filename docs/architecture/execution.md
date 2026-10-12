@@ -9,7 +9,7 @@
 
 ## `scheduler`
 
-`vkexec::scheduler` is associated with a context. `ex::schedule(ctx->get_scheduler())` produces a sender whose environment advertises both the vkexec domain and the context scheduler for value completion. Its value completion runs on the context's host agent. `schedule()` does not execute GPU commands; the sender environment carries the context information used for lowering subsequent GPU operations.
+`vkexec::scheduler` is associated with a context. `stdexec::schedule(ctx->get_scheduler())` produces a sender whose environment advertises both the vkexec domain and the context scheduler for value completion. Its value completion runs on the context's host agent. `schedule()` does not execute GPU commands; the sender environment carries the context information used for lowering subsequent GPU operations.
 
 ## Scheduler environments
 
@@ -25,7 +25,7 @@ A pass graph owns its ordered steps. `connect()` creates an operation state cont
 
 ## Submission and completion
 
-On `start()`, the operation checks for a requested stop, opens and records a command buffer, then starts the fence-backed submission sender. The successful path submits and returns without waiting for GPU completion. After the fence signals, `ex::continues_on(fence_sender, ctx->get_scheduler())` transfers completion to the context host scheduler. `after_gpu` callbacks run there before the downstream receiver completes. The completion agent observes GPU progress; it is not an arbitrary executor for downstream user code.
+On `start()`, the operation checks for a requested stop, opens and records a command buffer, then starts the fence-backed submission sender. The successful path submits and returns without waiting for GPU completion. After the fence signals, `stdexec::continues_on(fence_sender, ctx->get_scheduler())` transfers completion to the context host scheduler. `after_gpu` callbacks run there before the downstream receiver completes. The completion agent observes GPU progress; it is not an arbitrary executor for downstream user code.
 
 `start() != wait for GPU`. `sync_wait(...)` is an explicit blocking boundary.
 

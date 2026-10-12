@@ -24,8 +24,6 @@
 #include <string_view>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr std::size_t k_count = 8;
@@ -90,7 +88,7 @@ TEST_CASE("tensor_pass uploads, dispatches, and downloads tensors", "[vkexec][te
     vkexec::bind_compute(resources, bound.set)
       .with_resources({}, { vkexec::read_write(values.vk_buffer(), vkexec::buffer_usage::storage_compute) });
   auto completed = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler())
+    stdexec::schedule(ctx->get_scheduler())
     | vkexec::tensor_pass(bind, params, vkexec::groups_for(resources, static_cast<std::uint32_t>(k_count)), values));
   REQUIRE(vkexec::test::sync_wait_completed(completed));
   REQUIRE(values.span().front() == k_fill * params.scale);

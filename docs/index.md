@@ -3,7 +3,7 @@
 vkexec composes Vulkan work with stdexec senders. A scheduled sender carries the context; semantic pass adaptors describe GPU work; the consumer chooses when to wait.
 
 ```cpp
-auto graph = ex::schedule(ctx->get_scheduler())
+auto graph = stdexec::schedule(ctx->get_scheduler())
   | vkexec::compute_pass(resources, bound.set, params, work_count);
 auto completion = vkexec::sync_wait(std::move(graph));
 ```

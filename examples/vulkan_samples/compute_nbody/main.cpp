@@ -27,8 +27,6 @@
 #include <random>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::uint32_t k_particle_count = 1024;
 constexpr std::uint32_t k_local_size_x = 64;
@@ -149,11 +147,11 @@ auto run() -> int
     last = now;
 
     vkexec::examples::sync_wait_graph(
-      ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(calculate_bound, k_particle_count)
+      stdexec::schedule(ctx.get_scheduler()) | vkexec::compute_pass(calculate_bound, k_particle_count)
       | vkexec::barrier::compute_to_compute()
       | vkexec::compute_pass(integrate_bound, integrate_params{ delta_time }, k_particle_count));
     vkexec::examples::sync_wait_graph(
-      ex::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), graphics, k_particle_count));
+      stdexec::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), graphics, k_particle_count));
     win.wait_idle();
   }
   win.wait_idle();

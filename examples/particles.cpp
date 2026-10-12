@@ -22,8 +22,6 @@
 #include <random>
 #include <string_view>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::uint32_t k_particle_count = 8192;
 constexpr std::uint32_t k_window_width = 800;
@@ -200,10 +198,10 @@ static auto run() -> int
     particle_params const params{ delta_time };
 
     vkexec::examples::sync_wait_graph(
-      ex::schedule(ctx.get_scheduler()) | vkexec::compute_pass(compute_bound, params, k_particle_count));
+      stdexec::schedule(ctx.get_scheduler()) | vkexec::compute_pass(compute_bound, params, k_particle_count));
 
     vkexec::examples::sync_wait_graph(
-      ex::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), gfx, k_particle_count));
+      stdexec::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), gfx, k_particle_count));
   }
 
   win.wait_idle();

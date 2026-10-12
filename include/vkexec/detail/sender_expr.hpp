@@ -11,15 +11,13 @@
 
 namespace vkexec::detail {
 
-namespace ex = stdexec;
-
 struct empty_data
 {
 };
 
 template<class Tag, class Data, class Child> struct sender_expr
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
 
   VKEXEC_NO_UNIQUE_ADDRESS Tag tag;
   VKEXEC_NO_UNIQUE_ADDRESS Data data;
@@ -27,8 +25,8 @@ template<class Tag, class Data, class Child> struct sender_expr
 
   // Semantic expressions are transparent to scheduler and domain queries
   // until vkexec::domain lowers them into an execution sender.
-  [[nodiscard]] auto get_env() const noexcept(noexcept(ex::get_env(child))) -> decltype(ex::get_env(child))
-  { return ex::get_env(child); }
+  [[nodiscard]] auto get_env() const noexcept(noexcept(stdexec::get_env(child))) -> decltype(stdexec::get_env(child))
+  { return stdexec::get_env(child); }
 };
 
 template<class Tag, class Data, class Child>
@@ -61,18 +59,18 @@ template<class Tag, class Data, class Child> struct sender_expr_traits<sender_ex
 
 template<class T> using expression_tag_t = sender_expr_traits<std::remove_cvref_t<T>>::tag_type;
 
-template<class Tag, class Data> struct expr_closure : ex::sender_adaptor_closure<expr_closure<Tag, Data>>
+template<class Tag, class Data> struct expr_closure : stdexec::sender_adaptor_closure<expr_closure<Tag, Data>>
 {
   VKEXEC_NO_UNIQUE_ADDRESS Tag tag;
   VKEXEC_NO_UNIQUE_ADDRESS Data data;
 
-  template<ex::sender Sender>
+  template<stdexec::sender Sender>
   [[nodiscard]] auto operator()(Sender &&sender) && noexcept(
     noexcept(make_sender_expr(std::move(tag), std::move(data), std::forward<Sender>(sender))))
     -> sender_expr<Tag, Data, std::decay_t<Sender>>
   { return make_sender_expr(std::move(tag), std::move(data), std::forward<Sender>(sender)); }
 
-  template<ex::sender Sender>
+  template<stdexec::sender Sender>
     requires std::copy_constructible<Tag> && std::copy_constructible<Data>
   [[nodiscard]] auto operator()(Sender &&sender) const & noexcept(
     noexcept(make_sender_expr(tag, data, std::forward<Sender>(sender)))) -> sender_expr<Tag, Data, std::decay_t<Sender>>

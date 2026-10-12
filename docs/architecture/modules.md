@@ -14,7 +14,7 @@ Compiled implementation headers remain private and are not installed.
 
 ## stdexec private API quarantine
 
-vkexec uses the public `<stdexec/execution.hpp>` vocabulary. Direct `stdexec::__*`, `ex::__*`, `exec::__*`, `STDEXEC::__*`, and `stdexec/__detail/*` dependencies are forbidden outside `include/vkexec/detail/stdexec_compat.hpp`. That compatibility header must not expose private stdexec types in public signatures.
+vkexec uses the public `<stdexec/execution.hpp>` vocabulary. Direct `stdexec::__*`, `exec::__*`, `STDEXEC::__*`, and `stdexec/__detail/*` dependencies are forbidden outside `include/vkexec/detail/stdexec_compat.hpp`. That compatibility header must not expose private stdexec types in public signatures.
 
 ## vk-bootstrap boundary
 

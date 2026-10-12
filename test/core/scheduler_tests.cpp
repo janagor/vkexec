@@ -44,8 +44,6 @@
 #include <utility>
 #include <vector>
 
-namespace ex = stdexec;
-
 namespace {
 
 struct empty_receiver_env
@@ -67,7 +65,7 @@ auto signal_promise(std::promise<void> &promise) noexcept -> void
 
 struct completion_probe_receiver
 {
-  using receiver_concept = ex::receiver_t;
+  using receiver_concept = stdexec::receiver_t;
 
   std::promise<void> *completed{ nullptr };
 
@@ -90,7 +88,7 @@ struct completion_probe_receiver
 
 struct schedule_outcome_receiver
 {
-  using receiver_concept = ex::receiver_t;
+  using receiver_concept = stdexec::receiver_t;
 
   std::atomic<int> *outcome{ nullptr };
   std::binary_semaphore *completed{ nullptr };
@@ -176,17 +174,18 @@ struct release_flag
 
 template<class Sender, class CompletionTag>
 concept advertises_completion_scheduler =
-  requires(Sender const &sndr) { ex::get_completion_scheduler<CompletionTag>(ex::get_env(sndr)); };
+  requires(Sender const &sndr) { stdexec::get_completion_scheduler<CompletionTag>(stdexec::get_env(sndr)); };
 
 using move_only_graph_t = vkexec::pass_graph_sender<move_only_pass_step>;
 
 template<class Graph>
-concept rvalue_connectable_graph =
-  requires(Graph graph, completion_probe_receiver receiver) { ex::connect(std::move(graph), std::move(receiver)); };
+concept rvalue_connectable_graph = requires(Graph graph, completion_probe_receiver receiver) {
+  stdexec::connect(std::move(graph), std::move(receiver));
+};
 
 template<class Graph>
 concept const_lvalue_connectable_graph =
-  requires(Graph const &graph, completion_probe_receiver receiver) { ex::connect(graph, std::move(receiver)); };
+  requires(Graph const &graph, completion_probe_receiver receiver) { stdexec::connect(graph, std::move(receiver)); };
 
 template<class Sender, class Closure>
 concept pipeable_with =
@@ -201,20 +200,22 @@ static_assert(rvalue_connectable_graph<move_only_graph_t>);
 static_assert(!const_lvalue_connectable_graph<move_only_graph_t>);
 static_assert(pipeable_with<vkexec::schedule_sender, move_only_closure_t>);
 static_assert(!pipeable_with<vkexec::schedule_sender, move_only_closure_t &>);
-static_assert(advertises_completion_scheduler<vkexec::schedule_sender, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_error_t>);
-static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, ex::set_stopped_t>);
+static_assert(advertises_completion_scheduler<vkexec::schedule_sender, stdexec::set_value_t>);
+static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, stdexec::set_error_t>);
+static_assert(!advertises_completion_scheduler<vkexec::schedule_sender, stdexec::set_stopped_t>);
 static_assert(std::same_as<vkexec::schedule_sender::completion_signatures,
-  ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
+  stdexec::
+    completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(vkexec::error), stdexec::set_stopped_t()>>);
 static_assert(std::same_as<vkexec::detail::submit_and_wait_sender::completion_signatures,
-  ex::completion_signatures<ex::set_value_t(), ex::set_error_t(vkexec::error), ex::set_stopped_t()>>);
+  stdexec::
+    completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(vkexec::error), stdexec::set_stopped_t()>>);
 
-static_assert(advertises_completion_scheduler<vkexec::pass_graph_sender<>, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<vkexec::pass_graph_sender<>, ex::set_error_t>);
+static_assert(advertises_completion_scheduler<vkexec::pass_graph_sender<>, stdexec::set_value_t>);
+static_assert(!advertises_completion_scheduler<vkexec::pass_graph_sender<>, stdexec::set_error_t>);
 
-static_assert(!advertises_completion_scheduler<vkexec::detail::enter_submit_scope_sender, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<vkexec::detail::submit_and_wait_sender, ex::set_value_t>);
-static_assert(!advertises_completion_scheduler<vkexec::detail::submit_fence_sender, ex::set_value_t>);
+static_assert(!advertises_completion_scheduler<vkexec::detail::enter_submit_scope_sender, stdexec::set_value_t>);
+static_assert(!advertises_completion_scheduler<vkexec::detail::submit_and_wait_sender, stdexec::set_value_t>);
+static_assert(!advertises_completion_scheduler<vkexec::detail::submit_fence_sender, stdexec::set_value_t>);
 
 static_assert(vkexec::vkexec_predecessor<vkexec::schedule_sender>);
 static_assert(vkexec::vkexec_predecessor<vkexec::pass_graph_sender<>>);
@@ -227,31 +228,31 @@ TEST_CASE("schedule_sender advertises completion scheduler", "[vkexec][scheduler
   vkexec::scheduler const sched{ nullptr };
   auto const sender = sched.schedule();
 
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sender));
+  auto const completion = stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(sender));
   REQUIRE(completion == sched);
   REQUIRE(!vkexec::detail::scheduler_access::state(completion));
 }
 
 TEST_CASE("null schedule observes pre-requested stop", "[vkexec][scheduler]")
 {
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
-  auto sender =
-    ex::write_env(ex::schedule(vkexec::scheduler{ nullptr }), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto sender = stdexec::write_env(
+    stdexec::schedule(vkexec::scheduler{ nullptr }), stdexec::prop{ stdexec::get_stop_token, source.get_token() });
   auto const waited = vkexec::test::sync_wait_sender(std::move(sender));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
 
 TEST_CASE("null schedule reports invalid argument", "[vkexec][scheduler]")
 {
-  auto outcome = vkexec::test::sync_wait_sender(ex::schedule(vkexec::scheduler{ nullptr }));
+  auto outcome = vkexec::test::sync_wait_sender(stdexec::schedule(vkexec::scheduler{ nullptr }));
   REQUIRE(outcome.failed());
   REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::invalid_argument));
 }
 
 TEST_CASE("null static pass graph reports invalid argument", "[vkexec][scheduler][pass]")
 {
-  auto graph = ex::schedule(vkexec::scheduler{ nullptr })
+  auto graph = stdexec::schedule(vkexec::scheduler{ nullptr })
                | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
   auto outcome = vkexec::test::sync_wait_sender(graph);
   REQUIRE(outcome.failed());
@@ -260,7 +261,7 @@ TEST_CASE("null static pass graph reports invalid argument", "[vkexec][scheduler
 
 TEST_CASE("null dynamic pass graph reports invalid argument", "[vkexec][scheduler][pass]")
 {
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(vkexec::scheduler{ nullptr }));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(vkexec::scheduler{ nullptr }));
   graph.append(vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }));
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(outcome.failed());
@@ -282,7 +283,7 @@ TEST_CASE("scheduler retains runtime after context destruction", "[vkexec][sched
   REQUIRE(sched == ctx->get_scheduler());
   ctx.reset();
   REQUIRE(!runtime.expired());
-  auto outcome = vkexec::test::sync_wait_sender(ex::schedule(sched));
+  auto outcome = vkexec::test::sync_wait_sender(stdexec::schedule(sched));
   REQUIRE(vkexec::test::sync_wait_completed(outcome));
   sched = vkexec::scheduler{ nullptr };
   REQUIRE(runtime.expired());
@@ -291,15 +292,15 @@ TEST_CASE("scheduler retains runtime after context destruction", "[vkexec][sched
 TEST_CASE("schedule sender and connected operation retain runtime", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto sender = ex::schedule(ctx->get_scheduler());
+  auto sender = stdexec::schedule(ctx->get_scheduler());
   std::weak_ptr<vkexec::detail::context_state> const runtime = vkexec::detail::context_access::state(*ctx);
   std::promise<void> completed;
   auto ready = completed.get_future();
   ctx.reset();
   REQUIRE(!runtime.expired());
-  auto operation = ex::connect(std::move(sender), completion_probe_receiver{ .completed = &completed });
+  auto operation = stdexec::connect(std::move(sender), completion_probe_receiver{ .completed = &completed });
   REQUIRE(!runtime.expired());
-  ex::start(operation);
+  stdexec::start(operation);
   REQUIRE(ready.wait_for(std::chrono::seconds(5)) == std::future_status::ready);
 }
 
@@ -330,7 +331,7 @@ TEST_CASE("final runtime release on completion agent joins safely", "[vkexec][sc
   VkFence fence{ VK_NULL_HANDLE };
   REQUIRE(vkCreateFence(ctx->device(), &fence_info, nullptr, &fence) == VK_SUCCESS);
 
-  ex::inplace_stop_source const source;
+  stdexec::inplace_stop_source const source;
   std::promise<void> completed;
   auto ready = completed.get_future();
   auto retained = vkexec::detail::context_access::state(*ctx);
@@ -352,7 +353,7 @@ TEST_CASE("static pass graph runs after context destruction", "[vkexec][schedule
 {
   auto ctx = vkexec::test::require_context();
   auto graph =
-    ex::schedule(ctx->get_scheduler()) | vkexec::make_pass_adaptor(make_empty_pass_step([]() noexcept -> void {}));
+    stdexec::schedule(ctx->get_scheduler()) | vkexec::make_pass_adaptor(make_empty_pass_step([]() noexcept -> void {}));
   ctx.reset();
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(outcome));
@@ -361,7 +362,7 @@ TEST_CASE("static pass graph runs after context destruction", "[vkexec][schedule
 TEST_CASE("dynamic pass graph runs after context destruction", "[vkexec][scheduler][pass][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   graph.append(vkexec::make_pass_adaptor(make_empty_pass_step([]() noexcept -> void {})));
   ctx.reset();
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
@@ -383,9 +384,10 @@ TEST_CASE("submit scope releases resources after context destruction", "[vkexec]
 TEST_CASE("schedule observes pre-requested stop", "[vkexec][scheduler][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
-  auto sender = ex::write_env(ex::schedule(ctx->get_scheduler()), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto sender = stdexec::write_env(
+    stdexec::schedule(ctx->get_scheduler()), stdexec::prop{ stdexec::get_stop_token, source.get_token() });
   auto const waited = vkexec::test::sync_wait_sender(std::move(sender));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
@@ -406,16 +408,17 @@ TEST_CASE("schedule observes stop while queued", "[vkexec][scheduler][gpu]")
   if (entered_status != std::future_status::ready) { release_gate.release(); }
   REQUIRE(entered_status == std::future_status::ready);
 
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   std::atomic<int> outcome{ 0 };
   std::binary_semaphore completed{ 0 };
-  auto sender = ex::write_env(ex::schedule(ctx->get_scheduler()), ex::prop{ ex::get_stop_token, source.get_token() });
-  auto operation = ex::connect(std::move(sender),
+  auto sender = stdexec::write_env(
+    stdexec::schedule(ctx->get_scheduler()), stdexec::prop{ stdexec::get_stop_token, source.get_token() });
+  auto operation = stdexec::connect(std::move(sender),
     schedule_outcome_receiver{
       .outcome = &outcome,
       .completed = &completed,
     });
-  ex::start(operation);
+  stdexec::start(operation);
   source.request_stop();
   release_gate.release();
 
@@ -429,10 +432,10 @@ TEST_CASE("submit_and_wait releases a pre-stopped scope", "[vkexec][scheduler][g
   auto opened = vkexec::detail::submit_scope::open(*ctx);
   REQUIRE(opened.has_value());
 
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
-  auto stopped_sender = ex::write_env(
-    vkexec::detail::submit_and_wait(vkexec::expected_take(opened)), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto stopped_sender = stdexec::write_env(vkexec::detail::submit_and_wait(vkexec::expected_take(opened)),
+    stdexec::prop{ stdexec::get_stop_token, source.get_token() });
   auto const stopped = vkexec::test::sync_wait_sender(std::move(stopped_sender));
   REQUIRE(vkexec::test::sync_wait_stopped(stopped));
 
@@ -580,8 +583,9 @@ TEST_CASE("schedule completes on the context host agent", "[vkexec][scheduler][g
   REQUIRE(agent != caller);
 
   std::thread::id completed_on{};
-  auto waited = vkexec::test::sync_wait_sender(
-    ex::schedule(ctx->get_scheduler()) | ex::then([&]() -> void { completed_on = std::this_thread::get_id(); }));
+  auto waited = vkexec::test::sync_wait_sender(stdexec::schedule(ctx->get_scheduler()) | stdexec::then([&]() -> void {
+    completed_on = std::this_thread::get_id();
+  }));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   REQUIRE(completed_on == agent);
@@ -638,7 +642,7 @@ TEST_CASE("throwing dynamic after_gpu completes with sender error", "[vkexec][sc
 {
   auto ctx = vkexec::test::require_context();
   std::thread::id after_gpu_thread{};
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()))
                | vkexec::make_pass_adaptor(make_empty_pass_step([&]() -> void {
                    after_gpu_thread = std::this_thread::get_id();
                    throw std::runtime_error("after_gpu failed");
@@ -659,8 +663,8 @@ TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][schedu
   auto const agent = ctx->host_agent_thread_id();
 
   std::thread::id ran_on{};
-  auto waited = vkexec::test::sync_wait_sender(
-    ex::starts_on(ctx->get_scheduler(), ex::just() | ex::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
+  auto waited = vkexec::test::sync_wait_sender(stdexec::starts_on(
+    ctx->get_scheduler(), stdexec::just() | stdexec::then([&]() -> void { ran_on = std::this_thread::get_id(); })));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
 
   REQUIRE(ran_on == agent);
@@ -670,30 +674,33 @@ TEST_CASE("starts_on runs the child on the context host agent", "[vkexec][schedu
 TEST_CASE("schedule_sender advertises completion domain", "[vkexec][scheduler][domain]")
 {
   vkexec::scheduler_env const env{};
-  STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_completion_domain_t<ex::set_value_t>{})), vkexec::domain>);
-  STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_domain_t{})), vkexec::domain>);
+  STATIC_REQUIRE(
+    std::same_as<decltype(env.query(stdexec::get_completion_domain_t<stdexec::set_value_t>{})), vkexec::domain>);
+  STATIC_REQUIRE(std::same_as<decltype(env.query(stdexec::get_domain_t{})), vkexec::domain>);
 
   vkexec::scheduler const sched{ nullptr };
-  STATIC_REQUIRE(std::same_as<decltype(sched.query(ex::get_completion_domain_t<ex::set_value_t>{})), vkexec::domain>);
-  STATIC_REQUIRE(std::same_as<decltype(sched.query(ex::get_domain_t{})), vkexec::domain>);
+  STATIC_REQUIRE(
+    std::same_as<decltype(sched.query(stdexec::get_completion_domain_t<stdexec::set_value_t>{})), vkexec::domain>);
+  STATIC_REQUIRE(std::same_as<decltype(sched.query(stdexec::get_domain_t{})), vkexec::domain>);
 }
 
 TEST_CASE("domain-only sender environment advertises vkexec domain", "[vkexec][scheduler][domain]")
 {
   vkexec::detail::domain_env const env{};
 
-  STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_completion_domain_t<ex::set_value_t>{})), vkexec::domain>);
-  STATIC_REQUIRE(std::same_as<decltype(env.query(ex::get_domain_t{})), vkexec::domain>);
+  STATIC_REQUIRE(
+    std::same_as<decltype(env.query(stdexec::get_completion_domain_t<stdexec::set_value_t>{})), vkexec::domain>);
+  STATIC_REQUIRE(std::same_as<decltype(env.query(stdexec::get_domain_t{})), vkexec::domain>);
 }
 
 TEST_CASE("semantic pass expression preserves predecessor value completion scheduler", "[vkexec][scheduler]")
 {
   vkexec::scheduler const sched{ nullptr };
-  auto pred = sched.schedule() | ex::then([]() -> void {});
+  auto pred = sched.schedule() | stdexec::then([]() -> void {});
   auto const sndr = pred | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
 
-  STATIC_REQUIRE(ex::sender<decltype(sndr)>);
-  auto const completion = ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(sndr));
+  STATIC_REQUIRE(stdexec::sender<decltype(sndr)>);
+  auto const completion = stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(sndr));
   REQUIRE(completion == sched);
 }
 
@@ -705,11 +712,11 @@ TEST_CASE("pass closures compose independently from a sender", "[vkexec][schedul
                   | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 });
   auto sndr = sched.schedule() | pipeline;
   auto second = sched.schedule() | pipeline;
-  STATIC_REQUIRE(ex::sender<decltype(sndr)>);
+  STATIC_REQUIRE(stdexec::sender<decltype(sndr)>);
   STATIC_REQUIRE(vkexec::detail::is_sender_expr_v<decltype(sndr)>);
   STATIC_REQUIRE(std::same_as<vkexec::detail::expression_tag_t<decltype(sndr)>, vkexec::compute_pass_t>);
-  auto lowered = ex::transform_sender(sndr, ex::env<>{});
-  auto second_lowered = ex::transform_sender(second, ex::env<>{});
+  auto lowered = stdexec::transform_sender(sndr, stdexec::env<>{});
+  auto second_lowered = stdexec::transform_sender(second, stdexec::env<>{});
   REQUIRE(!lowered.state);
   REQUIRE(!second_lowered.state);
 }
@@ -722,8 +729,8 @@ TEST_CASE("compute pass direct and pipe forms produce the same sender", "[vkexec
 
   STATIC_REQUIRE(std::same_as<decltype(direct), decltype(piped)>);
   STATIC_REQUIRE(vkexec::detail::is_sender_expr_v<decltype(direct)>);
-  REQUIRE(ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(direct))
-          == ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(piped)));
+  REQUIRE(stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(direct))
+          == stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(piped)));
 }
 
 TEST_CASE("semantic pass expressions fuse into one typed graph", "[vkexec][scheduler]")
@@ -732,7 +739,7 @@ TEST_CASE("semantic pass expressions fuse into one typed graph", "[vkexec][sched
   auto expr = sched.schedule() | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
               | vkexec::barrier::compute_to_compute()
               | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{});
-  auto sndr = ex::transform_sender(expr, ex::env<>{});
+  auto sndr = stdexec::transform_sender(expr, stdexec::env<>{});
 
   STATIC_REQUIRE(std::tuple_size_v<std::remove_cvref_t<decltype(sndr.steps)>> == 3);
   REQUIRE(std::get<0>(sndr.steps).bind.pipeline == VK_NULL_HANDLE);
@@ -740,13 +747,13 @@ TEST_CASE("semantic pass expressions fuse into one typed graph", "[vkexec][sched
 
 TEST_CASE("semantic pass expressions materialize across a then boundary", "[vkexec][scheduler]")
 {
-  using expr_t = decltype(ex::schedule(std::declval<vkexec::scheduler>()) | ex::then([]() noexcept -> void {})
+  using expr_t = decltype(stdexec::schedule(std::declval<vkexec::scheduler>()) | stdexec::then([]() noexcept -> void {})
                           | vkexec::make_pass_adaptor(std::declval<counting_pass_step>())
                           | vkexec::make_pass_adaptor(std::declval<counting_pass_step>()));
 
-  STATIC_REQUIRE(ex::sender<expr_t>);
-  using lowered_t = decltype(ex::transform_sender(std::declval<expr_t>(), ex::env<>{}));
-  STATIC_REQUIRE(ex::sender<lowered_t>);
+  STATIC_REQUIRE(stdexec::sender<expr_t>);
+  using lowered_t = decltype(stdexec::transform_sender(std::declval<expr_t>(), stdexec::env<>{}));
+  STATIC_REQUIRE(stdexec::sender<lowered_t>);
 }
 
 TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][scheduler][gpu]")
@@ -773,13 +780,13 @@ TEST_CASE("pass_graph_sender start returns before GPU completion", "[vkexec][sch
     .current_queue = {},
   };
 
-  auto operation = ex::connect(graph, completion_probe_receiver{ .completed = &receiver_completed });
+  auto operation = stdexec::connect(graph, completion_probe_receiver{ .completed = &receiver_completed });
 
   std::promise<void> start_returned;
   auto start_done = start_returned.get_future();
 
   std::thread starter{ [&]() -> void {
-    ex::start(operation);
+    stdexec::start(operation);
     signal_promise(start_returned);
   } };
 
@@ -808,19 +815,19 @@ TEST_CASE("dynamic pass graph start returns before GPU completion", "[vkexec][sc
   std::promise<void> receiver_completed;
   auto receiver_done = receiver_completed.get_future();
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()))
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()))
                | vkexec::make_pass_adaptor(make_empty_pass_step([&]() noexcept -> void {
                    signal_promise(after_gpu_entered);
                    allow_completion.wait(false, std::memory_order_acquire);
                  }));
 
-  auto operation = ex::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
+  auto operation = stdexec::connect(std::move(graph), completion_probe_receiver{ .completed = &receiver_completed });
 
   std::promise<void> start_returned;
   auto start_done = start_returned.get_future();
 
   std::thread starter{ [&]() -> void {
-    ex::start(operation);
+    stdexec::start(operation);
     signal_promise(start_returned);
   } };
 
@@ -865,8 +872,9 @@ TEST_CASE("dynamic pass graph executes multiple runtime steps", "[vkexec][pass][
     },
     [&]() -> void { ++second_after_gpu; });
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler())) | vkexec::make_pass_adaptor(first)
-               | vkexec::barrier::compute_to_compute() | vkexec::make_pass_adaptor(second);
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()))
+               | vkexec::make_pass_adaptor(first) | vkexec::barrier::compute_to_compute()
+               | vkexec::make_pass_adaptor(second);
 
   auto result = vkexec::test::sync_wait_sender(std::move(graph));
 
@@ -880,7 +888,7 @@ TEST_CASE("dynamic pass graph executes multiple runtime steps", "[vkexec][pass][
 TEST_CASE("DAG fan-out and fan-in completes all submitted branches", "[vkexec][pass][gpu]")
 {
   auto ctx = vkexec::test::require_context();
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   auto const compute = ctx->compute_queue_ref();
   auto const graphics = ctx->graphics_queue_ref();
   auto make_empty_node = []() -> decltype(auto) {
@@ -910,7 +918,7 @@ TEST_CASE("DAG terminal join waits for independent queue branches", "[vkexec][pa
     SKIP("Distinct graphics and compute queues are unavailable");
   }
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   graph.append_queue(compute);
   auto const compute_branch =
     graph.append_after({}, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {}));
@@ -938,7 +946,7 @@ TEST_CASE("typed DAG executes branches and their join", "[vkexec][pass][gpu]")
   auto make_step = [](int &count) -> decltype(auto) {
     return vkexec::custom_pass(vkexec::uses(), [&count](VkCommandBuffer /*unused*/) -> void { ++count; });
   };
-  auto graph = ex::schedule(ctx->get_scheduler()) | vkexec::on_queue(compute) | make_step(root_recorded)
+  auto graph = stdexec::schedule(ctx->get_scheduler()) | vkexec::on_queue(compute) | make_step(root_recorded)
                | vkexec::when_all(vkexec::on_queue(compute) | make_step(left_recorded),
                  vkexec::on_queue(right_queue) | make_step(right_recorded))
                | make_step(joined_recorded);
@@ -1013,7 +1021,7 @@ TEST_CASE("pass_graph_sender completes on the context host scheduler", "[vkexec]
   };
 
   auto waited = vkexec::test::sync_wait_sender(
-    std::move(graph) | ex::then([&]() noexcept -> void { completed_on = std::this_thread::get_id(); }));
+    std::move(graph) | stdexec::then([&]() noexcept -> void { completed_on = std::this_thread::get_id(); }));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
   REQUIRE(completed_on == agent);
 }
@@ -1022,18 +1030,19 @@ TEST_CASE("pass composition retains each concrete step type", "[vkexec][pass]")
 {
   vkexec::scheduler sched{ nullptr };
 
-  auto graph = ex::transform_sender(
-    ex::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }), ex::env<>{});
+  auto graph = stdexec::transform_sender(
+    stdexec::schedule(sched) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }),
+    stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == 1);
 
-  auto graph2 = ex::transform_sender(std::move(graph) | vkexec::barrier::compute_to_compute(), ex::env<>{});
+  auto graph2 = stdexec::transform_sender(std::move(graph) | vkexec::barrier::compute_to_compute(), stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph2)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph2.steps)> == 2);
   STATIC_REQUIRE(!std::same_as<decltype(graph), decltype(graph2)>);
 
-  auto graph3 = ex::transform_sender(
-    std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }), ex::env<>{});
+  auto graph3 = stdexec::transform_sender(
+    std::move(graph2) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{ .x = 1 }), stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph3)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph3.steps)> == 3);
   STATIC_REQUIRE(!std::same_as<decltype(graph2), decltype(graph3)>);
@@ -1052,12 +1061,12 @@ TEST_CASE("typed graph appended after materialization joins branch sinks", "[vke
     return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*unused*/) -> void {});
   };
 
-  auto branched =
-    ex::transform_sender(ex::schedule(sched) | make_step() | vkexec::when_all(make_step(), make_step()), ex::env<>{});
+  auto branched = stdexec::transform_sender(
+    stdexec::schedule(sched) | make_step() | vkexec::when_all(make_step(), make_step()), stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(branched)>);
   REQUIRE(branched.step_predecessors == std::vector<std::vector<std::size_t>>{ {}, { k_root }, { k_root } });
 
-  auto graph = ex::transform_sender(std::move(branched) | make_step(), ex::env<>{});
+  auto graph = stdexec::transform_sender(std::move(branched) | make_step(), stdexec::env<>{});
   STATIC_REQUIRE(vkexec::detail::is_pass_graph_sender_v<decltype(graph)>);
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == k_step_count);
   REQUIRE(graph.step_predecessors.at(k_joined) == std::vector<std::size_t>{ k_left, k_right });
@@ -1069,7 +1078,7 @@ TEST_CASE("dynamic pass graph keeps one sender type", "[vkexec][pass]")
   constexpr std::uint32_t k_queue_family = 2U;
   constexpr std::uint32_t k_next_queue_family = 3U;
   vkexec::scheduler sched{ nullptr };
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(sched));
   auto const queue = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_queue_family };
   auto const next_queue = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_next_queue_family };
 
@@ -1101,11 +1110,11 @@ TEST_CASE("queue affinity survives static graph composition", "[vkexec][pass]")
   vkexec::scheduler sched{ nullptr };
   auto const queue = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_queue_family };
 
-  auto first = ex::transform_sender(
-    ex::schedule(sched) | vkexec::on_queue(queue) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}),
-    ex::env<>{});
-  auto second = ex::transform_sender(
-    std::move(first) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}), ex::env<>{});
+  auto first = stdexec::transform_sender(stdexec::schedule(sched) | vkexec::on_queue(queue)
+                                           | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}),
+    stdexec::env<>{});
+  auto second = stdexec::transform_sender(
+    std::move(first) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}), stdexec::env<>{});
 
   STATIC_REQUIRE(std::tuple_size_v<decltype(second.steps)> == 2);
   REQUIRE(second.step_queues.size() == std::tuple_size_v<decltype(second.steps)>);
@@ -1123,10 +1132,11 @@ TEST_CASE("on_queue marks subsequent static pass steps", "[vkexec][pass]")
   auto const graphics = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_graphics_family };
   auto const compute = vkexec::queue_ref{ .queue = VK_NULL_HANDLE, .family = k_compute_family };
 
-  auto graph = ex::transform_sender(
-    ex::schedule(sched) | vkexec::on_queue(graphics) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
-      | vkexec::on_queue(compute) | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}),
-    ex::env<>{});
+  auto graph = stdexec::transform_sender(stdexec::schedule(sched) | vkexec::on_queue(graphics)
+                                           | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{})
+                                           | vkexec::on_queue(compute)
+                                           | vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}),
+    stdexec::env<>{});
 
   STATIC_REQUIRE(std::tuple_size_v<decltype(graph.steps)> == 2);
   REQUIRE(graph.step_queues.size() == std::tuple_size_v<decltype(graph.steps)>);
@@ -1143,7 +1153,7 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
 {
   constexpr int k_initial_value = 42;
   vkexec::scheduler sched{ nullptr };
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(sched));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(sched));
   graph.append(vkexec::make_pass_adaptor(move_only_pass_step{ k_initial_value }));
   REQUIRE(graph.steps.size() == 1);
 }
@@ -1151,8 +1161,9 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
 TEST_CASE("copyable binding graphs defer mutable state to each operation", "[vkexec][pass]")
 {
   vkexec::handles::compute_pipeline const pipe{};
-  auto graph = ex::transform_sender(
-    ex::schedule(vkexec::scheduler{ nullptr }) | vkexec::bind_resources(pipe, vkexec::resource_table{}), ex::env<>{});
+  auto graph = stdexec::transform_sender(
+    stdexec::schedule(vkexec::scheduler{ nullptr }) | vkexec::bind_resources(pipe, vkexec::resource_table{}),
+    stdexec::env<>{});
 
   std::promise<void> first_completed;
   std::promise<void> second_completed;
@@ -1192,7 +1203,7 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   int failing_count = 0;
   int skipped_count = 0;
 
-  auto graph = vkexec::make_dynamic_pass_graph(ex::schedule(ctx->get_scheduler()));
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &first_count, .should_fail = false }));
   graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &failing_count, .should_fail = true }));
   graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &skipped_count, .should_fail = false }));

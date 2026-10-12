@@ -24,8 +24,6 @@
 
 namespace vkexec {
 
-namespace ex = stdexec;
-
 namespace detail {
 
 #if VKEXEC_HAS_EXCEPTIONS
@@ -39,34 +37,36 @@ namespace detail {
   struct sync_wait_env
   {
     // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-    [[nodiscard]] constexpr auto query(ex::get_scheduler_t /*query*/) const noexcept -> ex::run_loop::scheduler
+    [[nodiscard]] constexpr auto query(stdexec::get_scheduler_t /*query*/) const noexcept
+      -> stdexec::run_loop::scheduler
     { return loop->get_scheduler(); }
 
     // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-    [[nodiscard]] constexpr auto query(ex::get_start_scheduler_t /*query*/) const noexcept -> ex::run_loop::scheduler
+    [[nodiscard]] constexpr auto query(stdexec::get_start_scheduler_t /*query*/) const noexcept
+      -> stdexec::run_loop::scheduler
     { return loop->get_scheduler(); }
 
     // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
-    [[nodiscard]] constexpr auto query(ex::get_delegation_scheduler_t /*query*/) const noexcept
-      -> ex::run_loop::scheduler
+    [[nodiscard]] constexpr auto query(stdexec::get_delegation_scheduler_t /*query*/) const noexcept
+      -> stdexec::run_loop::scheduler
     { return loop->get_scheduler(); }
 
     // NOLINTNEXTLINE(readability-identifier-naming,readability-convert-member-functions-to-static)
     [[nodiscard]] static constexpr auto query(stdexec_compat::root_t /*query*/) noexcept -> bool { return true; }
 
-    ex::run_loop *loop{ nullptr };
+    stdexec::run_loop *loop{ nullptr };
   };
 
   struct sync_wait_state
   {
     std::optional<error> wait_error;
     bool stopped{ false };
-    ex::run_loop loop;
+    stdexec::run_loop loop;
   };
 
   template<class... Values> struct sync_wait_receiver
   {
-    using receiver_concept = ex::receiver_t;
+    using receiver_concept = stdexec::receiver_t;
 
     sync_wait_state *state{ nullptr };
     std::optional<std::tuple<Values...>> *values{ nullptr };
@@ -126,7 +126,8 @@ namespace detail {
   template<class... Ts> using decayed_sync_wait_receiver_t = sync_wait_receiver<std::decay_t<Ts>...>;
 
   template<class CvSender>
-  using sync_wait_value_tuple_t = ex::value_types_of_t<CvSender, sync_wait_env, decayed_tuple_t, std::type_identity_t>;
+  using sync_wait_value_tuple_t =
+    stdexec::value_types_of_t<CvSender, sync_wait_env, decayed_tuple_t, std::type_identity_t>;
 
   template<class Tuple> struct sync_wait_outcome_from_tuple;
 
@@ -144,11 +145,11 @@ namespace detail {
 
   template<class CvSender>
   using sync_wait_receiver_t =
-    ex::value_types_of_t<CvSender, sync_wait_env, decayed_sync_wait_receiver_t, std::type_identity_t>;
+    stdexec::value_types_of_t<CvSender, sync_wait_env, decayed_sync_wait_receiver_t, std::type_identity_t>;
 
   template<class CvSender>
   concept sync_waitable_sender =
-    ex::sender_in<CvSender, sync_wait_env> && ex::sender_to<CvSender, sync_wait_receiver_t<CvSender>>;
+    stdexec::sender_in<CvSender, sync_wait_env> && stdexec::sender_to<CvSender, sync_wait_receiver_t<CvSender>>;
 
   template<sync_waitable_sender CvSender>
   auto sync_wait_outcome_impl(CvSender &&sender) -> sync_wait_outcome_t<CvSender>
@@ -156,8 +157,9 @@ namespace detail {
     sync_wait_state state{};
     std::optional<sync_wait_value_tuple_t<CvSender>> values{};
 
-    auto operation = ex::connect(std::forward<CvSender>(sender), sync_wait_receiver_t<CvSender>{ &state, &values });
-    ex::start(operation);
+    auto operation =
+      stdexec::connect(std::forward<CvSender>(sender), sync_wait_receiver_t<CvSender>{ &state, &values });
+    stdexec::start(operation);
 #if defined(__GNUC__) && !defined(__clang__)
     // GCC -Wnull-dereference false positive on inlined stdexec::run_loop task dispatch.
 #pragma GCC diagnostic push

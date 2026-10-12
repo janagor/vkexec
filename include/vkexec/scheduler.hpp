@@ -20,8 +20,6 @@
 
 namespace vkexec {
 
-namespace ex = stdexec;
-
 class scheduler;
 
 namespace detail {
@@ -37,12 +35,13 @@ namespace detail {
   {
     // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+    [[nodiscard]] constexpr auto query(stdexec::get_completion_domain_t<stdexec::set_value_t> /*tag*/) const noexcept
+      -> domain
     { return {}; }
 
     // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
+    [[nodiscard]] constexpr auto query(stdexec::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
   };
 
 }// namespace detail
@@ -60,16 +59,18 @@ struct scheduler_env
 {
   detail::context_handle state;
 
-  [[nodiscard]] auto query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler;
+  [[nodiscard]] auto query(stdexec::get_completion_scheduler_t<stdexec::set_value_t> /*tag*/) const noexcept
+    -> scheduler;
 
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+  [[nodiscard]] constexpr auto query(stdexec::get_completion_domain_t<stdexec::set_value_t> /*tag*/) const noexcept
+    -> domain
   { return {}; }
 
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
+  [[nodiscard]] constexpr auto query(stdexec::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
 };
 
 /**
@@ -83,9 +84,9 @@ struct scheduler_env
  */
 struct schedule_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures =
-    ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
   detail::context_handle state;
 
@@ -99,12 +100,12 @@ struct schedule_sender
     auto start() noexcept -> void
     {
       if (detail::receiver_stop_requested(receiver)) {
-        ex::set_stopped(std::move(receiver));
+        stdexec::set_stopped(std::move(receiver));
         return;
       }
 
       if (!state) {
-        ex::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
+        stdexec::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
         return;
       }
 
@@ -113,21 +114,21 @@ struct schedule_sender
       try {
         enqueued.emplace(detail::enqueue_host(state, [this]() noexcept -> void {
           if (detail::receiver_stop_requested(receiver)) {
-            ex::set_stopped(std::move(receiver));
+            stdexec::set_stopped(std::move(receiver));
           } else {
-            ex::set_value(std::move(receiver));
+            stdexec::set_value(std::move(receiver));
           }
         }));
       } catch (...) {
-        ex::set_error(std::move(receiver), unexpected_exception_error());
+        stdexec::set_error(std::move(receiver), unexpected_exception_error());
         return;
       }
 #else
       auto enqueued = detail::enqueue_host(state, [this]() noexcept -> void {
         if (detail::receiver_stop_requested(receiver)) {
-          ex::set_stopped(std::move(receiver));
+          stdexec::set_stopped(std::move(receiver));
         } else {
-          ex::set_value(std::move(receiver));
+          stdexec::set_value(std::move(receiver));
         }
       });
 #endif
@@ -137,7 +138,7 @@ struct schedule_sender
 #else
       auto &enqueue_status = enqueued;
 #endif
-      if (!enqueue_status) { ex::set_error(std::move(receiver), std::move(enqueue_status.error())); }
+      if (!enqueue_status) { stdexec::set_error(std::move(receiver), std::move(enqueue_status.error())); }
     }
   };
 
@@ -175,12 +176,13 @@ public:
 
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto query(ex::get_completion_domain_t<ex::set_value_t> /*tag*/) const noexcept -> domain
+  [[nodiscard]] constexpr auto query(stdexec::get_completion_domain_t<stdexec::set_value_t> /*tag*/) const noexcept
+    -> domain
   { return {}; }
 
   // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-  [[nodiscard]] constexpr auto query(ex::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
+  [[nodiscard]] constexpr auto query(stdexec::get_domain_t /*tag*/) const noexcept -> domain { return {}; }
 
   friend auto operator==(scheduler const &lhs, scheduler const &rhs) noexcept -> bool
   { return lhs.state_.get() == rhs.state_.get(); }
@@ -200,7 +202,8 @@ namespace detail {
 }// namespace detail
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-inline auto scheduler_env::query(ex::get_completion_scheduler_t<ex::set_value_t> /*tag*/) const noexcept -> scheduler
+inline auto scheduler_env::query(stdexec::get_completion_scheduler_t<stdexec::set_value_t> /*tag*/) const noexcept
+  -> scheduler
 { return detail::scheduler_access::make(state); }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
@@ -213,8 +216,8 @@ inline auto context::get_scheduler() noexcept -> scheduler { return detail::sche
  * Used by pass and graphics adaptors to require a scheduler-completing predecessor.
  */
 template<class Pred>
-concept vkexec_predecessor = ex::sender<Pred> && requires(Pred const &pred) {
-  { ex::get_completion_scheduler<ex::set_value_t>(ex::get_env(pred)) } -> std::same_as<scheduler>;
+concept vkexec_predecessor = stdexec::sender<Pred> && requires(Pred const &pred) {
+  { stdexec::get_completion_scheduler<stdexec::set_value_t>(stdexec::get_env(pred)) } -> std::same_as<scheduler>;
 };
 
 }// namespace vkexec

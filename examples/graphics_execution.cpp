@@ -12,8 +12,6 @@
 #include <cstdint>
 #include <iostream>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::uint32_t k_window_width = 800;
 constexpr std::uint32_t k_window_height = 600;
@@ -39,7 +37,7 @@ static auto run() -> int
   std::cout << "vkexec graphics execution (borrowed pipeline handles) - close the window to exit\n";
   while (!win.should_close()) {
     win.poll_events();
-    vkexec::examples::sync_wait_graph(ex::schedule(win.ctx().get_scheduler())
+    vkexec::examples::sync_wait_graph(stdexec::schedule(win.ctx().get_scheduler())
                                       | vkexec::draw(win.target(), resources, VK_NULL_HANDLE, k_triangle_vertices));
   }
 

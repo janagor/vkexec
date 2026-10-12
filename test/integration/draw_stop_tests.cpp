@@ -28,8 +28,6 @@
 #include <thread>
 #include <utility>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr std::uint32_t k_presenter_width = 64;
@@ -70,7 +68,8 @@ struct headless_fixture
 
   [[nodiscard]] auto draw_submit_sender() -> auto
   {
-    return ex::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices) | vkexec::submit;
+    return stdexec::schedule(win.ctx().get_scheduler()) | vkexec::draw(win, pipeline, k_triangle_vertices)
+           | vkexec::submit;
   }
 };
 
@@ -80,10 +79,11 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
 {
   // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable presenter reference
   headless_fixture fixture;
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
 
-  auto env_sender = ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto env_sender =
+    stdexec::write_env(fixture.draw_submit_sender(), stdexec::prop{ stdexec::get_stop_token, source.get_token() });
   auto const waited = vkexec::test::sync_wait_sender(std::move(env_sender));
   REQUIRE(vkexec::test::sync_wait_stopped(waited));
 }
@@ -91,17 +91,17 @@ TEST_CASE("draw | submit completes with set_stopped when stop is already request
 TEST_CASE("blocking draw observes pre-requested stop", "[vkexec][draw][gpu]")
 {
   headless_fixture fixture;
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
 
-  auto sender =
-    ex::schedule(fixture.win.ctx().get_scheduler()) | vkexec::draw(fixture.win, fixture.pipeline, k_triangle_vertices);
-  auto stopped_sender = ex::write_env(sender, ex::prop{ ex::get_stop_token, source.get_token() });
+  auto sender = stdexec::schedule(fixture.win.ctx().get_scheduler())
+                | vkexec::draw(fixture.win, fixture.pipeline, k_triangle_vertices);
+  auto stopped_sender = stdexec::write_env(sender, stdexec::prop{ stdexec::get_stop_token, source.get_token() });
   auto const stopped = vkexec::test::sync_wait_sender(std::move(stopped_sender));
   REQUIRE(vkexec::test::sync_wait_stopped(stopped));
 
-  auto retry =
-    ex::schedule(fixture.win.ctx().get_scheduler()) | vkexec::draw(fixture.win, fixture.pipeline, k_triangle_vertices);
+  auto retry = stdexec::schedule(fixture.win.ctx().get_scheduler())
+               | vkexec::draw(fixture.win, fixture.pipeline, k_triangle_vertices);
   auto const retried = vkexec::test::sync_wait_sender(retry);
   REQUIRE(vkexec::test::sync_wait_completed(retried));
 }
@@ -110,9 +110,10 @@ TEST_CASE("draw | submit reclaims frame slot when stop races with GPU completion
 {
   // NOLINTNEXTLINE(misc-const-correctness) — draw() needs a mutable presenter reference
   headless_fixture fixture;
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
 
-  auto env_sender = ex::write_env(fixture.draw_submit_sender(), ex::prop{ ex::get_stop_token, source.get_token() });
+  auto env_sender =
+    stdexec::write_env(fixture.draw_submit_sender(), stdexec::prop{ stdexec::get_stop_token, source.get_token() });
 
   // Concurrent stop: ensure the presenter can still acquire frames after a raced cancel.
   std::thread stopper{ [&source]() -> void { source.request_stop(); } };
@@ -169,7 +170,7 @@ TEST_CASE("borrowable graphics resources draw without owning pipeline", "[vkexec
   REQUIRE(resources_result.has_value());
   auto resources = vkexec::expected_take(resources_result);
 
-  auto const waited = vkexec::test::sync_wait_sender(ex::schedule(win.ctx().get_scheduler())
+  auto const waited = vkexec::test::sync_wait_sender(stdexec::schedule(win.ctx().get_scheduler())
                                                      | vkexec::draw(win, resources, VK_NULL_HANDLE, k_triangle_vertices)
                                                      | vkexec::submit);
   REQUIRE(vkexec::test::sync_wait_completed(waited));
@@ -274,17 +275,17 @@ TEST_CASE("presenter rejects presenting a recording frame", "[vkexec][draw][gpu]
 TEST_CASE("cancelled presentation graph releases its acquired frame", "[vkexec][draw][gpu]")
 {
   auto win = make_headless_presenter();
-  ex::inplace_stop_source source;
+  stdexec::inplace_stop_source source;
   source.request_stop();
   for (int index{}; index < k_repeated_aborts; ++index) {
     auto acquired = win.acquire_frame();
     REQUIRE(acquired.has_value());
     REQUIRE(acquired->has_value());
     vkexec::acquired_frame const frame = acquired->value_or(vkexec::acquired_frame{});
-    auto graph = ex::schedule(win.ctx().get_scheduler()) | vkexec::on_queue(win.ctx().graphics_queue_ref())
+    auto graph = stdexec::schedule(win.ctx().get_scheduler()) | vkexec::on_queue(win.ctx().graphics_queue_ref())
                  | vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {})
                  | vkexec::present(win, frame);
-    auto stopped = ex::write_env(std::move(graph), ex::prop{ ex::get_stop_token, source.get_token() });
+    auto stopped = stdexec::write_env(std::move(graph), stdexec::prop{ stdexec::get_stop_token, source.get_token() });
     auto const outcome = vkexec::test::sync_wait_sender(std::move(stopped));
     REQUIRE(vkexec::test::sync_wait_stopped(outcome));
   }
@@ -304,7 +305,7 @@ TEST_CASE("invalid presentation graph releases its acquired frame", "[vkexec][dr
   REQUIRE(acquired->has_value());
   vkexec::acquired_frame const frame = acquired->value_or(vkexec::acquired_frame{});
 
-  auto graph = ex::schedule(win.ctx().get_scheduler()) | vkexec::on_queue(vkexec::queue_ref{})
+  auto graph = stdexec::schedule(win.ctx().get_scheduler()) | vkexec::on_queue(vkexec::queue_ref{})
                | vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {})
                | vkexec::present(win, frame);
   auto const outcome = vkexec::test::sync_wait_sender(std::move(graph));
@@ -332,7 +333,7 @@ TEST_CASE("recording failure releases an acquired presentation frame", "[vkexec]
     .layerCount = k_single_subresource };
   auto color_use = vkexec::write(frame.image, color_range, vkexec::image_usage::color_attachment);
   color_use.final_layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-  auto graph = ex::schedule(win.ctx().get_scheduler()) | vkexec::on_queue(win.ctx().graphics_queue_ref())
+  auto graph = stdexec::schedule(win.ctx().get_scheduler()) | vkexec::on_queue(win.ctx().graphics_queue_ref())
                | vkexec::custom_pass(vkexec::uses(color_use),
                  [](VkCommandBuffer /*cmd*/) -> vkexec::status {
                    return vkexec::fail(vkexec::errc::invalid_argument, "intentional recording failure");
@@ -386,7 +387,7 @@ TEST_CASE("presentation graph submits and presents an acquired frame", "[vkexec]
   REQUIRE(sync.has_value());
   VkFence fence = sync->fence;
 
-  auto graph = ex::schedule(fixture.win.ctx().get_scheduler())
+  auto graph = stdexec::schedule(fixture.win.ctx().get_scheduler())
                | vkexec::on_queue(fixture.win.ctx().graphics_queue_ref())
                | vkexec::custom_pass(vkexec::uses(color_use),
                  [&](VkCommandBuffer cmd) -> void {
@@ -429,7 +430,7 @@ TEST_CASE("typed branches join before the final presentation pass", "[vkexec][dr
   auto const graphics = fixture.win.ctx().graphics_queue_ref();
   auto const compute = fixture.win.ctx().compute_queue_ref();
   auto graph =
-    ex::schedule(fixture.win.ctx().get_scheduler()) | vkexec::on_queue(graphics) | make_empty_pass()
+    stdexec::schedule(fixture.win.ctx().get_scheduler()) | vkexec::on_queue(graphics) | make_empty_pass()
     | vkexec::when_all(vkexec::on_queue(compute) | make_empty_pass(), vkexec::on_queue(graphics) | make_empty_pass())
     | vkexec::on_queue(graphics)
     | vkexec::custom_pass(vkexec::uses(color_use),
@@ -448,7 +449,7 @@ TEST_CASE("draw_layers presents with presenter-owned recording", "[vkexec][draw]
 {
   headless_fixture fixture;
   auto const waited = vkexec::test::sync_wait_sender(
-    ex::schedule(fixture.win.ctx().get_scheduler())
+    stdexec::schedule(fixture.win.ctx().get_scheduler())
     | vkexec::draw_layers(fixture.win, { { .pipeline = &fixture.pipeline, .vertex_count = k_triangle_vertices } }));
   REQUIRE(vkexec::test::sync_wait_completed(waited));
   fixture.win.wait_idle();

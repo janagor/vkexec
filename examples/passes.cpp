@@ -14,8 +14,6 @@
 #include <iostream>
 #include <string_view>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::size_t k_element_count = 1024;
 constexpr float k_initial = 1.0F;
@@ -76,7 +74,7 @@ static auto run() -> int
     .buffer = values.vk_buffer(), .byte_size = values.size() * sizeof(float) } };
   auto bound = vkexec::examples::sync_wait_value(vkexec::bind_storage_sender(pipe, buffers));
 
-  auto graph = ex::schedule(ctx->get_scheduler())
+  auto graph = stdexec::schedule(ctx->get_scheduler())
                | vkexec::compute_pass(
                  bound, pass_params{ .value = k_add, .op = k_op_add }, static_cast<std::uint32_t>(k_element_count))
                | vkexec::compute_pass(

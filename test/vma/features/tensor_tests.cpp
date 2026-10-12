@@ -24,8 +24,6 @@
 #include <utility>
 #include <vector>
 
-namespace ex = stdexec;
-
 namespace {
 
 constexpr std::size_t k_count = 8;
@@ -106,16 +104,18 @@ TEST_CASE("sync_to_device/sync_to_host round-trip via pass graph", "[vkexec][ten
   auto values = vkexec::test::sync_wait_value(vkexec::factory::make_tensor(allocator, k_count, k_fill));
   std::ranges::fill(values.span(), k_host_write);
 
-  using upload_pred_t = decltype(ex::schedule(ctx->get_scheduler()) | ex::then([]() noexcept -> void {}));
+  using upload_pred_t = decltype(stdexec::schedule(ctx->get_scheduler()) | stdexec::then([]() noexcept -> void {}));
   using upload_sender_t = decltype(std::declval<upload_pred_t>() | vkexec::sync_to_device(values));
-  STATIC_REQUIRE(ex::sender<upload_sender_t>);
-  auto uploaded = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_device(values));
+  STATIC_REQUIRE(stdexec::sender<upload_sender_t>);
+  auto uploaded =
+    vkexec::test::sync_wait_sender(stdexec::schedule(ctx->get_scheduler()) | vkexec::sync_to_device(values));
   REQUIRE(vkexec::test::sync_wait_completed(uploaded));
   std::ranges::fill(values.span(), -1.F);
-  using download_pred_t = decltype(ex::schedule(ctx->get_scheduler()) | ex::then([]() noexcept -> void {}));
+  using download_pred_t = decltype(stdexec::schedule(ctx->get_scheduler()) | stdexec::then([]() noexcept -> void {}));
   using download_sender_t = decltype(std::declval<download_pred_t>() | vkexec::sync_to_host(values));
-  STATIC_REQUIRE(ex::sender<download_sender_t>);
-  auto downloaded = vkexec::test::sync_wait_sender(ex::schedule(ctx->get_scheduler()) | vkexec::sync_to_host(values));
+  STATIC_REQUIRE(stdexec::sender<download_sender_t>);
+  auto downloaded =
+    vkexec::test::sync_wait_sender(stdexec::schedule(ctx->get_scheduler()) | vkexec::sync_to_host(values));
   REQUIRE(vkexec::test::sync_wait_completed(downloaded));
 
   REQUIRE(values.span().front() == k_host_write);

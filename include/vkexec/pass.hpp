@@ -43,8 +43,6 @@
 
 namespace vkexec {
 
-namespace ex = stdexec;
-
 //! An unset affinity uses the graph's default queue during execution planning.
 using queue_affinity = std::optional<queue_ref>;
 
@@ -242,7 +240,7 @@ namespace detail {
 
   template<class T>
   concept sender_adaptor_closure =
-    std::derived_from<std::decay_t<T>, ex::sender_adaptor_closure<std::decay_t<T>>>
+    std::derived_from<std::decay_t<T>, stdexec::sender_adaptor_closure<std::decay_t<T>>>
     && std::move_constructible<std::decay_t<T>> && std::constructible_from<std::decay_t<T>, T>;
 
   template<class Step> auto run_after_gpu(Step &step) -> void
@@ -837,13 +835,13 @@ namespace detail {
 }// namespace detail
 
 using pass_graph_completion_signatures =
-  ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+  stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
 
 namespace detail {
 
   template<class StepStorage, class Receiver> struct pass_graph_after_gpu_receiver
   {
-    using receiver_concept = ex::receiver_t;
+    using receiver_concept = stdexec::receiver_t;
     Receiver *rcvr{ nullptr };
     StepStorage *steps{ nullptr };
 
@@ -855,17 +853,17 @@ namespace detail {
         detail::run_after_gpu(*steps);
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
-        ex::set_error(std::move(*rcvr), unexpected_exception_error());
+        stdexec::set_error(std::move(*rcvr), unexpected_exception_error());
         return;
       }
 #endif
-      ex::set_value(std::move(*rcvr));
+      stdexec::set_value(std::move(*rcvr));
     }
 
-    auto set_error(error err) && noexcept -> void { ex::set_error(std::move(*rcvr), std::move(err)); }
-    auto set_stopped() && noexcept -> void { ex::set_stopped(std::move(*rcvr)); }
-    [[nodiscard]] auto get_env() const noexcept -> decltype(ex::get_env(std::declval<Receiver const &>()))
-    { return ex::get_env(std::as_const(*rcvr)); }
+    auto set_error(error err) && noexcept -> void { stdexec::set_error(std::move(*rcvr), std::move(err)); }
+    auto set_stopped() && noexcept -> void { stdexec::set_stopped(std::move(*rcvr)); }
+    [[nodiscard]] auto get_env() const noexcept -> decltype(stdexec::get_env(std::declval<Receiver const &>()))
+    { return stdexec::get_env(std::as_const(*rcvr)); }
   };
 
   [[nodiscard]] constexpr auto
@@ -874,7 +872,7 @@ namespace detail {
 
   struct graph_submit_sender
   {
-    using sender_concept = ex::sender_t;
+    using sender_concept = stdexec::sender_t;
     using completion_signatures = pass_graph_completion_signatures;
 
     std::vector<submit_scope> scopes;
@@ -1005,11 +1003,11 @@ namespace detail {
         if (detail::receiver_stop_requested(receiver)) {
           if (presentation) {
             if (auto abandoned = presentation->abort(presentation_abort_state::acquired_only); !abandoned) {
-              ex::set_error(std::move(receiver), std::move(abandoned.error()));
+              stdexec::set_error(std::move(receiver), std::move(abandoned.error()));
               return;
             }
           }
-          ex::set_stopped(std::move(receiver));
+          stdexec::set_stopped(std::move(receiver));
           return;
         }
         auto facade = context_access::facade(scopes.front().state);
@@ -1079,7 +1077,7 @@ namespace detail {
           if (auto abandoned = presentation->abort(abort_state); !abandoned) { failure = std::move(abandoned.error()); }
         }
         release(facade.device());
-        ex::set_error(std::move(receiver), std::move(failure));
+        stdexec::set_error(std::move(receiver), std::move(failure));
       }
     };
 
@@ -1109,14 +1107,16 @@ namespace detail {
     Receiver receiver;
     using child_receiver_t = pass_graph_after_gpu_receiver<StepStorage, Receiver>;
     using fence_sender_t = detail::graph_submit_sender;
-    using completion_sender_t = decltype(ex::continues_on(std::declval<fence_sender_t>(), std::declval<scheduler>()));
-    using submit_op_t = decltype(ex::connect(std::declval<completion_sender_t>(), std::declval<child_receiver_t>()));
+    using completion_sender_t =
+      decltype(stdexec::continues_on(std::declval<fence_sender_t>(), std::declval<scheduler>()));
+    using submit_op_t =
+      decltype(stdexec::connect(std::declval<completion_sender_t>(), std::declval<child_receiver_t>()));
 
     struct submit_op_holder
     {
       submit_op_t op;
       submit_op_holder(detail::graph_submit_sender sender, scheduler sched, child_receiver_t child)
-        : op(ex::connect(ex::continues_on(std::move(sender), std::move(sched)), std::move(child)))
+        : op(stdexec::connect(stdexec::continues_on(std::move(sender), std::move(sched)), std::move(child)))
       {}
       ~submit_op_holder() = default;
       submit_op_holder(submit_op_holder const &) = delete;
@@ -1134,7 +1134,7 @@ namespace detail {
           failure = std::move(abandoned.error());
         }
       }
-      ex::set_error(std::move(receiver), std::move(failure));
+      stdexec::set_error(std::move(receiver), std::move(failure));
     }
 
     [[nodiscard]] auto plan_graph(context &facade) const -> result<execution_plan>
@@ -1192,11 +1192,11 @@ namespace detail {
       if (detail::receiver_stop_requested(receiver)) {
         if (presentation) {
           if (auto abandoned = presentation->abort(presentation_abort_state::acquired_only); !abandoned) {
-            ex::set_error(std::move(receiver), std::move(abandoned.error()));
+            stdexec::set_error(std::move(receiver), std::move(abandoned.error()));
             return;
           }
         }
-        ex::set_stopped(std::move(receiver));
+        stdexec::set_stopped(std::move(receiver));
         return;
       }
 #if VKEXEC_HAS_EXCEPTIONS
@@ -1232,7 +1232,7 @@ namespace detail {
             .scopes = std::move(scopes), .plan = std::move(*planned), .presentation = std::move(presentation) },
           scheduler_access::make(state),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
-        ex::start(child.op);
+        stdexec::start(child.op);
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         fail_before_submit(unexpected_exception_error());
@@ -1254,7 +1254,7 @@ namespace detail {
  * Built by piping `schedule()` into `compute_pass(...)` and optional barriers.
  *
  * ~~~~~~~~~~~{.cpp}
- * auto graph = ex::schedule(ctx->get_scheduler())
+ * auto graph = stdexec::schedule(ctx->get_scheduler())
  *   | vkexec::compute_pass(bound, params, work_count)
  *   | vkexec::barrier::compute_to_compute()
  *   | vkexec::compute_pass(bound, params, work_count);
@@ -1265,7 +1265,7 @@ namespace detail {
  */
 template<detail::static_pass_step... Steps> struct pass_graph_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures = pass_graph_completion_signatures;
 
   detail::context_handle state;
@@ -1317,7 +1317,7 @@ template<detail::static_pass_step... Steps> struct pass_graph_sender
 
 struct dynamic_pass_graph_sender
 {
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures = pass_graph_completion_signatures;
   using step_storage_t = std::vector<detail::dynamic_pass_step>;
 

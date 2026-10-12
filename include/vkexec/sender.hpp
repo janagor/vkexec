@@ -23,13 +23,12 @@
 
 namespace vkexec {
 
-namespace ex = stdexec;
-
 template<class Sender, class Value>
-concept vkexec_sender_of = ex::sender<Sender> && requires {
-  requires std::same_as<ex::value_types_of_t<Sender, ex::env<>, std::tuple, std::type_identity_t>, std::tuple<Value>>;
-  requires std::same_as<ex::error_types_of_t<Sender, ex::env<>, std::tuple>, std::tuple<>>
-             || std::same_as<ex::error_types_of_t<Sender, ex::env<>, std::tuple>, std::tuple<error>>;
+concept vkexec_sender_of = stdexec::sender<Sender> && requires {
+  requires std::same_as<stdexec::value_types_of_t<Sender, stdexec::env<>, std::tuple, std::type_identity_t>,
+    std::tuple<Value>>;
+  requires std::same_as<stdexec::error_types_of_t<Sender, stdexec::env<>, std::tuple>, std::tuple<>>
+             || std::same_as<stdexec::error_types_of_t<Sender, stdexec::env<>, std::tuple>, std::tuple<error>>;
 };
 
 namespace detail {
@@ -49,14 +48,14 @@ namespace detail {
   {
     using value_type = T;
     using completion_signatures =
-      ex::completion_signatures<ex::set_value_t(T), ex::set_error_t(error), ex::set_stopped_t()>;
+      stdexec::completion_signatures<stdexec::set_value_t(T), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
   };
 
   template<> struct factory_result_traits<result<void>>
   {
     using value_type = void;
     using completion_signatures =
-      ex::completion_signatures<ex::set_value_t(), ex::set_error_t(error), ex::set_stopped_t()>;
+      stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
   };
 
   template<class F> using factory_result_type = std::remove_cvref_t<decltype(std::declval<F &>()())>;
@@ -102,11 +101,11 @@ namespace detail {
   auto deliver_factory_completion(Receiver &&receiver, factory_completion<T> &&completion) noexcept -> void
   {
     if (completion.failure) {
-      ex::set_error(std::forward<Receiver>(receiver), std::move(*completion.failure));
+      stdexec::set_error(std::forward<Receiver>(receiver), std::move(*completion.failure));
     } else if constexpr (std::is_void_v<T>) {
-      ex::set_value(std::forward<Receiver>(receiver));
+      stdexec::set_value(std::forward<Receiver>(receiver));
     } else if (completion.value) {
-      ex::set_value(std::forward<Receiver>(receiver), std::move(*completion.value));
+      stdexec::set_value(std::forward<Receiver>(receiver), std::move(*completion.value));
     } else {
       std::terminate();
     }
@@ -137,7 +136,7 @@ template<factory_callable F> struct factory_sender
   using result_type = detail::factory_result_type<F>;
   using traits = detail::factory_result_traits<result_type>;
   using value_type = traits::value_type;
-  using sender_concept = ex::sender_t;
+  using sender_concept = stdexec::sender_t;
   using completion_signatures = traits::completion_signatures;
 
   VKEXEC_NO_UNIQUE_ADDRESS F factory;
@@ -150,7 +149,7 @@ template<factory_callable F> struct factory_sender
     auto start() noexcept -> void
     {
       if (detail::receiver_stop_requested(receiver)) {
-        ex::set_stopped(std::move(receiver));
+        stdexec::set_stopped(std::move(receiver));
         return;
       }
 
@@ -161,7 +160,7 @@ template<factory_callable F> struct factory_sender
         completion.emplace(detail::invoke_factory(factory));
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
-        ex::set_error(std::move(receiver), unexpected_exception_error());
+        stdexec::set_error(std::move(receiver), unexpected_exception_error());
         return;
       }
 #endif

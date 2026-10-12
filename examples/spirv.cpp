@@ -14,8 +14,6 @@
 #include <iostream>
 #include <string_view>
 
-namespace ex = stdexec;
-
 namespace {
 constexpr std::size_t k_element_count = 1024;
 constexpr std::size_t k_mat4_floats = 16;
@@ -88,8 +86,8 @@ static auto run() -> int
   push.addr = k_placeholder_bda;
   push.count = static_cast<std::uint32_t>(k_element_count);
 
-  auto graph =
-    ex::schedule(ctx->get_scheduler()) | vkexec::compute_pass(bound, push, static_cast<std::uint32_t>(k_element_count));
+  auto graph = stdexec::schedule(ctx->get_scheduler())
+               | vkexec::compute_pass(bound, push, static_cast<std::uint32_t>(k_element_count));
   vkexec::examples::sync_wait_graph(graph);
 
   float const expected = k_initial * k_scale;
