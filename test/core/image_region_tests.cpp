@@ -508,12 +508,12 @@ TEST_CASE("image rectangles match a deterministic subresource cell reference", "
   auto *const image = fake_image(&storage);
   vkexec::detail::resource_state_tracker tracker{ k_operation_count };
   for (std::size_t step{}; step < k_operation_count; ++step) {
-    auto const aspect = static_cast<std::size_t>(random()) % k_aspects.size();
+    auto const aspect = random() % k_aspects.size();
     auto const mip = static_cast<std::uint32_t>(random()) % k_extent;
     auto const layer = static_cast<std::uint32_t>(random()) % k_extent;
     auto const mips = k_one + (static_cast<std::uint32_t>(random()) % (k_extent - mip));
     auto const layers = k_one + (static_cast<std::uint32_t>(random()) % (k_extent - layer));
-    auto const access = k_accesses.at(static_cast<std::size_t>(random()) % k_accesses.size());
+    auto const access = k_accesses.at(random() % k_accesses.size());
     auto const usage = access == vkexec::resource_access::read && (random() & 1U) != 0
                          ? vkexec::image_usage::sampled_compute
                          : vkexec::image_usage::storage_compute;

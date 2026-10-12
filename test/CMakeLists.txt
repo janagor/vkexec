@@ -23,6 +23,11 @@ set_tests_properties(vkexec.subdirectory_consumer.cxx17 vkexec.subdirectory_cons
 
 option(vkexec_TEST_VALIDATION "Require Vulkan validation layers for unit tests" OFF)
 
+set(vkexec_gpu_failure_sources)
+if(vkexec_ENABLE_FAULT_TESTING)
+  list(APPEND vkexec_gpu_failure_sources core/gpu_failure_tests.cpp)
+endif()
+
 function(vkexec_add_test_executable name module)
   cmake_parse_arguments(
     ARG
@@ -51,8 +56,19 @@ function(vkexec_add_test_executable name module)
       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${name}> $<TARGET_FILE_DIR:${name}>
       COMMAND_EXPAND_LISTS)
   endif()
+  set(vkexec_regular_test_spec)
+  if(name STREQUAL "vkexec_core_tests" AND vkexec_ENABLE_FAULT_TESTING)
+    list(
+      APPEND
+      vkexec_regular_test_spec
+      TEST_SPEC
+      "~[stress]")
+  endif()
   catch_discover_tests(
     ${name}
+    ${vkexec_regular_test_spec}
+    TEST_LIST
+    ${name}_regular_tests
     TEST_PREFIX
     "unittests.${module}."
     REPORTER
@@ -62,7 +78,31 @@ function(vkexec_add_test_executable name module)
     OUTPUT_PREFIX
     "unittests.${module}."
     OUTPUT_SUFFIX
-    .xml)
+    .xml
+    PROPERTIES
+    TIMEOUT
+    15)
+  if(name STREQUAL "vkexec_core_tests" AND vkexec_ENABLE_FAULT_TESTING)
+    catch_discover_tests(
+      ${name}
+      TEST_SPEC
+      "[stress]"
+      TEST_LIST
+      ${name}_stress_tests
+      TEST_PREFIX
+      "unittests.${module}."
+      REPORTER
+      XML
+      OUTPUT_DIR
+      .
+      OUTPUT_PREFIX
+      "unittests.${module}."
+      OUTPUT_SUFFIX
+      .xml
+      PROPERTIES
+      TIMEOUT
+      120)
+  endif()
   set_property(GLOBAL APPEND PROPERTY VKEXEC_TEST_EXECUTABLES ${name})
 endfunction()
 
@@ -86,10 +126,23 @@ vkexec_add_test_executable(
   core/move_only_function_tests.cpp
   core/sampler_tests.cpp
   core/scheduler_tests.cpp
+  ${vkexec_gpu_failure_sources}
   core/resource_allocator_tests.cpp
   core/synchronization_tests.cpp)
 # Whole-target define keeps inline fault-injection bodies ODR-consistent across this executable.
 target_compile_definitions(vkexec_core_tests PRIVATE VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION=1)
+if(vkexec_ENABLE_FAULT_TESTING)
+  target_compile_definitions(vkexec_core_tests PRIVATE VKEXEC_TEST_VULKAN_DISPATCH=1)
+  target_link_libraries(vkexec_core_tests PRIVATE vkexec_private_headers)
+  if(NOT WIN32)
+    add_executable(vkexec_retirement_fatal_helper core/retirement_fatal_helper.cpp)
+    target_compile_features(vkexec_retirement_fatal_helper PRIVATE cxx_std_20)
+    target_link_libraries(vkexec_retirement_fatal_helper PRIVATE vkexec_vulkan vkexec_private_headers)
+    target_compile_definitions(
+      vkexec_core_tests PRIVATE VKEXEC_RETIREMENT_FATAL_HELPER_PATH="$<TARGET_FILE:vkexec_retirement_fatal_helper>")
+    add_dependencies(vkexec_core_tests vkexec_retirement_fatal_helper)
+  endif()
+endif()
 
 vkexec_add_test_executable(
   vkexec_features_tests

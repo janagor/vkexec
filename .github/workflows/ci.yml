@@ -170,7 +170,7 @@ jobs:
         run: |
           cmake -S . -B build-floor -G Ninja \
             -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF \
-            -DBUILD_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF \
+            -DBUILD_TESTING=ON -Dvkexec_ENABLE_FAULT_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF \
             -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON \
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF \
             -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF \
@@ -183,7 +183,7 @@ jobs:
         run: |
           cmake -S . -B build-floor -G Ninja `
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_STANDARD=20 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DCMAKE_CXX_EXTENSIONS=OFF `
-            -DBUILD_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF `
+            -DBUILD_TESTING=ON -Dvkexec_ENABLE_FAULT_TESTING=ON -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF `
             -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_TOOLS=ON `
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_COVERAGE=OFF `
             -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF `
@@ -237,7 +237,7 @@ jobs:
       - name: Configure
         run: |
           cmake -S . -B build-validation -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON \
+            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -Dvkexec_ENABLE_FAULT_TESTING=ON \
             -Dvkexec_PACKAGING_MAINTAINER_MODE=OFF \
             -Dvkexec_BUILD_VMA=ON -Dvkexec_BUILD_TOOLS=ON -Dvkexec_TEST_VALIDATION=ON \
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF \
@@ -249,7 +249,6 @@ jobs:
       - name: Run unit tests with validation
         env:
           VK_LAYER_VALIDATE_SYNC: "1"
-          VK_LAYER_ENABLES: VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
         run: |
           set -o pipefail
           ctest --test-dir build-validation -R '^unittests\..*' -V 2>&1 | tee validation-ctest.log
@@ -295,21 +294,28 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -S . -B build-tsan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON \
+          cmake -S . -B build-tsan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -Dvkexec_ENABLE_FAULT_TESTING=ON \
             -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_BUILD_VMA=OFF \
             -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF \
             -Dvkexec_ENABLE_SANITIZER_ADDRESS=OFF -Dvkexec_ENABLE_SANITIZER_LEAK=OFF \
             -Dvkexec_ENABLE_SANITIZER_UNDEFINED=OFF -Dvkexec_ENABLE_SANITIZER_MEMORY=OFF \
             -Dvkexec_ENABLE_SANITIZER_THREAD=ON
 
-      - name: Build concurrency tests
-        run: cmake --build build-tsan --target vkexec_concurrency_tests
+      - name: Build concurrency and GPU failure tests
+        run: cmake --build build-tsan --target vkexec_concurrency_tests vkexec_core_tests
 
       - name: Run concurrency tests
         env:
           TSAN_OPTIONS: halt_on_error=1
           VKEXEC_CONCURRENCY_ITERATIONS: 64
         run: ctest --test-dir build-tsan -R '^unittests\.concurrency\.' --output-on-failure
+
+      - name: Run GPU cancellation stress
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+          VKEXEC_GPU_STRESS_ITERATIONS: 32
+          VKEXEC_GPU_STRESS_SEED: 2053223123
+        run: ctest --test-dir build-tsan -R 'concurrent submit_fence cancellation produces one completion' --no-tests=error --output-on-failure
 
   Test:
     if: github.event_name != 'schedule'

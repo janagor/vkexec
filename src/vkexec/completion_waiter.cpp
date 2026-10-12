@@ -1,4 +1,6 @@
 #include "detail/completion_waiter.hpp"
+#include "detail/retirement_wait.hpp"
+#include "detail/test_vulkan_dispatch.hpp"
 #include <vkexec/config.hpp>
 
 #include <vkexec/detail/object_synchronization.hpp>
@@ -9,13 +11,14 @@
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
-#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
-#endif
 #include <iterator>
 #include <memory>
 #include <mutex>
 #include <optional>
+#if VKEXEC_HAS_EXCEPTIONS
+#include <new>
+#endif
 #include <utility>
 #include <vector>
 
@@ -25,20 +28,25 @@ namespace {
   constexpr std::uint64_t k_poll_timeout_ns = 1'000'000ULL;// 1 ms; short so stop tokens stay responsive
 
   // Always wait for the GPU (or queue idle), then destroy owned semaphore/fence.
-  auto reclaim_sync(VkDevice device,
+  [[nodiscard]] auto reclaim_sync(VkDevice device,
     VkQueue fallback_queue,
     queue_synchronization_state &queue_state,
     VkSemaphore semaphore,
-    VkFence fence) noexcept -> void
+    VkFence fence) noexcept -> VkResult
   {
+    VkResult waited = VK_SUCCESS;
     if (fence != VK_NULL_HANDLE) {
-      (void)vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+      waited = wait_for_retirement(device, 1, &fence);
+      // Without confirmed retirement, completing the sender would release its command buffer.
     } else if (fallback_queue != VK_NULL_HANDLE) {
       auto const guard = queue_state.lock();
-      (void)vkQueueWaitIdle(fallback_queue);
+      waited = wait_for_queue_retirement(fallback_queue);
+    } else if (semaphore != VK_NULL_HANDLE) {
+      std::terminate();
     }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(device, fence, nullptr); }
+    return waited;
   }
 
 }// namespace
@@ -64,6 +72,12 @@ completion_waiter::~completion_waiter() { shutdown(); }
 
 auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn stop_requested, done_fn on_done) -> status
 {
+#if VKEXEC_HAS_EXCEPTIONS && defined(VKEXEC_TEST_VULKAN_DISPATCH)
+  if (auto dispatch = current_test_vulkan_dispatch();
+    dispatch && dispatch->device == device_ && dispatch->fail_enqueue && dispatch->fail_enqueue()) {
+    throw std::bad_alloc{};
+  }
+#endif
   std::unique_lock lock(mutex_);
   if (!shutting_down_) {
     pending_.reserve(pending_.size() + 1);
@@ -84,7 +98,7 @@ auto completion_waiter::enqueue(VkSemaphore semaphore, VkFence fence, stop_fn st
   // No waiter mutex is held while reclaiming or completing synchronously.
   error failure = make_error(errc::invalid_argument, "completion_waiter enqueue after shutdown");
   status result = fail(failure);
-  reclaim_sync(device_, fallback_queue_, *queue_state_, semaphore, fence);
+  (void)reclaim_sync(device_, fallback_queue_, *queue_state_, semaphore, fence);
   if (on_done) { on_done(std::move(failure), false); }
   return result;
 }
@@ -129,9 +143,11 @@ auto completion_waiter::finish_job(job item, std::optional<error> failure) noexc
 {
   // Reclaim (or wait) before the callback so senders can free command buffers safely.
   if (item.destroy_sync) {
-    reclaim_sync(device_, fallback_queue_, *queue_state_, item.semaphore, item.fence);
+    VkResult const waited = reclaim_sync(device_, fallback_queue_, *queue_state_, item.semaphore, item.fence);
+    if (waited != VK_SUCCESS && !failure) { failure = error{ .code = make_vk_error_code(waited), .detail = {} }; }
   } else if (item.fence != VK_NULL_HANDLE) {
-    (void)vkWaitForFences(device_, 1, &item.fence, VK_TRUE, UINT64_MAX);
+    VkResult const waited = wait_for_retirement(device_, 1, &item.fence);
+    if (waited != VK_SUCCESS && !failure) { failure = error{ .code = make_vk_error_code(waited), .detail = {} }; }
   }
   if (item.on_done) { item.on_done(std::move(failure), item.stop_seen); }
 }
@@ -162,8 +178,8 @@ auto completion_waiter::wait_any_fence(std::vector<VkFence> const &fences) -> st
 {
   if (fences.empty()) { return std::nullopt; }
   // VK_FALSE: wake when any fence signals so overlapping submits complete independently.
-  VkResult const wait_result =
-    vkWaitForFences(device_, static_cast<std::uint32_t>(fences.size()), fences.data(), VK_FALSE, k_poll_timeout_ns);
+  VkResult const wait_result = dispatch_wait_for_fences(
+    device_, static_cast<std::uint32_t>(fences.size()), fences.data(), VK_FALSE, k_poll_timeout_ns);
   if (wait_result == VK_SUCCESS || wait_result == VK_TIMEOUT) { return std::nullopt; }
   return make_vk_error(wait_result, "vkWaitForFences failed");
 }
@@ -173,10 +189,10 @@ auto completion_waiter::complete_without_fences(std::vector<job> &jobs) -> void
   // Jobs without fences fall back to queue idle (should be rare after submit_async).
   VkResult const result = [&]() -> VkResult {
     auto const guard = queue_state_->lock();
-    return vkQueueWaitIdle(fallback_queue_);
+    return dispatch_queue_wait_idle(fallback_queue_);
   }();
   if (result != VK_SUCCESS) {
-    finish_all(jobs, make_vk_error(VK_ERROR_UNKNOWN, "vkQueueWaitIdle failed"));
+    finish_all(jobs, make_vk_error(result, "vkQueueWaitIdle failed"));
     return;
   }
   finish_all(jobs, std::nullopt);
@@ -193,7 +209,7 @@ auto completion_waiter::reap_ready_jobs(std::vector<job> &jobs) -> void
       continue;
     }
 
-    VkResult const status = vkGetFenceStatus(device_, item.fence);
+    VkResult const status = dispatch_get_fence_status(device_, item.fence);
     if (status == VK_SUCCESS) {
       finish_job(std::move(item), std::nullopt);
       continue;

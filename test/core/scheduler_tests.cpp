@@ -636,6 +636,12 @@ TEST_CASE("throwing after_gpu completes with sender error", "[vkexec][scheduler]
   REQUIRE(outcome.failed());
   REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::unexpected_exception));
   REQUIRE(after_gpu_thread == ctx->host_agent_thread_id());
+  auto opened = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(opened.has_value());
+  auto scope = vkexec::expected_take(opened);
+  REQUIRE(scope.end_recording().has_value());
+  auto retry = vkexec::test::sync_wait_sender(vkexec::detail::submit_and_wait(std::move(scope)));
+  REQUIRE(vkexec::test::sync_wait_completed(retry));
 }
 
 TEST_CASE("throwing dynamic after_gpu completes with sender error", "[vkexec][scheduler][gpu]")
@@ -652,6 +658,12 @@ TEST_CASE("throwing dynamic after_gpu completes with sender error", "[vkexec][sc
   REQUIRE(outcome.failed());
   REQUIRE(outcome.error.value_or(vkexec::error{}).code == vkexec::make_error_code(vkexec::errc::unexpected_exception));
   REQUIRE(after_gpu_thread == ctx->host_agent_thread_id());
+  auto opened = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(opened.has_value());
+  auto scope = vkexec::expected_take(opened);
+  REQUIRE(scope.end_recording().has_value());
+  auto retry = vkexec::test::sync_wait_sender(vkexec::detail::submit_and_wait(std::move(scope)));
+  REQUIRE(vkexec::test::sync_wait_completed(retry));
 }
 #endif
 

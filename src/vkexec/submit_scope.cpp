@@ -10,14 +10,14 @@
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 
+#include "detail/retirement_wait.hpp"
+
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
-#endif
 #include <span>
 #include <utility>
 #include <vector>
@@ -246,10 +246,12 @@ namespace detail {
     -> void
   {
     if (fence != VK_NULL_HANDLE) {
-      (void)vkWaitForFences(ctx.device(), 1, &fence, VK_TRUE, UINT64_MAX);
+      (void)wait_for_retirement(ctx.device(), 1, &fence);
     } else if (fallback_queue != VK_NULL_HANDLE) {
       auto const lock = ctx.lock_queue(fallback_queue);
-      (void)vkQueueWaitIdle(fallback_queue);
+      (void)wait_for_queue_retirement(fallback_queue);
+    } else if (semaphore != VK_NULL_HANDLE) {
+      std::terminate();
     }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(ctx.device(), semaphore, nullptr); }
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(ctx.device(), fence, nullptr); }

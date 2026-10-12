@@ -28,9 +28,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#if VKEXEC_HAS_EXCEPTIONS
 #include <exception>
-#endif
 #include <functional>
 #include <memory>
 #include <optional>
@@ -1069,7 +1067,16 @@ namespace detail {
       {
         if (submitted != 0) {
           auto const count = static_cast<std::uint32_t>(submitted);
-          (void)vkWaitForFences(facade.device(), count, fences.data(), VK_TRUE, UINT64_MAX);
+          constexpr std::uint32_t k_retirement_attempts = 3;
+          bool retired = false;
+          for (std::uint32_t attempt = 0; attempt < k_retirement_attempts; ++attempt) {
+            VkResult const waited = vkWaitForFences(facade.device(), count, fences.data(), VK_TRUE, UINT64_MAX);
+            if (waited == VK_SUCCESS || waited == VK_ERROR_DEVICE_LOST) {
+              retired = true;
+              break;
+            }
+          }
+          if (!retired) { std::terminate(); }
         }
         if (presentation && !presented) {
           auto const abort_state = submitted == scopes.size() ? presentation_abort_state::final_submit_completed

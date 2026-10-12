@@ -160,7 +160,8 @@ namespace detail {
 
     //! Frees the command buffer and descriptor loans; safe to call more than once.
     //!
-    //! Synchronization failure during cleanup is unrecoverable and calls `std::terminate()`.
+    //! Persistent synchronization failure during cleanup calls `std::terminate()`
+    //! when GPU retirement cannot be established after the configured retries.
     auto release() noexcept -> void;
   };
 

@@ -16,6 +16,8 @@
 
 #include "detail/completion_waiter.hpp"
 #include "detail/host_agent.hpp"
+#include "detail/retirement_wait.hpp"
+#include "detail/test_vulkan_dispatch.hpp"
 #include "detail/vk_bootstrap_feature.hpp"
 
 #include <VkBootstrap.h>
@@ -27,6 +29,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <future>
 #include <iterator>
 #include <memory>
@@ -680,7 +683,17 @@ detail::context_state::~context_state()
   completion_waiter.reset();
 
   if (device.device != VK_NULL_HANDLE) {
-    if (owns_device) { vkDeviceWaitIdle(device.device); }
+    if (owns_device) {
+      bool retired = false;
+      for (std::uint32_t attempt = 0; attempt < detail::k_retirement_wait_attempts; ++attempt) {
+        VkResult const waited = vkDeviceWaitIdle(device.device);
+        if (waited == VK_SUCCESS || waited == VK_ERROR_DEVICE_LOST) {
+          retired = true;
+          break;
+        }
+      }
+      if (!retired) { std::terminate(); }
+    }
     for (auto const &[cmd, family_pool] : command_buffer_pools) {
       (void)cmd;
       vkDestroyCommandPool(device.device, family_pool.second, nullptr);
@@ -785,10 +798,12 @@ auto context::do_enqueue_fence_wait(VkSemaphore semaphore,
     // From here on, ownership of the sync objects is consumed and no error/status
     // construction is allowed to occur before completion is delivered.
     if (fence != VK_NULL_HANDLE) {
-      (void)vkWaitForFences(device(), 1, &fence, VK_TRUE, UINT64_MAX);
+      (void)detail::wait_for_retirement(device(), 1, &fence);
     } else if (compute_queue() != VK_NULL_HANDLE) {
       auto const lock = lock_queue(compute_queue());
-      (void)vkQueueWaitIdle(compute_queue());
+      (void)detail::wait_for_queue_retirement(compute_queue());
+    } else if (semaphore != VK_NULL_HANDLE) {
+      std::terminate();
     }
     if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device(), semaphore, nullptr); }
     if (fence != VK_NULL_HANDLE) { vkDestroyFence(device(), fence, nullptr); }
@@ -899,8 +914,13 @@ auto context::submit_and_wait(VkCommandBuffer cmd, queue_ref queue) -> status
     vkDestroyFence(impl_->device.device, fence, nullptr);
     return submitted;
   }
-  if (VkResult const wait_result = vkWaitForFences(impl_->device.device, 1, &fence, VK_TRUE, UINT64_MAX);
+  if (VkResult const wait_result =
+        detail::dispatch_wait_for_fences(impl_->device.device, 1, &fence, VK_TRUE, UINT64_MAX);
     wait_result != VK_SUCCESS) {
+    // A failed wait does not prove that a submitted command buffer has retired.
+    // The test dispatch can fail this call while real GPU work remains pending.
+    // Keep the fence and command buffer alive unless the real wait confirms retirement.
+    (void)detail::wait_for_retirement(impl_->device.device, 1, &fence);
     vkDestroyFence(impl_->device.device, fence, nullptr);
     return fail(wait_result, "vkWaitForFences failed");
   }

@@ -1,0 +1,56 @@
+name: gpu stress
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  lavapipe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aminya/setup-cpp@v1
+        with:
+          cmake: true
+          ninja: true
+          vcpkg: false
+          ccache: false
+          clangtidy: false
+          cppcheck: false
+      - name: Install Lavapipe and validation layers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            mesa-vulkan-drivers vulkan-validationlayers \
+            libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libx11-dev libxrandr-dev libxi-dev libxcursor-dev libffi-dev
+          ICD="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' | head -1)"
+          test -n "$ICD"
+          echo "VK_DRIVER_FILES=$ICD" >> "$GITHUB_ENV"
+          echo "VK_ICD_FILENAMES=$ICD" >> "$GITHUB_ENV"
+      - uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+      - name: Configure ASan tests
+        run: |
+          cmake -S . -B build-gpu-stress -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -Dvkexec_ENABLE_FAULT_TESTING=ON \
+            -Dvkexec_BUILD_EXAMPLES=OFF -Dvkexec_BUILD_TOOLS=OFF -Dvkexec_BUILD_VMA=OFF \
+            -Dvkexec_TEST_VALIDATION=ON -Dvkexec_ENABLE_IPO=OFF \
+            -Dvkexec_ENABLE_CLANG_TIDY=OFF -Dvkexec_ENABLE_CPPCHECK=OFF \
+            -Dvkexec_ENABLE_SANITIZER_ADDRESS=ON
+      - name: Build GPU tests
+        run: cmake --build build-gpu-stress --target vkexec_core_tests
+      - name: Run reproducible cancellation stress
+        env:
+          VKEXEC_GPU_STRESS_ITERATIONS: 100
+          ASAN_OPTIONS: halt_on_error=1
+          VK_LAYER_VALIDATE_SYNC: '1'
+        run: |
+          for seed in 2053223123 2654435761 3735928559; do
+            VKEXEC_GPU_STRESS_SEED="$seed" ctest --test-dir build-gpu-stress \
+              -R 'concurrent submit_fence cancellation produces one completion' \
+              --no-tests=error --output-on-failure
+          done

@@ -8,6 +8,8 @@
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/result.hpp>
 
+#include "detail/test_vulkan_dispatch.hpp"
+
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
@@ -146,7 +148,8 @@ auto submit(queue_submit const &info,
     synchronization2_submission const lowered = lower_synchronization2_submit(info);
     VkSubmitInfo2 const submission = lowered.submit_info();
     auto const guard = queue_state.lock();
-    if (VkResult const result = procs.queue_submit2(queue, 1, &submission, info.fence); result != VK_SUCCESS) {
+    if (VkResult const result = dispatch_queue_submit2(procs.queue_submit2, queue, 1, &submission, info.fence);
+      result != VK_SUCCESS) {
       return fail(result, "vkQueueSubmit2 failed");
     }
     return {};
@@ -155,7 +158,7 @@ auto submit(queue_submit const &info,
   VKEXEC_TRY_ASSIGN(lowered, lower_legacy_submit(info, legacy_timeline_submit_info_available));
   legacy_submission_view const view = lowered.make_submit_info(info);
   auto const guard = queue_state.lock();
-  if (VkResult const result = vkQueueSubmit(queue, 1, &view.submit, info.fence); result != VK_SUCCESS) {
+  if (VkResult const result = dispatch_queue_submit(queue, 1, &view.submit, info.fence); result != VK_SUCCESS) {
     return fail(result, "vkQueueSubmit failed");
   }
   return {};

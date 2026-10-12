@@ -308,9 +308,9 @@ TEST_CASE("buffer interval plans match a deterministic per-byte reference", "[vk
   auto *const buffer = fake_buffer(&storage);
   vkexec::detail::resource_state_tracker tracker{ k_operation_count };
   for (std::size_t step{}; step < k_operation_count; ++step) {
-    auto const begin = static_cast<std::size_t>(random()) % k_address_space;
-    auto const length = std::size_t{ 1 } + (static_cast<std::size_t>(random()) % (k_address_space - begin));
-    auto const access = k_accesses.at(static_cast<std::size_t>(random()) % k_accesses.size());
+    auto const begin = random() % k_address_space;
+    auto const length = std::size_t{ 1 } + (random() % (k_address_space - begin));
+    auto const access = k_accesses.at(random() % k_accesses.size());
     auto const usage =
       (random() & 1U) == 0 ? vkexec::buffer_usage::storage_compute : vkexec::buffer_usage::storage_graphics;
     vkexec::buffer_use const use{ .buffer = buffer,

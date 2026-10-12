@@ -17,6 +17,12 @@ add_library(
   sampler.cpp)
 
 add_library(vkexec::vkexec ALIAS vkexec)
+if(PROJECT_IS_TOP_LEVEL
+   AND BUILD_TESTING
+   AND vkexec_ENABLE_FAULT_TESTING)
+  target_sources(vkexec PRIVATE test_vulkan_dispatch.cpp)
+  target_compile_definitions(vkexec PRIVATE VKEXEC_TEST_VULKAN_DISPATCH=1)
+endif()
 set_target_properties(vkexec PROPERTIES EXPORT_NAME vkexec)
 
 target_link_libraries(

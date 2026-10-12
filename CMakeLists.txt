@@ -31,6 +31,11 @@ string(
 add_library(vkexec::vkexec_options ALIAS vkexec_options)
 add_library(vkexec::vkexec_warnings ALIAS vkexec_warnings)
 
+if(PROJECT_IS_TOP_LEVEL)
+  include(CTest)
+endif()
+option(vkexec_ENABLE_FAULT_TESTING "Build the private Vulkan fault-injection tests" OFF)
+
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
 
@@ -189,8 +194,6 @@ if(PROJECT_IS_TOP_LEVEL)
   vkexec_enable_formatting()
 
   # Adding the tests:
-  include(CTest)
-
   if(vkexec_ENABLE_INSTALL_CONSUMER_TEST)
     get_property(VKEXEC_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
     add_custom_target(
