@@ -285,7 +285,7 @@ if(PROJECT_IS_TOP_LEVEL)
     write_basic_package_version_file(
       "${PROJECT_BINARY_DIR}/vkexecConfigVersion.cmake"
       VERSION "${PROJECT_VERSION}"
-      COMPATIBILITY SameMajorVersion)
+      COMPATIBILITY ExactVersion)
     install(FILES "${PROJECT_BINARY_DIR}/vkexecConfig.cmake" "${PROJECT_BINARY_DIR}/vkexecConfigVersion.cmake"
             DESTINATION "${VKEXEC_INSTALL_CMAKEDIR}")
 

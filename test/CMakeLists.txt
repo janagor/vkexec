@@ -10,6 +10,14 @@ add_test(NAME cmake.sanitizers.apple_excludes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_apple_excludes_leak.cmake)
 add_test(NAME cmake.sanitizers.non_apple_includes_leak
          COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_sanitizers_non_apple_includes_leak.cmake)
+if(NOT CMAKE_SKIP_INSTALL_RULES)
+  add_test(
+    NAME cmake.package_exact_version
+    COMMAND
+      ${CMAKE_COMMAND} "-DVKEXEC_VERSION_FILE=${vkexec_BINARY_DIR}/vkexecConfigVersion.cmake"
+      "-DVKEXEC_EXPECTED_VERSION=${PROJECT_VERSION}" -P
+      ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_package_exact_version.cmake)
+endif()
 foreach(parent_standard 17 23)
   add_test(
     NAME vkexec.subdirectory_consumer.cxx${parent_standard}

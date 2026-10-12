@@ -56,6 +56,14 @@ target_link_libraries(my_app PRIVATE vkexec::vkexec)
 
 The `vma` and `tools` targets are present when those modules were enabled at installation. Fetched dependencies with upstream install rules are installed alongside vkexec. Externally supplied dependencies remain external; consumers also need the ordinary platform Vulkan SDK or loader development files.
 
+## Versioning
+
+vkexec is under active development and has not yet had an official release.
+
+Until the first release, the public API, source compatibility, and binary compatibility are not guaranteed. Breaking changes may occur at any time.
+
+A formal versioning and compatibility policy will be established with the first release.
+
 ## Requirements
 
 CMake 3.29+, C++20, and a Vulkan loader are required. CI checks GCC 12, Clang 16, and MSVC 19.43 floor lanes. GPU examples need a Vulkan-capable device or software driver. The [build guide](docs/development/building.md) and [compiler support](docs/development/compiler-support.md) give details.
