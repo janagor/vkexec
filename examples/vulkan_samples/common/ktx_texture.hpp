@@ -78,9 +78,37 @@ namespace detail {
 
 }// namespace detail
 
-[[nodiscard]] inline auto load_ktx_texture(context &ctx, vma::allocator &allocator, std::filesystem::path const &path)
-  -> ktx_texture
+[[nodiscard]] inline auto load_ktx_texture(context &ctx,
+  vma::allocator &allocator,
+  std::filesystem::path const &path,
+  bool uncompressed_smoke = false) -> ktx_texture
 {
+  if (uncompressed_smoke) {
+    constexpr VkExtent2D k_extent{ .width = 1, .height = 1 };
+    constexpr std::array<std::uint8_t, 4> k_color{ 255, 255, 255, 255 };
+    VkFormatProperties properties{};
+    vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), VK_FORMAT_R8G8B8A8_SRGB, &properties);
+    constexpr VkFormatFeatureFlags k_required_features =
+      VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+    if ((properties.optimalTilingFeatures & k_required_features) != k_required_features) {
+      fail_check("smoke textures require sampled RGBA8 sRGB images with transfer destination support");
+    }
+    auto staging = sync_wait_value(vma::factory::make_gpu_buffer(
+      allocator, vma::gpu_buffer_create_info{ .size = k_color.size(), .memory = vma::buffer_memory::host_visible }));
+    std::memcpy(staging.mapped().data(), k_color.data(), k_color.size());
+    if (auto flushed = staging.flush(); !flushed) { abort_with_error(flushed.error()); }
+    auto image = sync_wait_value(allocate_image(allocator,
+      image_create_info{
+        .extent = { .width = k_extent.width, .height = k_extent.height, .depth = 1 },
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .queue_families = {},
+      }));
+    auto view = sync_wait_value(vma::factory::make_image_view(ctx, image));
+    return ktx_texture{
+      .image = std::move(image), .view = std::move(view), .staging = std::move(staging), .extent = k_extent
+    };
+  }
   std::ifstream stream(path, std::ios::binary);
   if (!stream) { fail_check("could not open KTX texture"); }
   std::vector<char> const file(std::istreambuf_iterator<char>{ stream }, std::istreambuf_iterator<char>{});

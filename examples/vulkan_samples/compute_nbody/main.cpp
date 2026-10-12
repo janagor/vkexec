@@ -1,4 +1,5 @@
 #include "common/shader_loader.hpp"
+#include "common/smoke_frames.hpp"
 #include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "sync_wait_helpers.hpp"
@@ -34,6 +35,7 @@ constexpr std::uint32_t k_window_width = 800;
 constexpr std::uint32_t k_window_height = 600;
 constexpr float k_two_pi = 6.28318530718F;
 constexpr float k_max_delta_seconds = 0.033F;
+constexpr float k_fixed_delta_seconds = 1.0F / 60.0F;
 constexpr float k_clear_red = 0.01F;
 constexpr float k_clear_green = 0.01F;
 constexpr float k_clear_blue = 0.03F;
@@ -45,8 +47,10 @@ struct integrate_params
 };
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
-auto run() -> int
+auto run(int argc, char const *const *argv) -> int
 {
+  auto frames = vkexec::examples::smoke_frames::parse(argc, argv);
+  vkexec::examples::smoke_frames::reject_other_arguments(argc, argv);
   auto requirements = vkexec::examples::vulkan_sample_requirements();
   vkexec::feat::configure<vkexec::feat::shader_demote_to_helper_invocation>(requirements);
   auto win = vkexec::examples::glfw_presenter::create({
@@ -140,10 +144,12 @@ auto run() -> int
 
   auto last = std::chrono::steady_clock::now();
   std::cout << "vkexec Compute N-Body - close the window to exit\n";
-  while (!win.should_close()) {
+  while (!win.should_close() && frames.should_continue()) {
     win.poll_events();
     auto const now = std::chrono::steady_clock::now();
-    float const delta_time = std::min(std::chrono::duration<float>(now - last).count(), k_max_delta_seconds);
+    float const delta_time = frames.automated()
+                               ? k_fixed_delta_seconds
+                               : std::min(std::chrono::duration<float>(now - last).count(), k_max_delta_seconds);
     last = now;
 
     vkexec::examples::sync_wait_graph(
@@ -153,10 +159,15 @@ auto run() -> int
     vkexec::examples::sync_wait_graph(
       stdexec::schedule(ctx.get_scheduler()) | vkexec::draw(win.target(), graphics, k_particle_count));
     win.wait_idle();
+    frames.complete_synchronous();
   }
   win.wait_idle();
+  frames.verify_complete();
   return 0;
 }
 }// namespace
 
-auto main() -> int { return vkexec::examples::run_example(run); }
+auto main(int argc, char const *const *argv) -> int
+{
+  return vkexec::examples::run_example([argc, argv]() -> int { return run(argc, argv); });
+}

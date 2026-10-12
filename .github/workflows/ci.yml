@@ -197,6 +197,89 @@ jobs:
         working-directory: build-floor
         run: ctest --output-on-failure
 
+  vulkan-samples-smoke:
+    name: Vulkan Samples smoke (Lavapipe)
+    runs-on: ubuntu-24.04
+    env:
+      VK_INSTANCE_LAYERS: VK_LAYER_KHRONOS_validation
+      VK_LAYER_VALIDATE_SYNC: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup CMake and Ninja
+        uses: aminya/setup-cpp@v1
+        with:
+          cmake: true
+          ninja: true
+          vcpkg: false
+          ccache: false
+          clangtidy: false
+          cppcheck: false
+
+      - name: Install Vulkan driver, validation, and Xvfb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev \
+            libffi-dev mesa-vulkan-drivers vulkan-validationlayers \
+            xvfb xauth vulkan-tools
+          test -f /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json
+          ICD="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' | head -1)"
+          test -n "$ICD"
+          echo "VK_DRIVER_FILES=$ICD" >> "$GITHUB_ENV"
+          echo "VK_ICD_FILENAMES=$ICD" >> "$GITHUB_ENV"
+
+      - name: Setup Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+        with:
+          vulkan-query-version: 1.4.350.0
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-use-cache: true
+
+      - name: Report Lavapipe capabilities
+        run: |
+          xvfb-run -a -s "-screen 0 1024x768x24" vulkaninfo --summary
+          xvfb-run -a -s "-screen 0 1024x768x24" vulkaninfo > lavapipe-capabilities.log
+          grep -E 'textureCompressionASTC_LDR|VK_FORMAT_ASTC_8x8_SRGB_BLOCK|VK_FORMAT_ASTC_5x5_SRGB_BLOCK' lavapipe-capabilities.log || true
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-samples -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON \
+            -Dvkexec_BUILD_EXAMPLES=ON -Dvkexec_BUILD_VMA=ON \
+            -Dvkexec_ENABLE_SAMPLE_SMOKE_TESTS=ON \
+            -Dvkexec_SAMPLE_ASYNC_EXPECTED_QUEUE=shared \
+            -Dvkexec_ENABLE_IPO=OFF -Dvkexec_ENABLE_CLANG_TIDY=OFF \
+            -Dvkexec_ENABLE_CPPCHECK=OFF
+
+      - name: Build Vulkan Samples
+        run: |
+          cmake --build build-samples --target \
+            vkexec_vs_triangle vkexec_vs_compute_nbody vkexec_vs_pipeline_barriers \
+            vkexec_vs_async_compute vkexec_vs_timeline_semaphore
+
+      - name: Run smoke tests with synchronization validation
+        run: |
+          set -o pipefail
+          xvfb-run -a -s "-screen 0 1024x768x24" \
+            ctest --test-dir build-samples -R '^vkexec\.samples\.' \
+            --output-on-failure --timeout 180 -V 2>&1 | tee sample-smoke-ctest.log
+          if grep -Eq 'Validation Error|VUID-|SYNC-HAZARD' sample-smoke-ctest.log; then
+            echo "Vulkan validation reported an error" >&2
+            exit 1
+          fi
+
+      - name: Store full validation logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulkan-samples-validation-logs
+          path: |
+            sample-smoke-ctest.log
+            lavapipe-capabilities.log
+            build-samples/Testing/Temporary/LastTest.log
+
   vulkan-validation:
     if: github.event_name != 'schedule'
     name: Vulkan validation (Linux)

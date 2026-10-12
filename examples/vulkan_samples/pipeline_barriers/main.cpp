@@ -2,6 +2,7 @@
 #include "../common/ktx_texture.hpp"
 #include "../common/sampler.hpp"
 #include "common/shader_loader.hpp"
+#include "common/smoke_frames.hpp"
 #include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "load_gltf_mesh.hpp"
@@ -266,7 +267,9 @@ auto parse_mode(int argc, char const *const *argv) -> barrier_mode
     std::string_view const argument(argv[index]);
     if (argument == "--barrier=conservative") {
       mode = barrier_mode::conservative;
-    } else if (argument != "--barrier=fragment" && argument != "--view=albedo") {
+    } else if (argument != "--barrier=fragment" && argument != "--view=albedo"
+               && !vkexec::examples::smoke_frames::is_frame_argument(argument)
+               && !vkexec::examples::smoke_frames::is_smoke_asset_argument(argument)) {
       vkexec::examples::fail_check("use --barrier=fragment, --barrier=conservative, or --view=albedo");
     }
   }
@@ -276,6 +279,7 @@ auto parse_mode(int argc, char const *const *argv) -> barrier_mode
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto run(int argc, char const *const *argv) -> int
 {
+  auto smoke = vkexec::examples::smoke_frames::parse(argc, argv);
   barrier_mode const mode = parse_mode(argc, argv);
   bool albedo_only = false;
   for (int index = 1; index < argc; ++index) {
@@ -283,7 +287,7 @@ auto run(int argc, char const *const *argv) -> int
     albedo_only = albedo_only || std::string_view(argv[index]) == "--view=albedo";
   }
   auto requirements = vkexec::examples::vulkan_sample_requirements();
-  requirements.features.textureCompressionASTC_LDR = VK_TRUE;
+  if (!smoke.uncompressed()) { requirements.features.textureCompressionASTC_LDR = VK_TRUE; }
   vkexec::feat::configure<vkexec::feat::shader_demote_to_helper_invocation>(requirements);
   auto win = vkexec::examples::glfw_presenter::create({
     .width = k_window_width,
@@ -293,12 +297,15 @@ auto run(int argc, char const *const *argv) -> int
     .requirements = std::move(requirements),
   });
   auto &ctx = win.ctx();
-  VkFormatProperties texture_format_properties{};
-  vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), VK_FORMAT_ASTC_8x8_SRGB_BLOCK, &texture_format_properties);
-  constexpr VkFormatFeatureFlags k_texture_format_features =
-    VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
-  if ((texture_format_properties.optimalTilingFeatures & k_texture_format_features) != k_texture_format_features) {
-    vkexec::examples::fail_check("Sponza requires sampled ASTC 8x8 sRGB textures on this device");
+  if (!smoke.uncompressed()) {
+    VkFormatProperties texture_format_properties{};
+    vkGetPhysicalDeviceFormatProperties(
+      ctx.physical_device(), VK_FORMAT_ASTC_8x8_SRGB_BLOCK, &texture_format_properties);
+    constexpr VkFormatFeatureFlags k_texture_format_features =
+      VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+    if ((texture_format_properties.optimalTilingFeatures & k_texture_format_features) != k_texture_format_features) {
+      vkexec::examples::fail_check("Sponza requires sampled ASTC 8x8 sRGB textures on this device");
+    }
   }
   auto scene_data = vkexec::examples::sync_wait_value(
     vkexec::examples::load_gltf_mesh(std::string{ VKEXEC_SAMPLE_ASSET_DIR } + "/sponza/Sponza01.gltf", false));
@@ -325,7 +332,8 @@ auto run(int argc, char const *const *argv) -> int
   textures.reserve(scene_data.base_color_textures.size());
   for (std::string const &texture_path : scene_data.base_color_textures) {
     if (texture_path.empty()) { vkexec::examples::fail_check("Sponza material is missing a base-color texture"); }
-    textures.push_back(vkexec::examples::load_ktx_texture(ctx, allocator, asset_dir / "sponza" / texture_path));
+    textures.push_back(
+      vkexec::examples::load_ktx_texture(ctx, allocator, asset_dir / "sponza" / texture_path, smoke.uncompressed()));
   }
   std::filesystem::path const shader_dir{ VKEXEC_SAMPLE_SHADER_DIR };
   std::vector<frame_resources> frames;
@@ -352,9 +360,9 @@ auto run(int argc, char const *const *argv) -> int
   std::cout << "Pipeline Barriers: " << (mode == barrier_mode::fragment ? "fragment" : "conservative")
             << " synchronization; " << (albedo_only ? "albedo view" : "lit view")
             << "; WASD move, Q/E descend/ascend, right mouse drag to look; close the window to exit\n";
-  while (!win.should_close()) {
+  while (!win.should_close() && smoke.should_continue()) {
     win.poll_events();
-    camera.update(win.native_window());
+    if (!smoke.automated()) { camera.update(win.native_window()); }
     if (frames.front().target.extent().width != win.target().extent().width
         || frames.front().target.extent().height != win.target().extent().height) {
       rebuild_frames();
@@ -380,9 +388,12 @@ auto run(int argc, char const *const *argv) -> int
     upload_textures = false;
     auto ended = win.end_frame(present_frame);
     if (!ended) { vkexec::examples::abort_with_error(ended.error()); }
+    smoke.schedule();
     frame_index = (frame_index + 1) % k_frames_in_flight;
   }
   win.wait_idle();
+  smoke.mark_all_drained();
+  smoke.verify_complete();
   return 0;
 }
 }// namespace

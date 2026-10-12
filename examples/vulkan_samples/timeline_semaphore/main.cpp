@@ -1,5 +1,6 @@
 #include "../common/sampler.hpp"
 #include "common/shader_loader.hpp"
+#include "common/smoke_frames.hpp"
 #include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "sync_wait_helpers.hpp"
@@ -50,6 +51,7 @@ constexpr std::uint32_t k_local_size = 8;
 constexpr std::uint32_t k_fullscreen_vertices = 3;
 constexpr std::size_t k_image_count = 2;
 constexpr float k_update_interval_seconds = 1.0F;
+constexpr float k_smoke_delta_seconds = k_update_interval_seconds / 4.0F;
 constexpr VkFormat k_image_format = VK_FORMAT_R8G8B8A8_UNORM;
 
 enum class timeline_stage : std::uint8_t { submit = 1, draw = 2, present = 3, end = 4 };
@@ -248,8 +250,10 @@ auto record_compute(vkexec::context &ctx,
 }
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
-auto run() -> int
+auto run(int argc, char const *const *argv) -> int
 {
+  auto frames = vkexec::examples::smoke_frames::parse(argc, argv);
+  vkexec::examples::smoke_frames::reject_other_arguments(argc, argv);
   auto requirements = vkexec::examples::vulkan_sample_requirements();
   vkexec::feat::configure<vkexec::feat::timeline_semaphore>(requirements);
   auto win = vkexec::examples::glfw_presenter::create({
@@ -395,7 +399,8 @@ auto run() -> int
             << compute_queue.family << "; close the window to exit\n";
   std::uint64_t number = 0;
   auto last_update = std::chrono::steady_clock::now();
-  while (!win.should_close()) {
+  float simulated_elapsed = 0.0F;
+  while (!win.should_close() && frames.should_continue()) {
     win.poll_events();
     auto begun = win.begin_frame();
     if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
@@ -403,9 +408,14 @@ auto run() -> int
     auto sync = win.target().submission_sync(**begun);
     if (!sync) { vkexec::examples::abort_with_error(sync.error()); }
     auto const now = std::chrono::steady_clock::now();
-    float const elapsed = std::chrono::duration<float>(now - last_update).count();
+    if (frames.automated()) { simulated_elapsed += k_smoke_delta_seconds; }
+    float const elapsed =
+      frames.automated() ? simulated_elapsed : std::chrono::duration<float>(now - last_update).count();
     bool const do_update = elapsed > k_update_interval_seconds;
-    if (do_update) { last_update = now; }
+    if (do_update) {
+      last_update = now;
+      simulated_elapsed = 0.0F;
+    }
     frame_ticket const ticket{
       .number = number,
       .image_index = number % k_image_count,
@@ -421,6 +431,7 @@ auto run() -> int
     if (!presented) { vkexec::examples::abort_with_error(presented.error()); }
     check(timeline.signal(timeline_value(number, timeline_stage::end)));
     ++number;
+    frames.schedule();
   }
   compute_worker.request_stop();
   graphics_worker.request_stop();
@@ -428,6 +439,8 @@ auto run() -> int
   compute_worker.join();
   graphics_worker.join();
   win.wait_idle();
+  frames.mark_all_drained();
+  frames.verify_complete();
   auto counter = timeline.counter();
   if (!counter) { vkexec::examples::abort_with_error(counter.error()); }
   std::cout << "Final timeline value: " << *counter << '\n';
@@ -437,4 +450,7 @@ auto run() -> int
 
 }// namespace
 
-auto main() -> int { return vkexec::examples::run_example(run); }
+auto main(int argc, char const *const *argv) -> int
+{
+  return vkexec::examples::run_example([argc, argv]() -> int { return run(argc, argv); });
+}

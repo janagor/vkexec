@@ -2,6 +2,7 @@
 #include "../common/ktx_texture.hpp"
 #include "../common/sampler.hpp"
 #include "common/shader_loader.hpp"
+#include "common/smoke_frames.hpp"
 #include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "load_gltf_mesh.hpp"
@@ -477,11 +478,12 @@ struct frame_execution
 
 using frame_executions = std::array<std::unique_ptr<frame_execution>, k_frames_in_flight>;
 
-auto drain_frames(frame_executions &in_flight) -> void
+auto drain_frames(frame_executions &in_flight, vkexec::examples::smoke_frames *smoke = nullptr) -> void
 {
   for (auto &execution : in_flight) {
     if (execution) {
       execution->wait();
+      if (smoke != nullptr) { smoke->complete(); }
       execution.reset();
     }
   }
@@ -490,6 +492,7 @@ auto drain_frames(frame_executions &in_flight) -> void
 auto rebuild_frames(vkexec::examples::glfw_presenter &win,
   std::vector<frame_resources> &frames,
   frame_executions &in_flight,
+  vkexec::examples::smoke_frames *smoke,
   vkexec::vma::allocator &allocator,
   std::filesystem::path const &shader_dir,
   std::vector<vkexec::examples::ktx_texture> const &textures,
@@ -498,7 +501,7 @@ auto rebuild_frames(vkexec::examples::glfw_presenter &win,
   compute_pipelines const &compute,
   light_data const &light) -> void
 {
-  drain_frames(in_flight);
+  drain_frames(in_flight, smoke);
   win.wait_idle();
   for (frame_resources &frame : frames) { destroy_frame(win.ctx(), frame); }
   frames.clear();
@@ -614,6 +617,11 @@ auto render_frame(vkexec::context &ctx,
       mode = queue_mode::single;
     } else if (argument == "--queues=async") {
       mode = queue_mode::async;
+    } else if (vkexec::examples::smoke_frames::is_frame_argument(argument)) {
+      continue;
+    } else if (vkexec::examples::smoke_frames::is_smoke_asset_argument(argument) || argument == "--expect-queue=shared"
+               || argument == "--expect-queue=dedicated") {
+      continue;
     } else {
       vkexec::examples::fail_check("use --queues=single or --queues=async");
     }
@@ -621,15 +629,17 @@ auto render_frame(vkexec::context &ctx,
   return mode;
 }
 
-auto check_image_formats(vkexec::context &ctx) -> void
+auto check_image_formats(vkexec::context &ctx, bool uncompressed_smoke) -> void
 {
-  VkFormatProperties texture_properties{};
-  vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), VK_FORMAT_ASTC_5x5_SRGB_BLOCK, &texture_properties);
-  constexpr VkFormatFeatureFlags k_texture_features =
-    static_cast<VkFormatFeatureFlags>(VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)
-    | static_cast<VkFormatFeatureFlags>(VK_FORMAT_FEATURE_TRANSFER_DST_BIT);
-  if ((texture_properties.optimalTilingFeatures & k_texture_features) != k_texture_features) {
-    vkexec::examples::fail_check("Bonza requires sampled ASTC 5x5 sRGB textures");
+  if (!uncompressed_smoke) {
+    VkFormatProperties texture_properties{};
+    vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), VK_FORMAT_ASTC_5x5_SRGB_BLOCK, &texture_properties);
+    constexpr VkFormatFeatureFlags k_texture_features =
+      static_cast<VkFormatFeatureFlags>(VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)
+      | static_cast<VkFormatFeatureFlags>(VK_FORMAT_FEATURE_TRANSFER_DST_BIT);
+    if ((texture_properties.optimalTilingFeatures & k_texture_features) != k_texture_features) {
+      vkexec::examples::fail_check("Bonza requires sampled ASTC 5x5 sRGB textures");
+    }
   }
   VkFormatProperties hdr_properties{};
   vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), k_hdr_format, &hdr_properties);
@@ -677,9 +687,19 @@ auto print_queue_mode(vkexec::context &ctx, queue_mode requested_mode, vkexec::q
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto run(int argc, char const *const *argv) -> int
 {
+  auto frames_to_run = vkexec::examples::smoke_frames::parse(argc, argv);
   queue_mode const requested_mode = parse_mode(argc, argv);
+  bool expect_shared = false;
+  bool expect_dedicated = false;
+  for (int index = 1; index < argc; ++index) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    std::string_view const argument(argv[index]);
+    expect_shared = expect_shared || argument == "--expect-queue=shared";
+    expect_dedicated = expect_dedicated || argument == "--expect-queue=dedicated";
+  }
+  if (expect_shared && expect_dedicated) { vkexec::examples::fail_check("conflicting queue expectations"); }
   auto requirements = vkexec::examples::vulkan_sample_requirements();
-  requirements.features.textureCompressionASTC_LDR = VK_TRUE;
+  if (!frames_to_run.uncompressed()) { requirements.features.textureCompressionASTC_LDR = VK_TRUE; }
   requirements.features.shaderStorageImageExtendedFormats = VK_TRUE;
   auto win = vkexec::examples::glfw_presenter::create({
     .width = k_window_width,
@@ -689,8 +709,14 @@ auto run(int argc, char const *const *argv) -> int
     .requirements = std::move(requirements),
   });
   auto &ctx = win.ctx();
-  check_image_formats(ctx);
+  check_image_formats(ctx, frames_to_run.uncompressed());
   vkexec::queue_ref const compute_queue = choose_compute_queue(ctx, requested_mode);
+  bool const shared_queue = compute_queue.family == ctx.graphics_queue_family();
+  if (requested_mode == queue_mode::single && !shared_queue) {
+    vkexec::examples::fail_check("single queue mode selected a distinct compute family");
+  }
+  if (expect_shared && !shared_queue) { vkexec::examples::fail_check("expected shared compute queue"); }
+  if (expect_dedicated && shared_queue) { vkexec::examples::fail_check("expected dedicated compute queue"); }
   print_queue_mode(ctx, requested_mode, compute_queue);
 
   auto scene = vkexec::examples::sync_wait_value(
@@ -722,7 +748,8 @@ auto run(int argc, char const *const *argv) -> int
   textures.reserve(scene.base_color_textures.size());
   for (std::string const &texture_path : scene.base_color_textures) {
     if (texture_path.empty()) { vkexec::examples::fail_check("Bonza material has no base-color texture"); }
-    textures.push_back(vkexec::examples::load_ktx_texture(ctx, allocator, asset_dir / "bonza" / texture_path));
+    textures.push_back(vkexec::examples::load_ktx_texture(
+      ctx, allocator, asset_dir / "bonza" / texture_path, frames_to_run.uncompressed()));
   }
   auto uploads = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx.get_scheduler()));
   uploads.append(vkexec::on_queue(ctx.graphics_queue_ref()));
@@ -745,8 +772,17 @@ auto run(int argc, char const *const *argv) -> int
   auto compute = make_compute_pipelines(ctx, shader_dir);
   std::vector<frame_resources> frames;
   frame_executions in_flight{};
-  rebuild_frames(
-    win, frames, in_flight, allocator, shader_dir, textures, material_sampler, bloom_sampler, compute, light);
+  rebuild_frames(win,
+    frames,
+    in_flight,
+    &frames_to_run,
+    allocator,
+    shader_dir,
+    textures,
+    material_sampler,
+    bloom_sampler,
+    compute,
+    light);
   vkexec::examples::free_camera camera{
     { bounds.center.at(0),
       bounds.center.at(1) + (bounds.radius * k_camera_height_scale),
@@ -756,19 +792,29 @@ auto run(int argc, char const *const *argv) -> int
     bounds.radius * k_camera_far_scale,
   };
   std::size_t frame_index = 0;
-  while (!win.should_close()) {
+  while (!win.should_close() && frames_to_run.should_continue()) {
     win.poll_events();
-    camera.update(win.native_window());
+    if (!frames_to_run.automated()) { camera.update(win.native_window()); }
     VkExtent2D const window_extent = win.target().extent();
     if (window_extent.width == 0 || window_extent.height == 0) { continue; }
     VkExtent2D const wanted_extent = scaled_extent(window_extent);
     if (frames.front().hdr.extent().width != wanted_extent.width
         || frames.front().hdr.extent().height != wanted_extent.height) {
-      rebuild_frames(
-        win, frames, in_flight, allocator, shader_dir, textures, material_sampler, bloom_sampler, compute, light);
+      rebuild_frames(win,
+        frames,
+        in_flight,
+        &frames_to_run,
+        allocator,
+        shader_dir,
+        textures,
+        material_sampler,
+        bloom_sampler,
+        compute,
+        light);
     }
     if (in_flight.at(frame_index)) {
       in_flight.at(frame_index)->wait();
+      frames_to_run.complete();
       in_flight.at(frame_index).reset();
     }
     auto acquired = win.target().acquire_frame();
@@ -781,12 +827,14 @@ auto run(int argc, char const *const *argv) -> int
     check(frame.camera_buffer.flush());
     in_flight.at(frame_index) = std::make_unique<frame_execution>(
       render_frame(ctx, frame, scene, vertices.handle(), indices.handle(), present_frame, win, compute_queue));
+    frames_to_run.schedule();
     frame.initialized = true;
     frame_index = (frame_index + 1) % k_frames_in_flight;
   }
-  drain_frames(in_flight);
+  drain_frames(in_flight, &frames_to_run);
   win.wait_idle();
   for (frame_resources &frame : frames) { destroy_frame(ctx, frame); }
+  frames_to_run.verify_complete();
   return 0;
 }
 
