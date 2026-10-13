@@ -254,39 +254,30 @@ struct resource_region_counts
 //! for a whole test executable (see `vkexec_core_tests`) so inline definitions stay ODR-consistent.
 struct resource_allocation_fault
 {
-#ifdef VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION
-#ifndef VKEXEC_HAS_EXCEPTIONS
-#error "VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION requires <vkexec/config.hpp> (VKEXEC_HAS_EXCEPTIONS)"
-#endif
-#if VKEXEC_HAS_EXCEPTIONS
+#if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION) && VKEXEC_HAS_EXCEPTIONS
+  static constexpr bool enabled = true;
   static inline thread_local int remaining{};
 
   static auto arm(int count) noexcept -> void { remaining = count; }
 
   static auto disarm() noexcept -> void { remaining = 0; }
+#else
+  static constexpr bool enabled = false;
+  static auto arm(int /*unused*/) noexcept -> void {}
+
+  static auto disarm() noexcept -> void {}
+#endif
 
   //! Throws on the Nth armed checkpoint (`arm(1)` → first call, `arm(2)` → second, …).
-  static auto maybe_throw() -> void
+  static auto maybe_throw() noexcept(!enabled) -> void
   {
+#if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION) && VKEXEC_HAS_EXCEPTIONS
     if (remaining > 0) {
       --remaining;
       if (remaining == 0) { throw std::bad_alloc{}; }
     }
+#endif
   }
-#else
-  static auto arm(int /*unused*/) noexcept -> void {}
-
-  static auto disarm() noexcept -> void {}
-
-  static auto maybe_throw() noexcept -> void {}
-#endif
-#else
-  static auto arm(int /*unused*/) noexcept -> void {}
-
-  static auto disarm() noexcept -> void {}
-
-  static auto maybe_throw() noexcept -> void {}
-#endif
 };
 
 //! Copies frontiers into every child and creates empty frontiers for uncovered bytes.
