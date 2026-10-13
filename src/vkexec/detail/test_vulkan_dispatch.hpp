@@ -11,7 +11,7 @@
 
 namespace vkexec::detail {
 
-#if defined(VKEXEC_TEST_VULKAN_DISPATCH)
+#ifdef VKEXEC_TEST_VULKAN_DISPATCH
 struct test_vulkan_dispatch
 {
   VkDevice device{ VK_NULL_HANDLE };
@@ -43,7 +43,7 @@ auto set_test_vulkan_dispatch(test_vulkan_dispatch const *dispatch) -> void;
 [[nodiscard]] inline auto
   dispatch_queue_submit(VkQueue queue, std::uint32_t count, VkSubmitInfo const *submits, VkFence fence) -> VkResult
 {
-#if defined(VKEXEC_TEST_VULKAN_DISPATCH)
+#ifdef VKEXEC_TEST_VULKAN_DISPATCH
   if (auto dispatch = current_test_vulkan_dispatch(); dispatch && targets_queue(*dispatch, queue)) {
     return dispatch->queue_submit(queue, count, submits, fence);
   }
@@ -57,7 +57,7 @@ auto set_test_vulkan_dispatch(test_vulkan_dispatch const *dispatch) -> void;
   VkSubmitInfo2 const *submits,
   VkFence fence) -> VkResult
 {
-#if defined(VKEXEC_TEST_VULKAN_DISPATCH)
+#ifdef VKEXEC_TEST_VULKAN_DISPATCH
   if (auto dispatch = current_test_vulkan_dispatch();
     dispatch && targets_queue(*dispatch, queue) && dispatch->queue_submit2) {
     return dispatch->queue_submit2(queue, count, submits, fence);
@@ -68,7 +68,7 @@ auto set_test_vulkan_dispatch(test_vulkan_dispatch const *dispatch) -> void;
 
 [[nodiscard]] inline auto dispatch_get_fence_status(VkDevice device, VkFence fence) -> VkResult
 {
-#if defined(VKEXEC_TEST_VULKAN_DISPATCH)
+#ifdef VKEXEC_TEST_VULKAN_DISPATCH
   if (auto dispatch = current_test_vulkan_dispatch(); dispatch && dispatch->device == device) {
     return dispatch->get_fence_status(device, fence);
   }
@@ -82,7 +82,7 @@ auto set_test_vulkan_dispatch(test_vulkan_dispatch const *dispatch) -> void;
   VkBool32 wait_all,
   std::uint64_t timeout) -> VkResult
 {
-#if defined(VKEXEC_TEST_VULKAN_DISPATCH)
+#ifdef VKEXEC_TEST_VULKAN_DISPATCH
   if (auto dispatch = current_test_vulkan_dispatch(); dispatch && dispatch->device == device) {
     return dispatch->wait_for_fences(device, count, fences, wait_all, timeout);
   }
@@ -92,7 +92,7 @@ auto set_test_vulkan_dispatch(test_vulkan_dispatch const *dispatch) -> void;
 
 [[nodiscard]] inline auto dispatch_queue_wait_idle(VkQueue queue) -> VkResult
 {
-#if defined(VKEXEC_TEST_VULKAN_DISPATCH)
+#ifdef VKEXEC_TEST_VULKAN_DISPATCH
   if (auto dispatch = current_test_vulkan_dispatch(); dispatch && targets_queue(*dispatch, queue)) {
     return dispatch->queue_wait_idle(queue);
   }

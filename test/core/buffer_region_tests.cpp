@@ -13,7 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION)
+#ifdef VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION
 #ifndef VKEXEC_HAS_EXCEPTIONS
 #error "VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION requires <vkexec/config.hpp> (VKEXEC_HAS_EXCEPTIONS)"
 #endif
@@ -361,7 +361,7 @@ TEST_CASE("buffer interval plans match a deterministic per-byte reference", "[vk
       REQUIRE(barrier.dst_stage == scopes.at(step).stage);
       REQUIRE(barrier.dst_access == scopes.at(step).access);
       for (auto address = barrier.offset; address < barrier.offset + barrier.size; ++address) {
-        auto &cell = actual.at(static_cast<std::size_t>(address));
+        auto &cell = actual.at(address);
         REQUIRE_FALSE(cell.present);
         cell.present = true;
         cell.source_stage = barrier.src_stage;

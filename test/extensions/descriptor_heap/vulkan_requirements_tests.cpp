@@ -22,7 +22,7 @@ TEST_CASE("context configures Vulkan 1.4 features and descriptor heap extension"
   vkexec::vulkan_requirements requirements{};
   requirements.api_version_major = 1;
   requirements.api_version_minor = 4;
-  requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
+  requirements.device_extensions.push_back(VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME);
   requirements.optional_device_extensions.push_back(VK_EXT_PRESENT_TIMING_EXTENSION_NAME);
   vkexec::feat::configure<vkexec::feat::dynamic_rendering>(requirements);
   vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);

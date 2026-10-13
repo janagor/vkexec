@@ -117,7 +117,7 @@ TEST_CASE("vulkan library floors document instance and device requests", "[vkexe
 TEST_CASE("factory::make_context returns unsupported when requirements cannot be met", "[vkexec][error][gpu]")
 {
   vkexec::vulkan_requirements requirements{};
-  requirements.device_extensions = { "VK_VKEXEC_does_not_exist_EXT" };
+  requirements.device_extensions.push_back("VK_VKEXEC_does_not_exist_EXT");
 
   auto outcome = vkexec::try_sync_wait(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
   REQUIRE(outcome.failed());

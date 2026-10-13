@@ -112,7 +112,7 @@ TEST_CASE("buffer suballocations preserve data across partial graph overlaps", "
   auto const bytes = readback.mapped();
   for (VkDeviceSize offset{}; offset < readback.size(); offset += sizeof(std::uint32_t)) {
     std::uint32_t actual{};
-    auto const word = bytes.subspan(static_cast<std::size_t>(offset), sizeof(actual));
+    auto const word = bytes.subspan(offset, sizeof(actual));
     std::memcpy(&actual, word.data(), sizeof(actual));
     bool const snapshot = offset < k_half_size;
     auto const source_offset = snapshot ? offset + k_snapshot_begin : offset - k_half_size;

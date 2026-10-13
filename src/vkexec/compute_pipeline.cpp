@@ -11,8 +11,10 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <span>
 #include <string>
@@ -135,10 +137,9 @@ auto detail::bind_storage_factory::operator()() const -> result<bound_compute_pi
   VKEXEC_TRY(pipe->update_set(set, buffers));
   std::vector<resource_binding> entries;
   entries.reserve(buffers.size());
-  for (auto const &buffer : buffers) {
-    entries.push_back(
-      resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) });
-  }
+  std::ranges::transform(buffers, std::back_inserter(entries), [](storage_binding const &buffer) -> resource_binding {
+    return resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) };
+  });
   return bound_compute_pipeline{ .pipe = pipe, .set = set, .resources = resource_table{ std::move(entries) } };
 }
 

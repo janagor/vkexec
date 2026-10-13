@@ -3,12 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-legacy.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs =
     {
       nixpkgs,
+      nixpkgs-legacy,
       flake-utils,
       ...
     }:
@@ -16,6 +18,7 @@
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+        legacyPkgs = import nixpkgs-legacy { inherit system; };
         llvm = pkgs.llvmPackages_22;
 
         llvmStdenv = pkgs.overrideCC llvm.stdenv (
@@ -24,7 +27,14 @@
           }
         );
 
-        commonPackages = with pkgs; [
+        llvm16 = legacyPkgs.llvmPackages_16;
+        llvm16Stdenv = legacyPkgs.overrideCC llvm16.libcxxStdenv (
+          llvm16.libcxxStdenv.cc.override {
+            bintools = llvm16.bintools;
+          }
+        );
+
+        commonPackages = p: clangTools: vulkanHeaders: with p; [
           cmake
           ninja
           gcovr
@@ -34,9 +44,9 @@
           graphviz
           pkg-config
           include-what-you-use
-          llvm.clang-tools
+          clangTools
 
-          vulkan-headers
+          vulkanHeaders
           vulkan-loader
           vulkan-validation-layers
           vulkan-tools
@@ -44,11 +54,11 @@
           glslang
           spirv-tools
           glfw
-          libx11
-          libxrandr
-          libxi
-          libxcursor
-          libxinerama
+          (if p ? libx11 then p.libx11 else p.xorg.libX11)
+          (if p ? libxrandr then p.libxrandr else p.xorg.libXrandr)
+          (if p ? libxi then p.libxi else p.xorg.libXi)
+          (if p ? libxcursor then p.libxcursor else p.xorg.libXcursor)
+          (if p ? libxinerama then p.libxinerama else p.xorg.libXinerama)
           libxkbcommon
           wayland
           wayland-protocols
@@ -80,20 +90,37 @@
         clangShell = pkgs.mkShell.override { stdenv = llvmStdenv; } (
           shellEnv
           // {
-            packages = commonPackages;
+            packages = commonPackages pkgs llvm.clang-tools pkgs.vulkan-headers;
           }
         );
 
         gccShell = pkgs.mkShell.override { stdenv = pkgs.gcc16Stdenv; } (
           shellEnv
           // {
-            packages = commonPackages ++ [ pkgs.mold ];
+            packages = commonPackages pkgs llvm.clang-tools pkgs.vulkan-headers ++ [ pkgs.mold ];
             # Host environments (e.g. NixOS /usr/lib → GCC 15) inject
             # NIX_CFLAGS_LINK=-L/usr/lib, which shadows this toolchain's libstdc++
             # and breaks C++20 atomic wait/notify link symbols.
             shellHook = ''
               export NIX_CFLAGS_LINK="-L${pkgs.lib.getLib pkgs.gcc16Stdenv.cc.cc}/lib ''${NIX_CFLAGS_LINK:-}"
             '';
+          }
+        );
+
+        gcc12Shell = legacyPkgs.mkShell.override { stdenv = legacyPkgs.gcc12Stdenv; } (
+          shellEnv // {
+            packages = commonPackages legacyPkgs llvm.clang-tools pkgs.vulkan-headers ++ [ legacyPkgs.mold ];
+            shellHook = ''
+              export NIX_CFLAGS_LINK="-Wl,-rpath,${legacyPkgs.lib.getLib legacyPkgs.gcc12Stdenv.cc.cc}/lib ''${NIX_CFLAGS_LINK:-}"
+            '';
+          }
+        );
+
+        clang16Shell = legacyPkgs.mkShell.override {
+          stdenv = llvm16Stdenv;
+        } (
+          shellEnv // {
+            packages = commonPackages legacyPkgs llvm.clang-tools pkgs.vulkan-headers;
           }
         );
       in
@@ -104,6 +131,9 @@
           default = clangShell;
           gcc = gccShell;
           clang = clangShell;
+        } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+          gcc12 = gcc12Shell;
+          clang16 = clang16Shell;
         };
       }
     );

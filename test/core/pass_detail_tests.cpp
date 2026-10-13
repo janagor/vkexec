@@ -470,8 +470,8 @@ TEST_CASE("compute binding preserves a sampled descriptor's GENERAL layout", "[v
   auto *const image = fake_image(&image_storage);
   vkexec::handles::compute_pipeline pipe{};
   pipe.binding_count = k_one_binding_count;
-  pipe.binding_accesses = { vkexec::buffer_access::readonly };
-  pipe.binding_kinds = { vkexec::resource_kind::sampled_image };
+  pipe.binding_accesses.push_back(vkexec::buffer_access::readonly);
+  pipe.binding_kinds.push_back(vkexec::resource_kind::sampled_image);
   auto const table = vkexec::bindings(vkexec::resource_binding{ .slot = k_sampled_binding,
     .resource = vkexec::sampled_image_resource(
       image, VK_NULL_HANDLE, k_color_range, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) });
@@ -520,7 +520,7 @@ TEST_CASE("opaque compute binding requires complete declarations before planning
 
 TEST_CASE("descriptor-free compute binding remains complete", "[vkexec][pass]")
 {
-  vkexec::handles::compute_pipeline pipe{};
+  vkexec::handles::compute_pipeline const pipe{};
   auto const bind = vkexec::bind_compute(pipe);
   REQUIRE(bind.metadata == vkexec::resource_metadata_state::complete);
   auto const step =
@@ -692,9 +692,9 @@ TEST_CASE("explicit opaque accesses order different queues in one family", "[vke
   char second_queue_storage{};
   auto *const buffer = fake_buffer(&storage);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
-  VkQueue const first_queue = reinterpret_cast<VkQueue>(&first_queue_storage);
+  auto *const first_queue = reinterpret_cast<VkQueue>(&first_queue_storage);
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test-only queue handle
-  VkQueue const second_queue = reinterpret_cast<VkQueue>(&second_queue_storage);
+  auto *const second_queue = reinterpret_cast<VkQueue>(&second_queue_storage);
   vkexec::handles::compute_pipeline pipe{};
   pipe.binding_accesses = { vkexec::buffer_access::readwrite };
   auto const opaque = vkexec::bind_compute(pipe);

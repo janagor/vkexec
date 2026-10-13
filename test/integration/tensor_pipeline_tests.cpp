@@ -7,7 +7,9 @@
 
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/tensor.hpp>
 #include <vkexec/tensor_pass.hpp>

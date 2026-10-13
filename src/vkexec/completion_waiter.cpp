@@ -16,7 +16,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#if VKEXEC_HAS_EXCEPTIONS
+#if VKEXEC_HAS_EXCEPTIONS && defined(VKEXEC_TEST_VULKAN_DISPATCH)
 #include <new>
 #endif
 #include <utility>

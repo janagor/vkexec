@@ -17,6 +17,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_allocator.hpp>
 #include <vkexec/resource_table.hpp>
+#include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/sampler.hpp>
 #include <vkexec/schema_pass.hpp>
@@ -158,9 +159,9 @@ TEST_CASE("headless compute pipeline updates buffers", "[vkexec][gpu]")
 
   auto const resources =
     vkexec::bindings(vkexec::resource_binding{ .slot = 0,
-                       .resource = vkexec::buffer_resource(positions.vk_buffer(), bindings[0].byte_size) },
+                       .resource = vkexec::buffer_resource(positions.vk_buffer(), bindings.front().byte_size) },
       vkexec::resource_binding{
-        .slot = 1, .resource = vkexec::buffer_resource(velocities.vk_buffer(), bindings[1].byte_size) });
+        .slot = 1, .resource = vkexec::buffer_resource(velocities.vk_buffer(), bindings.back().byte_size) });
 
   sim_params const params{ .dt = k_timestep, .damping = k_damping };
   auto waited = vkexec::test::sync_wait_sender(

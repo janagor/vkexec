@@ -12,7 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION)
+#ifdef VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION
 #ifndef VKEXEC_HAS_EXCEPTIONS
 #error "VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION requires <vkexec/config.hpp> (VKEXEC_HAS_EXCEPTIONS)"
 #endif
@@ -254,7 +254,7 @@ struct resource_region_counts
 //! for a whole test executable (see `vkexec_core_tests`) so inline definitions stay ODR-consistent.
 struct resource_allocation_fault
 {
-#if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION)
+#ifdef VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION
 #ifndef VKEXEC_HAS_EXCEPTIONS
 #error "VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION requires <vkexec/config.hpp> (VKEXEC_HAS_EXCEPTIONS)"
 #endif
@@ -268,17 +268,20 @@ struct resource_allocation_fault
   //! Throws on the Nth armed checkpoint (`arm(1)` → first call, `arm(2)` → second, …).
   static auto maybe_throw() -> void
   {
-    if (remaining > 0 && --remaining == 0) { throw std::bad_alloc{}; }
+    if (remaining > 0) {
+      --remaining;
+      if (remaining == 0) { throw std::bad_alloc{}; }
+    }
   }
 #else
-  static auto arm(int) noexcept -> void {}
+  static auto arm(int /*unused*/) noexcept -> void {}
 
   static auto disarm() noexcept -> void {}
 
   static auto maybe_throw() noexcept -> void {}
 #endif
 #else
-  static auto arm(int) noexcept -> void {}
+  static auto arm(int /*unused*/) noexcept -> void {}
 
   static auto disarm() noexcept -> void {}
 
@@ -392,9 +395,7 @@ inline auto merge_buffer_regions(std::vector<buffer_region_state> &regions) -> v
     middle.region = *common;
     partitioned.push_back(std::move(middle));
     std::vector<image_region> remaining;
-    for (auto const &gap : uncovered) {
-      for (auto const &piece : subtract(gap, *common)) { remaining.push_back(piece); }
-    }
+    for (auto const &gap : uncovered) { std::ranges::copy(subtract(gap, *common), std::back_inserter(remaining)); }
     uncovered = std::move(remaining);
   }
   for (auto const &gap : uncovered) {
@@ -464,36 +465,51 @@ class resource_state_tracker
     std::vector<step_checkpoint> steps;
   };
 
-  //! Restores `batch_` and rolls back uncommitted work on scope exit, including exception unwinding.
+  //! Restores the active journal and rolls back uncommitted work on scope exit, including exception unwinding.
   class batch_transaction_guard
   {
     resource_state_tracker *owner_{ nullptr };
-    batch_transaction batch_{};
     bool committed_{ false };
 
   public:
     explicit batch_transaction_guard(resource_state_tracker &owner) noexcept : owner_(&owner)
     {
-      batch_.buffer_count = owner.buffers_.size();
-      batch_.image_count = owner.images_.size();
-      batch_.dependency_count = owner.plan_.dependencies.size();
-      batch_.image_use_count = owner.plan_.image_uses.size();
-      owner.batch_ = &batch_;
+      owner.batch_storage_.buffers.clear();
+      owner.batch_storage_.images.clear();
+      owner.batch_storage_.steps.clear();
+      owner.batch_storage_.buffer_count = owner.buffers_.size();
+      owner.batch_storage_.image_count = owner.images_.size();
+      owner.batch_storage_.dependency_count = owner.plan_.dependencies.size();
+      owner.batch_storage_.image_use_count = owner.plan_.image_uses.size();
+      owner.batch_ = &owner.batch_storage_;
     }
 
     batch_transaction_guard(batch_transaction_guard const &) = delete;
     auto operator=(batch_transaction_guard const &) -> batch_transaction_guard & = delete;
+    batch_transaction_guard(batch_transaction_guard &&) = delete;
+    auto operator=(batch_transaction_guard &&) -> batch_transaction_guard & = delete;
 
     ~batch_transaction_guard() noexcept
     {
-      if (committed_ || owner_ == nullptr) { return; }
+      if (!committed_) { rollback(); }
+    }
+
+    auto rollback() noexcept -> void
+    {
       owner_->batch_ = nullptr;
-      owner_->rollback_batch(batch_);
+      owner_->rollback_batch(owner_->batch_storage_);
+      owner_->batch_storage_.buffers.clear();
+      owner_->batch_storage_.images.clear();
+      owner_->batch_storage_.steps.clear();
+      committed_ = true;
     }
 
     auto commit() noexcept -> void
     {
       owner_->batch_ = nullptr;
+      owner_->batch_storage_.buffers.clear();
+      owner_->batch_storage_.images.clear();
+      owner_->batch_storage_.steps.clear();
       committed_ = true;
     }
   };
@@ -501,6 +517,7 @@ class resource_state_tracker
   resource_sync_plan plan_;
   std::vector<tracked_image_resource> images_;
   std::vector<tracked_buffer_resource> buffers_;
+  batch_transaction batch_storage_{};
   batch_transaction *batch_{ nullptr };
 
   auto remember_buffer(std::size_t index) -> void
@@ -547,19 +564,15 @@ class resource_state_tracker
     plan_.dependencies.resize(batch.dependency_count);
     plan_.image_uses.resize(batch.image_use_count);
     for (auto const &step : batch.steps) {
-      auto &point = plan_.steps[step.step];
+      auto &point = plan_.steps.at(step.step);
       point.buffers_before.resize(step.buffers_before);
       point.buffers_after.resize(step.buffers_after);
       point.images_before.resize(step.images_before);
       point.images_after.resize(step.images_after);
     }
-    for (auto iterator = batch.buffers.rbegin(); iterator != batch.buffers.rend(); ++iterator) {
-      buffers_[iterator->index] = std::move(iterator->prior);
-    }
+    for (auto &buffer : std::views::reverse(batch.buffers)) { buffers_.at(buffer.index) = std::move(buffer.prior); }
     buffers_.resize(batch.buffer_count);
-    for (auto iterator = batch.images.rbegin(); iterator != batch.images.rend(); ++iterator) {
-      images_[iterator->index] = std::move(iterator->prior);
-    }
+    for (auto &image : std::views::reverse(batch.images)) { images_.at(image.index) = std::move(image.prior); }
     images_.resize(batch.image_count);
   }
 
@@ -624,10 +637,10 @@ class resource_state_tracker
   [[nodiscard]] static auto reject_mixed_aspect_declarations(std::vector<image_region_state> const &states,
     image_region const &region) -> status
   {
-    for (auto const &state : states) {
-      if ((state.region.aspects & region.aspects) != 0 && state.region.aspects != region.aspects) {
-        return fail(errc::unsupported, "cannot mix coupled and separate depth/stencil declarations for one image");
-      }
+    if (std::ranges::any_of(states, [&region](image_region_state const &state) -> bool {
+          return (state.region.aspects & region.aspects) != 0 && state.region.aspects != region.aspects;
+        })) {
+      return fail(errc::unsupported, "cannot mix coupled and separate depth/stencil declarations for one image");
     }
     return {};
   }
@@ -1099,19 +1112,31 @@ public:
     batch_transaction_guard guard{ *this };
     if constexpr (requires { declarations.image_extents; }) {
       for (auto const extent : declarations.image_extents) {
-        if (auto registered = register_extent(extent); !registered) { return fail(registered); }
+        if (auto registered = register_extent(extent); !registered) {
+          guard.rollback();
+          return fail(registered);
+        }
       }
     }
     if constexpr (requires { declarations.buffer_extents; }) {
       for (auto const extent : declarations.buffer_extents) {
-        if (auto registered = register_extent(extent); !registered) { return fail(registered); }
+        if (auto registered = register_extent(extent); !registered) {
+          guard.rollback();
+          return fail(registered);
+        }
       }
     }
     for (image_use const declaration : declarations.images) {
-      if (auto used = use(declaration, step, family, queue); !used) { return fail(used); }
+      if (auto used = use(declaration, step, family, queue); !used) {
+        guard.rollback();
+        return fail(used);
+      }
     }
     for (buffer_use const declaration : declarations.buffers) {
-      if (auto used = use(declaration, step, family, queue); !used) { return fail(used); }
+      if (auto used = use(declaration, step, family, queue); !used) {
+        guard.rollback();
+        return fail(used);
+      }
     }
     guard.commit();
     return {};

@@ -10,6 +10,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -77,11 +78,13 @@ namespace detail {
           || target.colors.size() != bind.config.color_attachment_count || (bind.config.depth_test && !target.depth)) {
         return false;
       }
-      for (auto const &color : target.colors) {
-        if (!color.render_pass_initial_layout || color.final_layout == VK_IMAGE_LAYOUT_UNDEFINED) { return false; }
-      }
-      return !target.depth
-             || (target.depth->render_pass_initial_layout && target.depth->final_layout != VK_IMAGE_LAYOUT_UNDEFINED);
+      return std::ranges::all_of(target.colors,
+               [](graphics_attachment const &color) -> bool {
+                 return color.render_pass_initial_layout && color.final_layout != VK_IMAGE_LAYOUT_UNDEFINED;
+               })
+             && (!target.depth
+                 || (target.depth->render_pass_initial_layout
+                     && target.depth->final_layout != VK_IMAGE_LAYOUT_UNDEFINED));
     }
 
     auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) const -> status

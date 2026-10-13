@@ -16,9 +16,11 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <span>
 #include <string>
@@ -176,13 +178,13 @@ namespace {
     std::span<std::uint32_t const> fs_spv,
     std::span<storage_binding const> buffers) -> result<::vkexec::owned::graphics_pipeline>
   {
-    std::vector<resource_binding> bindings;
-    bindings.reserve(buffers.size());
-    for (storage_binding const &buffer : buffers) {
-      bindings.push_back(
-        resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) });
-    }
-    resource_table table{ std::move(bindings) };
+    std::vector<resource_binding> resource_bindings;
+    resource_bindings.reserve(buffers.size());
+    std::ranges::transform(
+      buffers, std::back_inserter(resource_bindings), [](storage_binding const &buffer) -> resource_binding {
+        return resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) };
+      });
+    resource_table table{ std::move(resource_bindings) };
     VKEXEC_TRY_ASSIGN(owned, create(ctx, render_pass, cfg, vs_spv, fs_spv, table));
     auto bound = bind_graphics_resources(ctx, owned, table);
     if (!bound) {
@@ -216,12 +218,12 @@ auto create(context &ctx,
   std::span<std::uint32_t const> fragment_spirv,
   std::uint32_t storage_binding_count) -> result<handles::graphics_pipeline>
 {
-  std::vector<resource_binding> bindings;
-  bindings.reserve(storage_binding_count);
+  std::vector<resource_binding> resource_bindings;
+  resource_bindings.reserve(storage_binding_count);
   for (std::uint32_t slot = 0; slot < storage_binding_count; ++slot) {
-    bindings.push_back(resource_binding{ .slot = slot, .resource = buffer_resource(VK_NULL_HANDLE, 0) });
+    resource_bindings.push_back(resource_binding{ .slot = slot, .resource = buffer_resource(VK_NULL_HANDLE, 0) });
   }
-  return create(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, resource_table{ std::move(bindings) });
+  return create(ctx, render_pass, cfg, vertex_spirv, fragment_spirv, resource_table{ std::move(resource_bindings) });
 }
 
 auto create(context &ctx,

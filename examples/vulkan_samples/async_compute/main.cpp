@@ -168,7 +168,8 @@ auto check(vkexec::status result) -> void
 [[nodiscard]] auto normalize(std::array<float, 3> value) -> std::array<float, 3>
 {
   float const inverse_length = 1.0F / std::sqrt(dot(value, value));
-  for (float &component : value) { component *= inverse_length; }
+  std::ranges::transform(
+    value, value.begin(), [inverse_length](float component) -> float { return component * inverse_length; });
   return value;
 }
 
@@ -440,6 +441,7 @@ struct frame_receiver
   { completion->set_value(vkexec::fail(vkexec::errc::unexpected_exception, "frame graph failed with an exception")); }
   auto set_stopped() const && noexcept -> void
   { completion->set_value(vkexec::fail(vkexec::errc::cancelled, "frame graph stopped")); }
+  // cppcheck-suppress functionStatic
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
   [[nodiscard]] auto get_env() const noexcept -> stdexec::env<> { return {}; }
 };
@@ -617,10 +619,9 @@ auto render_frame(vkexec::context &ctx,
       mode = queue_mode::single;
     } else if (argument == "--queues=async") {
       mode = queue_mode::async;
-    } else if (vkexec::examples::smoke_frames::is_frame_argument(argument)) {
-      continue;
-    } else if (vkexec::examples::smoke_frames::is_smoke_asset_argument(argument) || argument == "--expect-queue=shared"
-               || argument == "--expect-queue=dedicated") {
+    } else if (vkexec::examples::smoke_frames::is_frame_argument(argument)
+               || vkexec::examples::smoke_frames::is_smoke_asset_argument(argument)
+               || argument == "--expect-queue=shared" || argument == "--expect-queue=dedicated") {
       continue;
     } else {
       vkexec::examples::fail_check("use --queues=single or --queues=async");
@@ -684,11 +685,12 @@ auto print_queue_mode(vkexec::context &ctx, queue_mode requested_mode, vkexec::q
             << "\nWASD move, Q/E descend/ascend, right mouse drag to look; close the window to exit\n";
 }
 
-// NOLINTNEXTLINE(bugprone-exception-escape)
-auto run(int argc, char const *const *argv) -> int
+auto check_queue_expectations(int argc,
+  char const *const *argv,
+  queue_mode requested_mode,
+  vkexec::context &ctx,
+  vkexec::queue_ref compute_queue) -> void
 {
-  auto frames_to_run = vkexec::examples::smoke_frames::parse(argc, argv);
-  queue_mode const requested_mode = parse_mode(argc, argv);
   bool expect_shared = false;
   bool expect_dedicated = false;
   for (int index = 1; index < argc; ++index) {
@@ -698,6 +700,19 @@ auto run(int argc, char const *const *argv) -> int
     expect_dedicated = expect_dedicated || argument == "--expect-queue=dedicated";
   }
   if (expect_shared && expect_dedicated) { vkexec::examples::fail_check("conflicting queue expectations"); }
+  bool const shared_queue = compute_queue.family == ctx.graphics_queue_family();
+  if (requested_mode == queue_mode::single && !shared_queue) {
+    vkexec::examples::fail_check("single queue mode selected a distinct compute family");
+  }
+  if (expect_shared && !shared_queue) { vkexec::examples::fail_check("expected shared compute queue"); }
+  if (expect_dedicated && shared_queue) { vkexec::examples::fail_check("expected dedicated compute queue"); }
+}
+
+// NOLINTNEXTLINE(bugprone-exception-escape)
+auto run(int argc, char const *const *argv) -> int
+{
+  auto frames_to_run = vkexec::examples::smoke_frames::parse(argc, argv);
+  queue_mode const requested_mode = parse_mode(argc, argv);
   auto requirements = vkexec::examples::vulkan_sample_requirements();
   if (!frames_to_run.uncompressed()) { requirements.features.textureCompressionASTC_LDR = VK_TRUE; }
   requirements.features.shaderStorageImageExtendedFormats = VK_TRUE;
@@ -711,12 +726,7 @@ auto run(int argc, char const *const *argv) -> int
   auto &ctx = win.ctx();
   check_image_formats(ctx, frames_to_run.uncompressed());
   vkexec::queue_ref const compute_queue = choose_compute_queue(ctx, requested_mode);
-  bool const shared_queue = compute_queue.family == ctx.graphics_queue_family();
-  if (requested_mode == queue_mode::single && !shared_queue) {
-    vkexec::examples::fail_check("single queue mode selected a distinct compute family");
-  }
-  if (expect_shared && !shared_queue) { vkexec::examples::fail_check("expected shared compute queue"); }
-  if (expect_dedicated && shared_queue) { vkexec::examples::fail_check("expected dedicated compute queue"); }
+  check_queue_expectations(argc, argv, requested_mode, ctx, compute_queue);
   print_queue_mode(ctx, requested_mode, compute_queue);
 
   auto scene = vkexec::examples::sync_wait_value(

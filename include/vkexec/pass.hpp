@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <exception>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -296,11 +297,13 @@ namespace detail {
         if constexpr (requires { step.bind.metadata; }) {
           return step.bind.metadata == resource_metadata_state::complete;
         }
+        // cppcheck-suppress constStatement
         return requires { step.resources; };
       }
 
       [[nodiscard]] auto requires_complete_metadata() const noexcept -> bool override
       {
+        // cppcheck-suppress constStatement
         return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
       }
     };
@@ -596,8 +599,9 @@ namespace detail {
         return fail(errc::invalid_argument, "invalid execution batch");
       }
       validated_step = batch.end_step;
-      for (std::size_t const predecessor : batch.predecessors) {
-        if (predecessor >= batch_index) { return fail(errc::invalid_argument, "invalid execution dependency"); }
+      if (std::ranges::any_of(batch.predecessors,
+            [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {
+        return fail(errc::invalid_argument, "invalid execution dependency");
       }
     }
     if (validated_step != step_count) { return fail(errc::invalid_argument, "incomplete execution plan"); }
@@ -676,7 +680,7 @@ namespace detail {
     std::size_t position{};
     std::apply(
       [&](auto const &...step) -> void {
-        auto declare_one = [&](auto const &current) -> void {
+        [[maybe_unused]] auto declare_one = [&](auto const &current) -> void {
           if (position == index) {
             declared = declare_step_resources(current, tracker, index, queue, crosses_families);
           }
@@ -730,14 +734,14 @@ namespace detail {
         std::size_t position{};
         std::apply(
           [&](auto &...step) -> void {
-            auto record_one = [&](auto &current) -> void {
+            [[maybe_unused]] auto record_one = [&](auto &current) -> void {
               if (position == index) { recorded = current.record(facade, scope.cmd, scope.cleanup); }
               ++position;
             };
             (record_one(step), ...);
           },
           steps);
-        VKEXEC_TRY(recorded);
+        if (!recorded) { return unexpected(std::move(recorded.error())); }
       }
       VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_after, point.buffers_after));
     }
@@ -877,6 +881,7 @@ namespace detail {
     execution_plan plan;
     std::optional<graph_presentation> presentation;
 
+    // cppcheck-suppress functionStatic
     // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
     [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
 
@@ -919,9 +924,11 @@ namespace detail {
       {
         timeline = facade.capabilities().timeline_semaphore && scopes.size() > std::size_t{ 1 };
         for (std::size_t destination{}; destination < plan.batches.size(); ++destination) {
-          for (std::size_t const source : plan.batches.at(destination).predecessors) {
-            edges.push_back(binary_edge{ .source = source, .destination = destination });
-          }
+          std::ranges::transform(plan.batches.at(destination).predecessors,
+            std::back_inserter(edges),
+            [destination](std::size_t source) -> binary_edge {
+              return binary_edge{ .source = source, .destination = destination };
+            });
         }
         semaphores.reserve(timeline ? scopes.size() : edges.size());
         fences.reserve(scopes.size());
@@ -979,8 +986,6 @@ namespace detail {
         }
         if (presentation && index + std::size_t{ 1 } == scopes.size()) {
           waits.push_back(presentation->sync.image_available_wait);
-        }
-        if (presentation && index + std::size_t{ 1 } == scopes.size()) {
           signals.push_back(presentation->sync.render_finished_signal);
           VkFence fence{ fences.at(index) };
           if (VkResult const reset = vkResetFences(facade.device(), 1, &fence); reset != VK_SUCCESS) {

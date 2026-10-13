@@ -78,37 +78,40 @@ namespace detail {
 
 }// namespace detail
 
+[[nodiscard]] inline auto load_smoke_ktx_texture(context &ctx, vma::allocator &allocator) -> ktx_texture
+{
+  constexpr VkExtent2D k_extent{ .width = 1, .height = 1 };
+  constexpr std::array<std::uint8_t, 4> k_color{ 255, 255, 255, 255 };
+  VkFormatProperties properties{};
+  vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), VK_FORMAT_R8G8B8A8_SRGB, &properties);
+  constexpr VkFormatFeatureFlags k_required_features =
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+  if ((properties.optimalTilingFeatures & k_required_features) != k_required_features) {
+    fail_check("smoke textures require sampled RGBA8 sRGB images with transfer destination support");
+  }
+  auto staging = sync_wait_value(vma::factory::make_gpu_buffer(
+    allocator, vma::gpu_buffer_create_info{ .size = k_color.size(), .memory = vma::buffer_memory::host_visible }));
+  std::memcpy(staging.mapped().data(), k_color.data(), k_color.size());
+  if (auto flushed = staging.flush(); !flushed) { abort_with_error(flushed.error()); }
+  auto image = sync_wait_value(allocate_image(allocator,
+    image_create_info{
+      .extent = { .width = k_extent.width, .height = k_extent.height, .depth = 1 },
+      .format = VK_FORMAT_R8G8B8A8_SRGB,
+      .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+      .queue_families = {},
+    }));
+  auto view = sync_wait_value(vma::factory::make_image_view(ctx, image));
+  return ktx_texture{
+    .image = std::move(image), .view = std::move(view), .staging = std::move(staging), .extent = k_extent
+  };
+}
+
 [[nodiscard]] inline auto load_ktx_texture(context &ctx,
   vma::allocator &allocator,
   std::filesystem::path const &path,
   bool uncompressed_smoke = false) -> ktx_texture
 {
-  if (uncompressed_smoke) {
-    constexpr VkExtent2D k_extent{ .width = 1, .height = 1 };
-    constexpr std::array<std::uint8_t, 4> k_color{ 255, 255, 255, 255 };
-    VkFormatProperties properties{};
-    vkGetPhysicalDeviceFormatProperties(ctx.physical_device(), VK_FORMAT_R8G8B8A8_SRGB, &properties);
-    constexpr VkFormatFeatureFlags k_required_features =
-      VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
-    if ((properties.optimalTilingFeatures & k_required_features) != k_required_features) {
-      fail_check("smoke textures require sampled RGBA8 sRGB images with transfer destination support");
-    }
-    auto staging = sync_wait_value(vma::factory::make_gpu_buffer(
-      allocator, vma::gpu_buffer_create_info{ .size = k_color.size(), .memory = vma::buffer_memory::host_visible }));
-    std::memcpy(staging.mapped().data(), k_color.data(), k_color.size());
-    if (auto flushed = staging.flush(); !flushed) { abort_with_error(flushed.error()); }
-    auto image = sync_wait_value(allocate_image(allocator,
-      image_create_info{
-        .extent = { .width = k_extent.width, .height = k_extent.height, .depth = 1 },
-        .format = VK_FORMAT_R8G8B8A8_SRGB,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        .queue_families = {},
-      }));
-    auto view = sync_wait_value(vma::factory::make_image_view(ctx, image));
-    return ktx_texture{
-      .image = std::move(image), .view = std::move(view), .staging = std::move(staging), .extent = k_extent
-    };
-  }
+  if (uncompressed_smoke) { return load_smoke_ktx_texture(ctx, allocator); }
   std::ifstream stream(path, std::ios::binary);
   if (!stream) { fail_check("could not open KTX texture"); }
   std::vector<char> const file(std::istreambuf_iterator<char>{ stream }, std::istreambuf_iterator<char>{});
@@ -118,7 +121,8 @@ namespace detail {
   bool const ktx2 = std::memcmp(bytes.data(), detail::k_ktx2_identifier.data(), detail::k_ktx2_identifier.size()) == 0;
   if (!ktx1 && !ktx2) { fail_check("unknown KTX texture version"); }
   VkExtent2D extent{};
-  VkFormat format = VK_FORMAT_UNDEFINED;
+  VkFormat const format =
+    ktx1 ? VK_FORMAT_ASTC_8x8_SRGB_BLOCK : static_cast<VkFormat>(detail::read_u32(bytes, detail::k_ktx2_format_offset));
   std::size_t payload_offset = 0;
   std::size_t image_size = 0;
   std::uint32_t block_extent = 0;
@@ -133,7 +137,6 @@ namespace detail {
       detail::k_ktx_header_bytes + detail::read_u32(bytes, detail::k_ktx_key_values_offset);
     image_size = detail::read_u32(bytes, image_size_offset);
     payload_offset = image_size_offset + sizeof(std::uint32_t);
-    format = VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
     block_extent = detail::k_astc_8x8_block_extent;
   } else {
     if (bytes.size() < detail::k_ktx2_level_index + detail::k_ktx2_level_index_bytes
@@ -144,7 +147,6 @@ namespace detail {
     }
     extent = { .width = detail::read_u32(bytes, detail::k_ktx2_width_offset),
       .height = detail::read_u32(bytes, detail::k_ktx2_height_offset) };
-    format = static_cast<VkFormat>(detail::read_u32(bytes, detail::k_ktx2_format_offset));
     if (format != VK_FORMAT_ASTC_5x5_SRGB_BLOCK) { fail_check("unsupported KTX2 texture format"); }
     block_extent = detail::k_astc_5x5_block_extent;
     std::uint64_t const level_offset = detail::read_u64(bytes, detail::k_ktx2_level_index);

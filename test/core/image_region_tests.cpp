@@ -6,6 +6,7 @@
 #include <vkexec/config.hpp>
 #include <vkexec/detail/resource_ranges.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/resource_use.hpp>
 
 #include <algorithm>
@@ -13,7 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION)
+#ifdef VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION
 #ifndef VKEXEC_HAS_EXCEPTIONS
 #error "VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION requires <vkexec/config.hpp> (VKEXEC_HAS_EXCEPTIONS)"
 #endif
@@ -126,7 +127,7 @@ TEST_CASE("image partitioning accepts disjoint finite mips that share remaining 
   REQUIRE(mip0.has_value());
   REQUIRE(mip1.has_value());
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
-  std::vector<image_region_state> states{ image_region_state{ .region = *mip0, .accesses = {} } };
+  std::vector<image_region_state> const states{ image_region_state{ .region = *mip0, .accesses = {} } };
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   auto const partitioned = partition_image_regions(states, *mip1);
   REQUIRE(partitioned.has_value());

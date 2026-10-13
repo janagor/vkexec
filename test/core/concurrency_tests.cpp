@@ -183,6 +183,7 @@ TEST_CASE("descriptor pools allocate under contention", "[vkexec][concurrency][g
   std::array<std::thread, k_thread_count> threads;
   for (int index = 0; index < k_thread_count; ++index) {
     threads.at(static_cast<std::size_t>(index)) =
+      // cppcheck-suppress knownArgument -- Catch2 sections exercise both pool selection modes.
       std::thread(allocate, pools.at(static_cast<std::size_t>(same_pool ? 0 : index)));
   }
   for (auto &thread : threads) { thread.join(); }

@@ -14,7 +14,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <span>
 #include <string>
@@ -206,10 +208,11 @@ namespace owned {
     {
       std::vector<resource_binding> entries;
       entries.reserve(buffers.size());
-      for (storage_binding const &buffer : buffers) {
-        entries.push_back(
-          resource_binding{ .slot = buffer.binding, .resource = buffer_resource(buffer.buffer, buffer.byte_size) });
-      }
+      std::ranges::transform(
+        buffers, std::back_inserter(entries), [](storage_binding const &buffer) -> resource_binding {
+          return resource_binding{ .slot = buffer.binding,
+            .resource = buffer_resource(buffer.buffer, buffer.byte_size) };
+        });
       return make(ctx, std::move(resources), set, resource_table{ std::move(entries) });
     }
 

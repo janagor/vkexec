@@ -1,3 +1,4 @@
+#include <vkexec/detail/capability_id.hpp>
 #include <vkexec/detail/vk_bootstrap_feature.hpp>
 #include <vkexec_extensions/descriptor_heap/extension.hpp>
 #include <vkexec_extensions/descriptor_heap/procs.hpp>

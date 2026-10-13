@@ -100,7 +100,8 @@ template<class Pred, static_pass_step... Steps, static_pass_step Step>
 {
   auto const index = chain.base_index + sizeof...(Steps);
   if (chain.dag_mode) { chain.step_predecessors.push_back(chain.frontier); }
-  chain.frontier = { index };
+  chain.frontier.clear();
+  chain.frontier.push_back(index);
   chain.step_queues.push_back(chain.current_queue);
   return std::apply(
     [&chain, &step](Steps &&...old) -> pass_chain<Pred, Steps..., Step> {
@@ -172,7 +173,7 @@ template<class Tag, class Data, class Child, class Env>
 
 template<std::size_t Index = 0, class Chain, class Branches, class Env>
 [[nodiscard]] auto
-  collect_pass_branches(Chain chain, Branches branches, std::vector<std::size_t> const &incoming, Env const &env);
+  collect_pass_branches(Chain chain, Branches &branches, std::vector<std::size_t> const &incoming, Env const &env);
 
 template<class Tag, class Data, class Child, class Env>
   requires(std::same_as<Tag, on_queue_t> || std::same_as<Tag, when_all_t>
@@ -195,7 +196,7 @@ template<class Tag, class Data, class Child, class Env>
     }
     auto const incoming = chain.frontier;
     chain.frontier.clear();
-    return collect_pass_branches(std::move(chain), std::move(expr.data.branches), incoming, env);
+    return collect_pass_branches(std::move(chain), expr.data.branches, incoming, env);
   } else {
     auto step = lower_vkexec_pass_step(std::move(expr.tag), std::move(expr.data), env);
     return append_lowered_step(std::move(chain), std::move(step));
@@ -224,7 +225,7 @@ template<class Pred, static_pass_step... Existing, static_pass_step... Added>
 
 template<std::size_t Index, class Chain, class Branches, class Env>
 [[nodiscard]] auto
-  collect_pass_branches(Chain chain, Branches branches, std::vector<std::size_t> const &incoming, Env const &env)
+  collect_pass_branches(Chain chain, Branches &branches, std::vector<std::size_t> const &incoming, Env const &env)
 {
   if constexpr (Index == std::tuple_size_v<Branches>) {
     return chain;
@@ -236,7 +237,7 @@ template<std::size_t Index, class Chain, class Branches, class Env>
     auto normalized = normalize_vkexec_expression(std::move(expression), env);
     auto branch = collect_pass_chain(std::move(normalized), env);
     auto merged = merge_pass_branch(std::move(chain), std::move(branch));
-    return collect_pass_branches<Index + std::size_t{ 1 }>(std::move(merged), std::move(branches), incoming, env);
+    return collect_pass_branches<Index + std::size_t{ 1 }>(std::move(merged), branches, incoming, env);
   }
 }
 

@@ -154,8 +154,8 @@ TEST_CASE("graphics descriptors synchronize after compute writes", "[vkexec][gra
   vkexec::handles::graphics_pipeline pipe{};
   pipe.cfg.color_attachment_count = k_no_colors;
   pipe.binding_count = k_one_binding;
-  pipe.binding_slots = { k_sampled_slot };
-  pipe.binding_kinds = { vkexec::resource_kind::sampled_image };
+  pipe.binding_slots.push_back(k_sampled_slot);
+  pipe.binding_kinds.push_back(vkexec::resource_kind::sampled_image);
   auto const table = vkexec::bindings(vkexec::resource_binding{ .slot = k_sampled_slot,
     .resource =
       vkexec::sampled_image_resource(image, VK_NULL_HANDLE, k_color_range, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) });

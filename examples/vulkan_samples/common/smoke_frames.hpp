@@ -28,9 +28,11 @@ public:
       if (!argument.starts_with(k_prefix)) { continue; }
       if (result.limit_ != 0) { fail_check("--frames may only be specified once"); }
       std::string_view const value = argument.substr(k_prefix.size());
-      auto const parsed = std::from_chars(value.data(), value.data() + value.size(), result.limit_);
-      if (value.empty() || parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size()
-          || result.limit_ == 0) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      auto const *const end = value.data() + value.size();
+      // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
+      auto const parsed = std::from_chars(value.data(), end, result.limit_);
+      if (value.empty() || parsed.ec != std::errc{} || parsed.ptr != end || result.limit_ == 0) {
         fail_check("--frames requires a positive integer");
       }
     }

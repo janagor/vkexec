@@ -26,430 +26,423 @@
 #include <utility>
 #include <vector>
 
-namespace vkexec {
+namespace vkexec::detail {
 
-namespace detail {
-
-  /**
-   * Descriptor sets allocated for one recording/submit, freed together on scope exit.
-   *
-   * Tracks both pipeline-keyed sets and raw pool/set pairs from one-off
-   * allocations so `release` can free everything after submit.
-   */
-  struct descriptor_cleanup
+/**
+ * Descriptor sets allocated for one recording/submit, freed together on scope exit.
+ *
+ * Tracks both pipeline-keyed sets and raw pool/set pairs from one-off
+ * allocations so `release` can free everything after submit.
+ */
+struct descriptor_cleanup
+{
+  struct allocated_set
   {
-    struct allocated_set
-    {
-      VkDescriptorPool pool{ VK_NULL_HANDLE };
-      VkDescriptorSet set{ VK_NULL_HANDLE };
-    };
-
-    struct pipeline_set_entry
-    {
-      handles::compute_pipeline *pipeline{ nullptr };
-      std::vector<storage_binding> buffers;
-      VkDescriptorSet set{ VK_NULL_HANDLE };
-    };
-
-    std::vector<pipeline_set_entry> sets;
-    std::vector<allocated_set> allocated;
-
-    //! Frees all tracked descriptor sets on `ctx`'s device.
-    //!
-    //! May throw if descriptor-pool synchronization fails. Callers that need a
-    //! noexcept RAII boundary should catch at `submit_scope::release()`.
-    auto release(context const &ctx) -> void;
-
-    //! Records a pool/set pair for later release.
-    auto track(VkDescriptorPool pool, VkDescriptorSet set) -> void
-    { allocated.push_back(allocated_set{ .pool = pool, .set = set }); }
+    VkDescriptorPool pool{ VK_NULL_HANDLE };
+    VkDescriptorSet set{ VK_NULL_HANDLE };
   };
 
-  static_assert(std::is_nothrow_move_constructible_v<descriptor_cleanup>);
-  static_assert(std::is_nothrow_move_assignable_v<descriptor_cleanup>);
-  static_assert(std::is_nothrow_move_constructible_v<descriptor_cleanup::pipeline_set_entry>);
-  static_assert(std::is_nothrow_move_assignable_v<descriptor_cleanup::pipeline_set_entry>);
-
-  //! Compatibility alias used by pass graph recording.
-  using pass_cleanup = descriptor_cleanup;
-
-  //! Returns whether two storage-binding lists refer to the same buffers in order.
-  auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool;
-
-  /**
-   * Allocates a compute descriptor set from `pipe`'s pool and writes `buffers`.
-   *
-   * @param ctx Context that owns the device.
-   * @param pipe Pipeline whose layout and pool are used.
-   * @param buffers Storage bindings matching the pipeline layout.
-   */
-  auto allocate_compute_set(context const &ctx,
-    handles::compute_pipeline &pipe,
-    std::span<storage_binding const> buffers) -> result<VkDescriptorSet>;
-
-  /**
-   * Reuses a tracked set for `pipe` when bindings match; otherwise allocates a new one.
-   *
-   * @param cleanup Receives ownership of newly allocated sets.
-   */
-  auto bind_or_allocate_set(context const &ctx,
-    handles::compute_pipeline &pipe,
-    std::span<storage_binding const> buffers,
-    descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
-
-  /**
-   * Exclusive command-pool lease and descriptor loans for one GPU submit.
-   *
-   * Exit (destructor or `release`) always frees both. The pool remains leased
-   * until the submit sender observes GPU completion. Open with `open`, record
-   * into `cmd`, then submit via `submit_and_wait` or `submit_fence` senders.
-   *
-   * @see enter_submit_scope, submit_and_wait, submit_fence
-   */
-  struct submit_scope
+  struct pipeline_set_entry
   {
-    context_handle state;
-    VkCommandPool pool{ VK_NULL_HANDLE };
-    VkCommandBuffer cmd{ VK_NULL_HANDLE };
-    queue_ref queue{};
-    descriptor_cleanup cleanup{};
-
-    submit_scope() = default;
-    submit_scope(submit_scope const &) = delete;
-    auto operator=(submit_scope const &) -> submit_scope & = delete;
-
-    submit_scope(submit_scope &&other) noexcept
-      : state(std::move(other.state)), pool(other.pool), cmd(other.cmd), queue(other.queue),
-        cleanup(std::move(other.cleanup))
-    {
-      other.pool = VK_NULL_HANDLE;
-      other.cmd = VK_NULL_HANDLE;
-    }
-
-    auto operator=(submit_scope &&other) noexcept -> submit_scope &
-    {
-      if (this == &other) { return *this; }
-      release();
-      state = std::move(other.state);
-      pool = other.pool;
-      cmd = other.cmd;
-      queue = other.queue;
-      cleanup = std::move(other.cleanup);
-      other.pool = VK_NULL_HANDLE;
-      other.cmd = VK_NULL_HANDLE;
-      return *this;
-    }
-
-    ~submit_scope() { release(); }
-
-    /**
-     * Checks out a compute-family command pool, begins recording, and returns an open scope.
-     *
-     * @param host Context that owns the command pool.
-     */
-    [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
-    [[nodiscard]] static auto open(context &host, queue_ref queue) -> result<submit_scope>;
-
-    //! Ends Vulkan recording on `cmd` (`vkEndCommandBuffer`).
-    // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
-    [[nodiscard]] auto end_recording() -> status;
-
-    //! Tracks `set` (from `pipe`'s pool) for release with this scope.
-    auto track_set(handles::compute_pipeline const &pipe, VkDescriptorSet set) -> void
-    { cleanup.track(pipe.descriptor_pool, set); }
-
-    //! Frees the command buffer and descriptor loans; safe to call more than once.
-    //!
-    //! Persistent synchronization failure during cleanup calls `std::terminate()`
-    //! when GPU retirement cannot be established after the configured retries.
-    auto release() noexcept -> void;
+    handles::compute_pipeline *pipeline{ nullptr };
+    std::vector<storage_binding> buffers;
+    VkDescriptorSet set{ VK_NULL_HANDLE };
   };
 
-  /**
-   * Waits for GPU work then destroys `semaphore`/`fence`.
-   *
-   * Safe when handles are null. Uses `fallback_queue` only if a queue wait is required.
-   */
-  auto
-    reclaim_submission_sync(context const &ctx, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
-    -> void;
+  std::vector<pipeline_set_entry> sets;
+  std::vector<allocated_set> allocated;
 
-  /**
-   * Delivers exactly one completion signal to `receiver`.
-   *
-   * Call only after GPU/host sync objects for this submit have already been reclaimed
-   * and command/descriptor loans released (or about to be via `release_scope_and_complete`).
-   */
-  template<class Receiver>
-  auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
+  //! Frees all tracked descriptor sets on `ctx`'s device.
+  //!
+  //! May throw if descriptor-pool synchronization fails. Callers that need a
+  //! noexcept RAII boundary should catch at `submit_scope::release()`.
+  auto release(context const &ctx) -> void;
+
+  //! Records a pool/set pair for later release.
+  auto track(VkDescriptorPool pool, VkDescriptorSet set) -> void
+  { allocated.push_back(allocated_set{ .pool = pool, .set = set }); }
+};
+
+static_assert(std::is_nothrow_move_constructible_v<descriptor_cleanup>);
+static_assert(std::is_nothrow_move_assignable_v<descriptor_cleanup>);
+static_assert(std::is_nothrow_move_constructible_v<descriptor_cleanup::pipeline_set_entry>);
+static_assert(std::is_nothrow_move_assignable_v<descriptor_cleanup::pipeline_set_entry>);
+
+//! Compatibility alias used by pass graph recording.
+using pass_cleanup = descriptor_cleanup;
+
+//! Returns whether two storage-binding lists refer to the same buffers in order.
+auto storage_bindings_equal(std::span<storage_binding const> lhs, std::span<storage_binding const> rhs) -> bool;
+
+/**
+ * Allocates a compute descriptor set from `pipe`'s pool and writes `buffers`.
+ *
+ * @param ctx Context that owns the device.
+ * @param pipe Pipeline whose layout and pool are used.
+ * @param buffers Storage bindings matching the pipeline layout.
+ */
+auto allocate_compute_set(context const &ctx, handles::compute_pipeline &pipe, std::span<storage_binding const> buffers)
+  -> result<VkDescriptorSet>;
+
+/**
+ * Reuses a tracked set for `pipe` when bindings match; otherwise allocates a new one.
+ *
+ * @param cleanup Receives ownership of newly allocated sets.
+ */
+auto bind_or_allocate_set(context const &ctx,
+  handles::compute_pipeline &pipe,
+  std::span<storage_binding const> buffers,
+  descriptor_cleanup &cleanup) -> result<VkDescriptorSet>;
+
+/**
+ * Exclusive command-pool lease and descriptor loans for one GPU submit.
+ *
+ * Exit (destructor or `release`) always frees both. The pool remains leased
+ * until the submit sender observes GPU completion. Open with `open`, record
+ * into `cmd`, then submit via `submit_and_wait` or `submit_fence` senders.
+ *
+ * @see enter_submit_scope, submit_and_wait, submit_fence
+ */
+struct submit_scope
+{
+  context_handle state;
+  VkCommandPool pool{ VK_NULL_HANDLE };
+  VkCommandBuffer cmd{ VK_NULL_HANDLE };
+  queue_ref queue{};
+  descriptor_cleanup cleanup{};
+
+  submit_scope() = default;
+  submit_scope(submit_scope const &) = delete;
+  auto operator=(submit_scope const &) -> submit_scope & = delete;
+
+  submit_scope(submit_scope &&other) noexcept
+    : state(std::move(other.state)), pool(other.pool), cmd(other.cmd), queue(other.queue),
+      cleanup(std::move(other.cleanup))
   {
-    if (failure) {
-      stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
-    } else if (stopped) {
-      stdexec::set_stopped(std::forward<Receiver>(receiver));
-    } else {
-      stdexec::set_value(std::forward<Receiver>(receiver));
-    }
+    other.pool = VK_NULL_HANDLE;
+    other.cmd = VK_NULL_HANDLE;
   }
 
-  template<class Receiver>
-  auto release_scope_and_complete(submit_scope &scope,
-    Receiver &&receiver,
-    std::optional<error> failure,
-    bool stopped) noexcept -> void
+  auto operator=(submit_scope &&other) noexcept -> submit_scope &
   {
-    scope.release();
-    complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
+    if (this == &other) { return *this; }
+    release();
+    state = std::move(other.state);
+    pool = other.pool;
+    cmd = other.cmd;
+    queue = other.queue;
+    cleanup = std::move(other.cleanup);
+    other.pool = VK_NULL_HANDLE;
+    other.cmd = VK_NULL_HANDLE;
+    return *this;
   }
 
-  /**
-   * Sender that completes with an open `submit_scope` (command buffer begun, ready to record).
-   *
-   * Completes inline on the thread that calls `start()`. No completion scheduler
-   * is advertised.
-   *
-   * @see enter_submit_scope
-   */
-  struct enter_submit_scope_sender
-  {
-    using sender_concept = stdexec::sender_t;
-    using completion_signatures = stdexec::
-      completion_signatures<stdexec::set_value_t(submit_scope), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
+  ~submit_scope() { release(); }
 
+  /**
+   * Checks out a compute-family command pool, begins recording, and returns an open scope.
+   *
+   * @param host Context that owns the command pool.
+   */
+  [[nodiscard]] static auto open(context &host) -> result<submit_scope>;
+  [[nodiscard]] static auto open(context &host, queue_ref queue) -> result<submit_scope>;
+
+  //! Ends Vulkan recording on `cmd` (`vkEndCommandBuffer`).
+  // NOLINTNEXTLINE(readability-make-member-function-const) -- ends Vulkan recording; not logically const
+  [[nodiscard]] auto end_recording() -> status;
+
+  //! Tracks `set` (from `pipe`'s pool) for release with this scope.
+  auto track_set(handles::compute_pipeline const &pipe, VkDescriptorSet set) -> void
+  { cleanup.track(pipe.descriptor_pool, set); }
+
+  //! Frees the command buffer and descriptor loans; safe to call more than once.
+  //!
+  //! Persistent synchronization failure during cleanup calls `std::terminate()`
+  //! when GPU retirement cannot be established after the configured retries.
+  auto release() noexcept -> void;
+};
+
+/**
+ * Waits for GPU work then destroys `semaphore`/`fence`.
+ *
+ * Safe when handles are null. Uses `fallback_queue` only if a queue wait is required.
+ */
+auto reclaim_submission_sync(context const &ctx, VkQueue fallback_queue, VkSemaphore semaphore, VkFence fence) noexcept
+  -> void;
+
+/**
+ * Delivers exactly one completion signal to `receiver`.
+ *
+ * Call only after GPU/host sync objects for this submit have already been reclaimed
+ * and command/descriptor loans released (or about to be via `release_scope_and_complete`).
+ */
+template<class Receiver>
+auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
+{
+  if (failure) {
+    stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
+  } else if (stopped) {
+    stdexec::set_stopped(std::forward<Receiver>(receiver));
+  } else {
+    stdexec::set_value(std::forward<Receiver>(receiver));
+  }
+}
+
+template<class Receiver>
+auto release_scope_and_complete(submit_scope &scope,
+  Receiver &&receiver,
+  std::optional<error> failure,
+  bool stopped) noexcept -> void
+{
+  scope.release();
+  complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
+}
+
+/**
+ * Sender that completes with an open `submit_scope` (command buffer begun, ready to record).
+ *
+ * Completes inline on the thread that calls `start()`. No completion scheduler
+ * is advertised.
+ *
+ * @see enter_submit_scope
+ */
+struct enter_submit_scope_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures = stdexec::
+    completion_signatures<stdexec::set_value_t(submit_scope), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
+
+  context_handle state;
+  queue_ref queue{};
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
+
+  template<class Receiver> struct op_state
+  {
     context_handle state;
     queue_ref queue{};
+    Receiver receiver;
 
-    // cppcheck-suppress functionStatic
-    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
-
-    template<class Receiver> struct op_state
+    auto start() noexcept -> void
     {
-      context_handle state;
-      queue_ref queue{};
-      Receiver receiver;
+      if (detail::receiver_stop_requested(receiver)) {
+        stdexec::set_stopped(std::move(receiver));
+        return;
+      }
 
-      auto start() noexcept -> void
-      {
-        if (detail::receiver_stop_requested(receiver)) {
-          stdexec::set_stopped(std::move(receiver));
-          return;
-        }
+      if (!state) {
+        stdexec::set_error(std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
+        return;
+      }
 
-        if (!state) {
-          stdexec::set_error(
-            std::move(receiver), error{ .code = make_error_code(errc::invalid_argument), .detail = {} });
-          return;
-        }
-
-        result<submit_scope> opened;
+      result<submit_scope> opened;
 #if VKEXEC_HAS_EXCEPTIONS
-        try {
-          auto facade = context_access::facade(state);
-          opened = submit_scope::open(facade, queue);
-        } catch (...) {
-          stdexec::set_error(std::move(receiver), unexpected_exception_error());
-          return;
-        }
-#else
+      try {
         auto facade = context_access::facade(state);
         opened = submit_scope::open(facade, queue);
-#endif
-        if (!opened) {
-          stdexec::set_error(std::move(receiver), std::move(opened.error()));
-          return;
-        }
-        stdexec::set_value(std::move(receiver), expected_take(opened));
+      } catch (...) {
+        stdexec::set_error(std::move(receiver), unexpected_exception_error());
+        return;
       }
-    };
-
-    template<class Receiver>
-    // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) & noexcept(std::is_nothrow_move_constructible_v<Receiver>)
-      -> op_state<Receiver>
-    { return op_state<Receiver>{ state, queue, std::move(receiver) }; }
-
-    template<class Receiver>
-    // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) && noexcept(std::is_nothrow_move_constructible_v<Receiver>)
-      -> op_state<Receiver>
-    { return op_state<Receiver>{ std::move(state), queue, std::move(receiver) }; }
+#else
+      auto facade = context_access::facade(state);
+      opened = submit_scope::open(facade, queue);
+#endif
+      if (!opened) {
+        stdexec::set_error(std::move(receiver), std::move(opened.error()));
+        return;
+      }
+      stdexec::set_value(std::move(receiver), expected_take(opened));
+    }
   };
 
-  //! Returns a sender that opens a `submit_scope` on `ctx`; null completes with invalid_argument.
-  [[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
-  [[nodiscard]] auto enter_submit_scope(context_handle state) -> enter_submit_scope_sender;
+  template<class Receiver>
+  // cppcheck-suppress functionStatic
+  [[nodiscard]] auto connect(Receiver receiver) & noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
+  { return op_state<Receiver>{ state, queue, std::move(receiver) }; }
 
-  //! Returns a sender that opens a `submit_scope` on `ctx`.
-  [[nodiscard]] auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender;
-  [[nodiscard]] auto enter_submit_scope(context &ctx, queue_ref queue) -> enter_submit_scope_sender;
+  template<class Receiver>
+  // cppcheck-suppress functionStatic
+  [[nodiscard]] auto connect(Receiver receiver) && noexcept(std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
+  { return op_state<Receiver>{ std::move(state), queue, std::move(receiver) }; }
+};
 
-  /**
-   * Sender that submits a fully recorded scope, blocks until the GPU finishes,
-   * then releases command/descriptor loans.
-   *
-   * Blocks the starting thread and completes inline after the wait.
-   * Observes cancellation before submission only. Once submission begins, it
-   * runs synchronously to value/error completion after releasing the scope.
-   * No completion scheduler is advertised.
-   */
-  struct submit_and_wait_sender
+//! Returns a sender that opens a `submit_scope` on `ctx`; null completes with invalid_argument.
+[[nodiscard]] auto enter_submit_scope(context *ctx) -> enter_submit_scope_sender;
+[[nodiscard]] auto enter_submit_scope(context_handle state) -> enter_submit_scope_sender;
+
+//! Returns a sender that opens a `submit_scope` on `ctx`.
+[[nodiscard]] auto enter_submit_scope(context &ctx) -> enter_submit_scope_sender;
+[[nodiscard]] auto enter_submit_scope(context &ctx, queue_ref queue) -> enter_submit_scope_sender;
+
+/**
+ * Sender that submits a fully recorded scope, blocks until the GPU finishes,
+ * then releases command/descriptor loans.
+ *
+ * Blocks the starting thread and completes inline after the wait.
+ * Observes cancellation before submission only. Once submission begins, it
+ * runs synchronously to value/error completion after releasing the scope.
+ * No completion scheduler is advertised.
+ */
+struct submit_and_wait_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures =
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
+
+  submit_scope scope;
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
+
+  template<class Receiver> struct op_state
   {
-    using sender_concept = stdexec::sender_t;
-    using completion_signatures =
-      stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
-
     submit_scope scope;
+    Receiver receiver;
 
-    // cppcheck-suppress functionStatic
-    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
-
-    template<class Receiver> struct op_state
+    auto start() noexcept -> void
     {
-      submit_scope scope;
-      Receiver receiver;
+      if (detail::receiver_stop_requested(receiver)) {
+        scope.release();
+        stdexec::set_stopped(std::move(receiver));
+        return;
+      }
 
-      auto start() noexcept -> void
-      {
-        if (detail::receiver_stop_requested(receiver)) {
-          scope.release();
-          stdexec::set_stopped(std::move(receiver));
-          return;
-        }
-
-        auto facade = context_access::facade(scope.state);
-        context *const host = &facade;
-        status submitted;
+      auto facade = context_access::facade(scope.state);
+      context *const host = &facade;
+      status submitted;
 #if VKEXEC_HAS_EXCEPTIONS
-        try {
-          submitted = host->submit_and_wait(scope.cmd, scope.queue);
-        } catch (...) {
-          scope.release();
-          stdexec::set_error(std::move(receiver), unexpected_exception_error());
-          return;
-        }
-#else
+      try {
         submitted = host->submit_and_wait(scope.cmd, scope.queue);
+      } catch (...) {
+        scope.release();
+        stdexec::set_error(std::move(receiver), unexpected_exception_error());
+        return;
+      }
+#else
+      submitted = host->submit_and_wait(scope.cmd, scope.queue);
 #endif
-        if (!submitted) {
+      if (!submitted) {
+        scope.release();
+        stdexec::set_error(std::move(receiver), std::move(submitted.error()));
+        return;
+      }
+      scope.release();
+      stdexec::set_value(std::move(receiver));
+    }
+  };
+
+  template<class Receiver>
+  // cppcheck-suppress functionStatic
+  [[nodiscard]] auto connect(Receiver receiver) && noexcept(
+    std::is_nothrow_move_constructible_v<submit_scope> && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      std::move(scope),
+      std::move(receiver),
+    };
+  }
+};
+
+//! Builds a blocking submit sender that takes ownership of `scope`.
+[[nodiscard]] auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender;
+
+/**
+ * Sender that submits a recorded scope without blocking `start()`.
+ *
+ * Completion runs on the context fence agent after reclaiming semaphore/fence
+ * and releasing loans. A stop after GPU submission does not cancel Vulkan
+ * work: the submission retires and resources are reclaimed before `set_stopped`.
+ *
+ * The completion agent is not exposed as a stdexec scheduler, so no
+ * completion scheduler is advertised.
+ */
+struct submit_fence_sender
+{
+  using sender_concept = stdexec::sender_t;
+  using completion_signatures =
+    stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
+
+  submit_scope scope;
+
+  // cppcheck-suppress functionStatic
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
+  [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
+
+  template<class Receiver> struct op_state
+  {
+    submit_scope scope;
+    Receiver receiver;
+
+    auto start() noexcept -> void
+    {
+      auto const token = detail::receiver_stop_token(receiver);
+      if (detail::stop_requested(token)) {
+        scope.release();
+        stdexec::set_stopped(std::move(receiver));
+        return;
+      }
+
+      auto facade = context_access::facade(scope.state);
+      context *const host = &facade;
+      VkFence fence{ VK_NULL_HANDLE };
+      VkSemaphore done{ VK_NULL_HANDLE };
+#if VKEXEC_HAS_EXCEPTIONS
+      bool submitted_to_gpu = false;
+      try {
+#endif
+        if (auto submitted = host->submit_async(scope.cmd, &done, &fence, scope.queue); !submitted) {
+          reclaim_submission_sync(*host, scope.queue.queue, done, fence);
           scope.release();
           stdexec::set_error(std::move(receiver), std::move(submitted.error()));
           return;
         }
-        scope.release();
-        stdexec::set_value(std::move(receiver));
-      }
-    };
+#if VKEXEC_HAS_EXCEPTIONS
+        // The false state is needed when submit_async throws before submission.
+        // cppcheck-suppress redundantAssignment
+        submitted_to_gpu = true;
+#endif
 
-    template<class Receiver>
-    // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) && noexcept(
-      std::is_nothrow_move_constructible_v<submit_scope> && std::is_nothrow_move_constructible_v<Receiver>)
-      -> op_state<Receiver>
-    {
-      return op_state<Receiver>{
-        std::move(scope),
-        std::move(receiver),
-      };
-    }
-  };
-
-  //! Builds a blocking submit sender that takes ownership of `scope`.
-  [[nodiscard]] auto submit_and_wait(submit_scope scope) -> submit_and_wait_sender;
-
-  /**
-   * Sender that submits a recorded scope without blocking `start()`.
-   *
-   * Completion runs on the context fence agent after reclaiming semaphore/fence
-   * and releasing loans. A stop after GPU submission does not cancel Vulkan
-   * work: the submission retires and resources are reclaimed before `set_stopped`.
-   *
-   * The completion agent is not exposed as a stdexec scheduler, so no
-   * completion scheduler is advertised.
-   */
-  struct submit_fence_sender
-  {
-    using sender_concept = stdexec::sender_t;
-    using completion_signatures =
-      stdexec::completion_signatures<stdexec::set_value_t(), stdexec::set_error_t(error), stdexec::set_stopped_t()>;
-
-    submit_scope scope;
-
-    // cppcheck-suppress functionStatic
-    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-    [[nodiscard]] auto get_env() const noexcept -> domain_env { return {}; }
-
-    template<class Receiver> struct op_state
-    {
-      submit_scope scope;
-      Receiver receiver;
-
-      auto start() noexcept -> void
-      {
-        auto const token = detail::receiver_stop_token(receiver);
-        if (detail::stop_requested(token)) {
-          scope.release();
-          stdexec::set_stopped(std::move(receiver));
+        auto enqueued = host->enqueue_fence_wait(
+          done, fence, token, [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+            release_scope_and_complete(scope, std::move(receiver), std::move(wait_error), stopped);
+          });
+        if (!enqueued) {
+          // enqueue_fence_wait has already reclaimed the submission and synchronously completed the receiver.
           return;
         }
-
-        auto facade = context_access::facade(scope.state);
-        context *const host = &facade;
-        VkFence fence{ VK_NULL_HANDLE };
-        VkSemaphore done{ VK_NULL_HANDLE };
 #if VKEXEC_HAS_EXCEPTIONS
-        bool submitted_to_gpu = false;
-        try {
-#endif
-          if (auto submitted = host->submit_async(scope.cmd, &done, &fence, scope.queue); !submitted) {
-            reclaim_submission_sync(*host, scope.queue.queue, done, fence);
-            scope.release();
-            stdexec::set_error(std::move(receiver), std::move(submitted.error()));
-            return;
-          }
-#if VKEXEC_HAS_EXCEPTIONS
-          // The false state is needed when submit_async throws before submission.
-          // cppcheck-suppress redundantAssignment
-          submitted_to_gpu = true;
-#endif
-
-          auto enqueued = host->enqueue_fence_wait(
-            done, fence, token, [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
-              release_scope_and_complete(scope, std::move(receiver), std::move(wait_error), stopped);
-            });
-          if (!enqueued) {
-            // enqueue_fence_wait has already reclaimed the submission and synchronously completed the receiver.
-            return;
-          }
-#if VKEXEC_HAS_EXCEPTIONS
-        } catch (...) {
-          if (submitted_to_gpu) { reclaim_submission_sync(*host, scope.queue.queue, done, fence); }
-          scope.release();
-          stdexec::set_error(std::move(receiver), unexpected_exception_error());
-        }
-#endif
+      } catch (...) {
+        if (submitted_to_gpu) { reclaim_submission_sync(*host, scope.queue.queue, done, fence); }
+        scope.release();
+        stdexec::set_error(std::move(receiver), unexpected_exception_error());
       }
-    };
-
-    template<class Receiver>
-    // cppcheck-suppress functionStatic
-    [[nodiscard]] auto connect(Receiver receiver) && noexcept(
-      std::is_nothrow_move_constructible_v<submit_scope> && std::is_nothrow_move_constructible_v<Receiver>)
-      -> op_state<Receiver>
-    {
-      return op_state<Receiver>{
-        std::move(scope),
-        std::move(receiver),
-      };
+#endif
     }
   };
 
-  //! Builds a non-blocking fence-wait submit sender that takes ownership of `scope`.
-  [[nodiscard]] auto submit_fence(submit_scope scope) -> submit_fence_sender;
+  template<class Receiver>
+  // cppcheck-suppress functionStatic
+  [[nodiscard]] auto connect(Receiver receiver) && noexcept(
+    std::is_nothrow_move_constructible_v<submit_scope> && std::is_nothrow_move_constructible_v<Receiver>)
+    -> op_state<Receiver>
+  {
+    return op_state<Receiver>{
+      std::move(scope),
+      std::move(receiver),
+    };
+  }
+};
 
-}// namespace detail
+//! Builds a non-blocking fence-wait submit sender that takes ownership of `scope`.
+[[nodiscard]] auto submit_fence(submit_scope scope) -> submit_fence_sender;
 
-}// namespace vkexec
+}// namespace vkexec::detail
 
 #endif// VKEXEC_SUBMIT_SCOPE_HPP

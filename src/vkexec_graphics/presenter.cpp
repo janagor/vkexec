@@ -13,6 +13,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -727,9 +728,7 @@ auto owned::presenter::replace_abandoned_frame_sync() -> status
   }
 
   auto &sync = frames_.at(frame_index_);
-  for (VkFence &image_fence : images_in_flight_) {
-    if (image_fence == sync.in_flight) { image_fence = VK_NULL_HANDLE; }
-  }
+  std::ranges::replace(images_in_flight_, sync.in_flight, VkFence{ VK_NULL_HANDLE });
   vkDestroySemaphore(ctx_->device(), sync.image_available, nullptr);
   vkDestroySemaphore(ctx_->device(), render_finished_.at(current_image_index_), nullptr);
   vkDestroyFence(ctx_->device(), sync.in_flight, nullptr);

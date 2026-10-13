@@ -276,6 +276,53 @@ auto parse_mode(int argc, char const *const *argv) -> barrier_mode
   return mode;
 }
 
+template<class RebuildFrames>
+auto present_frames(vkexec::examples::glfw_presenter &win,
+  vkexec::examples::smoke_frames &smoke,
+  std::vector<frame_resources> &frames,
+  RebuildFrames &rebuild_frames,
+  free_camera &camera,
+  vkexec::examples::gltf_mesh_data const &scene_data,
+  VkBuffer vertex_buffer,
+  VkBuffer index_buffer,
+  std::vector<vkexec::examples::ktx_texture> const &textures,
+  barrier_mode mode) -> void
+{
+  std::size_t frame_index = 0;
+  bool upload_textures = true;
+  while (!win.should_close() && smoke.should_continue()) {
+    win.poll_events();
+    if (!smoke.automated()) { camera.update(win.native_window()); }
+    if (frames.front().target.extent().width != win.target().extent().width
+        || frames.front().target.extent().height != win.target().extent().height) {
+      rebuild_frames();
+    }
+    auto begun = win.begin_frame();
+    if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
+    if (!begun->has_value()) { continue; }
+    vkexec::frame const present_frame = begun->value_or(vkexec::frame{});
+    camera_data const camera_uniform = camera.data(present_frame.extent);
+    auto &camera_buffer = frames.at(frame_index).camera_buffer;
+    std::memcpy(camera_buffer.mapped().data(), &camera_uniform, sizeof(camera_uniform));
+    if (auto flushed = camera_buffer.flush(); !flushed) { vkexec::examples::abort_with_error(flushed.error()); }
+    record_frame(win.ctx(),
+      present_frame,
+      win,
+      frames.at(frame_index),
+      scene_data,
+      vertex_buffer,
+      index_buffer,
+      textures,
+      upload_textures,
+      mode);
+    upload_textures = false;
+    auto ended = win.end_frame(present_frame);
+    if (!ended) { vkexec::examples::abort_with_error(ended.error()); }
+    smoke.schedule();
+    frame_index = (frame_index + 1) % k_frames_in_flight;
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto run(int argc, char const *const *argv) -> int
 {
@@ -354,43 +401,12 @@ auto run(int argc, char const *const *argv) -> int
   };
   rebuild_frames();
 
-  std::size_t frame_index = 0;
-  bool upload_textures = true;
   free_camera camera{ k_camera_initial_position, k_camera_initial_rotation, k_camera_speed };
   std::cout << "Pipeline Barriers: " << (mode == barrier_mode::fragment ? "fragment" : "conservative")
             << " synchronization; " << (albedo_only ? "albedo view" : "lit view")
             << "; WASD move, Q/E descend/ascend, right mouse drag to look; close the window to exit\n";
-  while (!win.should_close() && smoke.should_continue()) {
-    win.poll_events();
-    if (!smoke.automated()) { camera.update(win.native_window()); }
-    if (frames.front().target.extent().width != win.target().extent().width
-        || frames.front().target.extent().height != win.target().extent().height) {
-      rebuild_frames();
-    }
-    auto begun = win.begin_frame();
-    if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
-    if (!begun->has_value()) { continue; }
-    vkexec::frame const present_frame = **begun;
-    camera_data const camera_uniform = camera.data(present_frame.extent);
-    auto &camera_buffer = frames.at(frame_index).camera_buffer;
-    std::memcpy(camera_buffer.mapped().data(), &camera_uniform, sizeof(camera_uniform));
-    if (auto flushed = camera_buffer.flush(); !flushed) { vkexec::examples::abort_with_error(flushed.error()); }
-    record_frame(ctx,
-      present_frame,
-      win,
-      frames.at(frame_index),
-      scene_data,
-      vertices.handle(),
-      indices.handle(),
-      textures,
-      upload_textures,
-      mode);
-    upload_textures = false;
-    auto ended = win.end_frame(present_frame);
-    if (!ended) { vkexec::examples::abort_with_error(ended.error()); }
-    smoke.schedule();
-    frame_index = (frame_index + 1) % k_frames_in_flight;
-  }
+  present_frames(
+    win, smoke, frames, rebuild_frames, camera, scene_data, vertices.handle(), indices.handle(), textures, mode);
   win.wait_idle();
   smoke.mark_all_drained();
   smoke.verify_complete();

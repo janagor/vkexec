@@ -36,7 +36,6 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
-#include <stop_token>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -81,6 +80,7 @@ struct ticket_exchange
   std::mutex mutex;
   std::condition_variable_any changed;
   std::optional<frame_ticket> current;
+  bool stopping{ false };
 
   auto publish(frame_ticket const &ticket) -> void
   {
@@ -91,12 +91,44 @@ struct ticket_exchange
     changed.notify_all();
   }
 
-  [[nodiscard]] auto next(std::stop_token const &stopped, std::uint64_t previous) -> std::optional<frame_ticket>
+  auto stop() -> void
+  {
+    {
+      std::scoped_lock const lock{ mutex };
+      stopping = true;
+    }
+    changed.notify_all();
+  }
+
+  [[nodiscard]] auto next(std::uint64_t previous) -> std::optional<frame_ticket>
   {
     std::unique_lock lock{ mutex };
-    changed.wait(lock, stopped, [&]() -> bool { return current && current->number != previous; });
-    if (stopped.stop_requested()) { return std::nullopt; }
+    changed.wait(lock, [&]() -> bool { return stopping || (current && current->number != previous); });
+    if (stopping) { return std::nullopt; }
     return current;
+  }
+};
+
+struct worker_joiner
+{
+  ticket_exchange *tickets;
+  std::thread *compute;
+  std::thread *graphics;
+
+  worker_joiner(ticket_exchange &exchange, std::thread &compute_worker, std::thread &graphics_worker) noexcept
+    : tickets(&exchange), compute(&compute_worker), graphics(&graphics_worker)
+  {}
+
+  worker_joiner(worker_joiner const &) = delete;
+  auto operator=(worker_joiner const &) -> worker_joiner & = delete;
+  worker_joiner(worker_joiner &&) = delete;
+  auto operator=(worker_joiner &&) -> worker_joiner & = delete;
+
+  ~worker_joiner()
+  {
+    tickets->stop();
+    if (compute->joinable()) { compute->join(); }
+    if (graphics->joinable()) { graphics->join(); }
   }
 };
 
@@ -249,6 +281,50 @@ auto record_compute(vkexec::context &ctx,
   check_vk(vkEndCommandBuffer(cmd), "vkEndCommandBuffer failed for Game of Life compute");
 }
 
+auto present_frames(vkexec::examples::glfw_presenter &win,
+  vkexec::examples::smoke_frames &frames,
+  ticket_exchange &tickets,
+  vkexec::owned::timeline_semaphore &timeline) -> void
+{
+  std::uint64_t number = 0;
+  auto last_update = std::chrono::steady_clock::now();
+  float simulated_elapsed = 0.0F;
+  while (!win.should_close() && frames.should_continue()) {
+    win.poll_events();
+    auto begun = win.begin_frame();
+    if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
+    if (!begun->has_value()) { continue; }
+    vkexec::frame const present_frame = begun->value_or(vkexec::frame{});
+    auto sync = win.target().submission_sync(present_frame);
+    if (!sync) { vkexec::examples::abort_with_error(sync.error()); }
+    auto const now = std::chrono::steady_clock::now();
+    if (frames.automated()) { simulated_elapsed += k_smoke_delta_seconds; }
+    float const elapsed =
+      frames.automated() ? simulated_elapsed : std::chrono::duration<float>(now - last_update).count();
+    bool const do_update = elapsed > k_update_interval_seconds;
+    if (do_update) {
+      last_update = now;
+      simulated_elapsed = 0.0F;
+    }
+    frame_ticket const ticket{
+      .number = number,
+      .image_index = number % k_image_count,
+      .present_frame = present_frame,
+      .sync = *sync,
+      .elapsed = elapsed,
+      .update = do_update,
+    };
+    tickets.publish(ticket);
+    check(timeline.signal(timeline_value(number, timeline_stage::submit)));
+    check(timeline.wait(timeline_value(number, timeline_stage::present)));
+    auto presented = win.target().present_submitted(ticket.present_frame);
+    if (!presented) { vkexec::examples::abort_with_error(presented.error()); }
+    check(timeline.signal(timeline_value(number, timeline_stage::end)));
+    ++number;
+    frames.schedule();
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto run(int argc, char const *const *argv) -> int
 {
@@ -349,9 +425,9 @@ auto run(int argc, char const *const *argv) -> int
   VkCommandBuffer compute_cmd = *command;
   ticket_exchange tickets;
 
-  std::jthread compute_worker{ [&](std::stop_token const &stopped) -> void {
+  std::thread compute_worker{ [&]() -> void {
     std::uint64_t previous = UINT64_MAX;
-    while (auto ticket = tickets.next(stopped, previous)) {
+    while (auto ticket = tickets.next(previous)) {
       check(timeline.wait(timeline_value(ticket->number, timeline_stage::submit)));
       record_compute(ctx, compute_cmd, *ticket, images, update, mutate, update_sets, mutate_sets);
       std::array<VkCommandBuffer, 1> const commands{ compute_cmd };
@@ -362,9 +438,9 @@ auto run(int argc, char const *const *argv) -> int
       previous = ticket->number;
     }
   } };
-  std::jthread graphics_worker{ [&](std::stop_token const &stopped) -> void {
+  std::thread graphics_worker{ [&]() -> void {
     std::uint64_t previous = UINT64_MAX;
-    while (auto ticket = tickets.next(stopped, previous)) {
+    while (auto ticket = tickets.next(previous)) {
       check(timeline.wait(timeline_value(ticket->number, timeline_stage::submit)));
       renderers.at(ticket->image_index)
         .record_pass(ticket->present_frame.command_buffer,
@@ -394,48 +470,12 @@ auto run(int argc, char const *const *argv) -> int
       previous = ticket->number;
     }
   } };
+  worker_joiner const join_workers{ tickets, compute_worker, graphics_worker };
 
   std::cout << "Timeline Semaphore: graphics family " << ctx.graphics_queue_family() << ", compute family "
             << compute_queue.family << "; close the window to exit\n";
-  std::uint64_t number = 0;
-  auto last_update = std::chrono::steady_clock::now();
-  float simulated_elapsed = 0.0F;
-  while (!win.should_close() && frames.should_continue()) {
-    win.poll_events();
-    auto begun = win.begin_frame();
-    if (!begun) { vkexec::examples::abort_with_error(begun.error()); }
-    if (!begun->has_value()) { continue; }
-    auto sync = win.target().submission_sync(**begun);
-    if (!sync) { vkexec::examples::abort_with_error(sync.error()); }
-    auto const now = std::chrono::steady_clock::now();
-    if (frames.automated()) { simulated_elapsed += k_smoke_delta_seconds; }
-    float const elapsed =
-      frames.automated() ? simulated_elapsed : std::chrono::duration<float>(now - last_update).count();
-    bool const do_update = elapsed > k_update_interval_seconds;
-    if (do_update) {
-      last_update = now;
-      simulated_elapsed = 0.0F;
-    }
-    frame_ticket const ticket{
-      .number = number,
-      .image_index = number % k_image_count,
-      .present_frame = **begun,
-      .sync = *sync,
-      .elapsed = elapsed,
-      .update = do_update,
-    };
-    tickets.publish(ticket);
-    check(timeline.signal(timeline_value(number, timeline_stage::submit)));
-    check(timeline.wait(timeline_value(number, timeline_stage::present)));
-    auto presented = win.target().present_submitted(ticket.present_frame);
-    if (!presented) { vkexec::examples::abort_with_error(presented.error()); }
-    check(timeline.signal(timeline_value(number, timeline_stage::end)));
-    ++number;
-    frames.schedule();
-  }
-  compute_worker.request_stop();
-  graphics_worker.request_stop();
-  tickets.changed.notify_all();
+  present_frames(win, frames, tickets, timeline);
+  tickets.stop();
   compute_worker.join();
   graphics_worker.join();
   win.wait_idle();
