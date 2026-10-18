@@ -30,8 +30,39 @@ namespace {
 constexpr std::size_t k_slot_count = 4;
 constexpr VkDeviceSize k_storage_bytes = 256;
 constexpr std::uint32_t k_image_extent = 64;
+constexpr int k_context_recreation_count = 2;
 
 }// namespace
+
+TEST_CASE("descriptor writes survive device recreation", "[vkexec][descriptor_heap][gpu]")
+{
+  for (int iteration = 0; iteration < k_context_recreation_count; ++iteration) {
+    vkexec::vulkan_requirements requirements{};
+    requirements.api_version_major = 1;
+    requirements.api_version_minor = 4;
+    requirements.device_extensions = { VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME };
+    vkexec::ext::configure<vkexec::ext::descriptor_heap>(requirements);
+
+    auto ctx =
+      vkexec::test::sync_wait_value(vkexec::factory::make_context({ .requirements = std::move(requirements) }));
+    auto allocator = vkexec::test::require_allocator(*ctx);
+    auto layout_result = vkexec::query_descriptor_heap_layout(*ctx);
+    REQUIRE(layout_result.has_value());
+    auto const &layout = vkexec::expected_get(layout_result);
+
+    auto storage = vkexec::test::sync_wait_value(vkexec::vma::factory::make_gpu_buffer(allocator,
+      vkexec::vma::gpu_buffer_create_info{
+        .size = k_storage_bytes,
+        .memory = vkexec::vma::buffer_memory::device_local,
+        .shader_device_address = true,
+      }));
+    auto const storage_addr = storage.device_address();
+    REQUIRE(storage_addr.has_value());
+    std::vector<std::byte> slot(layout.buffer_descriptor_size);
+    REQUIRE(vkexec::write_storage_buffer_descriptor(*ctx, *storage_addr, storage.size(), slot));
+  }
+}
+
 TEST_CASE("descriptor heap layout query and buffer descriptor write", "[vkexec][descriptor_heap][gpu]")
 {
   vkexec::vulkan_requirements requirements{};

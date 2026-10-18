@@ -19,11 +19,14 @@
 
 #include <concepts>
 #include <cstdint>
+#include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -260,6 +263,18 @@ public:
   //! Core device function pointers loaded via `vkGetDeviceProcAddr`.
   [[nodiscard]] auto procs() const noexcept -> device_procs const &;
 
+  //! Loads an extension proc table once for this runtime's device lifetime.
+  //! `key` must uniquely identify the proc-table type across extensions.
+  template<typename Procs, typename Loader>
+  [[nodiscard]] auto cached_extension_procs(std::string_view key, Loader load) const -> Procs const &
+  {
+    auto const &entry =
+      extension_procs_entry(key, [device = this->device(), load = std::move(load)]() -> std::shared_ptr<void> {
+        return std::make_shared<Procs>(load(device));
+      });
+    return *static_cast<Procs const *>(entry.get());
+  }
+
   /**
    * Allocates a primary command buffer with an exclusive compute-family pool.
    * Caller must return it with `free_command_buffer` after GPU use completes.
@@ -424,6 +439,8 @@ private:
   auto release_command_pool(std::uint32_t family, VkCommandPool pool) noexcept -> void;
   auto fetch_queues(bool want_present) -> status;
   auto load_device_procs() -> status;
+  [[nodiscard]] auto extension_procs_entry(std::string_view key,
+    std::function<std::shared_ptr<void>()> const &load) const -> std::shared_ptr<void> const &;
   [[nodiscard]] auto
     do_enqueue_fence_wait(VkSemaphore semaphore, VkFence fence, detail::stop_fn stop_requested, detail::done_fn on_done)
       -> status;

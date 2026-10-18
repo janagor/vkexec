@@ -29,7 +29,7 @@ struct descriptor_heap_procs
 //! Loads descriptor-heap PFNs for `device` (may return null members).
 [[nodiscard]] auto load_descriptor_heap_procs(VkDevice device) -> descriptor_heap_procs;
 
-//! Returns a cached proc table for `ctx`'s device.
+//! Returns a proc table owned by `ctx`'s runtime.
 [[nodiscard]] auto descriptor_heap_procs_for(context const &ctx) -> descriptor_heap_procs const &;
 
 //! True when all required descriptor-heap PFNs are non-null.

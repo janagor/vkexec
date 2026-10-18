@@ -42,4 +42,28 @@ TEST_CASE("ext::configure enables descriptor_heap when device supports it", "[vk
   REQUIRE(vkexec::ext::name<vkexec::ext::descriptor_heap>() == "descriptor_heap");
 }
 
+TEST_CASE("extension proc tables follow context lifetimes", "[vkexec][extension][gpu]")
+{
+  struct fake_procs
+  {
+    int generation{};
+  };
+
+  constexpr int k_first_generation = 1;
+  constexpr int k_context_count = 2;
+  int loads{};
+  for (int generation = k_first_generation; generation <= k_context_count; ++generation) {
+    auto ctx = vkexec::test::sync_wait_value(vkexec::factory::make_context());
+    auto load = [&loads, generation](VkDevice /*device*/) -> fake_procs {
+      ++loads;
+      return { .generation = generation };
+    };
+    auto const &first = ctx->cached_extension_procs<fake_procs>("test.fake_procs", load);
+    auto const &again = ctx->cached_extension_procs<fake_procs>("test.fake_procs", load);
+    REQUIRE(&first == &again);
+    REQUIRE(first.generation == generation);
+    REQUIRE(loads == generation);
+  }
+}
+
 // NOLINTEND(readability-function-cognitive-complexity)

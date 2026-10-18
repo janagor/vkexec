@@ -30,13 +30,16 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <functional>
 #include <future>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <utility>
@@ -49,6 +52,8 @@ struct detail::context_state
   vulkan_requirements creation_requirements{};
   device_capabilities capabilities{};
   device_procs procs{};
+  std::mutex extension_procs_mutex;
+  std::map<std::string, std::shared_ptr<void>, std::less<>> extension_procs;
   detail::synchronization_backend synchronization{ detail::synchronization_backend::legacy };
   vkb::Instance instance{};
   vkb::PhysicalDevice physical_device{};
@@ -476,6 +481,16 @@ auto context::presentation_enabled() const noexcept -> bool { return impl_->pres
 auto context::capabilities() const noexcept -> device_capabilities const & { return impl_->capabilities; }
 auto context::api_version() const noexcept -> std::uint32_t { return impl_->capabilities.api_version; }
 auto context::procs() const noexcept -> device_procs const & { return impl_->procs; }
+
+auto context::extension_procs_entry(std::string_view key, std::function<std::shared_ptr<void>()> const &load) const
+  -> std::shared_ptr<void> const &
+{
+  std::scoped_lock const lock(impl_->extension_procs_mutex);
+  auto const found = impl_->extension_procs.find(key);
+  if (found != impl_->extension_procs.end()) { return found->second; }
+  return impl_->extension_procs.emplace(std::string{ key }, load()).first->second;
+}
+
 auto detail::synchronization_backend_for(context const &ctx) noexcept -> synchronization_backend
 { return ctx.impl_->synchronization; }
 

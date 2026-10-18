@@ -2,7 +2,6 @@
 
 #include <vkexec/context.hpp>
 #include <vkexec/device_proc.hpp>
-#include <vkexec_extensions/common/proc_cache.hpp>
 
 #include <vulkan/vulkan_core.h>
 
@@ -22,7 +21,7 @@ auto load_descriptor_heap_procs(VkDevice device) -> descriptor_heap_procs
 }
 
 auto descriptor_heap_procs_for(context const &ctx) -> descriptor_heap_procs const &
-{ return ext::detail::cached_procs<descriptor_heap_procs>(ctx.device(), load_descriptor_heap_procs); }
+{ return ctx.cached_extension_procs<descriptor_heap_procs>("VK_EXT_descriptor_heap", load_descriptor_heap_procs); }
 
 auto descriptor_heap_available(descriptor_heap_procs const &procs) -> bool
 {

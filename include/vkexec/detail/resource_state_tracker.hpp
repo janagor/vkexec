@@ -255,21 +255,21 @@ struct resource_region_counts
 struct resource_allocation_fault
 {
 #if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION) && VKEXEC_HAS_EXCEPTIONS
-  static constexpr bool enabled = true;
+  static constexpr bool k_enabled = true;
   static inline thread_local int remaining{};
 
   static auto arm(int count) noexcept -> void { remaining = count; }
 
   static auto disarm() noexcept -> void { remaining = 0; }
 #else
-  static constexpr bool enabled = false;
+  static constexpr bool k_enabled = false;
   static auto arm(int /*unused*/) noexcept -> void {}
 
   static auto disarm() noexcept -> void {}
 #endif
 
   //! Throws on the Nth armed checkpoint (`arm(1)` → first call, `arm(2)` → second, …).
-  static auto maybe_throw() noexcept(!enabled) -> void
+  static auto maybe_throw() noexcept(!k_enabled) -> void
   {
 #if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION) && VKEXEC_HAS_EXCEPTIONS
     if (remaining > 0) {
