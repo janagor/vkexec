@@ -40,6 +40,29 @@ struct mutable_declaration_step
   { return {}; }
 };
 
+struct four_argument_declaration_step
+{
+  VkBuffer buffer{ VK_NULL_HANDLE };
+  bool write{ false };
+  bool *crosses_families_seen{ nullptr };
+
+  [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return true; }
+  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
+                         vkexec::queue_ref queue, bool crosses_families) -> vkexec::status
+  {
+    *crosses_families_seen = crosses_families;
+    constexpr VkDeviceSize k_buffer_size = 64;
+    if (write) {
+      return tracker.use(vkexec::write(buffer, 0, k_buffer_size, vkexec::buffer_usage::storage_compute),
+        index, queue.family, queue.queue);
+    }
+    return tracker.use(vkexec::read(buffer, 0, k_buffer_size, vkexec::buffer_usage::storage_compute),
+      index, queue.family, queue.queue);
+  }
+  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  { return {}; }
+};
+
 struct nonassignable_step
 {
   nonassignable_step() = default;
@@ -86,6 +109,51 @@ TEST_CASE("unprofiled steps do not opt into profiling publication", "[vkexec][pr
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(outcome));
   REQUIRE_FALSE(called);
+}
+
+TEST_CASE("profiled four-argument declarations survive dynamic type erasure", "[vkexec][profiling]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto profiler = vkexec::profiling::profiler::create(*ctx);
+  REQUIRE(profiler);
+  char storage{};
+  auto const buffer = static_cast<VkBuffer>(static_cast<void *>(&storage));
+  constexpr std::size_t k_step_count = 2;
+  constexpr std::size_t k_writer_index = 0;
+  constexpr std::size_t k_reader_index = 1;
+  constexpr std::uint32_t k_writer_family = 0;
+  constexpr std::uint32_t k_reader_family = 1;
+  auto const writer_queue = vkexec::queue_ref{ .family = k_writer_family };
+  auto const reader_queue = vkexec::queue_ref{ .family = k_reader_family };
+  bool static_crosses = false;
+  bool dynamic_crosses = false;
+  using step_type = vkexec::profiling::detail::profiled_pass_step<four_argument_declaration_step>;
+  step_type static_writer{ { buffer, true, &static_crosses }, "writer", *profiler };
+  step_type static_reader{ { buffer, false, &static_crosses }, "reader", *profiler };
+  vkexec::detail::resource_state_tracker static_tracker{ k_step_count };
+  REQUIRE(vkexec::detail::declare_step_resources(
+    static_writer, static_tracker, k_writer_index, writer_queue, true));
+  REQUIRE(vkexec::detail::declare_step_resources(
+    static_reader, static_tracker, k_reader_index, reader_queue, true));
+  auto const static_plan = std::move(static_tracker).finish();
+
+  vkexec::detail::dynamic_pass_step dynamic_writer{
+    step_type{ { buffer, true, &dynamic_crosses }, "writer", *profiler } };
+  vkexec::detail::dynamic_pass_step dynamic_reader{
+    step_type{ { buffer, false, &dynamic_crosses }, "reader", *profiler } };
+  vkexec::detail::resource_state_tracker dynamic_tracker{ k_step_count };
+  REQUIRE(vkexec::detail::declare_step_resources(
+    dynamic_writer, dynamic_tracker, k_writer_index, writer_queue, true));
+  REQUIRE(vkexec::detail::declare_step_resources(
+    dynamic_reader, dynamic_tracker, k_reader_index, reader_queue, true));
+  auto const dynamic_plan = std::move(dynamic_tracker).finish();
+  REQUIRE(static_crosses);
+  REQUIRE(dynamic_crosses);
+  REQUIRE(static_plan.dependencies == dynamic_plan.dependencies);
+  REQUIRE_FALSE(static_plan.steps.at(k_writer_index).buffers_after.empty());
+  REQUIRE_FALSE(dynamic_plan.steps.at(k_writer_index).buffers_after.empty());
+  REQUIRE_FALSE(static_plan.steps.at(k_reader_index).buffers_before.empty());
+  REQUIRE_FALSE(dynamic_plan.steps.at(k_reader_index).buffers_before.empty());
 }
 
 TEST_CASE("profiled primitive passes publish after static graph completion", "[vkexec][profiling][gpu]")

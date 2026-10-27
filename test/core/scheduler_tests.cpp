@@ -150,10 +150,25 @@ struct informed_pass_step
     vkexec::detail::pass_cleanup & /*cleanup*/,
     vkexec::pass_recording_info const &info) -> vkexec::status
   {
+    (void)info.ensure_submission_id();
     *observed = info;
     if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
     return {};
   }
+};
+
+struct completion_commit_step
+{
+  int *commits{};
+  bool should_fail{};
+
+  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  {
+    if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
+    return {};
+  }
+
+  auto commit_after_gpu() -> void { ++*commits; }
 };
 
 static_assert(vkexec::detail::static_pass_step<informed_pass_step>);
@@ -1218,6 +1233,9 @@ TEST_CASE("pass recording forwards queue and batch identity through static and d
   auto ctx = vkexec::test::require_context();
   auto const queue = ctx->compute_queue_ref();
   auto const info = vkexec::detail::recording_info(queue);
+  auto const other_info = vkexec::detail::recording_info(queue);
+  REQUIRE(info.submission_id == 0);
+  REQUIRE(other_info.submission_id == 0);
   vkexec::pass_recording_info static_observed{};
   vkexec::pass_recording_info dynamic_observed{};
   auto static_steps = std::tuple{ informed_pass_step{ .observed = &static_observed } };
@@ -1233,7 +1251,34 @@ TEST_CASE("pass recording forwards queue and batch identity through static and d
   REQUIRE(dynamic_observed.queue.family == queue.family);
   REQUIRE(static_observed.submission_id == info.submission_id);
   REQUIRE(dynamic_observed.submission_id == info.submission_id);
-  REQUIRE(info.submission_id != vkexec::detail::recording_info(queue).submission_id);
+  REQUIRE(info.ensure_submission_id() != other_info.ensure_submission_id());
+}
+
+TEST_CASE("ordinary pass completion commit runs only after success", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  int commits = 0;
+  auto successful = stdexec::schedule(ctx->get_scheduler())
+                    | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits });
+  auto success = vkexec::test::sync_wait_sender(std::move(successful));
+  REQUIRE(vkexec::test::sync_wait_completed(success));
+  REQUIRE(commits == 1);
+
+  auto failing = stdexec::schedule(ctx->get_scheduler())
+                 | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits, .should_fail = true });
+  auto failure = vkexec::test::sync_wait_sender(std::move(failing));
+  REQUIRE(failure.failed());
+  REQUIRE(commits == 1);
+
+  stdexec::inplace_stop_source source;
+  source.request_stop();
+  auto cancelled = stdexec::write_env(
+    stdexec::schedule(ctx->get_scheduler())
+      | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits }),
+    stdexec::prop{ stdexec::get_stop_token, source.get_token() });
+  auto stopped = vkexec::test::sync_wait_sender(std::move(cancelled));
+  REQUIRE(vkexec::test::sync_wait_stopped(stopped));
+  REQUIRE(commits == 1);
 }
 
 TEST_CASE("pass recording prefers the context-aware overload", "[vkexec][pass][gpu]")
