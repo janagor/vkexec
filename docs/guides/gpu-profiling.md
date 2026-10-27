@@ -86,3 +86,35 @@ period of its queue family's valid timestamp bits has an ambiguous duration.
 The profiler retains the context runtime. For adopted contexts, the embedder
 must keep the borrowed Vulkan device and physical device alive until profiler
 and capture handles are destroyed.
+
+## Chrome Trace export
+
+`write_chrome_trace()` accepts completed events and writes Chrome Trace JSON.
+It returns the number of samples omitted because their status was not `valid`.
+Export one submission at a time; mixed submission IDs or queue families return
+an error because their timestamp domains have not been calibrated. The trace
+uses the first recorded region as time zero and preserves gaps between regions
+within that submission. Timestamp counter wrap is handled using the queue
+family's valid bit width, but an interval spanning a full counter period is
+ambiguous.
+
+```cpp
+#include <vkexec_profiling/chrome_trace.hpp>
+#include <fstream>
+
+auto events = profiler.take_completed();
+std::ofstream output("gpu-trace.json");
+auto exported = vkexec::profiling::write_chrome_trace(output, events);
+if (!exported) {
+  // Handle export error.
+}
+```
+
+The `gpu_profiling` example is built when profiling and tools are enabled. It writes
+one `gpu-trace-<submission-id>.json` file per submission, runs two compute
+dispatches, and prints their measured GPU
+durations before writing the trace. Event names must be valid UTF-8; the
+exporter rejects malformed names before writing output. Submission IDs are
+allocated by one process-wide counter shared by graph and manual captures.
+Within a submission, region indices are assigned when recording begins and
+identify the first recorded region used as the trace origin.
