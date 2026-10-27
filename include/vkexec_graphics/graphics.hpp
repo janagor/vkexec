@@ -34,9 +34,9 @@ namespace detail {
 
   struct make_graphics_pipeline_spirv_factory
   {
-    context *ctx;
-    VkRenderPass render_pass;
-    graphics_pipeline_config cfg;
+    context *ctx{};
+    VkRenderPass render_pass{ VK_NULL_HANDLE };
+    graphics_pipeline_config cfg{};
     std::vector<std::uint32_t> vertex_spirv;
     std::vector<std::uint32_t> fragment_spirv;
     std::vector<storage_binding> buffers;
@@ -46,9 +46,9 @@ namespace detail {
 
   struct make_graphics_pipeline_glsl_factory
   {
-    context *ctx;
-    VkRenderPass render_pass;
-    graphics_pipeline_config cfg;
+    context *ctx{};
+    VkRenderPass render_pass{ VK_NULL_HANDLE };
+    graphics_pipeline_config cfg{};
     std::string vertex_glsl;
     std::string fragment_glsl;
     std::vector<storage_binding> buffers;
@@ -58,9 +58,9 @@ namespace detail {
 
   struct make_graphics_pipeline_resources_factory
   {
-    context *ctx;
-    VkRenderPass render_pass;
-    graphics_pipeline_config cfg;
+    context *ctx{};
+    VkRenderPass render_pass{ VK_NULL_HANDLE };
+    graphics_pipeline_config cfg{};
     std::vector<std::uint32_t> vertex_spirv;
     std::vector<std::uint32_t> fragment_spirv;
     resource_table resources;

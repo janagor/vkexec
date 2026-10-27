@@ -1,16 +1,22 @@
-#include "../common/sampler.hpp"
-#include "common/shader_loader.hpp"
-#include "common/smoke_frames.hpp"
-#include "common/vulkan_requirements.hpp"
-#include "glfw_presenter.hpp"
-#include "sync_wait_helpers.hpp"
-
+#include <array>
+#include <chrono>
+#include <condition_variable>
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <mutex>
+#include <optional>
+#include <span>
+#include <thread>
+#include <utility>
+#include <vector>
 #include <vkexec/barrier.hpp>
 #include <vkexec/barrier_params.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/pass_types.hpp>
 #include <vkexec/image_view.hpp>
-#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/queue_submit.hpp>
 #include <vkexec/resource_allocator.hpp>
@@ -24,21 +30,14 @@
 #include <vkexec_graphics/presenter.hpp>
 #include <vkexec_vma/allocator.hpp>
 #include <vkexec_vma/image.hpp>
-
 #include <vulkan/vulkan_core.h>
 
-#include <array>
-#include <chrono>
-#include <condition_variable>
-#include <cstddef>
-#include <cstdint>
-#include <filesystem>
-#include <iostream>
-#include <mutex>
-#include <optional>
-#include <thread>
-#include <utility>
-#include <vector>
+#include "../common/sampler.hpp"
+#include "common/shader_loader.hpp"
+#include "common/smoke_frames.hpp"
+#include "common/vulkan_requirements.hpp"
+#include "glfw_presenter.hpp"
+#include "sync_wait_helpers.hpp"
 
 namespace {
 

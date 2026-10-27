@@ -1,20 +1,21 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
-#include "test_helpers.hpp"
+#include "test_helpers.hpp"// IWYU pragma: keep
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <stdexec/execution.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/pass_execution.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
-#include <vkexec/error.hpp>
-#include <vkexec/pass.hpp>
-#include <vkexec/queue_submit.hpp>
+#include <vkexec/error.hpp>// IWYU pragma: keep
+#include <vkexec/queue_submit.hpp>// IWYU pragma: keep
 #include <vkexec/resource_table.hpp>
 #include <vkexec/resource_use.hpp>
 #include <vkexec/scheduler.hpp>
-#include <vkexec_graphics/draw.hpp>
+#include <vkexec_graphics/draw_basic.hpp>
+#include <vkexec_graphics/draw_layers.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/pass.hpp>
 #include <vkexec_graphics/submit.hpp>
@@ -22,12 +23,12 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include <concepts>
+#include <concepts>// IWYU pragma: keep
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
-#include <type_traits>
+#include <optional>// IWYU pragma: keep
+#include <type_traits>// IWYU pragma: keep
 #include <utility>
 
 namespace {
@@ -61,16 +62,18 @@ constexpr VkImageSubresourceRange k_depth_range{
   .layerCount = 1,
 };
 
-[[nodiscard]] auto fake_image(void *storage) -> VkImage { return static_cast<VkImage>(storage); }
-[[nodiscard]] auto fake_buffer(void *storage) -> VkBuffer { return static_cast<VkBuffer>(storage); }
+[[nodiscard]] auto fake_image(void const *storage) -> VkImage
+{ return static_cast<VkImage>(const_cast<void *>(storage)); }// NOLINT(cppcoreguidelines-pro-type-const-cast)
+[[nodiscard]] auto fake_buffer(void const *storage) -> VkBuffer
+{ return static_cast<VkBuffer>(const_cast<void *>(storage)); }// NOLINT(cppcoreguidelines-pro-type-const-cast)
 
 }// namespace
 
 TEST_CASE("graphics pass infers attachment and mesh uses", "[vkexec][graphics][pass]")
 {
-  char color_storage{};
-  char vertex_storage{};
-  char index_storage{};
+  char const color_storage{};
+  char const vertex_storage{};
+  char const index_storage{};
   auto *const color = fake_image(&color_storage);
   auto *const vertex = fake_buffer(&vertex_storage);
   auto *const index = fake_buffer(&index_storage);
@@ -105,7 +108,7 @@ TEST_CASE("graphics pass infers attachment and mesh uses", "[vkexec][graphics][p
 
 TEST_CASE("graphics pass infers depth read and write access", "[vkexec][graphics][pass]")
 {
-  char depth_storage{};
+  char const depth_storage{};
   auto *const depth = fake_image(&depth_storage);
   vkexec::handles::graphics_pipeline pipe{};
   pipe.cfg.color_attachment_count = k_no_colors;
@@ -149,7 +152,7 @@ TEST_CASE("depth-tested graphics pass requires depth metadata", "[vkexec][graphi
 
 TEST_CASE("graphics descriptors synchronize after compute writes", "[vkexec][graphics][pass]")
 {
-  char image_storage{};
+  char const image_storage{};
   auto *const image = fake_image(&image_storage);
   vkexec::handles::graphics_pipeline pipe{};
   pipe.cfg.color_attachment_count = k_no_colors;
@@ -176,7 +179,7 @@ TEST_CASE("graphics descriptors synchronize after compute writes", "[vkexec][gra
 
 TEST_CASE("opaque graphics descriptors require explicit complete resources", "[vkexec][graphics][pass]")
 {
-  char storage{};
+  char const storage{};
   auto *const buffer = fake_buffer(&storage);
   vkexec::handles::graphics_pipeline pipe{};
   pipe.binding_count = k_one_binding;
@@ -198,7 +201,7 @@ TEST_CASE("opaque graphics descriptors require explicit complete resources", "[v
 
 TEST_CASE("graphics pass rejects incomplete descriptor metadata", "[vkexec][graphics][pass]")
 {
-  char color_storage{};
+  char const color_storage{};
   vkexec::handles::graphics_pipeline pipe{};
   pipe.binding_count = k_one_binding;
   auto bind = vkexec::bind_graphics(pipe);
@@ -223,7 +226,7 @@ TEST_CASE("graphics pass rejects incomplete descriptor metadata", "[vkexec][grap
 
 TEST_CASE("render-pass final layout becomes the next graph layout", "[vkexec][graphics][pass]")
 {
-  char image_storage{};
+  char const image_storage{};
   auto *const image = fake_image(&image_storage);
   vkexec::handles::graphics_pipeline const pipe{};
   auto bind = vkexec::bind_graphics(pipe);
@@ -249,7 +252,7 @@ TEST_CASE("render-pass final layout becomes the next graph layout", "[vkexec][gr
 
 TEST_CASE("graphics pass enters the render pass initial layout", "[vkexec][graphics][pass]")
 {
-  char image_storage{};
+  char const image_storage{};
   auto *const image = fake_image(&image_storage);
   vkexec::handles::graphics_pipeline const pipe{};
   auto bind = vkexec::bind_graphics(pipe);
@@ -277,7 +280,7 @@ TEST_CASE("graphics pass enters the render pass initial layout", "[vkexec][graph
 
 TEST_CASE("undefined render-pass initial layout leaves its transition implicit", "[vkexec][graphics][pass]")
 {
-  char image_storage{};
+  char const image_storage{};
   auto *const image = fake_image(&image_storage);
   vkexec::handles::graphics_pipeline const pipe{};
   auto bind = vkexec::bind_graphics(pipe);
@@ -306,7 +309,7 @@ TEST_CASE("undefined render-pass initial layout leaves its transition implicit",
 
 TEST_CASE("first attachment use with undefined render-pass layout has no graph transition", "[vkexec][graphics][pass]")
 {
-  char image_storage{};
+  char const image_storage{};
   vkexec::handles::graphics_pipeline const pipe{};
   auto bind = vkexec::bind_graphics(pipe);
   vkexec::graphics_target target{};
@@ -329,7 +332,7 @@ TEST_CASE("first attachment use with undefined render-pass layout has no graph t
 
 TEST_CASE("graphics pass requires explicit render-pass attachment layouts", "[vkexec][graphics][pass]")
 {
-  char image_storage{};
+  char const image_storage{};
   vkexec::handles::graphics_pipeline const pipe{};
   auto bind = vkexec::bind_graphics(pipe);
   vkexec::graphics_target target{};
@@ -440,7 +443,7 @@ TEST_CASE("graphics attachment final layout leaves other mips unchanged", "[vkex
   constexpr std::uint32_t k_attachment_mip = 1;
   constexpr std::size_t k_third_step = 2;
   constexpr std::size_t k_three_steps = 3;
-  char storage{};
+  char const storage{};
   auto *const image = fake_image(&storage);
   auto whole = k_color_range;
   whole.levelCount = k_two_mips;

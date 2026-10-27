@@ -1,17 +1,18 @@
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <span>
+#include <stdexec/execution.hpp>
+#include <vkexec_graphics/draw_basic.hpp>
+#include <vkexec_graphics/draw_layers.hpp>
+#include <vkexec_graphics/graphics.hpp>
+
 #include "common/shader_loader.hpp"
 #include "common/smoke_frames.hpp"
 #include "common/vulkan_requirements.hpp"
 #include "glfw_presenter.hpp"
 #include "sync_wait_helpers.hpp"
-
-#include <vkexec_graphics/draw.hpp>
-#include <vkexec_graphics/graphics.hpp>
-
-#include <stdexec/execution.hpp>
-
-#include <cstdint>
-#include <filesystem>
-#include <iostream>
+#include "vkexec/context.hpp"
 
 namespace {
 constexpr std::uint32_t k_window_width = 800;

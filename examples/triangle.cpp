@@ -1,14 +1,14 @@
-#include "sync_wait_helpers.hpp"
-
-#include "glfw_presenter.hpp"
-#include <vkexec_graphics/draw.hpp>
+#include <cstdint>
+#include <iostream>
+#include <stdexec/execution.hpp>
+#include <vkexec_graphics/draw_basic.hpp>
+#include <vkexec_graphics/draw_layers.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/triangle_shaders.hpp>
 
-#include <stdexec/execution.hpp>
-
-#include <cstdint>
-#include <iostream>
+#include "glfw_presenter.hpp"
+#include "sync_wait_helpers.hpp"
+#include "vkexec/context.hpp"
 
 namespace {
 constexpr std::uint32_t k_window_width = 800;

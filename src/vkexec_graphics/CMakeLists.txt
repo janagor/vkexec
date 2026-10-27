@@ -1,4 +1,9 @@
-add_library(vkexec_graphics presenter.cpp swapchain.cpp graphics.cpp)
+add_library(
+  vkexec_graphics
+  presenter.cpp
+  presenter_frame.cpp
+  swapchain.cpp
+  graphics.cpp)
 
 add_library(vkexec::vkexec_graphics ALIAS vkexec_graphics)
 set_target_properties(vkexec_graphics PROPERTIES EXPORT_NAME vkexec_graphics)

@@ -70,10 +70,10 @@ namespace graphics {
   private:
     auto reset() noexcept -> void
     {
-      if (cleanup_) { cleanup_(); }
-      cleanup_ = nullptr;
-      image_ = VK_NULL_HANDLE;
-      view_ = VK_NULL_HANDLE;
+      if (this->cleanup_) { this->cleanup_(); }
+      this->cleanup_ = nullptr;
+      this->image_ = VK_NULL_HANDLE;
+      this->view_ = VK_NULL_HANDLE;
     }
 
     VkImage image_{ VK_NULL_HANDLE };
@@ -323,7 +323,7 @@ namespace owned {
     [[nodiscard]] auto consume_acquired_image_wait() -> status;
     [[nodiscard]] auto replace_abandoned_frame_sync() -> status;
 
-    config cfg_;
+    config cfg_{};
     std::unique_ptr<context> ctx_;
     VkSurfaceKHR surface_{ VK_NULL_HANDLE };
 
