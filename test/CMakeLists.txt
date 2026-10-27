@@ -174,6 +174,7 @@ if(vkexec_BUILD_PROFILING)
     profiling/query_pool_tests.cpp
     profiling/manual_capture_tests.cpp
     profiling/profiled_pass_tests.cpp)
+  target_sources(vkexec_profiling_tests PRIVATE profiling/chrome_trace_tests.cpp)
   if(vkexec_BUILD_TOOLS)
     vkexec_add_test_executable(
       vkexec_profiling_tools_tests
