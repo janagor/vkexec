@@ -158,7 +158,6 @@ TEST_CASE("sync_wait returns values with a stable return type", "[vkexec][sender
 {
   auto values = vkexec::sync_wait(stdexec::just(k_expected_value));
   REQUIRE(values.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(std::get<0>(*values) == k_expected_value);
 }
 

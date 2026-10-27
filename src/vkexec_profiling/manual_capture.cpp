@@ -4,25 +4,39 @@
 #include "detail/fence_status.hpp"
 
 #include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
 #include <vkexec/detail/submission_id.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
+#include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
+#include <vkexec_profiling/profiler.hpp>
 
+#include <vulkan/vulkan_core.h>
+
+#include <cstdint>
+#include <memory>
+#include <string>
 #include <utility>
 
 namespace vkexec::profiling::detail {
 
 namespace {
-  thread_local fence_status_fn fence_status_override = nullptr;
+  [[nodiscard]] auto fence_status_override() noexcept -> fence_status_fn &
+  {
+    thread_local fence_status_fn override_fn = nullptr;
+    return override_fn;
+  }
 }
 
 auto fence_status(VkDevice device, VkFence fence) -> VkResult
 {
-  if (fence_status_override) { return fence_status_override(device, fence); }
+  if (auto const override_fn = fence_status_override(); override_fn != nullptr) { return override_fn(device, fence); }
   return vkGetFenceStatus(device, fence);
 }
 
 auto set_fence_status_override(fence_status_fn replacement) noexcept -> fence_status_fn
-{ return std::exchange(fence_status_override, replacement); }
+{ return std::exchange(fence_status_override(), replacement); }
 
 }// namespace vkexec::profiling::detail
 
@@ -99,7 +113,7 @@ auto manual_capture::scoped_region(std::string name) -> result<region>
 auto manual_capture::end_region(std::uint32_t index) noexcept -> void
 {
   constexpr std::uint32_t k_end_offset = 1;
-  auto &entry = *samples_[index];
+  auto &entry = *samples_.at(index);
   vkCmdWriteTimestamp(command_buffer_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, entry.allocation.page->pool,
                       entry.allocation.first_query + k_end_offset);
   --active_regions_;
@@ -112,7 +126,7 @@ manual_capture::region::region(region &&other) noexcept
 auto manual_capture::region::operator=(region &&other) noexcept -> region &
 {
   if (this == &other) { return *this; }
-  if (capture_) { capture_->end_region(index_); }
+  if (capture_ != nullptr) { capture_->end_region(index_); }
   capture_ = std::exchange(other.capture_, nullptr);
   index_ = other.index_;
   return *this;
@@ -120,7 +134,7 @@ auto manual_capture::region::operator=(region &&other) noexcept -> region &
 
 manual_capture::region::~region()
 {
-  if (capture_) { capture_->end_region(index_); }
+  if (capture_ != nullptr) { capture_->end_region(index_); }
 }
 
 auto manual_capture::mark_submitted(VkFence fence) -> status
@@ -147,7 +161,7 @@ auto manual_capture::resolve_after_gpu() -> status
   try {
 #endif
     for (std::uint32_t index = 0; index < samples_.size(); ++index) {
-      auto &entry = *samples_[index];
+      auto &entry = *samples_.at(index);
       state_->publish(state_->resolve(entry.allocation, std::move(entry.name), submission_id_, index));
     }
 #if VKEXEC_HAS_EXCEPTIONS

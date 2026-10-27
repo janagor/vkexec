@@ -63,6 +63,8 @@ public:
     return *this;
   }
 
+  ~profiled_pass_step() = default;
+
   auto record(context &ctx, VkCommandBuffer cmd, vkexec::detail::pass_cleanup &cleanup,
               pass_recording_info const &info) -> status
   {
@@ -76,7 +78,7 @@ public:
     allocation_.emplace(std::move(*reserved));
     submission_id_ = info.ensure_submission_id();
     region_index_ = info.allocate_region_index();
-    auto const pool = allocation_->page->pool;
+    auto *const pool = allocation_->page->pool;
     auto const first = allocation_->first_query;
     vkCmdResetQueryPool(cmd, pool, first, k_queries_per_region);
     vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, pool, first);

@@ -17,12 +17,17 @@ namespace vkexec::profiling::detail {
 
 struct query_pool_page
 {
+  query_pool_page() = default;
+  query_pool_page(query_pool_page const &) = delete;
+  auto operator=(query_pool_page const &) -> query_pool_page & = delete;
+  query_pool_page(query_pool_page &&) = delete;
+  auto operator=(query_pool_page &&) -> query_pool_page & = delete;
+  ~query_pool_page();
+
   VkDevice device{ VK_NULL_HANDLE };
   VkQueryPool pool{ VK_NULL_HANDLE };
   std::uint32_t family{ 0 };
   std::vector<std::uint32_t> free_pairs;
-
-  ~query_pool_page();
 };
 
 class profiler_state;
@@ -53,6 +58,10 @@ class profiler_state : public std::enable_shared_from_this<profiler_state>
 {
 public:
   profiler_state(context &ctx, profiler_options options, std::vector<VkQueueFamilyProperties> families, float period);
+  profiler_state(profiler_state const &) = delete;
+  auto operator=(profiler_state const &) -> profiler_state & = delete;
+  profiler_state(profiler_state &&) = delete;
+  auto operator=(profiler_state &&) -> profiler_state & = delete;
   ~profiler_state() = default;
 
   [[nodiscard]] auto supported(queue_ref queue) const noexcept -> bool;

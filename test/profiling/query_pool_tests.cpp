@@ -2,10 +2,16 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/context.hpp>
+#include <vkexec/queue_submit.hpp>
 #include <vkexec_profiling/detail/profiler_state.hpp>
+#include <vkexec_profiling/profile_event.hpp>
 #include <vkexec_profiling/profiler.hpp>
 
+#include <vulkan/vulkan_core.h>
+
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -93,7 +99,7 @@ TEST_CASE("query pools expand without reusing in-flight pairs", "[vkexec][profil
   REQUIRE(first->page->pool != second->page->pool);
   REQUIRE(first->page->pool != third->page->pool);
   REQUIRE(second->page->pool != third->page->pool);
-  auto const first_pool = first->page->pool;
+  auto *const first_pool = first->page->pool;
   first->release();
   second->release();
   third->release();
@@ -107,7 +113,7 @@ TEST_CASE("transfer-only families cannot use command-buffer query reset", "[vkex
   auto ctx = vkexec::test::require_context();
   VkQueueFamilyProperties transfer_family{};
   transfer_family.queueFlags = VK_QUEUE_TRANSFER_BIT;
-  transfer_family.timestampValidBits = 64;
+  transfer_family.timestampValidBits = std::numeric_limits<std::uint64_t>::digits;
   auto state = vkexec::profiling::detail::profiler_state(*ctx, {}, { transfer_family }, 1.0F);
   auto const queue = vkexec::queue_ref{ .queue = ctx->compute_queue(), .family = 0 };
   REQUIRE_FALSE(state.supported(queue));

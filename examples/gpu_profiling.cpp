@@ -5,15 +5,20 @@
 #include <vkexec/context.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
-#include <vkexec_profiling/profiling.hpp>
+#include <vkexec_profiling/chrome_trace.hpp>
+#include <vkexec_profiling/profile_event.hpp>
+#include <vkexec_profiling/profiled.hpp>
+#include <vkexec_profiling/profiler.hpp>
 
 #include <stdexec/execution.hpp>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,6 +29,7 @@ constexpr std::uint32_t k_local_size = 64;
 constexpr float k_initial_value = 1.0F;
 constexpr float k_first_add = 2.0F;
 constexpr float k_second_add = 3.0F;
+constexpr double k_nanoseconds_per_millisecond = 1'000'000.0;
 constexpr std::string_view k_shader = R"(
 #version 450
 layout(local_size_x = 64) in;
@@ -69,7 +75,7 @@ auto run() -> int
   constexpr std::array<std::uint32_t, 3> k_check_indices{ 0, k_element_count / 2, k_element_count - 1 };
   constexpr auto k_expected_value = k_initial_value + k_first_add + k_second_add;
   for (auto const index : k_check_indices) {
-    if (values.data()[index] != k_expected_value) {
+    if (std::span{ values.data(), values.size() }.subspan(index, 1).front() != k_expected_value) {
       vkexec::examples::fail_check("profiled compute result mismatch");
     }
   }
@@ -81,10 +87,10 @@ auto run() -> int
     if (event.status != vkexec::profiling::sample_status::valid) {
       vkexec::examples::fail_check("GPU timestamp sample is unavailable");
     }
-    std::cout << event.name << ": " << event.duration_ns / 1'000'000.0 << " ms\n";
+    std::cout << event.name << ": " << event.duration_ns / k_nanoseconds_per_millisecond << " ms\n";
   }
   auto submissions = std::map<std::uint64_t, std::vector<vkexec::profiling::profile_event>>{};
-  for (auto const &event : events) { submissions[event.submission_id].push_back(event); }
+  for (auto const &event : events) { submissions.try_emplace(event.submission_id).first->second.push_back(event); }
   for (auto const &[submission_id, samples] : submissions) {
     auto const filename = "gpu-trace-" + std::to_string(submission_id) + ".json";
     auto output = std::ofstream(filename);

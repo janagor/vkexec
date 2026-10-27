@@ -14,9 +14,13 @@ namespace vkexec::profiling {
 
 struct profiler_options
 {
-  std::uint32_t queries_per_pool{ 512 };
-  std::uint32_t max_in_flight_regions{ 8192 };
-  std::uint32_t max_completed_events{ 65536 };
+  static constexpr std::uint32_t k_default_queries_per_pool = 512;
+  static constexpr std::uint32_t k_default_max_in_flight_regions = 8192;
+  static constexpr std::uint32_t k_default_max_completed_events = 65536;
+
+  std::uint32_t queries_per_pool{ k_default_queries_per_pool };
+  std::uint32_t max_in_flight_regions{ k_default_max_in_flight_regions };
+  std::uint32_t max_completed_events{ k_default_max_completed_events };
 };
 
 namespace detail {

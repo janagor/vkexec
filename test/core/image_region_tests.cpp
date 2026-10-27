@@ -91,28 +91,21 @@ TEST_CASE("image rectangle subtraction preserves four surrounding regions", "[vk
   auto const middle = normalize(range(k_next, k_middle, k_next, k_middle));
   REQUIRE(whole.has_value());
   REQUIRE(middle.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   auto const pieces = subtract(*whole, *middle);
   REQUIRE(pieces.size() == k_extent);
   for (std::size_t index{}; index < pieces.size(); ++index) {
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
     REQUIRE_FALSE(overlaps(pieces.at(index), *middle));
     for (std::size_t other = index + 1; other < pieces.size(); ++other) {
       REQUIRE_FALSE(overlaps(pieces.at(index), pieces.at(other)));
     }
   }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   std::vector<image_region_state> states{ image_region_state{ .region = *whole, .accesses = {} } };
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   auto partitioned = partition_image_regions(states, *middle);
   REQUIRE(partitioned.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   states = std::move(*partitioned);
   merge_image_regions(states);
   REQUIRE(states.size() == k_one_barrier);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(states.front().region == *whole);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(subtract(*whole, *whole).empty());
 }
 
@@ -126,12 +119,9 @@ TEST_CASE("image partitioning accepts disjoint finite mips that share remaining 
   auto const mip1 = normalize(range(k_next, k_one, k_base, VK_REMAINING_ARRAY_LAYERS));
   REQUIRE(mip0.has_value());
   REQUIRE(mip1.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   std::vector<image_region_state> const states{ image_region_state{ .region = *mip0, .accesses = {} } };
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   auto const partitioned = partition_image_regions(states, *mip1);
   REQUIRE(partitioned.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(partitioned->size() == k_two_barriers);
 }
 
@@ -143,11 +133,8 @@ TEST_CASE("image range normalization preserves symbolic remaining counts", "[vke
   auto const remaining = range(k_next, VK_REMAINING_MIP_LEVELS, k_middle, VK_REMAINING_ARRAY_LAYERS);
   auto const normalized = normalize(remaining);
   REQUIRE(normalized.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE_FALSE(normalized->mips.end);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE_FALSE(normalized->layers.end);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   require_range(subresource_range(*normalized), remaining);
   REQUIRE_FALSE(normalize(range(k_base, 0)));
   REQUIRE_FALSE(normalize(range(k_base, k_one, k_base, 0)));
@@ -639,14 +626,11 @@ TEST_CASE("image region merging keeps distinct reader frontiers and owners", "[v
       .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
     .step = k_first_step,
     .family = k_family };
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   std::vector<image_region_state> regions{
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
     image_region_state{ .region = *first,
       .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
       .family = k_family,
       .accesses = { .anchor = std::nullopt, .readers = { reader } } },
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
     image_region_state{ .region = *second,
       .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
       .family = k_family,

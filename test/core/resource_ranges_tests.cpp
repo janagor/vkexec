@@ -55,9 +55,7 @@ TEST_CASE("buffer interval algebra uses half-open bounds", "[vkexec][ranges]")
   REQUIRE(region_size(first) == k_middle);
   auto const pieces = split(tail, k_three_quarters);
   REQUIRE(pieces.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(pieces->first == buffer_range{ .begin = k_middle, .end = k_three_quarters });
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(pieces->second == buffer_range{ .begin = k_three_quarters, .end = std::nullopt });
   REQUIRE_FALSE(split(first, k_begin));
   REQUIRE_FALSE(split(first, k_middle));
@@ -70,14 +68,11 @@ TEST_CASE("buffer normalization validates finite ranges without adding whole siz
   vkexec::buffer_use use{ .offset = k_quarter, .size = k_middle };
   auto range = normalize(use);
   REQUIRE(range.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(range->begin == k_quarter);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(range->end == k_three_quarters);
   use.size = VK_WHOLE_SIZE;
   range = normalize(use);
   REQUIRE(range.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE_FALSE(range->end);
   use.size = 0;
   REQUIRE_FALSE(normalize(use));
@@ -111,24 +106,18 @@ TEST_CASE("partitioning clones complete frontiers and merging preserves them", "
     .accesses = { .anchor = writer, .readers = { reader } } } };
   auto pieces = partition_buffer_regions(original, { .begin = k_quarter, .end = k_three_quarters });
   REQUIRE(pieces.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(pieces->size() == k_split_count);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   for (auto const &piece : *pieces) {
     REQUIRE(piece.accesses.anchor == writer);
     REQUIRE(piece.accesses.readers == std::vector{ reader });
     REQUIRE(piece.family == k_family);
   }
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   auto differing = *pieces;
   differing.at(k_second_step).accesses.readers.clear();
   merge_buffer_regions(differing);
   REQUIRE(differing.size() == k_split_count);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   merge_buffer_regions(*pieces);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(pieces->size() == k_one_region);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(pieces->front().range == original.front().range);
 }
 
@@ -145,20 +134,14 @@ TEST_CASE("partitioning fills finite holes and rejects open uncovered tails", "[
 
   auto const finite = partition_buffer_regions(original, { .begin = k_begin, .end = k_end });
   REQUIRE(finite.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(finite->size() == k_split_count);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(finite->front().range == buffer_range{ .begin = k_begin, .end = k_quarter });
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(finite->at(k_second_step).range == original.front().range);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(finite->back().range == buffer_range{ .begin = k_middle, .end = k_end });
 
   auto const first_open = partition_buffer_regions({}, { .begin = k_begin, .end = std::nullopt });
   REQUIRE(first_open.has_value());
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(first_open->size() == k_one_region);
-  // NOLINTNEXTLINE(bugprone-unchecked-optional-access) -- Catch2's REQUIRE above checks engagement.
   REQUIRE(first_open->front().range == buffer_range{ .begin = k_begin, .end = std::nullopt });
 }
 

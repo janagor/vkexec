@@ -148,7 +148,7 @@ struct informed_pass_step
   auto record(vkexec::context & /*ctx*/,
     VkCommandBuffer /*cmd*/,
     vkexec::detail::pass_cleanup & /*cleanup*/,
-    vkexec::pass_recording_info const &info) -> vkexec::status
+    vkexec::pass_recording_info const &info) const -> vkexec::status
   {
     (void)info.ensure_submission_id();
     *observed = info;
@@ -162,13 +162,14 @@ struct completion_commit_step
   int *commits{};
   bool should_fail{};
 
-  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/,
+              vkexec::detail::pass_cleanup & /*cleanup*/) const -> vkexec::status
   {
     if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
     return {};
   }
 
-  auto commit_after_gpu() -> void { ++*commits; }
+  auto commit_after_gpu() const -> void { ++*commits; }
 };
 
 static_assert(vkexec::detail::static_pass_step<informed_pass_step>);
@@ -178,7 +179,7 @@ struct dual_record_pass_step
   int *selected{};
 
   auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/)
-    -> vkexec::status
+    const -> vkexec::status
   {
     *selected = k_legacy_signature;
     return {};
@@ -187,7 +188,7 @@ struct dual_record_pass_step
   auto record(vkexec::context & /*ctx*/,
     VkCommandBuffer /*cmd*/,
     vkexec::detail::pass_cleanup & /*cleanup*/,
-    vkexec::pass_recording_info const & /*info*/) -> vkexec::status
+    vkexec::pass_recording_info const & /*info*/) const -> vkexec::status
   {
     *selected = k_context_signature;
     return {};
@@ -1142,7 +1143,6 @@ TEST_CASE("typed graph appended after materialization joins branch sinks", "[vke
   REQUIRE(graph.step_predecessors.at(k_joined) == std::vector<std::size_t>{ k_left, k_right });
 }
 
-// NOLINTBEGIN(bugprone-unchecked-optional-access)
 TEST_CASE("dynamic pass graph keeps one sender type", "[vkexec][pass]")
 {
   constexpr std::uint32_t k_queue_family = 2U;
@@ -1217,7 +1217,6 @@ TEST_CASE("on_queue marks subsequent static pass steps", "[vkexec][pass]")
   REQUIRE(graph.current_queue.has_value());
   REQUIRE(graph.current_queue->family == compute.family);
 }
-// NOLINTEND(bugprone-unchecked-optional-access)
 
 TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
 {
@@ -1333,7 +1332,8 @@ TEST_CASE("dynamic graph forwards batch identity and explicit queue affinity", "
   graph.append_queue(other);
   graph.append(vkexec::make_pass_adaptor(informed_pass_step{ .observed = &third }));
 
-  REQUIRE(vkexec::test::sync_wait_completed(vkexec::test::sync_wait_sender(std::move(graph))));
+  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(outcome));
   REQUIRE(first.submission_id >= vkexec::detail::k_first_submission_id);
   REQUIRE(first.submission_id == second.submission_id);
   if (vkexec::detail::same_queue(compute, other)) {
@@ -1357,7 +1357,8 @@ TEST_CASE("independent DAG nodes receive distinct recording identities", "[vkexe
   (void)graph.append_after({}, vkexec::make_pass_adaptor(informed_pass_step{ .observed = &first }));
   (void)graph.append_after({}, vkexec::make_pass_adaptor(informed_pass_step{ .observed = &second }));
 
-  REQUIRE(vkexec::test::sync_wait_completed(vkexec::test::sync_wait_sender(std::move(graph))));
+  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(outcome));
   REQUIRE(first.submission_id >= vkexec::detail::k_first_submission_id);
   REQUIRE(second.submission_id >= vkexec::detail::k_first_submission_id);
   REQUIRE(first.submission_id != second.submission_id);
@@ -1375,7 +1376,7 @@ TEST_CASE("four-argument recording failure propagates from a graph", "[vkexec][p
   auto const result = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(result.failed());
   REQUIRE(result.error.has_value());
-  REQUIRE(result.error->code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+  REQUIRE(result.error.value().code == vkexec::make_error_code(vkexec::errc::invalid_argument));
   REQUIRE_FALSE(result.stopped);
   REQUIRE(observed.submission_id >= vkexec::detail::k_first_submission_id);
   REQUIRE(skipped == 0);

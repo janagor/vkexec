@@ -4,7 +4,10 @@
 
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/pass.hpp>
-#include <vkexec_profiling/profiling.hpp>
+#include <vkexec/pipeline.hpp>
+#include <vkexec_profiling/profile_event.hpp>
+#include <vkexec_profiling/profiled.hpp>
+#include <vkexec_profiling/profiler.hpp>
 
 #include <stdexec/execution.hpp>
 

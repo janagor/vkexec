@@ -2,11 +2,22 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <vkexec/barrier_params.hpp>
+#include <vkexec/config.hpp>
+#include <vkexec/context.hpp>
+#include <vkexec/detail/resource_state_tracker.hpp>
+#include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
+#include <vkexec/queue_submit.hpp>
+#include <vkexec/result.hpp>
 #include <vkexec/resource_use.hpp>
-#include <vkexec_profiling/profiling.hpp>
+#include <vkexec/submit_scope.hpp>
+#include <vkexec_profiling/profile_event.hpp>
+#include <vkexec_profiling/profiled.hpp>
+#include <vkexec_profiling/profiler.hpp>
 
 #include <stdexec/execution.hpp>
+#include <vulkan/vulkan_core.h>
 
 #include <algorithm>
 #include <chrono>
@@ -27,16 +38,17 @@ struct mutable_declaration_step
   VkBuffer buffer{ VK_NULL_HANDLE };
   int *declarations{ nullptr };
 
-  [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return true; }
+  [[nodiscard]] static auto has_resource_declarations() noexcept -> bool { return true; }
   auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
-                         vkexec::queue_ref queue) -> vkexec::status
+                         vkexec::queue_ref queue) const -> vkexec::status
   {
     ++*declarations;
     constexpr VkDeviceSize k_buffer_size = 64;
     return tracker.use(vkexec::write(buffer, 0, k_buffer_size, vkexec::buffer_usage::storage_compute),
       index, queue.family, queue.queue);
   }
-  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  static auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/,
+                     vkexec::detail::pass_cleanup & /*cleanup*/) -> vkexec::status
   { return {}; }
 };
 
@@ -46,9 +58,9 @@ struct four_argument_declaration_step
   bool write{ false };
   bool *crosses_families_seen{ nullptr };
 
-  [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return true; }
+  [[nodiscard]] static auto has_resource_declarations() noexcept -> bool { return true; }
   auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
-                         vkexec::queue_ref queue, bool crosses_families) -> vkexec::status
+                         vkexec::queue_ref queue, bool crosses_families) const -> vkexec::status
   {
     *crosses_families_seen = crosses_families;
     constexpr VkDeviceSize k_buffer_size = 64;
@@ -59,25 +71,31 @@ struct four_argument_declaration_step
     return tracker.use(vkexec::read(buffer, 0, k_buffer_size, vkexec::buffer_usage::storage_compute),
       index, queue.family, queue.queue);
   }
-  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  static auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/,
+                     vkexec::detail::pass_cleanup & /*cleanup*/) -> vkexec::status
   { return {}; }
 };
 
 struct nonassignable_step
 {
   nonassignable_step() = default;
+  nonassignable_step(nonassignable_step const &) = delete;
+  auto operator=(nonassignable_step const &) -> nonassignable_step & = delete;
   nonassignable_step(nonassignable_step &&) = default;
   auto operator=(nonassignable_step &&) -> nonassignable_step & = delete;
-  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  ~nonassignable_step() = default;
+  static auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/,
+                     vkexec::detail::pass_cleanup & /*cleanup*/) -> vkexec::status
   { return {}; }
 };
 
 struct unrelated_publish_step
 {
   bool *called{ nullptr };
-  auto record(vkexec::context &, VkCommandBuffer, vkexec::detail::pass_cleanup &) -> vkexec::status
+  static auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/,
+                     vkexec::detail::pass_cleanup & /*cleanup*/) -> vkexec::status
   { return {}; }
-  auto publish_after_gpu() -> void { *called = true; }
+  auto publish_after_gpu() const -> void { *called = true; }
 };
 
 struct completion_receiver
@@ -88,10 +106,10 @@ struct completion_receiver
   };
   std::promise<void> *done{ nullptr };
 
-  auto set_value() && noexcept -> void { done->set_value(); }
-  auto set_error(vkexec::error const &) && noexcept -> void { done->set_value(); }
-  auto set_stopped() && noexcept -> void { done->set_value(); }
-  [[nodiscard]] auto get_env() const noexcept -> env { return {}; }
+  auto set_value() const && noexcept -> void { done->set_value(); }
+  auto set_error(vkexec::error const & /*error*/) const && noexcept -> void { done->set_value(); }
+  auto set_stopped() const && noexcept -> void { done->set_value(); }
+  [[nodiscard]] static auto get_env() noexcept -> env { return {}; }
 };
 
 static_assert(vkexec::detail::static_pass_step<nonassignable_step>);
@@ -117,7 +135,7 @@ TEST_CASE("profiled four-argument declarations survive dynamic type erasure", "[
   auto profiler = vkexec::profiling::profiler::create(*ctx);
   REQUIRE(profiler);
   char storage{};
-  auto const buffer = static_cast<VkBuffer>(static_cast<void *>(&storage));
+  auto *const buffer = reinterpret_cast<VkBuffer>(&storage); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   constexpr std::size_t k_step_count = 2;
   constexpr std::size_t k_writer_index = 0;
   constexpr std::size_t k_reader_index = 1;
@@ -128,8 +146,10 @@ TEST_CASE("profiled four-argument declarations survive dynamic type erasure", "[
   bool static_crosses = false;
   bool dynamic_crosses = false;
   using step_type = vkexec::profiling::detail::profiled_pass_step<four_argument_declaration_step>;
-  step_type static_writer{ { buffer, true, &static_crosses }, "writer", *profiler };
-  step_type static_reader{ { buffer, false, &static_crosses }, "reader", *profiler };
+  step_type static_writer{ { .buffer = buffer, .write = true, .crosses_families_seen = &static_crosses },
+                           "writer", *profiler };
+  step_type static_reader{ { .buffer = buffer, .write = false, .crosses_families_seen = &static_crosses },
+                           "reader", *profiler };
   vkexec::detail::resource_state_tracker static_tracker{ k_step_count };
   REQUIRE(vkexec::detail::declare_step_resources(
     static_writer, static_tracker, k_writer_index, writer_queue, true));
@@ -138,9 +158,11 @@ TEST_CASE("profiled four-argument declarations survive dynamic type erasure", "[
   auto const static_plan = std::move(static_tracker).finish();
 
   vkexec::detail::dynamic_pass_step dynamic_writer{
-    step_type{ { buffer, true, &dynamic_crosses }, "writer", *profiler } };
+    step_type{ { .buffer = buffer, .write = true, .crosses_families_seen = &dynamic_crosses },
+               "writer", *profiler } };
   vkexec::detail::dynamic_pass_step dynamic_reader{
-    step_type{ { buffer, false, &dynamic_crosses }, "reader", *profiler } };
+    step_type{ { .buffer = buffer, .write = false, .crosses_families_seen = &dynamic_crosses },
+               "reader", *profiler } };
   vkexec::detail::resource_state_tracker dynamic_tracker{ k_step_count };
   REQUIRE(vkexec::detail::declare_step_resources(
     dynamic_writer, dynamic_tracker, k_writer_index, writer_queue, true));
@@ -174,11 +196,11 @@ TEST_CASE("profiled primitive passes publish after static graph completion", "[v
   auto events = profiler->take_completed();
   constexpr std::size_t k_region_count = 2;
   REQUIRE(events.size() == k_region_count);
-  REQUIRE(events[0].name == "first");
-  REQUIRE(events[1].name == "second");
-  REQUIRE(events[0].submission_id == events[1].submission_id);
-  REQUIRE(events[0].status == vkexec::profiling::sample_status::valid);
-  REQUIRE(events[1].status == vkexec::profiling::sample_status::valid);
+  REQUIRE(events.at(0).name == "first");
+  REQUIRE(events.at(1).name == "second");
+  REQUIRE(events.at(0).submission_id == events.at(1).submission_id);
+  REQUIRE(events.at(0).status == vkexec::profiling::sample_status::valid);
+  REQUIRE(events.at(1).status == vkexec::profiling::sample_status::valid);
 }
 
 TEST_CASE("profiled primitive passes work in dynamic graphs", "[vkexec][profiling][gpu]")
@@ -216,7 +238,8 @@ TEST_CASE("profiled graph rejects a profiler from another device", "[vkexec][pro
                    }));
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(outcome.failed());
-  REQUIRE(outcome.error->code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+  REQUIRE(outcome.error.has_value());
+  REQUIRE(outcome.error.value().code == vkexec::make_error_code(vkexec::errc::invalid_argument));
   REQUIRE(recorded == 0);
   REQUIRE(profiler->take_completed().empty());
 }
@@ -227,7 +250,7 @@ TEST_CASE("profiling keeps resource hazards visible to graph planning", "[vkexec
   auto profiler = vkexec::profiling::profiler::create(*ctx);
   REQUIRE(profiler);
   char storage{};
-  VkBuffer const buffer = reinterpret_cast<VkBuffer>(&storage);
+  auto *const buffer = reinterpret_cast<VkBuffer>(&storage); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   constexpr VkDeviceSize k_buffer_size = 64;
   auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   graph.append(vkexec::profiling::profiled(*profiler, "write",
@@ -253,7 +276,7 @@ TEST_CASE("mutable-only resource declarations survive profiling", "[vkexec][prof
   auto profiler = vkexec::profiling::profiler::create(*ctx);
   REQUIRE(profiler);
   char storage{};
-  VkBuffer const buffer = reinterpret_cast<VkBuffer>(&storage);
+  auto *const buffer = reinterpret_cast<VkBuffer>(&storage); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   int declarations = 0;
   auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
   graph.append(vkexec::profiling::profiled(*profiler, "mutable",
@@ -277,7 +300,7 @@ TEST_CASE("cross-family synchronization plan is unchanged by profiling", "[vkexe
   auto profiler = vkexec::profiling::profiler::create(*ctx);
   REQUIRE(profiler);
   char storage{};
-  VkBuffer const buffer = reinterpret_cast<VkBuffer>(&storage);
+  auto *const buffer = reinterpret_cast<VkBuffer>(&storage); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
   constexpr VkDeviceSize k_buffer_size = 64;
   auto make_write = [&]() -> auto {
     return vkexec::custom_pass(vkexec::uses(vkexec::write(buffer, 0, k_buffer_size,
@@ -346,7 +369,7 @@ TEST_CASE("copying a profiled graph gives each execution its own queries", "[vke
   auto events = profiler->take_completed();
   constexpr std::size_t k_execution_count = 2;
   REQUIRE(events.size() == k_execution_count);
-  REQUIRE(events[0].submission_id != events[1].submission_id);
+  REQUIRE(events.at(0).submission_id != events.at(1).submission_id);
 }
 
 TEST_CASE("two profiled graph operations complete independently", "[vkexec][profiling][gpu]")
@@ -381,9 +404,9 @@ TEST_CASE("two profiled graph operations complete independently", "[vkexec][prof
   auto events = profiler->take_completed();
   constexpr std::size_t k_execution_count = 2;
   REQUIRE(events.size() == k_execution_count);
-  REQUIRE(events[0].submission_id != events[1].submission_id);
-  REQUIRE(events[0].status == vkexec::profiling::sample_status::valid);
-  REQUIRE(events[1].status == vkexec::profiling::sample_status::valid);
+  REQUIRE(events.at(0).submission_id != events.at(1).submission_id);
+  REQUIRE(events.at(0).status == vkexec::profiling::sample_status::valid);
+  REQUIRE(events.at(1).status == vkexec::profiling::sample_status::valid);
 }
 
 TEST_CASE("query capacity errors release unsubmitted graph allocations", "[vkexec][profiling][gpu]")
@@ -446,7 +469,8 @@ TEST_CASE("profiled passes keep missing metadata errors", "[vkexec][profiling][g
                    vkexec::compute_pass(vkexec::compute_bind{}, vkexec::dispatch{}));
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(outcome.failed());
-  REQUIRE(outcome.error->code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+  REQUIRE(outcome.error.has_value());
+  REQUIRE(outcome.error.value().code == vkexec::make_error_code(vkexec::errc::invalid_argument));
   REQUIRE(profiler->take_completed().empty());
 }
 

@@ -6,7 +6,7 @@
 
 namespace vkexec::profiling {
 
-enum class sample_status { valid, unavailable, readback_error, invalid_timestamp };
+enum class sample_status : std::uint8_t { valid, unavailable, readback_error, invalid_timestamp };
 
 struct profile_event
 {
