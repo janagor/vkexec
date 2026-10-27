@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: Check C++ formatting
+        entry: clang-format --dry-run --Werror
+        language: system
+        files: \.(c|cc|cpp|cxx|h|hpp|hxx)$
+        exclude: ^(out|third_party|external|generated)/
+      - id: file-length
+        name: Check C++ file lengths
+        entry: python3 scripts/check_loc.py
+        language: system
+        files: \.(cc|cpp|cxx|h|hpp|hxx)$
+        pass_filenames: false

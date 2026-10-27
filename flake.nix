@@ -45,6 +45,7 @@
           pkg-config
           include-what-you-use
           clangTools
+          pre-commit
 
           vulkanHeaders
           vulkan-loader

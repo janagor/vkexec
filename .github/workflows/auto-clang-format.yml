@@ -1,8 +1,8 @@
-name: auto-clang-format
+name: clang-format
 on: [pull_request]
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
 
     steps:
@@ -10,14 +10,7 @@ jobs:
     - uses: DoozyX/clang-format-lint-action@v0.20
       with:
         source: '.'
-        exclude: './third_party ./external'
-        extensions: 'h,cpp,hpp'
+        exclude: './out ./third_party ./external ./generated'
+        extensions: 'c,cc,cpp,cxx,h,hpp,hxx'
         clangFormatVersion: 22
-        inplace: True
-    - uses: EndBug/add-and-commit@v11
-      with:
-        author_name: Clang Robot
-        author_email: robot@example.com
-        message: ':art: Committing clang-format changes'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        inplace: False
