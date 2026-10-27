@@ -25,7 +25,8 @@ public:
 
   profiled_pass_step(profiled_pass_step const &other)
     requires std::copy_constructible<Step>
-    : inner_(other.inner_), name_(other.name_), state_(other.state_)
+    : inner_(other.inner_), name_(other.name_), state_(other.state_), allocation_(std::nullopt),
+      completed_(std::nullopt), submission_id_{}, region_index_{}
   {
     if (other.allocation_ || other.completed_) {
       vkexec::detail::contract_violation("cannot copy an executing profiled pass");
@@ -42,6 +43,10 @@ public:
     inner_ = other.inner_;
     name_ = other.name_;
     state_ = other.state_;
+    allocation_.reset();
+    completed_.reset();
+    submission_id_ = {};
+    region_index_ = {};
     return *this;
   }
 

@@ -84,6 +84,7 @@ auto manual_capture::operator=(manual_capture &&other) noexcept -> manual_captur
   queue_ = other.queue_;
   fence_ = std::exchange(other.fence_, VK_NULL_HANDLE);
   samples_ = std::move(other.samples_);
+  active_regions_ = std::exchange(other.active_regions_, 0);
   submitted_ = std::exchange(other.submitted_, false);
   resolved_ = std::exchange(other.resolved_, false);
   submission_id_ = std::exchange(other.submission_id_, 0);
