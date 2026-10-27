@@ -47,7 +47,9 @@ public:
   // Record outside render passes and video coding scopes. Regions may nest.
   [[nodiscard]] auto scoped_region(std::string name) -> result<region>;
 
-  // Call after a successful queue submit. Keep the fence valid until resolution.
+  // Call immediately after a successful queue submit, before any throwing work.
+  // Keep the fence valid until resolution. Destroying a submitted unresolved
+  // capture is a contract violation and terminates the process.
   [[nodiscard]] auto mark_submitted(VkFence fence) -> status;
   // Checks the fence without waiting before reading timestamps. Device loss
   // terminates the capture; other fence errors leave it available to retry.

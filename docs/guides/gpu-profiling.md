@@ -31,6 +31,9 @@ with copyable passes creates a separate operation; each execution reserves its
 own query pairs. A profiler belongs to the Vulkan device used to create it;
 recording a profiled graph on another device returns an error before reserving
 queries.
+The wrapper resets queries before recording the primitive pass, so the pass
+must begin outside an active render pass or dynamic rendering scope. It may
+begin and end its own rendering scope internally.
 
 ## Manual command buffers
 
@@ -57,6 +60,9 @@ an error while the GPU is still working. The fence must remain valid and must
 not be reset or reused until resolution. The capture must also remain alive through resolution; destroying
 a submitted unresolved capture is a contract violation because its query slots
 could still be in use by the GPU. An unsubmitted capture can be discarded.
+Call `mark_submitted()` immediately after a successful queue submission, before
+any operation that may throw or return early. If submission succeeds, retaining
+the capture and fence until resolution is required even when later work fails.
 After a successful fence check, `discard_after_gpu()` can release the slots
 without reading results. `VK_ERROR_DEVICE_LOST` makes the capture terminal and
 quarantines its query slots. Other Vulkan fence errors leave the capture and

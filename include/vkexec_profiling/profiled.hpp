@@ -35,6 +35,7 @@ namespace detail {
 }// namespace detail
 
 //! Instruments one primitive pass without adding a graph node or dependency.
+//! The pass must be recorded outside an active render pass or dynamic rendering scope.
 template<class Tag, class Data>
 [[nodiscard]] auto profiled(profiler owner, std::string name, vkexec::detail::expr_closure<Tag, Data> pass)
   -> vkexec::detail::expr_closure<detail::profiled_t,
