@@ -172,7 +172,18 @@ if(vkexec_BUILD_PROFILING)
     SOURCES
     profiling/timestamp_math_tests.cpp
     profiling/query_pool_tests.cpp
-    profiling/manual_capture_tests.cpp)
+    profiling/manual_capture_tests.cpp
+    profiling/profiled_pass_tests.cpp)
+  if(vkexec_BUILD_TOOLS)
+    vkexec_add_test_executable(
+      vkexec_profiling_tools_tests
+      profiling_tools
+      LIBRARIES
+      vkexec::profiling
+      vkexec::tools
+      SOURCES
+      profiling/compute_dispatch_tests.cpp)
+  endif()
 endif()
 
 vkexec_add_test_executable(

@@ -38,7 +38,7 @@ TEST_CASE("query pairs stay exclusive until released", "[vkexec][profiling][gpu]
   auto second = state->reserve(queue);
   REQUIRE(first);
   REQUIRE(second);
-  REQUIRE(first->first_query != second->first_query);
+  REQUIRE((first->page->pool != second->page->pool || first->first_query != second->first_query));
   REQUIRE_FALSE(state->reserve(queue));
   auto const recycled_index = first->first_query;
   first->release();
