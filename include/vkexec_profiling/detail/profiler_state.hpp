@@ -37,8 +37,8 @@ class query_allocation
 public:
   query_allocation() = default;
   query_allocation(std::shared_ptr<profiler_state> owner,
-    std::shared_ptr<query_pool_page> page,
-    std::uint32_t first_query) noexcept;
+    std::shared_ptr<query_pool_page> pool_page,
+    std::uint32_t query) noexcept;
   query_allocation(query_allocation const &) = delete;
   auto operator=(query_allocation const &) -> query_allocation & = delete;
   query_allocation(query_allocation &&other) noexcept;

@@ -11,6 +11,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -124,12 +125,10 @@ auto profiler_state::reserve(queue_ref queue) -> result<query_allocation>
     return fail(errc::out_of_range, "profiling region capacity exceeded");
   }
   auto page = std::shared_ptr<query_pool_page>{};
-  for (auto const &candidate : pages_) {
-    if (candidate->family == queue.family && !candidate->free_pairs.empty()) {
-      page = candidate;
-      break;
-    }
-  }
+  auto const candidate = std::ranges::find_if(pages_, [family = queue.family](auto const &candidate_page) -> bool {
+    return candidate_page->family == family && !candidate_page->free_pairs.empty();
+  });
+  if (candidate != pages_.end()) { page = *candidate; }
   if (!page) {
     VkQueryPoolCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
