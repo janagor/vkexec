@@ -162,6 +162,19 @@ vkexec_add_test_executable(
   features/synchronization2_feature_tests.cpp
   features/context_capabilities_tests.cpp)
 
+if(vkexec_BUILD_PROFILING)
+  vkexec_add_test_executable(
+    vkexec_profiling_tests
+    profiling
+    LIBRARIES
+    vkexec::profiling
+    vkexec_private_headers
+    SOURCES
+    profiling/timestamp_math_tests.cpp
+    profiling/query_pool_tests.cpp
+    profiling/manual_capture_tests.cpp)
+endif()
+
 vkexec_add_test_executable(
   vkexec_graphics_tests
   graphics
@@ -315,6 +328,9 @@ endfunction()
 vkexec_add_header_checks(vkexec_core_header_checks vkexec::vkexec ${VKEXEC_CORE_HEADERS})
 vkexec_add_header_checks(vkexec_features_header_checks vkexec::features ${VKEXEC_FEATURE_HEADERS})
 vkexec_add_header_checks(vkexec_graphics_header_checks vkexec::vkexec_graphics ${VKEXEC_GRAPHICS_HEADERS})
+if(vkexec_BUILD_PROFILING)
+  vkexec_add_header_checks(vkexec_profiling_header_checks vkexec::profiling ${VKEXEC_PROFILING_HEADERS})
+endif()
 vkexec_add_header_checks(vkexec_descriptor_heap_header_checks vkexec::ext_descriptor_heap
                          ${VKEXEC_DESCRIPTOR_HEAP_HEADERS})
 vkexec_add_header_checks(vkexec_dynamic_rendering_header_checks vkexec::ext_dynamic_rendering
