@@ -26,93 +26,93 @@
 
 namespace vkexec::detail {
 
-  [[nodiscard]] inline auto try_begin_frame(owned::presenter &win) -> result<std::optional<frame>>
-  { return win.begin_frame(); }
+[[nodiscard]] inline auto try_begin_frame(owned::presenter &win) -> result<std::optional<frame>>
+{ return win.begin_frame(); }
 
-  [[nodiscard]] inline auto try_end_frame(owned::presenter &win, frame const &drawn) -> result<VkFence>
-  { return win.end_frame(drawn); }
+[[nodiscard]] inline auto try_end_frame(owned::presenter &win, frame const &drawn) -> result<VkFence>
+{ return win.end_frame(drawn); }
 
-  template<class Receiver>
-  auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
-  {
-    if (failure) {
-      stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
-    } else if (stopped) {
-      stdexec::set_stopped(std::forward<Receiver>(receiver));
-    } else {
-      stdexec::set_value(std::forward<Receiver>(receiver));
-    }
+template<class Receiver>
+auto complete_draw(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
+{
+  if (failure) {
+    stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
+  } else if (stopped) {
+    stdexec::set_stopped(std::forward<Receiver>(receiver));
+  } else {
+    stdexec::set_value(std::forward<Receiver>(receiver));
   }
+}
 
-  template<class Receiver, class Operation>
-  auto start_draw_sync(context_handle const &state, Receiver &receiver, Operation &&operation) noexcept -> void
-  {
+template<class Receiver, class Operation>
+auto start_draw_sync(context_handle const &state, Receiver &receiver, Operation &&operation) noexcept -> void
+{
 #if VKEXEC_HAS_EXCEPTIONS
-    try {
+  try {
 #endif
-      if (receiver_stop_requested(receiver)) {
-        stdexec::set_stopped(std::move(receiver));
-        return;
-      }
-      if (!state) {
-        stdexec::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
-        return;
-      }
-      std::forward<Operation>(operation)();
-#if VKEXEC_HAS_EXCEPTIONS
-    } catch (...) {
-      stdexec::set_error(std::move(receiver), unexpected_exception_error());
+    if (receiver_stop_requested(receiver)) {
+      stdexec::set_stopped(std::move(receiver));
+      return;
     }
-#endif
-  }
-
-  template<class WindowOp, class Receiver>
-  auto start_draw_async(context_handle const &state,
-    owned::presenter *win,
-    WindowOp &&record_and_end,
-    Receiver &receiver) noexcept -> void
-  {
-#if VKEXEC_HAS_EXCEPTIONS
-    try {
-#endif
-      auto const token = receiver_stop_token(receiver);
-      if (stop_requested(token)) {
-        stdexec::set_stopped(std::move(receiver));
-        return;
-      }
-      if (!state) {
-        stdexec::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
-        return;
-      }
-
-      auto frame_result = try_begin_frame(*win);
-      if (!frame_result) {
-        stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
-        return;
-      }
-      if (!frame_result->has_value()) {
-        stdexec::set_value(std::move(receiver));
-        return;
-      }
-
-      auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
-      if (!fence_result) {
-        stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
-        return;
-      }
-
-      Receiver *const rcvr = &receiver;
-      auto facade = context_access::facade(state);
-      (void)facade.enqueue_borrowed_fence_wait(
-        *fence_result, token, [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
-          complete_draw(std::move(*rcvr), std::move(wait_error), stopped);
-        });
-#if VKEXEC_HAS_EXCEPTIONS
-    } catch (...) {
-      stdexec::set_error(std::move(receiver), unexpected_exception_error());
+    if (!state) {
+      stdexec::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
+      return;
     }
-#endif
+    std::forward<Operation>(operation)();
+#if VKEXEC_HAS_EXCEPTIONS
+  } catch (...) {
+    stdexec::set_error(std::move(receiver), unexpected_exception_error());
   }
+#endif
+}
+
+template<class WindowOp, class Receiver>
+auto start_draw_async(context_handle const &state,
+  owned::presenter *win,
+  WindowOp &&record_and_end,
+  Receiver &receiver) noexcept -> void
+{
+#if VKEXEC_HAS_EXCEPTIONS
+  try {
+#endif
+    auto const token = receiver_stop_token(receiver);
+    if (stop_requested(token)) {
+      stdexec::set_stopped(std::move(receiver));
+      return;
+    }
+    if (!state) {
+      stdexec::set_error(std::move(receiver), make_error(errc::invalid_argument, "draw requires a context"));
+      return;
+    }
+
+    auto frame_result = try_begin_frame(*win);
+    if (!frame_result) {
+      stdexec::set_error(std::move(receiver), std::move(frame_result.error()));
+      return;
+    }
+    if (!frame_result->has_value()) {
+      stdexec::set_value(std::move(receiver));
+      return;
+    }
+
+    auto fence_result = std::forward<WindowOp>(record_and_end)(**frame_result);
+    if (!fence_result) {
+      stdexec::set_error(std::move(receiver), std::move(fence_result.error()));
+      return;
+    }
+
+    Receiver *const rcvr = &receiver;
+    auto facade = context_access::facade(state);
+    (void)facade.enqueue_borrowed_fence_wait(
+      *fence_result, token, [rcvr](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
+        complete_draw(std::move(*rcvr), std::move(wait_error), stopped);
+      });
+#if VKEXEC_HAS_EXCEPTIONS
+  } catch (...) {
+    stdexec::set_error(std::move(receiver), unexpected_exception_error());
+  }
+#endif
+}
 
 }// namespace vkexec::detail
 
@@ -348,6 +348,6 @@ struct draw_async_sender
  *
  * @see draw_layers, draw_layers_async_sender
  */
-} // namespace vkexec
+}// namespace vkexec
 
 #endif// VKEXEC_GRAPHICS_DRAW_BASIC_HPP

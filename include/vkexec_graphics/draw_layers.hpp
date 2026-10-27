@@ -345,6 +345,6 @@ inline auto operator|(schedule_sender snd, draw_layers_closure closure) -> draw_
 [[nodiscard]] inline auto operator|(draw_layers_sender const &snd, submit_t /*tag*/) -> draw_layers_async_sender
 { return draw_layers_async_sender{ draw_layers_sender{ .state = snd.state, .win = snd.win, .layers = snd.layers } }; }
 
-} // namespace vkexec
+}// namespace vkexec
 
 #endif// VKEXEC_GRAPHICS_DRAW_LAYERS_HPP
