@@ -4,6 +4,9 @@ target_include_directories(vkexec_private_headers INTERFACE "${PROJECT_SOURCE_DI
 add_subdirectory(vkexec)
 add_subdirectory(vkexec_features)
 add_subdirectory(vkexec_graphics)
+if(vkexec_BUILD_PROFILING)
+  add_subdirectory(vkexec_profiling)
+endif()
 if(vkexec_BUILD_VMA)
   add_subdirectory(vkexec_vma)
 endif()
@@ -15,7 +18,11 @@ endif()
 set(vkexec_compiled_targets
     vkexec
     vkexec_features
-    vkexec_graphics
+    vkexec_graphics)
+if(vkexec_BUILD_PROFILING)
+  list(APPEND vkexec_compiled_targets vkexec_profiling)
+endif()
+list(APPEND vkexec_compiled_targets
     vkexec_ext_descriptor_heap
     vkexec_ext_dynamic_rendering
     vkexec_ext_timeline_semaphore)

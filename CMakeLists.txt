@@ -72,6 +72,11 @@ file(
   "${PROJECT_SOURCE_DIR}/include/vkexec_graphics/*.hpp")
 file(
   GLOB_RECURSE
+  VKEXEC_PROFILING_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_profiling/*.hpp")
+file(
+  GLOB_RECURSE
   VKEXEC_DESCRIPTOR_HEAP_HEADERS
   CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/common/*.hpp"
@@ -148,6 +153,18 @@ target_sources(
          "${PROJECT_SOURCE_DIR}/include"
          FILES
          ${VKEXEC_GRAPHICS_HEADERS})
+if(vkexec_BUILD_PROFILING)
+  target_sources(
+    vkexec_profiling
+    PUBLIC FILE_SET
+           public_headers
+           TYPE
+           HEADERS
+           BASE_DIRS
+           "${PROJECT_SOURCE_DIR}/include"
+           FILES
+           ${VKEXEC_PROFILING_HEADERS})
+endif()
 target_sources(
   vkexec_ext_descriptor_heap
   PUBLIC FILE_SET
@@ -249,6 +266,9 @@ if(PROJECT_IS_TOP_LEVEL)
         vkexec_ext_dynamic_rendering
         vkexec_ext_timeline_semaphore
         vkexec_graphics)
+    if(vkexec_BUILD_PROFILING)
+      list(APPEND VKEXEC_INSTALL_TARGETS vkexec_profiling)
+    endif()
     if(vkexec_BUILD_VMA)
       list(APPEND VKEXEC_INSTALL_TARGETS vkexec_vma)
     endif()
