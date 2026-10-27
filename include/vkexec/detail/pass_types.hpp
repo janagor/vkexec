@@ -180,6 +180,6 @@ auto record_pass(VkCommandBuffer cmd,
   std::uint32_t push_bytes,
   dispatch groups) -> void;
 
-} // namespace vkexec
+}// namespace vkexec
 
 #endif// VKEXEC_DETAIL_PASS_TYPES_HPP

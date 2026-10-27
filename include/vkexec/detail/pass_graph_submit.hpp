@@ -433,6 +433,6 @@ namespace detail {
 
 }// namespace detail
 
-} // namespace vkexec
+}// namespace vkexec
 
 #endif// VKEXEC_DETAIL_PASS_GRAPH_SUBMIT_HPP

@@ -423,6 +423,6 @@ inline auto merge_image_regions(std::vector<image_region_state> &regions) -> voi
   }
 }
 
-} // namespace vkexec::detail
+}// namespace vkexec::detail
 
 #endif// VKEXEC_DETAIL_RESOURCE_STATE_TRACKER_HELPERS_HPP

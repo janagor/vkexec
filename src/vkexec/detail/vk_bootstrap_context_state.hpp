@@ -93,6 +93,6 @@ struct detail::context_state
   }
 };
 
-} // namespace vkexec
+}// namespace vkexec
 
 #endif// VKEXEC_DETAIL_VK_BOOTSTRAP_CONTEXT_STATE_HPP
