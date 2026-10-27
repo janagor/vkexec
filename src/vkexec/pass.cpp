@@ -11,7 +11,6 @@
 #include <vkexec/detail/pass_steps.hpp>
 #include <vkexec/detail/pass_types.hpp>
 #include <vkexec/detail/record_with_binding.hpp>
-#include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/resource_use.hpp>
