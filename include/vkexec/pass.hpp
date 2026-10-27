@@ -288,6 +288,45 @@ namespace detail {
     }
   }
 
+  template<class Step> auto publish_after_gpu(Step &step) -> void
+  {
+    if constexpr (requires {
+                    typename Step::vkexec_profiling_completion_tag;
+                    { step.publish_after_gpu() } -> std::same_as<void>;
+                  }) {
+      step.publish_after_gpu();
+    }
+  }
+
+  template<class Step>
+  [[nodiscard]] auto step_has_resource_declarations(Step const &step) noexcept -> bool
+  {
+    if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
+    if constexpr (requires { step.bind.metadata; }) {
+      return step.bind.metadata == resource_metadata_state::complete;
+    }
+    return requires { step.resources; };
+  }
+
+  template<class Step>
+  [[nodiscard]] auto step_requires_complete_metadata(Step const &step) noexcept -> bool
+  {
+    if constexpr (requires { step.requires_complete_metadata(); }) { return step.requires_complete_metadata(); }
+    return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
+  }
+
+  template<class Step>
+  [[nodiscard]] auto declare_step_resources_unchecked(Step &step, resource_state_tracker &tracker,
+    std::size_t index, queue_ref queue) -> status
+  {
+    if constexpr (requires { step.resources; }) {
+      return tracker.use(step.resources, index, queue.family, queue.queue);
+    } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
+      return step.declare_resources(tracker, index, queue);
+    }
+    return {};
+  }
+
   class dynamic_pass_step
   {
     struct interface
@@ -303,6 +342,7 @@ namespace detail {
       virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
         -> status = 0;
       virtual auto after_gpu() -> void = 0;
+      virtual auto publish_after_gpu() -> void = 0;
       virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status = 0;
       [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
       [[nodiscard]] virtual auto requires_complete_metadata() const noexcept -> bool = 0;
@@ -320,31 +360,16 @@ namespace detail {
 
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
 
+      auto publish_after_gpu() -> void override { detail::publish_after_gpu(step); }
+
       auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue) -> status override
-      {
-        if constexpr (requires { step.resources; }) {
-          return tracker.use(step.resources, index, queue.family, queue.queue);
-        } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
-          return step.declare_resources(tracker, index, queue);
-        }
-        return {};
-      }
+      { return declare_step_resources_unchecked(step, tracker, index, queue); }
 
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
-      {
-        if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
-        if constexpr (requires { step.bind.metadata; }) {
-          return step.bind.metadata == resource_metadata_state::complete;
-        }
-        // cppcheck-suppress constStatement
-        return requires { step.resources; };
-      }
+      { return step_has_resource_declarations(step); }
 
       [[nodiscard]] auto requires_complete_metadata() const noexcept -> bool override
-      {
-        // cppcheck-suppress constStatement
-        return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
-      }
+      { return step_requires_complete_metadata(step); }
     };
 
     std::unique_ptr<interface> impl_;
@@ -367,6 +392,8 @@ namespace detail {
     { return impl_->record(ctx, cmd, cleanup, info); }
 
     auto after_gpu() -> void { impl_->after_gpu(); }
+
+    auto publish_after_gpu() -> void { impl_->publish_after_gpu(); }
 
     auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status
     { return impl_->declare_resources(tracker, step, queue); }
@@ -677,13 +704,15 @@ namespace detail {
   }
 
   template<class Step>
-  [[nodiscard]] auto declare_step_resources(Step const &step,
+  [[nodiscard]] auto declare_step_resources(Step &step,
     resource_state_tracker &tracker,
     std::size_t index,
     queue_ref queue,
     bool crosses_families) -> status
   {
-    if constexpr (requires { step.resources; }) {
+    if constexpr (requires { step.declare_resources(tracker, index, queue, crosses_families); }) {
+      return step.declare_resources(tracker, index, queue, crosses_families);
+    } else if constexpr (requires { step.resources; }) {
       return tracker.use(step.resources, index, queue.family, queue.queue);
     } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
       if constexpr (requires { step.has_resource_declarations(); }) {
@@ -717,7 +746,7 @@ namespace detail {
   }
 
   template<class... Steps>
-  [[nodiscard]] auto declare_indexed_step(std::tuple<Steps...> const &steps,
+  [[nodiscard]] auto declare_indexed_step(std::tuple<Steps...> &steps,
     resource_state_tracker &tracker,
     std::size_t index,
     queue_ref queue,
@@ -726,8 +755,8 @@ namespace detail {
     status declared{};
     std::size_t position{};
     std::apply(
-      [&](auto const &...step) -> void {
-        [[maybe_unused]] auto declare_one = [&](auto const &current) -> void {
+      [&](auto &...step) -> void {
+        [[maybe_unused]] auto declare_one = [&](auto &current) -> void {
           if (position == index) {
             declared = declare_step_resources(current, tracker, index, queue, crosses_families);
           }
@@ -882,6 +911,14 @@ namespace detail {
     for (auto &step : steps) { step.after_gpu(); }
   }
 
+  template<class... Steps> auto publish_after_gpu(std::tuple<Steps...> &steps) -> void
+  { std::apply([](auto &...step) -> void { (detail::publish_after_gpu(step), ...); }, steps); }
+
+  inline auto publish_after_gpu(std::vector<dynamic_pass_step> &steps) -> void
+  {
+    for (auto &step : steps) { step.publish_after_gpu(); }
+  }
+
 }// namespace detail
 
 using pass_graph_completion_signatures =
@@ -901,6 +938,7 @@ namespace detail {
       try {
 #endif
         detail::run_after_gpu(*steps);
+        detail::publish_after_gpu(*steps);
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         stdexec::set_error(std::move(*rcvr), unexpected_exception_error());
