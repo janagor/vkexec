@@ -163,6 +163,9 @@ auto profiler_state::resolve(query_allocation const &allocation, std::string nam
                                          families_[allocation.page->family].timestampValidBits, period_)) {
     event.duration_ns = *duration;
     event.status = sample_status::valid;
+    event.start_tick = values[0].timestamp;
+    event.timestamp_valid_bits = families_[allocation.page->family].timestampValidBits;
+    event.timestamp_period_ns = static_cast<double>(period_);
   } else {
     event.status = sample_status::invalid_timestamp;
   }

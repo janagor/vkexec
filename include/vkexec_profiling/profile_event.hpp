@@ -16,6 +16,10 @@ struct profile_event
   std::uint32_t region_index{ 0 };
   double duration_ns{ 0.0 };
   sample_status status{ sample_status::unavailable };
+  // Present for valid samples; timestamps share a domain only within one submission and queue family.
+  std::uint64_t start_tick{ 0 };
+  std::uint32_t timestamp_valid_bits{ 0 };
+  double timestamp_period_ns{ 0.0 };
 };
 
 }// namespace vkexec::profiling
