@@ -23,6 +23,7 @@
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
+#include <atomic>
 #include <array>
 #include <cassert>
 #include <concepts>
@@ -44,6 +45,17 @@ namespace vkexec {
 
 //! An unset affinity uses the graph's default queue during execution planning.
 using queue_affinity = std::optional<queue_ref>;
+
+//! Queue and identity of the execution batch currently recording a pass.
+//! `submission_id` identifies a submission attempt, including attempts that
+//! fail before queue submission. IDs are process-local and are not persistent.
+//! A step may copy this value for `after_gpu()`; the reference passed to
+//! `record()` is valid only for that call.
+struct pass_recording_info
+{
+  queue_ref queue{};
+  std::uint64_t submission_id{};
+};
 
 //! Synchronization borrowed from a presenter for one graph execution.
 struct graph_presentation_sync
@@ -232,10 +244,37 @@ namespace detail {
                                || (std::is_trivially_copyable_v<std::remove_cvref_t<T>> && !is_byte_span_v<T>);
 
   template<class Step>
-  concept static_pass_step =
-    std::move_constructible<Step> && requires(Step &step, context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) {
-      { step.record(ctx, cmd, cleanup) } -> std::same_as<status>;
-    };
+  concept static_pass_step = std::move_constructible<Step>
+                             && (requires(Step &step, context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) {
+                                  { step.record(ctx, cmd, cleanup) } -> std::same_as<status>;
+                                }
+                               || requires(Step &step,
+                                 context &ctx,
+                                 VkCommandBuffer cmd,
+                                 pass_cleanup &cleanup,
+                                 pass_recording_info const &info) {
+                                    { step.record(ctx, cmd, cleanup, info) } -> std::same_as<status>;
+                                  });
+
+  template<static_pass_step Step>
+  [[nodiscard]] auto record_step(Step &step,
+    context &ctx,
+    VkCommandBuffer cmd,
+    pass_cleanup &cleanup,
+    pass_recording_info const &info) -> status
+  {
+    if constexpr (requires { { step.record(ctx, cmd, cleanup, info) } -> std::same_as<status>; }) {
+      return step.record(ctx, cmd, cleanup, info);
+    } else {
+      return step.record(ctx, cmd, cleanup);
+    }
+  }
+
+  inline constexpr std::uint64_t k_first_submission_id = 1;
+  inline std::atomic<std::uint64_t> next_submission_id{ k_first_submission_id };
+
+  [[nodiscard]] inline auto recording_info(queue_ref queue) noexcept -> pass_recording_info
+  { return pass_recording_info{ .queue = queue, .submission_id = next_submission_id.fetch_add(1, std::memory_order_relaxed) }; }
 
   template<class T>
   concept sender_adaptor_closure =
@@ -263,7 +302,8 @@ namespace detail {
       interface(interface &&) = delete;
       auto operator=(interface &&) -> interface & = delete;
 
-      virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status = 0;
+      virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
+        -> status = 0;
       virtual auto after_gpu() -> void = 0;
       virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status = 0;
       [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
@@ -276,8 +316,9 @@ namespace detail {
 
       explicit model(Step value) : step(std::move(value)) {}
 
-      auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status override
-      { return step.record(ctx, cmd, cleanup); }
+      auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
+        -> status override
+      { return record_step(step, ctx, cmd, cleanup, info); }
 
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
 
@@ -324,8 +365,8 @@ namespace detail {
     dynamic_pass_step(dynamic_pass_step const &) = delete;
     auto operator=(dynamic_pass_step const &) -> dynamic_pass_step & = delete;
 
-    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
-    { return impl_->record(ctx, cmd, cleanup); }
+    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info) -> status
+    { return impl_->record(ctx, cmd, cleanup, info); }
 
     auto after_gpu() -> void { impl_->after_gpu(); }
 
@@ -431,11 +472,15 @@ namespace detail {
 
   template<class... Steps>
   [[nodiscard]] auto
-    record_static_steps(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, std::tuple<Steps...> &steps) -> status
+    record_static_steps(context &ctx,
+      VkCommandBuffer cmd,
+      pass_cleanup &cleanup,
+      std::tuple<Steps...> &steps,
+      pass_recording_info const &info) -> status
   {
     status result{};
-    auto record_one = [&ctx, cmd, &cleanup, &result](auto &step) -> bool {
-      auto current = step.record(ctx, cmd, cleanup);
+    auto record_one = [&ctx, cmd, &cleanup, &info, &result](auto &step) -> bool {
+      auto current = record_step(step, ctx, cmd, cleanup, info);
       if (!current) {
         result = fail(current);
         return false;
@@ -450,10 +495,11 @@ namespace detail {
   [[nodiscard]] inline auto record_dynamic_steps(context &ctx,
     VkCommandBuffer cmd,
     pass_cleanup &cleanup,
-    std::vector<dynamic_pass_step> &steps) -> status
+    std::vector<dynamic_pass_step> &steps,
+    pass_recording_info const &info) -> status
   {
     for (auto &step : steps) {
-      auto recorded = step.record(ctx, cmd, cleanup);
+      auto recorded = record_step(step, ctx, cmd, cleanup, info);
       if (!recorded) { return fail(recorded); }
     }
     return {};
@@ -463,7 +509,8 @@ namespace detail {
   [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::tuple<Steps...> &steps) -> status
   {
     auto facade = context_access::facade(scope.state);
-    if (auto recorded = record_static_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
+    if (auto recorded = record_static_steps(facade, scope.cmd, scope.cleanup, steps, recording_info(scope.queue));
+        !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -472,7 +519,8 @@ namespace detail {
   [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::vector<dynamic_pass_step> &steps) -> status
   {
     auto facade = context_access::facade(scope.state);
-    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
+    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps, recording_info(scope.queue));
+        !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -566,9 +614,10 @@ namespace detail {
   [[nodiscard]] auto
     record_batch_steps(context &facade, submit_scope &scope, execution_batch const &batch, StepStorage &steps) -> status
   {
+    auto const info = recording_info(scope.queue);
     if constexpr (requires { steps.size(); }) {
       for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
-        if (auto recorded = steps.at(index).record(facade, scope.cmd, scope.cleanup); !recorded) {
+        if (auto recorded = record_step(steps.at(index), facade, scope.cmd, scope.cleanup, info); !recorded) {
           return fail(recorded);
         }
       }
@@ -578,7 +627,7 @@ namespace detail {
       std::size_t index{};
       auto record_one = [&](auto &step) -> void {
         if (recorded && index >= batch.first_step && index < batch.end_step) {
-          recorded = step.record(facade, scope.cmd, scope.cleanup);
+          recorded = record_step(step, facade, scope.cmd, scope.cleanup, info);
         }
         ++index;
       };
@@ -724,18 +773,19 @@ namespace detail {
     resource_sync_plan const &sync,
     StepStorage &steps) -> status
   {
+    auto const info = recording_info(scope.queue);
     for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
       auto const &point = sync.steps.at(index);
       VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_before, point.buffers_before));
       if constexpr (requires { steps.size(); }) {
-        VKEXEC_TRY(steps.at(index).record(facade, scope.cmd, scope.cleanup));
+        VKEXEC_TRY(record_step(steps.at(index), facade, scope.cmd, scope.cleanup, info));
       } else {
         status recorded{};
         std::size_t position{};
         std::apply(
           [&](auto &...step) -> void {
             [[maybe_unused]] auto record_one = [&](auto &current) -> void {
-              if (position == index) { recorded = current.record(facade, scope.cmd, scope.cleanup); }
+              if (position == index) { recorded = record_step(current, facade, scope.cmd, scope.cleanup, info); }
               ++position;
             };
             (record_one(step), ...);

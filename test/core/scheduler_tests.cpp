@@ -139,6 +139,49 @@ struct counting_pass_step
   }
 };
 
+struct informed_pass_step
+{
+  decltype(vkexec::uses()) resources{};
+  vkexec::pass_recording_info *observed{};
+  bool should_fail{};
+
+  auto record(vkexec::context & /*ctx*/,
+    VkCommandBuffer /*cmd*/,
+    vkexec::detail::pass_cleanup & /*cleanup*/,
+    vkexec::pass_recording_info const &info) -> vkexec::status
+  {
+    *observed = info;
+    if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
+    return {};
+  }
+};
+
+static_assert(vkexec::detail::static_pass_step<informed_pass_step>);
+
+struct dual_record_pass_step
+{
+  int *selected{};
+
+  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/)
+    -> vkexec::status
+  {
+    *selected = k_legacy_signature;
+    return {};
+  }
+
+  auto record(vkexec::context & /*ctx*/,
+    VkCommandBuffer /*cmd*/,
+    vkexec::detail::pass_cleanup & /*cleanup*/,
+    vkexec::pass_recording_info const & /*info*/) -> vkexec::status
+  {
+    *selected = k_context_signature;
+    return {};
+  }
+
+  static constexpr int k_legacy_signature = 3;
+  static constexpr int k_context_signature = 4;
+};
+
 template<class AfterGpu> [[nodiscard]] auto make_empty_pass_step(AfterGpu after_gpu)
 {
   return vkexec::detail::make_callback_pass_step(
@@ -1170,6 +1213,129 @@ TEST_CASE("dynamic pass graph accepts move-only steps", "[vkexec][pass]")
   REQUIRE(graph.steps.size() == 1);
 }
 
+TEST_CASE("pass recording forwards queue and batch identity through static and dynamic steps", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const queue = ctx->compute_queue_ref();
+  auto const info = vkexec::detail::recording_info(queue);
+  vkexec::pass_recording_info static_observed{};
+  vkexec::pass_recording_info dynamic_observed{};
+  auto static_steps = std::tuple{ informed_pass_step{ .observed = &static_observed } };
+  std::vector<vkexec::detail::dynamic_pass_step> dynamic_steps;
+  dynamic_steps.emplace_back(informed_pass_step{ .observed = &dynamic_observed });
+  vkexec::detail::pass_cleanup cleanup{};
+
+  REQUIRE(vkexec::detail::record_static_steps(*ctx, VK_NULL_HANDLE, cleanup, static_steps, info));
+  REQUIRE(vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, dynamic_steps, info));
+  REQUIRE(static_observed.queue.queue == queue.queue);
+  REQUIRE(dynamic_observed.queue.queue == queue.queue);
+  REQUIRE(static_observed.queue.family == queue.family);
+  REQUIRE(dynamic_observed.queue.family == queue.family);
+  REQUIRE(static_observed.submission_id == info.submission_id);
+  REQUIRE(dynamic_observed.submission_id == info.submission_id);
+  REQUIRE(info.submission_id != vkexec::detail::recording_info(queue).submission_id);
+}
+
+TEST_CASE("pass recording prefers the context-aware overload", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  int selected{};
+  auto step = dual_record_pass_step{ .selected = &selected };
+  vkexec::detail::pass_cleanup cleanup{};
+  auto const info = vkexec::detail::recording_info(ctx->compute_queue_ref());
+
+  REQUIRE(vkexec::detail::record_step(step, *ctx, VK_NULL_HANDLE, cleanup, info));
+  REQUIRE(selected == dual_record_pass_step::k_context_signature);
+}
+
+TEST_CASE("static graph shares recording identity within a batch and changes it on replay", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const queue = ctx->compute_queue_ref();
+  vkexec::pass_recording_info first{};
+  vkexec::pass_recording_info second{};
+  auto make_graph = [&]() -> decltype(auto) {
+    return stdexec::schedule(ctx->get_scheduler())
+           | vkexec::make_pass_adaptor(informed_pass_step{ .observed = &first })
+           | vkexec::make_pass_adaptor(informed_pass_step{ .observed = &second });
+  };
+
+  REQUIRE(vkexec::test::sync_wait_completed(vkexec::test::sync_wait_sender(make_graph())));
+  REQUIRE(first.submission_id >= vkexec::detail::k_first_submission_id);
+  REQUIRE(first.submission_id == second.submission_id);
+  REQUIRE(first.queue.queue == queue.queue);
+  REQUIRE(first.queue.family == queue.family);
+
+  auto const previous_id = first.submission_id;
+  REQUIRE(vkexec::test::sync_wait_completed(vkexec::test::sync_wait_sender(make_graph())));
+  REQUIRE(first.submission_id != previous_id);
+  REQUIRE(first.submission_id == second.submission_id);
+}
+
+TEST_CASE("dynamic graph forwards batch identity and explicit queue affinity", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  auto const other = graphics.queue == VK_NULL_HANDLE ? compute : graphics;
+  vkexec::pass_recording_info first{};
+  vkexec::pass_recording_info second{};
+  vkexec::pass_recording_info third{};
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
+  graph.append_queue(compute);
+  graph.append(vkexec::make_pass_adaptor(informed_pass_step{ .observed = &first }));
+  graph.append(vkexec::make_pass_adaptor(informed_pass_step{ .observed = &second }));
+  graph.append_queue(other);
+  graph.append(vkexec::make_pass_adaptor(informed_pass_step{ .observed = &third }));
+
+  REQUIRE(vkexec::test::sync_wait_completed(vkexec::test::sync_wait_sender(std::move(graph))));
+  REQUIRE(first.submission_id >= vkexec::detail::k_first_submission_id);
+  REQUIRE(first.submission_id == second.submission_id);
+  if (vkexec::detail::same_queue(compute, other)) {
+    REQUIRE(first.submission_id == third.submission_id);
+  } else {
+    REQUIRE(first.submission_id != third.submission_id);
+  }
+  REQUIRE(first.queue.queue == compute.queue);
+  REQUIRE(first.queue.family == compute.family);
+  REQUIRE(third.queue.queue == other.queue);
+  REQUIRE(third.queue.family == other.family);
+}
+
+TEST_CASE("independent DAG nodes receive distinct recording identities", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  vkexec::pass_recording_info first{};
+  vkexec::pass_recording_info second{};
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
+  graph.append_queue(ctx->compute_queue_ref());
+  (void)graph.append_after({}, vkexec::make_pass_adaptor(informed_pass_step{ .observed = &first }));
+  (void)graph.append_after({}, vkexec::make_pass_adaptor(informed_pass_step{ .observed = &second }));
+
+  REQUIRE(vkexec::test::sync_wait_completed(vkexec::test::sync_wait_sender(std::move(graph))));
+  REQUIRE(first.submission_id >= vkexec::detail::k_first_submission_id);
+  REQUIRE(second.submission_id >= vkexec::detail::k_first_submission_id);
+  REQUIRE(first.submission_id != second.submission_id);
+}
+
+TEST_CASE("four-argument recording failure propagates from a graph", "[vkexec][pass][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  vkexec::pass_recording_info observed{};
+  int skipped{};
+  auto graph = stdexec::schedule(ctx->get_scheduler())
+               | vkexec::make_pass_adaptor(informed_pass_step{ .observed = &observed, .should_fail = true })
+               | vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &skipped });
+
+  auto const result = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(result.failed());
+  REQUIRE(result.error.has_value());
+  REQUIRE(result.error->code == vkexec::make_error_code(vkexec::errc::invalid_argument));
+  REQUIRE_FALSE(result.stopped);
+  REQUIRE(observed.submission_id >= vkexec::detail::k_first_submission_id);
+  REQUIRE(skipped == 0);
+}
+
 TEST_CASE("copyable binding graphs defer mutable state to each operation", "[vkexec][pass]")
 {
   vkexec::handles::compute_pipeline const pipe{};
@@ -1200,7 +1366,8 @@ TEST_CASE("static pass recording stops at the first failure", "[vkexec][pass][gp
   };
   vkexec::detail::pass_cleanup cleanup{};
 
-  auto recorded = vkexec::detail::record_static_steps(*ctx, VK_NULL_HANDLE, cleanup, steps);
+  auto recorded = vkexec::detail::record_static_steps(
+    *ctx, VK_NULL_HANDLE, cleanup, steps, vkexec::detail::recording_info(ctx->compute_queue_ref()));
 
   REQUIRE_FALSE(recorded);
   REQUIRE(first_count == 1);
@@ -1221,7 +1388,8 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   graph.append(vkexec::make_pass_adaptor(counting_pass_step{ .record_count = &skipped_count, .should_fail = false }));
 
   vkexec::detail::pass_cleanup cleanup{};
-  auto recorded = vkexec::detail::record_dynamic_steps(*ctx, VK_NULL_HANDLE, cleanup, graph.steps);
+  auto recorded = vkexec::detail::record_dynamic_steps(
+    *ctx, VK_NULL_HANDLE, cleanup, graph.steps, vkexec::detail::recording_info(ctx->compute_queue_ref()));
 
   REQUIRE_FALSE(recorded);
   REQUIRE(first_count == 1);
