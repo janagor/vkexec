@@ -9,6 +9,7 @@
 #include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/detail/sender_expr.hpp>
+#include <vkexec/detail/submission_id.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -23,7 +24,6 @@
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
-#include <atomic>
 #include <array>
 #include <cassert>
 #include <concepts>
@@ -271,10 +271,8 @@ namespace detail {
   }
 
   inline constexpr std::uint64_t k_first_submission_id = 1;
-  inline std::atomic<std::uint64_t> next_submission_id{ k_first_submission_id };
-
   [[nodiscard]] inline auto recording_info(queue_ref queue) noexcept -> pass_recording_info
-  { return pass_recording_info{ .queue = queue, .submission_id = next_submission_id.fetch_add(1, std::memory_order_relaxed) }; }
+  { return pass_recording_info{ .queue = queue, .submission_id = allocate_submission_id() }; }
 
   template<class T>
   concept sender_adaptor_closure =
