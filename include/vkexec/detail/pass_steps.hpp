@@ -132,13 +132,13 @@ namespace vkexec::detail {
   {
     if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
     if constexpr (requires { step.bind.metadata; }) { return step.bind.metadata == resource_metadata_state::complete; }
-    return requires { step.resources; };
+    return requires { &Step::resources; };
   }
 
   template<class Step> [[nodiscard]] auto step_requires_complete_metadata(Step const &step) noexcept -> bool
   {
     if constexpr (requires { step.requires_complete_metadata(); }) { return step.requires_complete_metadata(); }
-    return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
+    return requires { step.has_resource_declarations(); } || requires { sizeof(step.bind.metadata); };
   }
 
   template<class Step>
