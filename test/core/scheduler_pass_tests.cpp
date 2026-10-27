@@ -12,10 +12,10 @@
 #include <span>
 #include <stdexec/execution.hpp>
 #include <thread>
-#include <tuple> // IWYU pragma: keep
-#include <type_traits> // IWYU pragma: keep
+#include <tuple>// IWYU pragma: keep
+#include <type_traits>// IWYU pragma: keep
 #include <utility>
-#include <vector> // IWYU pragma: keep
+#include <vector>// IWYU pragma: keep
 #include <vulkan/vulkan_core.h>
 
 #include "scheduler_test_support.hpp"
@@ -27,15 +27,15 @@
 #include "vkexec/detail/pass_types.hpp"
 #include "vkexec/detail/sender_expr.hpp"
 #include "vkexec/pass.hpp"
-#include "vkexec/queue_submit.hpp" // IWYU pragma: keep
-#include "vkexec/resource_use.hpp" // IWYU pragma: keep
+#include "vkexec/queue_submit.hpp"// IWYU pragma: keep
+#include "vkexec/resource_use.hpp"// IWYU pragma: keep
 #include "vkexec/result.hpp"
 #include "vkexec/scheduler.hpp"
 #include "vkexec/submit_scope.hpp"
 
 namespace vkexec {
 struct domain;
-}  // namespace vkexec
+}// namespace vkexec
 
 TEST_CASE("schedule_sender advertises completion domain", "[vkexec][scheduler][domain]")
 {

@@ -30,7 +30,7 @@
 
 namespace vkexec {
 class context;
-}  // namespace vkexec
+}// namespace vkexec
 
 TEST_CASE("ownership transfer collapses a reader frontier to one release", "[vkexec][pass]")
 {

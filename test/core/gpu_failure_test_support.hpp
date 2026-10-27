@@ -84,7 +84,8 @@ inline std::atomic<int> retirement_wait_failures{ 0 };
   return call < retirement_wait_failures.load(std::memory_order_relaxed) ? VK_ERROR_OUT_OF_HOST_MEMORY : VK_SUCCESS;
 }
 
-[[nodiscard]] inline auto VKAPI_CALL lost_queue_retirement_wait(VkQueue /*queue*/) -> VkResult { return VK_ERROR_DEVICE_LOST; }
+[[nodiscard]] inline auto VKAPI_CALL lost_queue_retirement_wait(VkQueue /*queue*/) -> VkResult
+{ return VK_ERROR_DEVICE_LOST; }
 
 struct terminal_counts
 {
@@ -154,7 +155,8 @@ inline thread_local submit_gate *thread_gate = nullptr;
 inline thread_local int *thread_submit_calls = nullptr;
 inline std::atomic<PFN_vkQueueSubmit2> normal_submit2{ nullptr };
 
-inline auto checkpoint_submit(VkQueue queue, std::uint32_t count, VkSubmitInfo const *submits, VkFence fence) -> VkResult
+inline auto checkpoint_submit(VkQueue queue, std::uint32_t count, VkSubmitInfo const *submits, VkFence fence)
+  -> VkResult
 {
   VkResult const result = vkQueueSubmit(queue, count, submits, fence);
   if (thread_submit_calls != nullptr) { ++(*thread_submit_calls); }
@@ -167,7 +169,8 @@ inline auto checkpoint_submit(VkQueue queue, std::uint32_t count, VkSubmitInfo c
   return result;
 }
 
-inline auto checkpoint_submit2(VkQueue queue, std::uint32_t count, VkSubmitInfo2 const *submits, VkFence fence) -> VkResult
+inline auto checkpoint_submit2(VkQueue queue, std::uint32_t count, VkSubmitInfo2 const *submits, VkFence fence)
+  -> VkResult
 {
   auto *gate = thread_gate != nullptr ? thread_gate : active_gate.load(std::memory_order_acquire);
   auto *submit2 = gate != nullptr ? gate->real_submit2 : normal_submit2.load(std::memory_order_acquire);
@@ -224,8 +227,8 @@ inline std::atomic<int> branch_accepted_submits{ 0 };
 inline std::atomic<int> branch_rejected_submits{ 0 };
 inline PFN_vkQueueSubmit2 branch_real_submit2{ nullptr };
 
-[[nodiscard]] inline auto fail_second_submit(VkQueue queue, std::uint32_t count, VkSubmitInfo const *submits, VkFence fence)
-  -> VkResult
+[[nodiscard]] inline auto
+  fail_second_submit(VkQueue queue, std::uint32_t count, VkSubmitInfo const *submits, VkFence fence) -> VkResult
 {
   if (branch_submit_calls.fetch_add(1, std::memory_order_relaxed) == 0) {
     VkResult const result = vkQueueSubmit(queue, count, submits, fence);
@@ -236,8 +239,8 @@ inline PFN_vkQueueSubmit2 branch_real_submit2{ nullptr };
   return VK_ERROR_DEVICE_LOST;
 }
 
-[[nodiscard]] inline auto fail_second_submit2(VkQueue queue, std::uint32_t count, VkSubmitInfo2 const *submits, VkFence fence)
-  -> VkResult
+[[nodiscard]] inline auto
+  fail_second_submit2(VkQueue queue, std::uint32_t count, VkSubmitInfo2 const *submits, VkFence fence) -> VkResult
 {
   if (branch_submit_calls.fetch_add(1, std::memory_order_relaxed) == 0) {
     VkResult const result = branch_real_submit2(queue, count, submits, fence);
