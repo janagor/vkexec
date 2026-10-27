@@ -21,6 +21,7 @@ struct profiler_options
 
 namespace detail {
   class profiler_state;
+  template<class Step> class profiled_pass_step;
 }
 class manual_capture;
 
@@ -35,6 +36,7 @@ public:
 
 private:
   friend class manual_capture;
+  template<class Step> friend class detail::profiled_pass_step;
   explicit profiler(std::shared_ptr<detail::profiler_state> state) : state_(std::move(state)) {}
   std::shared_ptr<detail::profiler_state> state_;
 };

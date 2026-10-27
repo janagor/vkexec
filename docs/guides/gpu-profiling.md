@@ -1,7 +1,38 @@
-# Manual GPU profiling
+# GPU profiling
 
 Configure with `-Dvkexec_BUILD_PROFILING=ON` and link `vkexec::profiling`.
 The profiling target is optional; core `vkexec::vkexec` does not depend on it.
+
+## Pass graphs
+
+Wrap one primitive pass adaptor to measure its GPU commands:
+
+```cpp
+#include <vkexec_profiling/profiling.hpp>
+
+auto profiler = vkexec::profiling::profiler::create(ctx);
+auto graph = stdexec::schedule(ctx.get_scheduler())
+  | vkexec::profiling::profiled(*profiler, "first", vkexec::compute_pass(first_bind, first_groups))
+  | vkexec::profiling::profiled(*profiler, "second", vkexec::compute_pass(second_bind, second_groups));
+auto completed = vkexec::sync_wait(std::move(graph));
+auto events = profiler->take_completed();
+```
+
+The wrapper retains the pass's resource declarations and queue affinity. It
+records timestamps inside the graph's existing command buffer and publishes
+events after GPU completion and all pass callbacks succeed. `start()` remains asynchronous. The
+measured interval begins after graph-generated barriers before the pass and
+ends before graph-generated barriers after it. Barriers recorded by the pass
+itself are included. The wrapper accepts one primitive pass; it does not span
+composite senders or multiple submissions. Unsupported queue families and
+query capacity failures are reported as graph recording errors. Graph errors
+and cancellation do not publish successful samples. Copying an unstarted graph
+with copyable passes creates a separate operation; each execution reserves its
+own query pairs. A profiler belongs to the Vulkan device used to create it;
+recording a profiled graph on another device returns an error before reserving
+queries.
+
+## Manual command buffers
 
 ```cpp
 #include <vkexec_profiling/manual_capture.hpp>

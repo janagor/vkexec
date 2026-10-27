@@ -1,4 +1,4 @@
-#include "detail/profiler_state.hpp"
+#include <vkexec_profiling/detail/profiler_state.hpp>
 #include "detail/timestamp_math.hpp"
 
 #include <vkexec/error_helpers.hpp>

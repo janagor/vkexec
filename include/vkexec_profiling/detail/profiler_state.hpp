@@ -63,6 +63,8 @@ public:
   [[nodiscard]] auto take_completed() -> std::vector<profile_event>;
   [[nodiscard]] auto dropped_events() const noexcept -> std::uint64_t;
   [[nodiscard]] auto device() const noexcept -> VkDevice { return device_; }
+  [[nodiscard]] auto next_region_index() noexcept -> std::uint32_t
+  { return next_region_index_.fetch_add(1, std::memory_order_relaxed); }
 
 private:
   friend class query_allocation;
@@ -77,6 +79,7 @@ private:
   std::vector<profile_event> completed_;
   std::uint32_t in_flight_{ 0 };
   std::atomic<std::uint64_t> dropped_{ 0 };
+  std::atomic<std::uint32_t> next_region_index_{ 0 };
 };
 
 }// namespace vkexec::profiling::detail

@@ -1,6 +1,6 @@
 #include <vkexec_profiling/manual_capture.hpp>
 
-#include "detail/profiler_state.hpp"
+#include <vkexec_profiling/detail/profiler_state.hpp>
 #include "detail/fence_status.hpp"
 
 #include <vkexec/config.hpp>
