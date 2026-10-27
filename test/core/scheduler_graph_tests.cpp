@@ -15,8 +15,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <future>
-#include <stdexec/__detail/__env.hpp>
-#include <stdexec/__detail/__execution_fwd.hpp>
+#include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
 #include <tuple>
 #include <utility>

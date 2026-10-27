@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/compute_pipeline.hpp>
+#include <vkexec/detail/pass_types.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec_profiling/profile_event.hpp>

@@ -5,6 +5,9 @@
 #include <vkexec/barrier_params.hpp>
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/pass_execution.hpp>
+#include <vkexec/detail/pass_steps.hpp>
+#include <vkexec/detail/pass_types.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>

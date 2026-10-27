@@ -20,10 +20,7 @@
 #include <optional>
 #include <semaphore>
 #include <stdexcept>
-#include <stdexec/__detail/__connect.hpp>
-#include <stdexec/__detail/__env.hpp>
-#include <stdexec/__detail/__execution_fwd.hpp>
-#include <stdexec/__detail/__receivers.hpp>
+#include <stdexec/execution.hpp>
 #include <stdexec/stop_token.hpp>
 #include <thread>
 #include <utility>
