@@ -11,6 +11,7 @@
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
 #include <vkexec/descriptor_schema.hpp>
+#include <vkexec/detail/pass_types.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/image_view.hpp>
 #include <vkexec/pass.hpp>

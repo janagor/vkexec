@@ -1,8 +1,8 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
+#include "vkexec/detail/pass_types.hpp"
 #include <catch2/catch_test_macros.hpp>
 
-#include <vkexec/pass.hpp>
 
 #include <cstdint>
 #include <limits>

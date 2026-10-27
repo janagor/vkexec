@@ -1,17 +1,3 @@
-#include <vkexec/pass.hpp>
-
-#include <vkexec/barrier.hpp>
-#include <vkexec/barrier_params.hpp>
-
-#include <vkexec/detail/descriptor_backend.hpp>
-#include <vkexec/detail/record_with_binding.hpp>
-#include <vkexec/pipeline.hpp>
-#include <vkexec/resource_table.hpp>
-#include <vkexec/resource_use.hpp>
-#include <vkexec/result.hpp>
-
-#include <vulkan/vulkan_core.h>
-
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
@@ -19,6 +5,21 @@
 #include <optional>
 #include <span>
 #include <vector>
+#include <vkexec/barrier.hpp>
+#include <vkexec/barrier_params.hpp>
+#include <vkexec/detail/descriptor_backend.hpp>
+#include <vkexec/detail/pass_steps.hpp>
+#include <vkexec/detail/pass_types.hpp>
+#include <vkexec/detail/record_with_binding.hpp>
+#include <vkexec/pass.hpp>
+#include <vkexec/pipeline.hpp>
+#include <vkexec/resource_table.hpp>
+#include <vkexec/resource_use.hpp>
+#include <vkexec/result.hpp>
+#include <vulkan/vulkan_core.h>
+
+#include "vkexec/detail/pass_execution.hpp"
+#include "vkexec/detail/submission_id.hpp"
 
 namespace vkexec {
 

@@ -1,25 +1,27 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
-
+#include <concepts>
+#include <cstddef>
+#include <span>
+#include <stdexec/execution.hpp>
+#include <tuple>
+#include <utility>
+#include <vector>
 #include <vkexec/barrier.hpp>
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/descriptor_schema.hpp>
+#include <vkexec/detail/pass_steps.hpp>
+#include <vkexec/detail/pass_types.hpp>
 #include <vkexec/detail/sender_expr.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/scheduler.hpp>
 #include <vkexec/schema_pass.hpp>
-
-#include <stdexec/execution.hpp>
 #include <vulkan/vulkan_core.h>
 
-#include <concepts>
-#include <cstddef>
-#include <span>
-#include <tuple>
-#include <utility>
 
 namespace {
 

@@ -8,6 +8,8 @@
 #include <vkexec/bind_resources.hpp>
 #include <vkexec/compute_pipeline.hpp>
 #include <vkexec/context.hpp>
+#include <vkexec/detail/pass_steps.hpp>
+#include <vkexec/detail/pass_types.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 #include <vkexec/resource_table.hpp>

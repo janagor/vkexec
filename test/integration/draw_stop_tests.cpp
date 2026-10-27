@@ -11,6 +11,8 @@
 #include <vkexec/result.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_graphics/draw.hpp>
+#include <vkexec_graphics/draw_basic.hpp>
+#include <vkexec_graphics/draw_layers.hpp>
 #include <vkexec_graphics/graphics.hpp>
 #include <vkexec_graphics/graphics_pipeline_resources.hpp>
 #include <vkexec_graphics/present.hpp>

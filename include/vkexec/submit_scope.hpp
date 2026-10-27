@@ -177,10 +177,11 @@ auto reclaim_submission_sync(context const &ctx, VkQueue fallback_queue, VkSemap
  * and command/descriptor loans released (or about to be via `release_scope_and_complete`).
  */
 template<class Receiver>
-auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, bool stopped) noexcept -> void
+auto complete_after_reclaim(Receiver &&receiver, std::optional<error> &&failure, bool stopped) noexcept -> void
 {
-  if (failure) {
-    stdexec::set_error(std::forward<Receiver>(receiver), std::move(*failure));
+  std::optional<error> owned_failure = std::move(failure);
+  if (owned_failure) {
+    stdexec::set_error(std::forward<Receiver>(receiver), std::move(*owned_failure));
   } else if (stopped) {
     stdexec::set_stopped(std::forward<Receiver>(receiver));
   } else {
@@ -191,11 +192,12 @@ auto complete_after_reclaim(Receiver &&receiver, std::optional<error> failure, b
 template<class Receiver>
 auto release_scope_and_complete(submit_scope &scope,
   Receiver &&receiver,
-  std::optional<error> failure,
+  std::optional<error> &&failure,
   bool stopped) noexcept -> void
 {
+  std::optional<error> owned_failure = std::move(failure);
   scope.release();
-  complete_after_reclaim(std::forward<Receiver>(receiver), std::move(failure), stopped);
+  complete_after_reclaim(std::forward<Receiver>(receiver), std::move(owned_failure), stopped);
 }
 
 /**
@@ -410,8 +412,9 @@ struct submit_fence_sender
 #endif
 
         auto enqueued = host->enqueue_fence_wait(
-          done, fence, token, [this](std::optional<error> wait_error, bool stopped) mutable noexcept -> void {
-            release_scope_and_complete(scope, std::move(receiver), std::move(wait_error), stopped);
+          done, fence, token, [this](std::optional<error> &&wait_error, bool stopped) mutable noexcept -> void {
+            std::optional<error> owned_wait_error = std::move(wait_error);
+            release_scope_and_complete(scope, std::move(receiver), std::move(owned_wait_error), stopped);
           });
         if (!enqueued) {
           // enqueue_fence_wait has already reclaimed the submission and synchronously completed the receiver.

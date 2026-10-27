@@ -1,11 +1,11 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
+#include "vkexec/detail/resource_state_tracker_helpers.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 #include <vkexec/barrier_params.hpp>
 #include <vkexec/detail/resource_barrier_coalescing.hpp>
 #include <vkexec/detail/resource_ranges.hpp>
-#include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/resource_use.hpp>
 
 #include <cstddef>

@@ -1,5 +1,6 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
+#include "vkexec/detail/resource_state_tracker_helpers.hpp"
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 

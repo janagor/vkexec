@@ -33,7 +33,11 @@ option(vkexec_TEST_VALIDATION "Require Vulkan validation layers for unit tests" 
 
 set(vkexec_gpu_failure_sources)
 if(vkexec_ENABLE_FAULT_TESTING)
-  list(APPEND vkexec_gpu_failure_sources core/gpu_failure_tests.cpp)
+  list(
+    APPEND
+    vkexec_gpu_failure_sources
+    core/gpu_failure_tests.cpp
+    core/gpu_failure_completion_tests.cpp)
 endif()
 
 function(vkexec_add_test_executable name module)
@@ -126,6 +130,7 @@ vkexec_add_test_executable(
   core/resource_table_tests.cpp
   core/descriptor_schema_tests.cpp
   core/pass_detail_tests.cpp
+  core/pass_detail_resource_tests.cpp
   core/resource_ranges_tests.cpp
   core/buffer_region_tests.cpp
   core/image_region_tests.cpp
@@ -134,6 +139,8 @@ vkexec_add_test_executable(
   core/move_only_function_tests.cpp
   core/sampler_tests.cpp
   core/scheduler_tests.cpp
+  core/scheduler_pass_tests.cpp
+  core/scheduler_graph_tests.cpp
   ${vkexec_gpu_failure_sources}
   core/resource_allocator_tests.cpp
   core/synchronization_tests.cpp)
@@ -317,12 +324,15 @@ function(vkexec_add_header_checks name library)
     if(include_name STREQUAL "vkexec/detail/pass_lowering.hpp")
       continue()
     endif()
+    if(include_name STREQUAL "vkexec/detail/resource_state_tracker_private.hpp")
+      continue()
+    endif()
     string(MAKE_C_IDENTIFIER "${include_name}" source_name)
     set(source "${CMAKE_CURRENT_BINARY_DIR}/header_checks/${name}/${source_name}.cpp")
     file(
       GENERATE
       OUTPUT "${source}"
-      CONTENT "#include <${include_name}>\n")
+      CONTENT "#include <${include_name}> // IWYU pragma: keep\n")
     list(APPEND sources "${source}")
   endforeach()
   add_library(${name} OBJECT ${sources})

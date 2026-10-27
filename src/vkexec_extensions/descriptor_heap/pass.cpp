@@ -1,20 +1,17 @@
-#include <vkexec_extensions/descriptor_heap/pass.hpp>
-
-#include "detail/strategy.hpp"
-
-#include <vkexec/context.hpp>
-#include <vkexec/detail/record_with_binding.hpp>
-#include <vkexec/detail/viewport.hpp>
-#include <vkexec/pass.hpp>
-#include <vkexec/result.hpp>
-
-#include <vulkan/vulkan_core.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <vkexec/detail/pass_types.hpp>
+#include <vkexec/detail/record_with_binding.hpp>
+#include <vkexec/detail/viewport.hpp>
+#include <vkexec/result.hpp>
+#include <vkexec_extensions/descriptor_heap/pass.hpp>
+#include <vulkan/vulkan_core.h>
+
+#include "detail/strategy.hpp"
 
 namespace vkexec {
+class context;
 
 auto record_pass(context const &ctx,
   VkCommandBuffer cmd,
