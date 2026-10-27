@@ -17,6 +17,7 @@ file(
   "${VKEXEC_SOURCE_DIR}/src/*.hpp")
 foreach(_vkexec_source IN LISTS _vkexec_implementation_sources)
   if(_vkexec_source MATCHES "/src/vkexec/context.cpp$"
+     OR _vkexec_source MATCHES "/src/vkexec/context_runtime.cpp$"
      OR _vkexec_source MATCHES "/src/vkexec/detail/vk_bootstrap_[^/]+$"
      OR _vkexec_source MATCHES "/src/vkexec_graphics/swapchain.cpp$")
     continue()

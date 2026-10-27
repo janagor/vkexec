@@ -23,6 +23,16 @@ env:
 
 
 jobs:
+  loc-limits:
+    name: C++ file length limits
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test file length checker
+        run: python3 -m unittest discover -s scripts -p 'test_check_loc.py'
+      - name: Check source file lengths
+        run: python3 scripts/check_loc.py
+
   sample-shaders:
     name: Validate committed sample shaders
     runs-on: ubuntu-24.04
