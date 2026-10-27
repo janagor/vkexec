@@ -27,10 +27,11 @@ TEST_CASE("query pairs stay exclusive until released", "[vkexec][profiling][gpu]
   constexpr std::uint32_t k_max_regions = 2;
   constexpr std::uint32_t k_max_events = 2;
   auto state = std::make_shared<vkexec::profiling::detail::profiler_state>(
-    *ctx, vkexec::profiling::profiler_options{ .queries_per_pool = k_queries_per_pool,
-                                               .max_in_flight_regions = k_max_regions,
-                                               .max_completed_events = k_max_events },
-    [] (vkexec::context &device) -> std::vector<VkQueueFamilyProperties> {
+    *ctx,
+    vkexec::profiling::profiler_options{ .queries_per_pool = k_queries_per_pool,
+      .max_in_flight_regions = k_max_regions,
+      .max_completed_events = k_max_events },
+    [](vkexec::context &device) -> std::vector<VkQueueFamilyProperties> {
       std::uint32_t count = 0;
       vkGetPhysicalDeviceQueueFamilyProperties(device.physical_device(), &count, nullptr);
       std::vector<VkQueueFamilyProperties> families(count);
@@ -62,8 +63,8 @@ TEST_CASE("query lease retains its allocator", "[vkexec][profiling][gpu]")
   vkGetPhysicalDeviceQueueFamilyProperties(ctx->physical_device(), &count, nullptr);
   std::vector<VkQueueFamilyProperties> families(count);
   vkGetPhysicalDeviceQueueFamilyProperties(ctx->physical_device(), &count, families.data());
-  auto state = std::make_shared<vkexec::profiling::detail::profiler_state>(*ctx, vkexec::profiling::profiler_options{},
-                                                                           std::move(families), 1.0F);
+  auto state = std::make_shared<vkexec::profiling::detail::profiler_state>(
+    *ctx, vkexec::profiling::profiler_options{}, std::move(families), 1.0F);
   auto const queue = ctx->compute_queue_ref();
   if (!state->supported(queue)) { SKIP("compute queue has no timestamp support"); }
   auto lease = state->reserve(queue);
@@ -84,10 +85,10 @@ TEST_CASE("query pools expand without reusing in-flight pairs", "[vkexec][profil
   vkGetPhysicalDeviceQueueFamilyProperties(ctx->physical_device(), &count, families.data());
   constexpr std::uint32_t k_queries_per_pool = 2;
   constexpr std::uint32_t k_regions = 3;
-  auto state = std::make_shared<vkexec::profiling::detail::profiler_state>(
-    *ctx, vkexec::profiling::profiler_options{ .queries_per_pool = k_queries_per_pool,
-                                               .max_in_flight_regions = k_regions },
-    std::move(families), 1.0F);
+  auto state = std::make_shared<vkexec::profiling::detail::profiler_state>(*ctx,
+    vkexec::profiling::profiler_options{ .queries_per_pool = k_queries_per_pool, .max_in_flight_regions = k_regions },
+    std::move(families),
+    1.0F);
   auto const queue = ctx->compute_queue_ref();
   if (!state->supported(queue)) { SKIP("compute queue has no timestamp support"); }
   auto first = state->reserve(queue);
@@ -124,8 +125,7 @@ TEST_CASE("completed-event capacity is bounded", "[vkexec][profiling]")
 {
   auto ctx = vkexec::test::require_context();
   constexpr std::uint32_t k_event_limit = 1;
-  auto state = vkexec::profiling::detail::profiler_state(
-    *ctx, { .max_completed_events = k_event_limit }, {}, 1.0F);
+  auto state = vkexec::profiling::detail::profiler_state(*ctx, { .max_completed_events = k_event_limit }, {}, 1.0F);
   state.publish(vkexec::profiling::profile_event{ .name = "first" });
   state.publish(vkexec::profiling::profile_event{ .name = "dropped" });
   REQUIRE(state.dropped_events() == 1);

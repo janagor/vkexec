@@ -23,7 +23,8 @@ public:
     : inner_(std::move(step)), name_(std::move(name)), state_(std::move(profiler.state_))
   {}
 
-  profiled_pass_step(profiled_pass_step const &other) requires std::copy_constructible<Step>
+  profiled_pass_step(profiled_pass_step const &other)
+    requires std::copy_constructible<Step>
     : inner_(other.inner_), name_(other.name_), state_(other.state_)
   {
     if (other.allocation_ || other.completed_) {
@@ -45,14 +46,11 @@ public:
   }
 
   profiled_pass_step(profiled_pass_step &&) noexcept(std::is_nothrow_move_constructible_v<Step>) = default;
-  auto operator=(profiled_pass_step &&other) noexcept(std::is_nothrow_move_assignable_v<Step>)
-    -> profiled_pass_step &
+  auto operator=(profiled_pass_step &&other) noexcept(std::is_nothrow_move_assignable_v<Step>) -> profiled_pass_step &
     requires std::is_move_assignable_v<Step>
   {
     if (this == &other) { return *this; }
-    if (allocation_ || completed_) {
-      vkexec::detail::contract_violation("cannot replace an executing profiled pass");
-    }
+    if (allocation_ || completed_) { vkexec::detail::contract_violation("cannot replace an executing profiled pass"); }
     inner_ = std::move(other.inner_);
     name_ = std::move(other.name_);
     state_ = std::move(other.state_);
@@ -65,8 +63,8 @@ public:
 
   ~profiled_pass_step() = default;
 
-  auto record(context &ctx, VkCommandBuffer cmd, vkexec::detail::pass_cleanup &cleanup,
-              pass_recording_info const &info) -> status
+  auto record(context &ctx, VkCommandBuffer cmd, vkexec::detail::pass_cleanup &cleanup, pass_recording_info const &info)
+    -> status
   {
     constexpr std::uint32_t k_queries_per_region = 2;
     constexpr std::uint32_t k_end_offset = 1;
@@ -115,20 +113,23 @@ public:
   [[nodiscard]] auto requires_complete_metadata() const noexcept -> bool
   { return vkexec::detail::step_requires_complete_metadata(inner_); }
 
-  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
-                         queue_ref queue) -> status
+  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index, queue_ref queue) -> status
   { return vkexec::detail::declare_step_resources(inner_, tracker, index, queue, false); }
 
-  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
-                         queue_ref queue) const -> status
+  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index, queue_ref queue) const
+    -> status
   { return vkexec::detail::declare_step_resources(inner_, tracker, index, queue, false); }
 
-  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
-                         queue_ref queue, bool crosses_families) -> status
+  auto declare_resources(vkexec::detail::resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) -> status
   { return vkexec::detail::declare_step_resources(inner_, tracker, index, queue, crosses_families); }
 
-  auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
-                         queue_ref queue, bool crosses_families) const -> status
+  auto declare_resources(vkexec::detail::resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) const -> status
   { return vkexec::detail::declare_step_resources(inner_, tracker, index, queue, crosses_families); }
 
 private:

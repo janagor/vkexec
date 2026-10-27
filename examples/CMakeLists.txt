@@ -19,9 +19,15 @@ add_executable(mesh mesh.cpp load_gltf_mesh.cpp)
 
 if(vkexec_BUILD_PROFILING AND vkexec_BUILD_TOOLS)
   add_executable(gpu_profiling gpu_profiling.cpp)
-  target_link_libraries(gpu_profiling PRIVATE vkexec::vkexec_options vkexec::vkexec_warnings
-                                              vkexec::vkexec vkexec::profiling vkexec::vma vkexec::tools
-                                              vkexec_exception_options)
+  target_link_libraries(
+    gpu_profiling
+    PRIVATE vkexec::vkexec_options
+            vkexec::vkexec_warnings
+            vkexec::vkexec
+            vkexec::profiling
+            vkexec::vma
+            vkexec::tools
+            vkexec_exception_options)
   set_target_properties(gpu_profiling PROPERTIES CXX_SCAN_FOR_MODULES OFF)
   vkexec_configure_linker(gpu_profiling)
 endif()

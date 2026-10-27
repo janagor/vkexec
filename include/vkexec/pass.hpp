@@ -65,8 +65,7 @@ struct pass_recording_info
     return submission_id;
   }
 
-  [[nodiscard]] auto allocate_region_index() const noexcept -> std::uint32_t
-  { return next_region_index++; }
+  [[nodiscard]] auto allocate_region_index() const noexcept -> std::uint32_t { return next_region_index++; }
 };
 
 //! Synchronization borrowed from a presenter for one graph execution.
@@ -269,13 +268,13 @@ namespace detail {
                                   });
 
   template<static_pass_step Step>
-  [[nodiscard]] auto record_step(Step &step,
-    context &ctx,
-    VkCommandBuffer cmd,
-    pass_cleanup &cleanup,
-    pass_recording_info const &info) -> status
+  [[nodiscard]] auto
+    record_step(Step &step, context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
+      -> status
   {
-    if constexpr (requires { { step.record(ctx, cmd, cleanup, info) } -> std::same_as<status>; }) {
+    if constexpr (requires {
+                    { step.record(ctx, cmd, cleanup, info) } -> std::same_as<status>;
+                  }) {
       return step.record(ctx, cmd, cleanup, info);
     } else {
       return step.record(ctx, cmd, cleanup);
@@ -309,26 +308,25 @@ namespace detail {
     }
   }
 
-  template<class Step>
-  [[nodiscard]] auto step_has_resource_declarations(Step const &step) noexcept -> bool
+  template<class Step> [[nodiscard]] auto step_has_resource_declarations(Step const &step) noexcept -> bool
   {
     if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
-    if constexpr (requires { step.bind.metadata; }) {
-      return step.bind.metadata == resource_metadata_state::complete;
-    }
+    if constexpr (requires { step.bind.metadata; }) { return step.bind.metadata == resource_metadata_state::complete; }
     return requires { step.resources; };
   }
 
-  template<class Step>
-  [[nodiscard]] auto step_requires_complete_metadata(Step const &step) noexcept -> bool
+  template<class Step> [[nodiscard]] auto step_requires_complete_metadata(Step const &step) noexcept -> bool
   {
     if constexpr (requires { step.requires_complete_metadata(); }) { return step.requires_complete_metadata(); }
     return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
   }
 
   template<class Step>
-  [[nodiscard]] auto declare_step_resources(Step &step, resource_state_tracker &tracker,
-    std::size_t index, queue_ref queue, bool crosses_families) -> status;
+  [[nodiscard]] auto declare_step_resources(Step &step,
+    resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) -> status;
 
   class dynamic_pass_step
   {
@@ -346,8 +344,9 @@ namespace detail {
         -> status = 0;
       virtual auto after_gpu() -> void = 0;
       virtual auto commit_after_gpu() -> void = 0;
-      virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue,
-                                     bool crosses_families) -> status = 0;
+      virtual auto
+        declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue, bool crosses_families)
+          -> status = 0;
       [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
       [[nodiscard]] virtual auto requires_complete_metadata() const noexcept -> bool = 0;
     };
@@ -366,8 +365,8 @@ namespace detail {
 
       auto commit_after_gpu() -> void override { detail::commit_after_gpu(step); }
 
-      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue,
-                             bool crosses_families) -> status override
+      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue, bool crosses_families)
+        -> status override
       { return declare_step_resources(step, tracker, index, queue, crosses_families); }
 
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
@@ -400,8 +399,8 @@ namespace detail {
 
     auto commit_after_gpu() -> void { impl_->commit_after_gpu(); }
 
-    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue,
-                           bool crosses_families) -> status
+    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue, bool crosses_families)
+      -> status
     { return impl_->declare_resources(tracker, step, queue, crosses_families); }
 
     [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return impl_->has_resource_declarations(); }
@@ -502,12 +501,11 @@ namespace detail {
   }
 
   template<class... Steps>
-  [[nodiscard]] auto
-    record_static_steps(context &ctx,
-      VkCommandBuffer cmd,
-      pass_cleanup &cleanup,
-      std::tuple<Steps...> &steps,
-      pass_recording_info const &info) -> status
+  [[nodiscard]] auto record_static_steps(context &ctx,
+    VkCommandBuffer cmd,
+    pass_cleanup &cleanup,
+    std::tuple<Steps...> &steps,
+    pass_recording_info const &info) -> status
   {
     status result{};
     auto record_one = [&ctx, cmd, &cleanup, &info, &result](auto &step) -> bool {
@@ -541,7 +539,7 @@ namespace detail {
   {
     auto facade = context_access::facade(scope.state);
     if (auto recorded = record_static_steps(facade, scope.cmd, scope.cleanup, steps, recording_info(scope.queue));
-        !recorded) {
+      !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -551,7 +549,7 @@ namespace detail {
   {
     auto facade = context_access::facade(scope.state);
     if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps, recording_info(scope.queue));
-        !recorded) {
+      !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -918,7 +916,9 @@ namespace detail {
   }
 
   template<class... Steps> auto commit_after_gpu(std::tuple<Steps...> &steps) -> void
-  { std::apply([](auto &...step) -> void { (detail::commit_after_gpu(step), ...); }, steps); }
+  {
+    std::apply([](auto &...step) -> void { (detail::commit_after_gpu(step), ...); }, steps);
+  }
 
   inline auto commit_after_gpu(std::vector<dynamic_pass_step> &steps) -> void
   {

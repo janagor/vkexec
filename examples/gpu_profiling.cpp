@@ -38,14 +38,17 @@ layout(push_constant) uniform Push { float addend; } pc;
 void main() { values.data[gl_GlobalInvocationID.x] += pc.addend; }
 )";
 
-struct parameters { float addend; };
+struct parameters
+{
+  float addend;
+};
 
 auto run() -> int
 {
   auto ctx = vkexec::examples::sync_wait_value(vkexec::factory::make_context());
   auto allocator = vkexec::examples::make_vma_allocator(*ctx);
-  auto values = vkexec::examples::sync_wait_value(
-    vkexec::factory::make_buffer(allocator, k_element_count, k_initial_value));
+  auto values =
+    vkexec::examples::sync_wait_value(vkexec::factory::make_buffer(allocator, k_element_count, k_initial_value));
   auto pipeline = vkexec::examples::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx,
     k_shader,
     vkexec::layout_desc{
@@ -67,10 +70,10 @@ auto run() -> int
   }
 
   auto graph = stdexec::schedule(ctx->get_scheduler())
-    | vkexec::profiling::profiled(*profiler, "first-add",
-        vkexec::compute_pass(bound, parameters{ k_first_add }, k_element_count))
-    | vkexec::profiling::profiled(*profiler, "second-add",
-        vkexec::compute_pass(bound, parameters{ k_second_add }, k_element_count));
+               | vkexec::profiling::profiled(
+                 *profiler, "first-add", vkexec::compute_pass(bound, parameters{ k_first_add }, k_element_count))
+               | vkexec::profiling::profiled(
+                 *profiler, "second-add", vkexec::compute_pass(bound, parameters{ k_second_add }, k_element_count));
   vkexec::examples::sync_wait_graph(graph);
   constexpr std::array<std::uint32_t, 3> k_check_indices{ 0, k_element_count / 2, k_element_count - 1 };
   constexpr auto k_expected_value = k_initial_value + k_first_add + k_second_add;

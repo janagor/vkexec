@@ -4,8 +4,8 @@
 
 #include <vkexec/error.hpp>
 #include <vkexec/submit_scope.hpp>
-#include <vkexec_profiling/manual_capture.hpp>
 #include <vkexec_profiling/detail/fence_status.hpp>
+#include <vkexec_profiling/manual_capture.hpp>
 #include <vkexec_profiling/profile_event.hpp>
 #include <vkexec_profiling/profiler.hpp>
 
@@ -20,8 +20,7 @@ namespace {
 
 auto out_of_memory_fence_status(VkDevice /*device*/, VkFence /*fence*/) -> VkResult
 { return VK_ERROR_OUT_OF_HOST_MEMORY; }
-auto device_lost_fence_status(VkDevice /*device*/, VkFence /*fence*/) -> VkResult
-{ return VK_ERROR_DEVICE_LOST; }
+auto device_lost_fence_status(VkDevice /*device*/, VkFence /*fence*/) -> VkResult { return VK_ERROR_DEVICE_LOST; }
 
 struct scoped_fence_status_override
 {
@@ -136,8 +135,9 @@ TEST_CASE("two manual captures can be submitted before either resolves", "[vkexe
   }
   constexpr std::uint32_t k_fence_count = 2;
   std::array<VkFence, k_fence_count> const fences{ first_fence, second_fence };
-  REQUIRE(vkWaitForFences(ctx->device(), k_fence_count, fences.data(), VK_TRUE,
-                          std::numeric_limits<std::uint64_t>::max()) == VK_SUCCESS);
+  REQUIRE(
+    vkWaitForFences(ctx->device(), k_fence_count, fences.data(), VK_TRUE, std::numeric_limits<std::uint64_t>::max())
+    == VK_SUCCESS);
   REQUIRE(second->resolve_after_gpu());
   REQUIRE(first->resolve_after_gpu());
   auto events = profiler->take_completed();
@@ -162,8 +162,8 @@ TEST_CASE("two manual captures can be submitted before either resolves", "[vkexe
     REQUIRE(vkQueueSubmit(queue.queue, 1, &submit_info, third_fence) == VK_SUCCESS);
   }
   REQUIRE(third->mark_submitted(third_fence));
-  REQUIRE(vkWaitForFences(ctx->device(), 1, &third_fence, VK_TRUE,
-                          std::numeric_limits<std::uint64_t>::max()) == VK_SUCCESS);
+  REQUIRE(
+    vkWaitForFences(ctx->device(), 1, &third_fence, VK_TRUE, std::numeric_limits<std::uint64_t>::max()) == VK_SUCCESS);
   REQUIRE(third->discard_after_gpu());
   REQUIRE(profiler->take_completed().empty());
   vkDestroyFence(ctx->device(), first_fence, nullptr);
@@ -216,7 +216,7 @@ TEST_CASE("unsubmitted manual captures can be moved and abandoned", "[vkexec][pr
 {
   auto ctx = vkexec::test::require_context();
   auto profiler = vkexec::profiling::profiler::create(*ctx);
-  REQUIRE(profiler); // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
+  REQUIRE(profiler);// NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
   auto const queue = ctx->compute_queue_ref();
   if (!profiler->supported(queue)) { SKIP("compute queue has no timestamp support"); }
   auto scope = vkexec::detail::submit_scope::open(*ctx, queue);

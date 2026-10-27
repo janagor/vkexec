@@ -162,8 +162,8 @@ struct completion_commit_step
   int *commits{};
   bool should_fail{};
 
-  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/,
-              vkexec::detail::pass_cleanup & /*cleanup*/) const -> vkexec::status
+  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
+    -> vkexec::status
   {
     if (should_fail) { return vkexec::fail(vkexec::errc::invalid_argument); }
     return {};
@@ -178,8 +178,8 @@ struct dual_record_pass_step
 {
   int *selected{};
 
-  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/)
-    const -> vkexec::status
+  auto record(vkexec::context & /*ctx*/, VkCommandBuffer /*cmd*/, vkexec::detail::pass_cleanup & /*cleanup*/) const
+    -> vkexec::status
   {
     *selected = k_legacy_signature;
     return {};
@@ -1257,8 +1257,8 @@ TEST_CASE("ordinary pass completion commit runs only after success", "[vkexec][p
 {
   auto ctx = vkexec::test::require_context();
   int commits = 0;
-  auto successful = stdexec::schedule(ctx->get_scheduler())
-                    | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits });
+  auto successful =
+    stdexec::schedule(ctx->get_scheduler()) | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits });
   auto success = vkexec::test::sync_wait_sender(std::move(successful));
   REQUIRE(vkexec::test::sync_wait_completed(success));
   REQUIRE(commits == 1);
@@ -1272,8 +1272,7 @@ TEST_CASE("ordinary pass completion commit runs only after success", "[vkexec][p
   stdexec::inplace_stop_source source;
   source.request_stop();
   auto cancelled = stdexec::write_env(
-    stdexec::schedule(ctx->get_scheduler())
-      | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits }),
+    stdexec::schedule(ctx->get_scheduler()) | vkexec::make_pass_adaptor(completion_commit_step{ .commits = &commits }),
     stdexec::prop{ stdexec::get_stop_token, source.get_token() });
   auto stopped = vkexec::test::sync_wait_sender(std::move(cancelled));
   REQUIRE(vkexec::test::sync_wait_stopped(stopped));
@@ -1299,8 +1298,7 @@ TEST_CASE("static graph shares recording identity within a batch and changes it 
   vkexec::pass_recording_info first{};
   vkexec::pass_recording_info second{};
   auto make_graph = [&]() -> decltype(auto) {
-    return stdexec::schedule(ctx->get_scheduler())
-           | vkexec::make_pass_adaptor(informed_pass_step{ .observed = &first })
+    return stdexec::schedule(ctx->get_scheduler()) | vkexec::make_pass_adaptor(informed_pass_step{ .observed = &first })
            | vkexec::make_pass_adaptor(informed_pass_step{ .observed = &second });
   };
 

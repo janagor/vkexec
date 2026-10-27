@@ -37,16 +37,25 @@ constexpr unsigned int k_invalid_utf8_byte = 0xff;
 
 TEST_CASE("Chrome traces retain pass offsets and escape names", "[vkexec][profiling]")
 {
-  auto const events = std::vector<profile_event>{
-    { .name = "first\n\"pass", .submission_id = k_first_submission_id, .queue_family = k_queue_family,
-      .region_index = 0,
-      .duration_ns = k_long_duration_ns, .status = sample_status::valid, .start_tick = k_first_start_tick,
-      .timestamp_valid_bits = k_thirty_two_bits, .timestamp_period_ns = k_unit_period_ns },
-    { .name = "second", .submission_id = k_first_submission_id, .queue_family = k_queue_family, .region_index = 1,
-      .duration_ns = k_short_duration_ns, .status = sample_status::valid, .start_tick = k_second_start_tick,
-      .timestamp_valid_bits = k_thirty_two_bits, .timestamp_period_ns = k_unit_period_ns },
-    { .name = "missing", .status = sample_status::unavailable }
-  };
+  auto const events = std::vector<profile_event>{ { .name = "first\n\"pass",
+                                                    .submission_id = k_first_submission_id,
+                                                    .queue_family = k_queue_family,
+                                                    .region_index = 0,
+                                                    .duration_ns = k_long_duration_ns,
+                                                    .status = sample_status::valid,
+                                                    .start_tick = k_first_start_tick,
+                                                    .timestamp_valid_bits = k_thirty_two_bits,
+                                                    .timestamp_period_ns = k_unit_period_ns },
+    { .name = "second",
+      .submission_id = k_first_submission_id,
+      .queue_family = k_queue_family,
+      .region_index = 1,
+      .duration_ns = k_short_duration_ns,
+      .status = sample_status::valid,
+      .start_tick = k_second_start_tick,
+      .timestamp_valid_bits = k_thirty_two_bits,
+      .timestamp_period_ns = k_unit_period_ns },
+    { .name = "missing", .status = sample_status::unavailable } };
   auto output = std::ostringstream{};
   auto const exported = write_chrome_trace(output, events);
   REQUIRE(exported);
@@ -59,12 +68,18 @@ TEST_CASE("Chrome traces retain pass offsets and escape names", "[vkexec][profil
 
 TEST_CASE("Chrome traces reject uncalibrated submissions", "[vkexec][profiling]")
 {
-  auto const events = std::vector<profile_event>{
-    { .name = "first", .submission_id = 1, .duration_ns = k_unit_duration_ns, .status = sample_status::valid,
-      .timestamp_valid_bits = k_sixty_four_bits, .timestamp_period_ns = k_unit_period_ns },
-    { .name = "second", .submission_id = 2, .duration_ns = k_unit_duration_ns, .status = sample_status::valid,
-      .timestamp_valid_bits = k_sixty_four_bits, .timestamp_period_ns = k_unit_period_ns }
-  };
+  auto const events = std::vector<profile_event>{ { .name = "first",
+                                                    .submission_id = 1,
+                                                    .duration_ns = k_unit_duration_ns,
+                                                    .status = sample_status::valid,
+                                                    .timestamp_valid_bits = k_sixty_four_bits,
+                                                    .timestamp_period_ns = k_unit_period_ns },
+    { .name = "second",
+      .submission_id = 2,
+      .duration_ns = k_unit_duration_ns,
+      .status = sample_status::valid,
+      .timestamp_valid_bits = k_sixty_four_bits,
+      .timestamp_period_ns = k_unit_period_ns } };
   auto output = std::ostringstream{};
   CHECK_FALSE(write_chrome_trace(output, events));
   CHECK(output.str().empty());
@@ -79,9 +94,8 @@ TEST_CASE("Chrome traces handle empty and unavailable collections", "[vkexec][pr
   CHECK(output.str() == "{\"traceEvents\":[]}");
   CHECK(exported->omitted_events == 0);
   output.str(std::string{});
-  auto const unavailable = std::vector<profile_event>{
-    { .name = "unavailable", .status = sample_status::unavailable }
-  };
+  auto const unavailable =
+    std::vector<profile_event>{ { .name = "unavailable", .status = sample_status::unavailable } };
   exported = write_chrome_trace(output, unavailable);
   REQUIRE(exported);
   CHECK(exported->omitted_events == 1);
@@ -90,14 +104,22 @@ TEST_CASE("Chrome traces handle empty and unavailable collections", "[vkexec][pr
 
 TEST_CASE("Chrome traces use recording order across counter wrap", "[vkexec][profiling]")
 {
-  auto const events = std::vector<profile_event>{
-    { .name = "later", .submission_id = 1, .region_index = 1, .duration_ns = k_short_duration_ns,
-      .status = sample_status::valid, .start_tick = k_later_start_tick, .timestamp_valid_bits = k_sixteen_bits,
-      .timestamp_period_ns = k_wrap_period_ns },
-    { .name = "earlier", .submission_id = 1, .region_index = 0, .duration_ns = k_short_duration_ns,
-      .status = sample_status::valid, .start_tick = k_wrap_start_tick, .timestamp_valid_bits = k_sixteen_bits,
-      .timestamp_period_ns = k_wrap_period_ns }
-  };
+  auto const events = std::vector<profile_event>{ { .name = "later",
+                                                    .submission_id = 1,
+                                                    .region_index = 1,
+                                                    .duration_ns = k_short_duration_ns,
+                                                    .status = sample_status::valid,
+                                                    .start_tick = k_later_start_tick,
+                                                    .timestamp_valid_bits = k_sixteen_bits,
+                                                    .timestamp_period_ns = k_wrap_period_ns },
+    { .name = "earlier",
+      .submission_id = 1,
+      .region_index = 0,
+      .duration_ns = k_short_duration_ns,
+      .status = sample_status::valid,
+      .start_tick = k_wrap_start_tick,
+      .timestamp_valid_bits = k_sixteen_bits,
+      .timestamp_period_ns = k_wrap_period_ns } };
   auto output = std::ostringstream{};
   REQUIRE(write_chrome_trace(output, events));
   CHECK(output.str().find("\"name\":\"later\"") < output.str().find("\"name\":\"earlier\""));
@@ -107,13 +129,19 @@ TEST_CASE("Chrome traces use recording order across counter wrap", "[vkexec][pro
 
 TEST_CASE("Chrome traces reject incompatible and malformed samples without writing", "[vkexec][profiling]")
 {
-  auto events = std::vector<profile_event>{
-    { .name = "first", .submission_id = 1, .duration_ns = k_unit_duration_ns, .status = sample_status::valid,
-      .timestamp_valid_bits = k_sixty_four_bits, .timestamp_period_ns = k_unit_period_ns },
-    { .name = "second", .submission_id = 1, .queue_family = 1, .duration_ns = k_unit_duration_ns,
+  auto events = std::vector<profile_event>{ { .name = "first",
+                                              .submission_id = 1,
+                                              .duration_ns = k_unit_duration_ns,
+                                              .status = sample_status::valid,
+                                              .timestamp_valid_bits = k_sixty_four_bits,
+                                              .timestamp_period_ns = k_unit_period_ns },
+    { .name = "second",
+      .submission_id = 1,
+      .queue_family = 1,
+      .duration_ns = k_unit_duration_ns,
       .status = sample_status::valid,
-      .timestamp_valid_bits = k_sixty_four_bits, .timestamp_period_ns = k_unit_period_ns }
-  };
+      .timestamp_valid_bits = k_sixty_four_bits,
+      .timestamp_period_ns = k_unit_period_ns } };
   auto output = std::ostringstream{};
   CHECK_FALSE(write_chrome_trace(output, events));
   CHECK(output.str().empty());
@@ -139,14 +167,21 @@ TEST_CASE("Chrome traces report output failures", "[vkexec][profiling]")
 
 TEST_CASE("Chrome traces handle a 64-bit timestamp wrap", "[vkexec][profiling]")
 {
-  auto const events = std::vector<profile_event>{
-    { .name = "first", .region_index = 0, .duration_ns = k_unit_duration_ns, .status = sample_status::valid,
-      .start_tick = std::numeric_limits<std::uint64_t>::max() - k_wrap_offset,
-      .timestamp_valid_bits = k_sixty_four_bits, .timestamp_period_ns = k_wrap_period_ns },
-    { .name = "second", .region_index = 1, .duration_ns = k_unit_duration_ns, .status = sample_status::valid,
-      .start_tick = k_later_start_tick, .timestamp_valid_bits = k_sixty_four_bits,
-      .timestamp_period_ns = k_wrap_period_ns }
-  };
+  auto const events =
+    std::vector<profile_event>{ { .name = "first",
+                                  .region_index = 0,
+                                  .duration_ns = k_unit_duration_ns,
+                                  .status = sample_status::valid,
+                                  .start_tick = std::numeric_limits<std::uint64_t>::max() - k_wrap_offset,
+                                  .timestamp_valid_bits = k_sixty_four_bits,
+                                  .timestamp_period_ns = k_wrap_period_ns },
+      { .name = "second",
+        .region_index = 1,
+        .duration_ns = k_unit_duration_ns,
+        .status = sample_status::valid,
+        .start_tick = k_later_start_tick,
+        .timestamp_valid_bits = k_sixty_four_bits,
+        .timestamp_period_ns = k_wrap_period_ns } };
   auto output = std::ostringstream{};
   REQUIRE(write_chrome_trace(output, events));
   CHECK(output.str().find("\"ts\":16") != std::string::npos);
@@ -154,11 +189,12 @@ TEST_CASE("Chrome traces handle a 64-bit timestamp wrap", "[vkexec][profiling]")
 
 TEST_CASE("Chrome traces preserve Unicode and escape control characters", "[vkexec][profiling]")
 {
-  auto const events = std::vector<profile_event>{
-    { .name = "GPU μ\t\\\x01", .duration_ns = k_long_duration_ns, .status = sample_status::valid,
-      .start_tick = k_control_start_tick, .timestamp_valid_bits = k_thirty_two_bits,
-      .timestamp_period_ns = k_unit_period_ns }
-  };
+  auto const events = std::vector<profile_event>{ { .name = "GPU μ\t\\\x01",
+    .duration_ns = k_long_duration_ns,
+    .status = sample_status::valid,
+    .start_tick = k_control_start_tick,
+    .timestamp_valid_bits = k_thirty_two_bits,
+    .timestamp_period_ns = k_unit_period_ns } };
   auto output = std::ostringstream{};
   REQUIRE(write_chrome_trace(output, events));
   CHECK(output.str().find("GPU μ\\t\\\\\\u0001") != std::string::npos);

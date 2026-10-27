@@ -626,16 +626,14 @@ TEST_CASE("image region merging keeps distinct reader frontiers and owners", "[v
       .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
     .step = k_first_step,
     .family = k_family };
-  std::vector<image_region_state> regions{
-    image_region_state{ .region = *first,
-      .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      .family = k_family,
-      .accesses = { .anchor = std::nullopt, .readers = { reader } } },
+  std::vector<image_region_state> regions{ image_region_state{ .region = *first,
+                                             .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                             .family = k_family,
+                                             .accesses = { .anchor = std::nullopt, .readers = { reader } } },
     image_region_state{ .region = *second,
       .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
       .family = k_family,
-      .accesses = { .anchor = std::nullopt, .readers = { reader } } }
-  };
+      .accesses = { .anchor = std::nullopt, .readers = { reader } } } };
   SECTION("different reader step") { regions.back().accesses.readers.front().step = k_second_step; }
   SECTION("different stage")
   { regions.back().accesses.readers.front().scope.stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT; }

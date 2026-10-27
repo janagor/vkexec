@@ -25,8 +25,7 @@ TEST_CASE("timestamp subtraction respects the queue family's valid bits", "[vkex
   constexpr std::uint64_t k_forty_eight_bit_start = (std::uint64_t{ 1 } << k_forty_eight_bits) - 2;
   constexpr std::uint64_t k_forty_eight_bit_end = 1;
   REQUIRE(duration_ns(k_one_bit_start, k_one_bit_end, k_one_bit, k_period_ns) == k_one_tick_duration_ns);
-  REQUIRE(duration_ns(k_sixteen_bit_start, k_sixteen_bit_end, k_sixteen_bits, k_period_ns)
-          == k_three_tick_duration_ns);
+  REQUIRE(duration_ns(k_sixteen_bit_start, k_sixteen_bit_end, k_sixteen_bits, k_period_ns) == k_three_tick_duration_ns);
   REQUIRE(duration_ns(k_thirty_two_bit_start, k_thirty_two_bit_end, k_thirty_two_bits, k_period_ns)
           == k_three_tick_duration_ns);
   REQUIRE(duration_ns(k_forty_eight_bit_start, k_forty_eight_bit_end, k_forty_eight_bits, k_period_ns)

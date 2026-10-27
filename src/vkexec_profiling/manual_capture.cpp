@@ -1,7 +1,7 @@
 #include <vkexec_profiling/manual_capture.hpp>
 
-#include <vkexec_profiling/detail/profiler_state.hpp>
 #include "detail/fence_status.hpp"
+#include <vkexec_profiling/detail/profiler_state.hpp>
 
 #include <vkexec/config.hpp>
 #include <vkexec/context.hpp>
@@ -27,7 +27,7 @@ namespace {
     thread_local fence_status_fn override_fn = nullptr;
     return override_fn;
   }
-}
+}// namespace
 
 auto fence_status(VkDevice device, VkFence fence) -> VkResult
 {
@@ -48,16 +48,17 @@ struct manual_capture::sample
   std::string name;
 };
 
-manual_capture::manual_capture(std::shared_ptr<detail::profiler_state> state, VkCommandBuffer command_buffer,
-                               queue_ref queue)
+manual_capture::manual_capture(std::shared_ptr<detail::profiler_state> state,
+  VkCommandBuffer command_buffer,
+  queue_ref queue)
   : state_(std::move(state)), command_buffer_(command_buffer), queue_(queue)
 {}
 
 auto manual_capture::create(profiler const &profiler, context &ctx, VkCommandBuffer command_buffer, queue_ref queue)
   -> result<manual_capture>
 {
-  if (command_buffer == VK_NULL_HANDLE || queue.queue == VK_NULL_HANDLE || !profiler.state_ ||
-      profiler.state_->device() != ctx.device()) {
+  if (command_buffer == VK_NULL_HANDLE || queue.queue == VK_NULL_HANDLE || !profiler.state_
+      || profiler.state_->device() != ctx.device()) {
     return fail(errc::invalid_argument, "manual capture requires a command buffer and matching context");
   }
   if (!profiler.supported(queue)) { return fail(errc::unsupported, "queue family cannot record timestamp queries"); }
@@ -104,8 +105,8 @@ auto manual_capture::scoped_region(std::string name) -> result<region>
   samples_.push_back(std::move(entry));
   auto const &allocation = samples_.back()->allocation;
   vkCmdResetQueryPool(command_buffer_, allocation.page->pool, allocation.first_query, k_queries_per_region);
-  vkCmdWriteTimestamp(command_buffer_, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, allocation.page->pool,
-                      allocation.first_query);
+  vkCmdWriteTimestamp(
+    command_buffer_, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, allocation.page->pool, allocation.first_query);
   ++active_regions_;
   return region{ *this, index };
 }
@@ -114,8 +115,10 @@ auto manual_capture::end_region(std::uint32_t index) noexcept -> void
 {
   constexpr std::uint32_t k_end_offset = 1;
   auto &entry = *samples_.at(index);
-  vkCmdWriteTimestamp(command_buffer_, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, entry.allocation.page->pool,
-                      entry.allocation.first_query + k_end_offset);
+  vkCmdWriteTimestamp(command_buffer_,
+    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+    entry.allocation.page->pool,
+    entry.allocation.first_query + k_end_offset);
   --active_regions_;
 }
 

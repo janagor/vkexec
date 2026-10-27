@@ -26,7 +26,7 @@ struct profiler_options
 namespace detail {
   class profiler_state;
   template<class Step> class profiled_pass_step;
-}
+}// namespace detail
 class manual_capture;
 
 class profiler

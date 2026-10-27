@@ -36,14 +36,17 @@ TEST_CASE("profiled compute dispatch reports a valid GPU sample", "[vkexec][prof
   if (!profiler->supported(ctx->compute_queue_ref())) { SKIP("compute queue has no timestamp support"); }
   auto pipeline = vkexec::test::sync_wait_value(vkexec::factory::make_compute_pipeline(*ctx,
     k_compute_glsl,
-    vkexec::layout_desc{ .binding_kinds = {}, .binding_slots = {}, .bindings = {},
-                         .push_constant_size = k_push_constant_size, .specialization = {},
-                         .local_size = { k_local_size, k_local_size, k_local_size } },
+    vkexec::layout_desc{ .binding_kinds = {},
+      .binding_slots = {},
+      .bindings = {},
+      .push_constant_size = k_push_constant_size,
+      .specialization = {},
+      .local_size = { k_local_size, k_local_size, k_local_size } },
     "profiled.comp"));
   auto bind = vkexec::bind_compute(pipeline.resources()).with_resources({}, {});
-  auto graph = stdexec::schedule(ctx->get_scheduler())
-               | vkexec::profiling::profiled(*profiler, "dispatch",
-                   vkexec::compute_pass(std::move(bind), vkexec::dispatch{}));
+  auto graph =
+    stdexec::schedule(ctx->get_scheduler())
+    | vkexec::profiling::profiled(*profiler, "dispatch", vkexec::compute_pass(std::move(bind), vkexec::dispatch{}));
   auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
   REQUIRE(vkexec::test::sync_wait_completed(outcome));
   auto events = profiler->take_completed();

@@ -35,8 +35,9 @@ public:
     std::uint32_t index_;
   };
 
-  [[nodiscard]] static auto create(profiler const &profiler, context &ctx, VkCommandBuffer command_buffer,
-                                   queue_ref queue) -> result<manual_capture>;
+  [[nodiscard]] static auto
+    create(profiler const &profiler, context &ctx, VkCommandBuffer command_buffer, queue_ref queue)
+      -> result<manual_capture>;
 
   manual_capture(manual_capture const &) = delete;
   auto operator=(manual_capture const &) -> manual_capture & = delete;

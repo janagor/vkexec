@@ -36,8 +36,9 @@ class query_allocation
 {
 public:
   query_allocation() = default;
-  query_allocation(std::shared_ptr<profiler_state> owner, std::shared_ptr<query_pool_page> page,
-                   std::uint32_t first_query) noexcept;
+  query_allocation(std::shared_ptr<profiler_state> owner,
+    std::shared_ptr<query_pool_page> page,
+    std::uint32_t first_query) noexcept;
   query_allocation(query_allocation const &) = delete;
   auto operator=(query_allocation const &) -> query_allocation & = delete;
   query_allocation(query_allocation &&other) noexcept;
@@ -66,8 +67,10 @@ public:
 
   [[nodiscard]] auto supported(queue_ref queue) const noexcept -> bool;
   [[nodiscard]] auto reserve(queue_ref queue) -> result<query_allocation>;
-  [[nodiscard]] auto resolve(query_allocation const &allocation, std::string name, std::uint64_t submission_id,
-                             std::uint32_t region_index) -> profile_event;
+  [[nodiscard]] auto resolve(query_allocation const &allocation,
+    std::string name,
+    std::uint64_t submission_id,
+    std::uint32_t region_index) -> profile_event;
   auto publish(profile_event event) -> void;
   [[nodiscard]] auto take_completed() -> std::vector<profile_event>;
   [[nodiscard]] auto dropped_events() const noexcept -> std::uint64_t;
