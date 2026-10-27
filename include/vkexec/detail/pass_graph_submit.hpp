@@ -294,6 +294,11 @@ namespace detail {
     using submit_op_t =
       decltype(stdexec::connect(std::declval<completion_sender_t>(), std::declval<child_receiver_t>()));
 
+    // stdexec's operation state can contain implementation types with internal linkage.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsubobject-linkage"
+#endif
     struct submit_op_holder
     {
       submit_op_t op;
@@ -306,6 +311,9 @@ namespace detail {
       submit_op_holder(submit_op_holder &&) = delete;
       auto operator=(submit_op_holder &&) -> submit_op_holder & = delete;
     };
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
     std::optional<submit_op_holder> submit_op;
 
