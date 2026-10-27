@@ -72,6 +72,11 @@ file(
   "${PROJECT_SOURCE_DIR}/include/vkexec_graphics/*.hpp")
 file(
   GLOB_RECURSE
+  VKEXEC_PROFILING_HEADERS
+  CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/include/vkexec_profiling/*.hpp")
+file(
+  GLOB_RECURSE
   VKEXEC_DESCRIPTOR_HEAP_HEADERS
   CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/include/vkexec_extensions/common/*.hpp"
@@ -148,6 +153,18 @@ target_sources(
          "${PROJECT_SOURCE_DIR}/include"
          FILES
          ${VKEXEC_GRAPHICS_HEADERS})
+if(vkexec_BUILD_PROFILING)
+  target_sources(
+    vkexec_profiling
+    PUBLIC FILE_SET
+           public_headers
+           TYPE
+           HEADERS
+           BASE_DIRS
+           "${PROJECT_SOURCE_DIR}/include"
+           FILES
+           ${VKEXEC_PROFILING_HEADERS})
+endif()
 target_sources(
   vkexec_ext_descriptor_heap
   PUBLIC FILE_SET
@@ -202,9 +219,9 @@ if(PROJECT_IS_TOP_LEVEL)
         "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${vkexec_SOURCE_DIR}" "-DVKEXEC_BINARY_DIR=${vkexec_BINARY_DIR}"
         "-DCONSUMER_SOURCE_DIR=${vkexec_SOURCE_DIR}/test/fixtures/install_consumer" "-DVKEXEC_CONFIG=$<CONFIG>"
         "-DVKEXEC_EXPECT_VMA=${vkexec_BUILD_VMA}" "-DVKEXEC_EXPECT_TOOLS=${vkexec_BUILD_TOOLS}"
-        "-DVKEXEC_EXPECT_SHARED=${BUILD_SHARED_LIBS}" "-DVKEXEC_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
-        "-DVKEXEC_CXX_COMPILER=${CMAKE_CXX_COMPILER}" "-DVKEXEC_GENERATOR=${CMAKE_GENERATOR}"
-        "-DVKEXEC_GENERATOR_IS_MULTI_CONFIG=${VKEXEC_GENERATOR_IS_MULTI_CONFIG}"
+        "-DVKEXEC_EXPECT_PROFILING=${vkexec_BUILD_PROFILING}" "-DVKEXEC_EXPECT_SHARED=${BUILD_SHARED_LIBS}"
+        "-DVKEXEC_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" "-DVKEXEC_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        "-DVKEXEC_GENERATOR=${CMAKE_GENERATOR}" "-DVKEXEC_GENERATOR_IS_MULTI_CONFIG=${VKEXEC_GENERATOR_IS_MULTI_CONFIG}"
         "-DVKEXEC_GENERATOR_INSTANCE=${CMAKE_GENERATOR_INSTANCE}"
         "-DVKEXEC_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
         "-DVKEXEC_GENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}" -P
@@ -249,6 +266,9 @@ if(PROJECT_IS_TOP_LEVEL)
         vkexec_ext_dynamic_rendering
         vkexec_ext_timeline_semaphore
         vkexec_graphics)
+    if(vkexec_BUILD_PROFILING)
+      list(APPEND VKEXEC_INSTALL_TARGETS vkexec_profiling)
+    endif()
     if(vkexec_BUILD_VMA)
       list(APPEND VKEXEC_INSTALL_TARGETS vkexec_vma)
     endif()

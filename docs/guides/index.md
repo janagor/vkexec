@@ -15,5 +15,6 @@ custom-allocator
 descriptor-backends
 timeline-semaphores
 dynamic-rendering
+gpu-profiling
 presentation
 ```

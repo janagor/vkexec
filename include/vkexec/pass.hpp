@@ -9,6 +9,7 @@
 #include <vkexec/detail/attributes.hpp>
 #include <vkexec/detail/resource_state_tracker.hpp>
 #include <vkexec/detail/sender_expr.hpp>
+#include <vkexec/detail/submission_id.hpp>
 #include <vkexec/error.hpp>
 #include <vkexec/error_helpers.hpp>
 #include <vkexec/pipeline.hpp>
@@ -44,6 +45,28 @@ namespace vkexec {
 
 //! An unset affinity uses the graph's default queue during execution planning.
 using queue_affinity = std::optional<queue_ref>;
+
+//! Queue and identity of the execution batch currently recording a pass.
+//! `submission_id` identifies a submission attempt, including attempts that
+//! fail before queue submission. IDs are process-local and are not persistent.
+//! IDs are allocated lazily. A step that needs an identity must call
+//! `ensure_submission_id()` before copying this structure for `after_gpu()`;
+//! otherwise its copy retains the zero, unassigned ID. The reference passed
+//! to `record()` is valid only for that call.
+struct pass_recording_info
+{
+  queue_ref queue{};
+  mutable std::uint64_t submission_id{};
+  mutable std::uint32_t next_region_index{};
+
+  [[nodiscard]] auto ensure_submission_id() const noexcept -> std::uint64_t
+  {
+    if (submission_id == 0) { submission_id = detail::allocate_submission_id(); }
+    return submission_id;
+  }
+
+  [[nodiscard]] auto allocate_region_index() const noexcept -> std::uint32_t { return next_region_index++; }
+};
 
 //! Synchronization borrowed from a presenter for one graph execution.
 struct graph_presentation_sync
@@ -232,10 +255,35 @@ namespace detail {
                                || (std::is_trivially_copyable_v<std::remove_cvref_t<T>> && !is_byte_span_v<T>);
 
   template<class Step>
-  concept static_pass_step =
-    std::move_constructible<Step> && requires(Step &step, context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) {
-      { step.record(ctx, cmd, cleanup) } -> std::same_as<status>;
-    };
+  concept static_pass_step = std::move_constructible<Step>
+                             && (requires(Step &step, context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) {
+                                  { step.record(ctx, cmd, cleanup) } -> std::same_as<status>;
+                                }
+                               || requires(Step &step,
+                                 context &ctx,
+                                 VkCommandBuffer cmd,
+                                 pass_cleanup &cleanup,
+                                 pass_recording_info const &info) {
+                                    { step.record(ctx, cmd, cleanup, info) } -> std::same_as<status>;
+                                  });
+
+  template<static_pass_step Step>
+  [[nodiscard]] auto
+    record_step(Step &step, context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
+      -> status
+  {
+    if constexpr (requires {
+                    { step.record(ctx, cmd, cleanup, info) } -> std::same_as<status>;
+                  }) {
+      return step.record(ctx, cmd, cleanup, info);
+    } else {
+      return step.record(ctx, cmd, cleanup);
+    }
+  }
+
+  inline constexpr std::uint64_t k_first_submission_id = 1;
+  [[nodiscard]] inline auto recording_info(queue_ref queue) noexcept -> pass_recording_info
+  { return pass_recording_info{ .queue = queue }; }
 
   template<class T>
   concept sender_adaptor_closure =
@@ -251,6 +299,35 @@ namespace detail {
     }
   }
 
+  template<class Step> auto commit_after_gpu(Step &step) -> void
+  {
+    if constexpr (requires {
+                    { step.commit_after_gpu() } -> std::same_as<void>;
+                  }) {
+      step.commit_after_gpu();
+    }
+  }
+
+  template<class Step> [[nodiscard]] auto step_has_resource_declarations(Step const &step) noexcept -> bool
+  {
+    if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
+    if constexpr (requires { step.bind.metadata; }) { return step.bind.metadata == resource_metadata_state::complete; }
+    return requires { step.resources; };
+  }
+
+  template<class Step> [[nodiscard]] auto step_requires_complete_metadata(Step const &step) noexcept -> bool
+  {
+    if constexpr (requires { step.requires_complete_metadata(); }) { return step.requires_complete_metadata(); }
+    return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
+  }
+
+  template<class Step>
+  [[nodiscard]] auto declare_step_resources(Step &step,
+    resource_state_tracker &tracker,
+    std::size_t index,
+    queue_ref queue,
+    bool crosses_families) -> status;
+
   class dynamic_pass_step
   {
     struct interface
@@ -263,9 +340,13 @@ namespace detail {
       interface(interface &&) = delete;
       auto operator=(interface &&) -> interface & = delete;
 
-      virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status = 0;
+      virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
+        -> status = 0;
       virtual auto after_gpu() -> void = 0;
-      virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status = 0;
+      virtual auto commit_after_gpu() -> void = 0;
+      virtual auto
+        declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue, bool crosses_families)
+          -> status = 0;
       [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
       [[nodiscard]] virtual auto requires_complete_metadata() const noexcept -> bool = 0;
     };
@@ -276,36 +357,23 @@ namespace detail {
 
       explicit model(Step value) : step(std::move(value)) {}
 
-      auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status override
-      { return step.record(ctx, cmd, cleanup); }
+      auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
+        -> status override
+      { return record_step(step, ctx, cmd, cleanup, info); }
 
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
 
-      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue) -> status override
-      {
-        if constexpr (requires { step.resources; }) {
-          return tracker.use(step.resources, index, queue.family, queue.queue);
-        } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
-          return step.declare_resources(tracker, index, queue);
-        }
-        return {};
-      }
+      auto commit_after_gpu() -> void override { detail::commit_after_gpu(step); }
+
+      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue, bool crosses_families)
+        -> status override
+      { return declare_step_resources(step, tracker, index, queue, crosses_families); }
 
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
-      {
-        if constexpr (requires { step.has_resource_declarations(); }) { return step.has_resource_declarations(); }
-        if constexpr (requires { step.bind.metadata; }) {
-          return step.bind.metadata == resource_metadata_state::complete;
-        }
-        // cppcheck-suppress constStatement
-        return requires { step.resources; };
-      }
+      { return step_has_resource_declarations(step); }
 
       [[nodiscard]] auto requires_complete_metadata() const noexcept -> bool override
-      {
-        // cppcheck-suppress constStatement
-        return requires { step.has_resource_declarations(); } || requires { step.bind.metadata; };
-      }
+      { return step_requires_complete_metadata(step); }
     };
 
     std::unique_ptr<interface> impl_;
@@ -324,13 +392,16 @@ namespace detail {
     dynamic_pass_step(dynamic_pass_step const &) = delete;
     auto operator=(dynamic_pass_step const &) -> dynamic_pass_step & = delete;
 
-    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup) -> status
-    { return impl_->record(ctx, cmd, cleanup); }
+    auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info) -> status
+    { return impl_->record(ctx, cmd, cleanup, info); }
 
     auto after_gpu() -> void { impl_->after_gpu(); }
 
-    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status
-    { return impl_->declare_resources(tracker, step, queue); }
+    auto commit_after_gpu() -> void { impl_->commit_after_gpu(); }
+
+    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue, bool crosses_families)
+      -> status
+    { return impl_->declare_resources(tracker, step, queue, crosses_families); }
 
     [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return impl_->has_resource_declarations(); }
 
@@ -430,12 +501,15 @@ namespace detail {
   }
 
   template<class... Steps>
-  [[nodiscard]] auto
-    record_static_steps(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, std::tuple<Steps...> &steps) -> status
+  [[nodiscard]] auto record_static_steps(context &ctx,
+    VkCommandBuffer cmd,
+    pass_cleanup &cleanup,
+    std::tuple<Steps...> &steps,
+    pass_recording_info const &info) -> status
   {
     status result{};
-    auto record_one = [&ctx, cmd, &cleanup, &result](auto &step) -> bool {
-      auto current = step.record(ctx, cmd, cleanup);
+    auto record_one = [&ctx, cmd, &cleanup, &info, &result](auto &step) -> bool {
+      auto current = record_step(step, ctx, cmd, cleanup, info);
       if (!current) {
         result = fail(current);
         return false;
@@ -450,10 +524,11 @@ namespace detail {
   [[nodiscard]] inline auto record_dynamic_steps(context &ctx,
     VkCommandBuffer cmd,
     pass_cleanup &cleanup,
-    std::vector<dynamic_pass_step> &steps) -> status
+    std::vector<dynamic_pass_step> &steps,
+    pass_recording_info const &info) -> status
   {
     for (auto &step : steps) {
-      auto recorded = step.record(ctx, cmd, cleanup);
+      auto recorded = record_step(step, ctx, cmd, cleanup, info);
       if (!recorded) { return fail(recorded); }
     }
     return {};
@@ -463,7 +538,8 @@ namespace detail {
   [[nodiscard]] auto record_pass_steps(submit_scope &scope, std::tuple<Steps...> &steps) -> status
   {
     auto facade = context_access::facade(scope.state);
-    if (auto recorded = record_static_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
+    if (auto recorded = record_static_steps(facade, scope.cmd, scope.cleanup, steps, recording_info(scope.queue));
+      !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -472,7 +548,8 @@ namespace detail {
   [[nodiscard]] inline auto record_pass_steps(submit_scope &scope, std::vector<dynamic_pass_step> &steps) -> status
   {
     auto facade = context_access::facade(scope.state);
-    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps); !recorded) {
+    if (auto recorded = record_dynamic_steps(facade, scope.cmd, scope.cleanup, steps, recording_info(scope.queue));
+      !recorded) {
       return fail(recorded);
     }
     return scope.end_recording();
@@ -566,9 +643,10 @@ namespace detail {
   [[nodiscard]] auto
     record_batch_steps(context &facade, submit_scope &scope, execution_batch const &batch, StepStorage &steps) -> status
   {
+    auto const info = recording_info(scope.queue);
     if constexpr (requires { steps.size(); }) {
       for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
-        if (auto recorded = steps.at(index).record(facade, scope.cmd, scope.cleanup); !recorded) {
+        if (auto recorded = record_step(steps.at(index), facade, scope.cmd, scope.cleanup, info); !recorded) {
           return fail(recorded);
         }
       }
@@ -578,7 +656,7 @@ namespace detail {
       std::size_t index{};
       auto record_one = [&](auto &step) -> void {
         if (recorded && index >= batch.first_step && index < batch.end_step) {
-          recorded = step.record(facade, scope.cmd, scope.cleanup);
+          recorded = record_step(step, facade, scope.cmd, scope.cleanup, info);
         }
         ++index;
       };
@@ -630,13 +708,15 @@ namespace detail {
   }
 
   template<class Step>
-  [[nodiscard]] auto declare_step_resources(Step const &step,
+  [[nodiscard]] auto declare_step_resources(Step &step,
     resource_state_tracker &tracker,
     std::size_t index,
     queue_ref queue,
     bool crosses_families) -> status
   {
-    if constexpr (requires { step.resources; }) {
+    if constexpr (requires { step.declare_resources(tracker, index, queue, crosses_families); }) {
+      return step.declare_resources(tracker, index, queue, crosses_families);
+    } else if constexpr (requires { step.resources; }) {
       return tracker.use(step.resources, index, queue.family, queue.queue);
     } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
       if constexpr (requires { step.has_resource_declarations(); }) {
@@ -666,11 +746,11 @@ namespace detail {
     if (!step.has_resource_declarations() && (crosses_families || step.requires_complete_metadata())) {
       return fail(errc::invalid_argument, "pass step lacks complete resource declarations");
     }
-    return step.declare_resources(tracker, index, queue);
+    return step.declare_resources(tracker, index, queue, crosses_families);
   }
 
   template<class... Steps>
-  [[nodiscard]] auto declare_indexed_step(std::tuple<Steps...> const &steps,
+  [[nodiscard]] auto declare_indexed_step(std::tuple<Steps...> &steps,
     resource_state_tracker &tracker,
     std::size_t index,
     queue_ref queue,
@@ -679,8 +759,8 @@ namespace detail {
     status declared{};
     std::size_t position{};
     std::apply(
-      [&](auto const &...step) -> void {
-        [[maybe_unused]] auto declare_one = [&](auto const &current) -> void {
+      [&](auto &...step) -> void {
+        [[maybe_unused]] auto declare_one = [&](auto &current) -> void {
           if (position == index) {
             declared = declare_step_resources(current, tracker, index, queue, crosses_families);
           }
@@ -724,18 +804,19 @@ namespace detail {
     resource_sync_plan const &sync,
     StepStorage &steps) -> status
   {
+    auto const info = recording_info(scope.queue);
     for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
       auto const &point = sync.steps.at(index);
       VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_before, point.buffers_before));
       if constexpr (requires { steps.size(); }) {
-        VKEXEC_TRY(steps.at(index).record(facade, scope.cmd, scope.cleanup));
+        VKEXEC_TRY(record_step(steps.at(index), facade, scope.cmd, scope.cleanup, info));
       } else {
         status recorded{};
         std::size_t position{};
         std::apply(
           [&](auto &...step) -> void {
             [[maybe_unused]] auto record_one = [&](auto &current) -> void {
-              if (position == index) { recorded = current.record(facade, scope.cmd, scope.cleanup); }
+              if (position == index) { recorded = record_step(current, facade, scope.cmd, scope.cleanup, info); }
               ++position;
             };
             (record_one(step), ...);
@@ -834,6 +915,16 @@ namespace detail {
     for (auto &step : steps) { step.after_gpu(); }
   }
 
+  template<class... Steps> auto commit_after_gpu(std::tuple<Steps...> &steps) -> void
+  {
+    std::apply([](auto &...step) -> void { (detail::commit_after_gpu(step), ...); }, steps);
+  }
+
+  inline auto commit_after_gpu(std::vector<dynamic_pass_step> &steps) -> void
+  {
+    for (auto &step : steps) { step.commit_after_gpu(); }
+  }
+
 }// namespace detail
 
 using pass_graph_completion_signatures =
@@ -853,6 +944,7 @@ namespace detail {
       try {
 #endif
         detail::run_after_gpu(*steps);
+        detail::commit_after_gpu(*steps);
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         stdexec::set_error(std::move(*rcvr), unexpected_exception_error());

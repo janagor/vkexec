@@ -13,6 +13,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -22,6 +23,12 @@
 namespace vkexec {
 
 namespace detail {
+
+  auto allocate_submission_id() noexcept -> std::uint64_t
+  {
+    static std::atomic<std::uint64_t> next_id{ k_first_submission_id };
+    return next_id.fetch_add(1, std::memory_order_relaxed);
+  }
 
   auto record_sync(context &facade,
     VkCommandBuffer cmd,
