@@ -1,7 +1,7 @@
 #ifndef VKEXEC_DETAIL_RESOURCE_STATE_TRACKER_HPP
 #define VKEXEC_DETAIL_RESOURCE_STATE_TRACKER_HPP
 
-#include <vkexec/detail/resource_state_tracker_helpers.hpp>
+#include <vkexec/detail/resource_state_tracker_validation.hpp>
 
 namespace vkexec::detail {
 
@@ -93,7 +93,122 @@ class resource_state_tracker
   batch_transaction batch_storage_{};
   batch_transaction *batch_{ nullptr };
 
-#include <vkexec/detail/resource_state_tracker_private.hpp>
+  auto remember_buffer(std::size_t index) -> void
+  {
+    if (batch_ == nullptr || index >= batch_->buffer_count) { return; }
+    if (std::ranges::find_if(batch_->buffers,
+          [index](batch_transaction::buffer_checkpoint const &entry) -> bool { return entry.index == index; })
+        != batch_->buffers.end()) {
+      return;
+    }
+    batch_->buffers.push_back(batch_transaction::buffer_checkpoint{ .index = index, .prior = buffers_.at(index) });
+  }
+
+  auto remember_image(std::size_t index) -> void
+  {
+    if (batch_ == nullptr || index >= batch_->image_count) { return; }
+    if (std::ranges::find_if(batch_->images,
+          [index](batch_transaction::image_checkpoint const &entry) -> bool { return entry.index == index; })
+        != batch_->images.end()) {
+      return;
+    }
+    batch_->images.push_back(batch_transaction::image_checkpoint{ .index = index, .prior = images_.at(index) });
+  }
+
+  auto remember_step(std::size_t step) -> void
+  {
+    if (batch_ == nullptr) { return; }
+    if (std::ranges::find_if(
+          batch_->steps, [step](batch_transaction::step_checkpoint const &entry) -> bool { return entry.step == step; })
+        != batch_->steps.end()) {
+      return;
+    }
+    auto const &point = plan_.steps.at(step);
+    batch_->steps.push_back(batch_transaction::step_checkpoint{ .step = step,
+      .buffers_before = point.buffers_before.size(),
+      .buffers_after = point.buffers_after.size(),
+      .images_before = point.images_before.size(),
+      .images_after = point.images_after.size() });
+  }
+
+  //! Restores plan vectors by shrinking and replaces checkpointed resources; operations must not throw.
+  auto rollback_batch(batch_transaction &batch) noexcept -> void
+  {
+    plan_.dependencies.resize(batch.dependency_count);
+    plan_.image_uses.resize(batch.image_use_count);
+    for (auto const &step : batch.steps) {
+      auto &point = plan_.steps.at(step.step);
+      point.buffers_before.resize(step.buffers_before);
+      point.buffers_after.resize(step.buffers_after);
+      point.images_before.resize(step.images_before);
+      point.images_after.resize(step.images_after);
+    }
+    for (auto &buffer : std::views::reverse(batch.buffers)) { buffers_.at(buffer.index) = std::move(buffer.prior); }
+    buffers_.resize(batch.buffer_count);
+    for (auto &image : std::views::reverse(batch.images)) { images_.at(image.index) = std::move(image.prior); }
+    images_.resize(batch.image_count);
+  }
+
+  auto add_dependency(std::size_t source, std::size_t destination) -> void
+  {
+    auto const edge = std::pair{ source, destination };
+    if (source != destination && std::ranges::find(plan_.dependencies, edge) == plan_.dependencies.end()) {
+      plan_.dependencies.push_back(edge);
+    }
+  }
+
+  template<class Access> auto depend_on_frontier(access_frontier<Access> const &frontier, std::size_t step) -> void
+  {
+    if (frontier.readers.empty()) {
+      if (frontier.anchor) { add_dependency(frontier.anchor->step, step); }
+    } else {
+      for (auto const &reader : frontier.readers) { add_dependency(reader.step, step); }
+    }
+  }
+
+  template<class Access>
+  [[nodiscard]] auto collapse_frontier_for_transfer(access_frontier<Access> &frontier) -> std::optional<Access>
+  {
+    if (!frontier.readers.empty()) {
+      Access handoff = frontier.readers.back();
+      for (auto const &reader : frontier.readers) { add_dependency(reader.step, handoff.step); }
+      frontier.anchor = handoff;
+      frontier.readers.clear();
+    }
+    return frontier.anchor;
+  }
+
+  auto apply_image_region_uses(std::vector<image_region_state> &regions,
+    image_region const &region,
+    image_use const &declaration,
+    std::size_t step,
+    std::uint32_t family,
+    VkQueue queue,
+    bool exclusive,
+    usage_scope next,
+    usage_scope after,
+    bool render_pass_transition) -> void
+  {
+    for (auto &state : regions) {
+      if (!overlaps(state.region, region)) { continue; }
+      auto scoped = declaration;
+      scoped.range = subresource_range(state.region);
+      if (!state.accesses.anchor && state.accesses.readers.empty()) {
+        first_image_use(state, scoped, step, family, queue, render_pass_transition, next, after);
+        continue;
+      }
+      auto before = next;
+      if (render_pass_transition) { before.layout = state.layout; }
+      bool const compatible_read = declaration.access == resource_access::read && (!exclusive || state.family == family)
+                                   && state.layout == before.layout && after.layout == before.layout
+                                   && !render_pass_transition;
+      if (compatible_read) {
+        append_compatible_image_reader(state, scoped, step, family, queue, before, after);
+      } else {
+        advance_image_state(state, scoped, step, family, queue, before, after, exclusive && state.family != family);
+      }
+    }
+  }
 
   auto first_image_use(image_region_state &state,
     image_use declaration,
