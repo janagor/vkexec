@@ -19,8 +19,6 @@ namespace vkexec::profiling::detail {
 template<class Step> class profiled_pass_step
 {
 public:
-  using vkexec_profiling_completion_tag = void;
-
   profiled_pass_step(Step step, std::string name, profiler profiler)
     : inner_(std::move(step)), name_(std::move(name)), state_(std::move(profiler.state_))
   {}
@@ -76,8 +74,8 @@ public:
     auto reserved = state_->reserve(info.queue);
     if (!reserved) { return fail(reserved); }
     allocation_.emplace(std::move(*reserved));
-    submission_id_ = info.submission_id;
-    region_index_ = state_->next_region_index();
+    submission_id_ = info.ensure_submission_id();
+    region_index_ = info.allocate_region_index();
     auto const pool = allocation_->page->pool;
     auto const first = allocation_->first_query;
     vkCmdResetQueryPool(cmd, pool, first, k_queries_per_region);
@@ -100,9 +98,9 @@ public:
     }
   }
 
-  auto publish_after_gpu() -> void
+  auto commit_after_gpu() -> void
   {
-    vkexec::detail::publish_after_gpu(inner_);
+    vkexec::detail::commit_after_gpu(inner_);
     if (completed_) {
       state_->publish(std::move(*completed_));
       completed_.reset();
@@ -117,11 +115,11 @@ public:
 
   auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
                          queue_ref queue) -> status
-  { return vkexec::detail::declare_step_resources_unchecked(inner_, tracker, index, queue); }
+  { return vkexec::detail::declare_step_resources(inner_, tracker, index, queue, false); }
 
   auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
                          queue_ref queue) const -> status
-  { return vkexec::detail::declare_step_resources_unchecked(inner_, tracker, index, queue); }
+  { return vkexec::detail::declare_step_resources(inner_, tracker, index, queue, false); }
 
   auto declare_resources(vkexec::detail::resource_state_tracker &tracker, std::size_t index,
                          queue_ref queue, bool crosses_families) -> status

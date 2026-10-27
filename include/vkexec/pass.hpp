@@ -49,12 +49,24 @@ using queue_affinity = std::optional<queue_ref>;
 //! Queue and identity of the execution batch currently recording a pass.
 //! `submission_id` identifies a submission attempt, including attempts that
 //! fail before queue submission. IDs are process-local and are not persistent.
-//! A step may copy this value for `after_gpu()`; the reference passed to
-//! `record()` is valid only for that call.
+//! IDs are allocated lazily. A step that needs an identity must call
+//! `ensure_submission_id()` before copying this structure for `after_gpu()`;
+//! otherwise its copy retains the zero, unassigned ID. The reference passed
+//! to `record()` is valid only for that call.
 struct pass_recording_info
 {
   queue_ref queue{};
-  std::uint64_t submission_id{};
+  mutable std::uint64_t submission_id{};
+  mutable std::uint32_t next_region_index{};
+
+  [[nodiscard]] auto ensure_submission_id() const noexcept -> std::uint64_t
+  {
+    if (submission_id == 0) { submission_id = detail::allocate_submission_id(); }
+    return submission_id;
+  }
+
+  [[nodiscard]] auto allocate_region_index() const noexcept -> std::uint32_t
+  { return next_region_index++; }
 };
 
 //! Synchronization borrowed from a presenter for one graph execution.
@@ -272,7 +284,7 @@ namespace detail {
 
   inline constexpr std::uint64_t k_first_submission_id = 1;
   [[nodiscard]] inline auto recording_info(queue_ref queue) noexcept -> pass_recording_info
-  { return pass_recording_info{ .queue = queue, .submission_id = allocate_submission_id() }; }
+  { return pass_recording_info{ .queue = queue }; }
 
   template<class T>
   concept sender_adaptor_closure =
@@ -288,13 +300,12 @@ namespace detail {
     }
   }
 
-  template<class Step> auto publish_after_gpu(Step &step) -> void
+  template<class Step> auto commit_after_gpu(Step &step) -> void
   {
     if constexpr (requires {
-                    typename Step::vkexec_profiling_completion_tag;
-                    { step.publish_after_gpu() } -> std::same_as<void>;
+                    { step.commit_after_gpu() } -> std::same_as<void>;
                   }) {
-      step.publish_after_gpu();
+      step.commit_after_gpu();
     }
   }
 
@@ -316,16 +327,8 @@ namespace detail {
   }
 
   template<class Step>
-  [[nodiscard]] auto declare_step_resources_unchecked(Step &step, resource_state_tracker &tracker,
-    std::size_t index, queue_ref queue) -> status
-  {
-    if constexpr (requires { step.resources; }) {
-      return tracker.use(step.resources, index, queue.family, queue.queue);
-    } else if constexpr (requires { step.declare_resources(tracker, index, queue); }) {
-      return step.declare_resources(tracker, index, queue);
-    }
-    return {};
-  }
+  [[nodiscard]] auto declare_step_resources(Step &step, resource_state_tracker &tracker,
+    std::size_t index, queue_ref queue, bool crosses_families) -> status;
 
   class dynamic_pass_step
   {
@@ -342,8 +345,9 @@ namespace detail {
       virtual auto record(context &ctx, VkCommandBuffer cmd, pass_cleanup &cleanup, pass_recording_info const &info)
         -> status = 0;
       virtual auto after_gpu() -> void = 0;
-      virtual auto publish_after_gpu() -> void = 0;
-      virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status = 0;
+      virtual auto commit_after_gpu() -> void = 0;
+      virtual auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue,
+                                     bool crosses_families) -> status = 0;
       [[nodiscard]] virtual auto has_resource_declarations() const noexcept -> bool = 0;
       [[nodiscard]] virtual auto requires_complete_metadata() const noexcept -> bool = 0;
     };
@@ -360,10 +364,11 @@ namespace detail {
 
       auto after_gpu() -> void override { detail::run_after_gpu(step); }
 
-      auto publish_after_gpu() -> void override { detail::publish_after_gpu(step); }
+      auto commit_after_gpu() -> void override { detail::commit_after_gpu(step); }
 
-      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue) -> status override
-      { return declare_step_resources_unchecked(step, tracker, index, queue); }
+      auto declare_resources(resource_state_tracker &tracker, std::size_t index, queue_ref queue,
+                             bool crosses_families) -> status override
+      { return declare_step_resources(step, tracker, index, queue, crosses_families); }
 
       [[nodiscard]] auto has_resource_declarations() const noexcept -> bool override
       { return step_has_resource_declarations(step); }
@@ -393,10 +398,11 @@ namespace detail {
 
     auto after_gpu() -> void { impl_->after_gpu(); }
 
-    auto publish_after_gpu() -> void { impl_->publish_after_gpu(); }
+    auto commit_after_gpu() -> void { impl_->commit_after_gpu(); }
 
-    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue) -> status
-    { return impl_->declare_resources(tracker, step, queue); }
+    auto declare_resources(resource_state_tracker &tracker, std::size_t step, queue_ref queue,
+                           bool crosses_families) -> status
+    { return impl_->declare_resources(tracker, step, queue, crosses_families); }
 
     [[nodiscard]] auto has_resource_declarations() const noexcept -> bool { return impl_->has_resource_declarations(); }
 
@@ -742,7 +748,7 @@ namespace detail {
     if (!step.has_resource_declarations() && (crosses_families || step.requires_complete_metadata())) {
       return fail(errc::invalid_argument, "pass step lacks complete resource declarations");
     }
-    return step.declare_resources(tracker, index, queue);
+    return step.declare_resources(tracker, index, queue, crosses_families);
   }
 
   template<class... Steps>
@@ -911,12 +917,12 @@ namespace detail {
     for (auto &step : steps) { step.after_gpu(); }
   }
 
-  template<class... Steps> auto publish_after_gpu(std::tuple<Steps...> &steps) -> void
-  { std::apply([](auto &...step) -> void { (detail::publish_after_gpu(step), ...); }, steps); }
+  template<class... Steps> auto commit_after_gpu(std::tuple<Steps...> &steps) -> void
+  { std::apply([](auto &...step) -> void { (detail::commit_after_gpu(step), ...); }, steps); }
 
-  inline auto publish_after_gpu(std::vector<dynamic_pass_step> &steps) -> void
+  inline auto commit_after_gpu(std::vector<dynamic_pass_step> &steps) -> void
   {
-    for (auto &step : steps) { step.publish_after_gpu(); }
+    for (auto &step : steps) { step.commit_after_gpu(); }
   }
 
 }// namespace detail
@@ -938,7 +944,7 @@ namespace detail {
       try {
 #endif
         detail::run_after_gpu(*steps);
-        detail::publish_after_gpu(*steps);
+        detail::commit_after_gpu(*steps);
 #if VKEXEC_HAS_EXCEPTIONS
       } catch (...) {
         stdexec::set_error(std::move(*rcvr), unexpected_exception_error());
