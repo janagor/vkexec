@@ -75,10 +75,10 @@ auto set_counters(benchmark::State &state, submission_counters const &counters) 
     join.predecessors = std::move(sinks);
     plan.batches.push_back(std::move(join));
   }
-  std::vector<vkexec::submit_scope> scopes;
+  std::vector<vkexec::detail::submit_scope> scopes;
   scopes.reserve(plan.batches.size());
   for (auto &batch : plan.batches) {
-    auto opened = vkexec::submit_scope::open(ctx, batch.queue);
+    auto opened = vkexec::detail::submit_scope::open(ctx, batch.queue);
     if (!opened) { return vkexec::fail(opened); }
     scopes.push_back(vkexec::expected_take(opened));
     VKEXEC_TRY(scopes.back().end_recording());
