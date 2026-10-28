@@ -7,3 +7,13 @@ target_link_libraries(
           benchmark::benchmark
           benchmark::benchmark_main)
 set_target_properties(vkexec_resource_regions_benchmark PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+
+add_executable(vkexec_graph_planning_benchmark graph_planning.cpp)
+target_link_libraries(
+  vkexec_graph_planning_benchmark
+  PRIVATE vkexec::vkexec
+          vkexec::vkexec_options
+          vkexec::vkexec_warnings
+          benchmark::benchmark
+          benchmark::benchmark_main)
+set_target_properties(vkexec_graph_planning_benchmark PROPERTIES CXX_SCAN_FOR_MODULES OFF)
