@@ -32,10 +32,10 @@ struct submission_counters
 };
 
 [[nodiscard]] auto collect_counters(vkexec::detail::execution_plan const &plan,
-  vkexec::test::prepared_batch_sync const &prepared,
+  vkexec::detail::prepared_batch_sync const &prepared,
   bool timeline) -> submission_counters
 {
-  auto const edges = vkexec::test::graph_dependency_count(plan);
+  auto const edges = vkexec::detail::graph_dependency_count(plan);
   return submission_counters{ .batches = plan.batches.size(),
     .dependency_edges = edges,
     .waits = prepared.waits.size(),
@@ -103,11 +103,11 @@ auto bm_prepare_submission(benchmark::State &state) -> void
   auto const plan = vkexec::test::submission_plan(static_cast<std::size_t>(state.range(k_node_argument)),
     static_cast<vkexec::test::submission_shape>(state.range(k_shape_argument)));
   bool const timeline = state.range(k_mode_argument) == k_timeline_mode;
-  std::vector<VkSemaphore> handles(timeline ? plan.batches.size() : vkexec::test::graph_dependency_count(plan));
-  auto const prepared = vkexec::test::reference_batch_sync(plan, handles, timeline);
+  std::vector<VkSemaphore> handles(timeline ? plan.batches.size() : vkexec::detail::graph_dependency_count(plan));
+  auto const prepared = vkexec::detail::prepare_batch_sync(plan, handles, timeline);
   // NOLINTNEXTLINE(readability-identifier-length) -- Google Benchmark keep-running idiom
   for ([[maybe_unused]] auto _ : state) {
-    auto result = vkexec::test::reference_batch_sync(plan, handles, timeline);
+    auto result = vkexec::detail::prepare_batch_sync(plan, handles, timeline);
     benchmark::DoNotOptimize(result);
     benchmark::ClobberMemory();
   }
@@ -228,7 +228,7 @@ auto bm_submission_stages(benchmark::State &state) -> void
         state.SkipWithError(sync.error().message());
         return;
       }
-      // Existing submission prepares waits and signals within each submit_batch call.
+      op.batch_sync = vkexec::detail::prepare_batch_sync(op.plan, op.semaphores, op.timeline);
       auto const submit_start = clock::now();
       for (std::size_t batch{}; batch < op.scopes.size(); ++batch) {
         if (auto submitted = op.submit_batch(ctx, batch); !submitted) {
@@ -242,8 +242,7 @@ auto bm_submission_stages(benchmark::State &state) -> void
       object_seconds += std::chrono::duration<double>(prepare_start - object_start).count();
       prepare_seconds += std::chrono::duration<double>(submit_start - prepare_start).count();
       submit_seconds += std::chrono::duration<double>(submit_end - submit_start).count();
-      auto const prepared = vkexec::test::reference_batch_sync(op.plan, op.semaphores, op.timeline);
-      counters = collect_counters(op.plan, prepared, op.timeline);
+      counters = collect_counters(op.plan, op.batch_sync, op.timeline);
       fences_created = op.fences.size();
       semaphores_created = op.semaphores.size();
       submit_calls = execution.submitted;

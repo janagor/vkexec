@@ -1,49 +1,18 @@
 #ifndef VKEXEC_TEST_GRAPH_SUBMISSION_REFERENCE_HPP
 #define VKEXEC_TEST_GRAPH_SUBMISSION_REFERENCE_HPP
 
-#include <vkexec/detail/pass_execution.hpp>
-
-#include <span>
+#include <vkexec/detail/graph_submission_sync.hpp>
 
 #include <algorithm>
 
 namespace vkexec::test {
 
-inline constexpr std::uint64_t k_graph_timeline_signal_value = 1;
-
-struct prepared_batch_sync
-{
-  std::vector<semaphore_submit> waits;
-  std::vector<semaphore_submit> signals;
-  std::vector<std::size_t> wait_offsets;
-  std::vector<std::size_t> signal_offsets;
-
-  [[nodiscard]] auto waits_for(std::size_t batch) const -> std::span<semaphore_submit const>
-  {
-    return std::span<semaphore_submit const>{ waits }.subspan(
-      wait_offsets.at(batch), wait_offsets.at(batch + std::size_t{ 1 }) - wait_offsets.at(batch));
-  }
-
-  [[nodiscard]] auto signals_for(std::size_t batch) const -> std::span<semaphore_submit const>
-  {
-    return std::span<semaphore_submit const>{ signals }.subspan(
-      signal_offsets.at(batch), signal_offsets.at(batch + std::size_t{ 1 }) - signal_offsets.at(batch));
-  }
-};
-
-[[nodiscard]] inline auto graph_dependency_count(detail::execution_plan const &plan) -> std::size_t
-{
-  std::size_t count{};
-  for (auto const &batch : plan.batches) { count += batch.predecessors.size(); }
-  return count;
-}
-
-// Existing edge-scanning submission algorithm, retained as a benchmark/test oracle.
+// PR2 edge-scanning algorithm, retained only as a benchmark/test oracle.
 [[nodiscard]] inline auto reference_batch_sync(detail::execution_plan const &plan,
   std::span<VkSemaphore const> semaphores,
   bool timeline,
   semaphore_submit const *presentation_wait = nullptr,
-  semaphore_submit const *presentation_signal = nullptr) -> prepared_batch_sync
+  semaphore_submit const *presentation_signal = nullptr) -> detail::prepared_batch_sync
 {
   struct edge
   {
@@ -58,7 +27,7 @@ struct prepared_batch_sync
       edges.push_back(edge{ .source = source, .destination = destination, .semaphore = semaphore });
     }
   }
-  prepared_batch_sync result;
+  detail::prepared_batch_sync result;
   for (std::size_t batch{}; batch < plan.batches.size(); ++batch) {
     result.wait_offsets.push_back(result.waits.size());
     result.signal_offsets.push_back(result.signals.size());
@@ -66,8 +35,8 @@ struct prepared_batch_sync
     std::vector<semaphore_submit> signals;
     for (auto const &dependency : edges) {
       if (dependency.destination == batch) {
-        waits.push_back(semaphore_submit{
-          .semaphore = dependency.semaphore, .value = timeline ? k_graph_timeline_signal_value : std::uint64_t{} });
+        waits.push_back(semaphore_submit{ .semaphore = dependency.semaphore,
+          .value = timeline ? detail::k_graph_timeline_signal_value : std::uint64_t{} });
       }
       if (!timeline && dependency.source == batch) {
         signals.push_back(semaphore_submit{ .semaphore = dependency.semaphore });
@@ -75,7 +44,8 @@ struct prepared_batch_sync
     }
     if (timeline
         && std::ranges::any_of(edges, [batch](edge const &dependency) -> bool { return dependency.source == batch; })) {
-      signals.push_back(semaphore_submit{ .semaphore = semaphores[batch], .value = k_graph_timeline_signal_value });
+      signals.push_back(
+        semaphore_submit{ .semaphore = semaphores[batch], .value = detail::k_graph_timeline_signal_value });
     }
     if (batch + std::size_t{ 1 } == plan.batches.size()) {
       if (presentation_wait) { waits.push_back(*presentation_wait); }

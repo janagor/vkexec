@@ -1,7 +1,7 @@
 #ifndef VKEXEC_DETAIL_PASS_GRAPH_SUBMIT_HPP
 #define VKEXEC_DETAIL_PASS_GRAPH_SUBMIT_HPP
 
-#include <vkexec/detail/pass_execution.hpp>
+#include <vkexec/detail/graph_submission_sync.hpp>
 
 namespace vkexec {
 
@@ -61,16 +61,9 @@ namespace detail {
       execution_plan plan;
       Receiver receiver;
       std::vector<VkSemaphore> semaphores;
-      struct binary_edge
-      {
-        std::size_t source{};
-        std::size_t destination{};
-        VkSemaphore semaphore{ VK_NULL_HANDLE };
-      };
-      std::vector<binary_edge> edges;
+      prepared_batch_sync batch_sync;
       std::vector<VkFence> fences;
       bool timeline{};
-      static constexpr std::uint64_t k_timeline_signal_value = 1;
       std::optional<graph_presentation> presentation;
       bool presented{};
 
@@ -87,20 +80,15 @@ namespace detail {
           if (semaphore != VK_NULL_HANDLE) { vkDestroySemaphore(device, semaphore, nullptr); }
         }
         semaphores.clear();
+        batch_sync = {};
         scopes.clear();
       }
 
       [[nodiscard]] auto create_sync(context &facade) -> status
       {
         timeline = facade.capabilities().timeline_semaphore && scopes.size() > std::size_t{ 1 };
-        for (std::size_t destination{}; destination < plan.batches.size(); ++destination) {
-          std::ranges::transform(plan.batches.at(destination).predecessors,
-            std::back_inserter(edges),
-            [destination](std::size_t source) -> binary_edge {
-              return binary_edge{ .source = source, .destination = destination };
-            });
-        }
-        semaphores.reserve(timeline ? scopes.size() : edges.size());
+        auto const semaphore_count = timeline ? scopes.size() : graph_dependency_count(plan);
+        semaphores.reserve(semaphore_count);
         fences.reserve(scopes.size());
         for (std::size_t index{}; index < scopes.size(); ++index) {
           if (presentation && index + std::size_t{ 1 } == scopes.size()) {
@@ -116,7 +104,6 @@ namespace detail {
           }
           fences.push_back(fence);
         }
-        auto const semaphore_count = timeline ? scopes.size() : edges.size();
         for (std::size_t index{}; index < semaphore_count; ++index) {
           VkSemaphore semaphore{ VK_NULL_HANDLE };
           VkSemaphoreTypeCreateInfo type_info{};
@@ -131,9 +118,6 @@ namespace detail {
           }
           semaphores.push_back(semaphore);
         }
-        if (!timeline) {
-          for (std::size_t index{}; index < edges.size(); ++index) { edges.at(index).semaphore = semaphores.at(index); }
-        }
         return {};
       }
 
@@ -141,22 +125,7 @@ namespace detail {
       {
         auto const &scope = scopes.at(index);
         std::array<VkCommandBuffer, 1> const commands{ scope.cmd };
-        std::vector<semaphore_submit> waits;
-        std::vector<semaphore_submit> signals;
-        for (auto const &edge : edges) {
-          if (edge.destination == index) {
-            waits.push_back(semaphore_submit{ .semaphore = timeline ? semaphores.at(edge.source) : edge.semaphore,
-              .value = timeline ? k_timeline_signal_value : std::uint64_t{} });
-          }
-          if (!timeline && edge.source == index) { signals.push_back(semaphore_submit{ .semaphore = edge.semaphore }); }
-        }
-        if (timeline
-            && std::ranges::any_of(edges, [index](binary_edge const &edge) -> bool { return edge.source == index; })) {
-          signals.push_back(semaphore_submit{ .semaphore = semaphores.at(index), .value = k_timeline_signal_value });
-        }
         if (presentation && index + std::size_t{ 1 } == scopes.size()) {
-          waits.push_back(presentation->sync.image_available_wait);
-          signals.push_back(presentation->sync.render_finished_signal);
           VkFence fence{ fences.at(index) };
           if (VkResult const reset = vkResetFences(facade.device(), 1, &fence); reset != VK_SUCCESS) {
             return fail(reset, "vkResetFences failed for graph presentation");
@@ -164,8 +133,8 @@ namespace detail {
         }
         return facade.submit(queue_submit{
           .command_buffers = commands,
-          .waits = waits,
-          .signals = signals,
+          .waits = batch_sync.waits_for(index),
+          .signals = batch_sync.signals_for(index),
           .fence = fences.at(index),
           .queue = scope.queue.queue,
         });
@@ -193,6 +162,11 @@ namespace detail {
             finish_error(facade, submitted, std::move(created.error()));
             return;
           }
+          batch_sync = prepare_batch_sync(plan,
+            semaphores,
+            timeline,
+            presentation ? &presentation->sync.image_available_wait : nullptr,
+            presentation ? &presentation->sync.render_finished_signal : nullptr);
           for (std::size_t index{}; index < scopes.size(); ++index) {
             auto submitted_status = submit_batch(facade, index);
             if (!submitted_status) {
@@ -270,7 +244,7 @@ namespace detail {
         .plan = std::move(plan),
         .receiver = std::move(receiver),
         .semaphores = {},
-        .edges = {},
+        .batch_sync = {},
         .fences = {},
         .timeline = false,
         .presentation = std::move(presentation),
