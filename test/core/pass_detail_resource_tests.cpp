@@ -1,6 +1,7 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
 #include <algorithm>
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <span>
@@ -31,6 +32,186 @@
 namespace vkexec {
 class context;
 }// namespace vkexec
+
+namespace {
+
+auto add_resource_dependencies_reference(vkexec::detail::execution_plan &plan,
+  vkexec::detail::resource_sync_plan const &sync) -> void
+{
+  for (auto const &[source, destination] : sync.dependencies) {
+    std::size_t source_batch{};
+    std::size_t destination_batch{};
+    for (std::size_t index{}; index < plan.batches.size(); ++index) {
+      auto const &batch = plan.batches.at(index);
+      if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }
+      if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }
+    }
+    if (source_batch == destination_batch) { continue; }
+    auto &incoming = plan.batches.at(destination_batch).predecessors;
+    if (std::ranges::find(incoming, source_batch) == incoming.end()) { incoming.push_back(source_batch); }
+  }
+}
+
+auto require_same_batches(vkexec::detail::execution_plan const &actual, vkexec::detail::execution_plan const &expected)
+  -> void
+{
+  REQUIRE(actual.batches.size() == expected.batches.size());
+  for (std::size_t index{}; index < actual.batches.size(); ++index) {
+    auto const &lhs = actual.batches.at(index);
+    auto const &rhs = expected.batches.at(index);
+    REQUIRE(lhs.queue.queue == rhs.queue.queue);
+    REQUIRE(lhs.queue.family == rhs.queue.family);
+    REQUIRE(lhs.first_step == rhs.first_step);
+    REQUIRE(lhs.end_step == rhs.end_step);
+    REQUIRE(lhs.predecessors == rhs.predecessors);
+  }
+}
+
+auto require_reference_match(vkexec::detail::execution_plan const &initial,
+  vkexec::detail::resource_sync_plan const &sync) -> void
+{
+  auto expected = initial;
+  auto actual = initial;
+  auto const original_dependencies = sync.dependencies;
+  auto const original_step_count = sync.steps.size();
+  add_resource_dependencies_reference(expected, sync);
+  vkexec::detail::add_resource_dependencies(actual, sync);
+  require_same_batches(actual, expected);
+  REQUIRE(sync.dependencies == original_dependencies);
+  REQUIRE(sync.steps.size() == original_step_count);
+}
+
+}// namespace
+
+TEST_CASE("resource dependency mapping handles empty and unchanged plans", "[vkexec][pass]")
+{
+  vkexec::detail::execution_plan empty{};
+  vkexec::detail::resource_sync_plan sync{};
+  require_reference_match(empty, sync);
+
+  sync.steps.resize(k_single_step_count);
+  empty.batches.push_back(
+    { .queue = {}, .first_step = k_first_step, .end_step = k_single_step_count, .predecessors = {} });
+  require_reference_match(empty, sync);
+
+  sync.steps.resize(k_dag_step_count);
+  empty.batches.push_back(
+    { .queue = {}, .first_step = k_single_step_count, .end_step = k_pair_step_count, .predecessors = {} });
+  empty.batches.push_back(
+    { .queue = {}, .first_step = k_pair_step_count, .end_step = k_dag_step_count, .predecessors = {} });
+  require_reference_match(empty, sync);
+}
+
+TEST_CASE("resource dependency mapping preserves multi-step batch order and duplicates", "[vkexec][pass]")
+{
+  constexpr std::size_t k_first_end = 3;
+  constexpr std::size_t k_second_end = 5;
+  constexpr std::size_t k_step_count = 8;
+  constexpr std::size_t k_last_step = 7;
+  constexpr std::size_t k_middle_step = 4;
+  constexpr std::size_t k_later_step = 6;
+  vkexec::detail::execution_plan plan{};
+  plan.batches = { { .queue = { .family = k_default_family },
+                     .first_step = k_first_step,
+                     .end_step = k_first_end,
+                     .predecessors = {} },
+    { .queue = { .family = k_other_family }, .first_step = k_first_end, .end_step = k_second_end, .predecessors = {} },
+    { .queue = { .family = k_default_family },
+      .first_step = k_second_end,
+      .end_step = k_step_count,
+      .predecessors = {} } };
+  vkexec::detail::resource_sync_plan sync{};
+  sync.steps.resize(k_step_count);
+  sync.dependencies = { { k_second_step, k_third_step },
+    { k_second_step, k_middle_step },
+    { k_first_end, k_later_step },
+    { k_first_step, k_last_step },
+    { k_second_step, k_middle_step } };
+  require_reference_match(plan, sync);
+  vkexec::detail::add_resource_dependencies(plan, sync);
+  REQUIRE(plan.batches.at(k_first_step).predecessors.empty());
+  REQUIRE(plan.batches.at(k_second_step).predecessors == std::vector<std::size_t>{ k_first_step });
+  REQUIRE(plan.batches.at(k_third_step).predecessors == std::vector<std::size_t>{ k_second_step, k_first_step });
+  require_reference_match(plan, sync);
+
+  plan.batches.at(k_second_step).predecessors = { k_first_step };
+  plan.batches.at(k_third_step).predecessors = { k_first_step };
+  require_reference_match(plan, sync);
+  vkexec::detail::add_resource_dependencies(plan, sync);
+  REQUIRE(plan.batches.at(k_third_step).predecessors == std::vector<std::size_t>{ k_first_step, k_second_step });
+}
+
+TEST_CASE("resource dependency mapping preserves fan-in", "[vkexec][pass]")
+{
+  vkexec::detail::execution_plan plan{};
+  vkexec::detail::resource_sync_plan sync{};
+  sync.steps.resize(k_dag_step_count);
+  for (std::size_t step{}; step < k_dag_step_count; ++step) {
+    plan.batches.push_back({ .queue = { .family = step % k_pair_step_count == 0 ? k_default_family : k_other_family },
+      .first_step = step,
+      .end_step = step + k_single_step_count,
+      .predecessors = {} });
+  }
+  sync.dependencies = {
+    { k_first_step, k_fourth_step }, { k_second_step, k_fourth_step }, { k_third_step, k_fourth_step }
+  };
+  require_reference_match(plan, sync);
+  vkexec::detail::add_resource_dependencies(plan, sync);
+  REQUIRE(plan.batches.at(k_fourth_step).predecessors
+          == std::vector<std::size_t>{ k_first_step, k_second_step, k_third_step });
+}
+
+TEST_CASE("resource dependency mapping matches scan reference on valid partitions", "[vkexec][pass]")
+{
+  constexpr std::uint32_t k_seed = 0xC0FFEE;
+  constexpr std::uint32_t k_multiplier = 1664525;
+  constexpr std::uint32_t k_increment = 1013904223;
+  constexpr std::size_t k_trials_per_layout = 32;
+  constexpr std::array<std::size_t, 6> k_step_counts{ 1, 2, 8, 32, 128, 512 };
+  std::uint32_t state = k_seed;
+  auto next = [&]() -> std::uint32_t {
+    state = state * k_multiplier + k_increment;
+    return state;
+  };
+  for (auto const step_count : k_step_counts) {
+    for (std::size_t trial{}; trial < k_trials_per_layout; ++trial) {
+      vkexec::detail::execution_plan plan{};
+      vkexec::detail::resource_sync_plan sync{};
+      sync.steps.resize(step_count);
+      std::size_t first{};
+      while (first < step_count) {
+        auto const remaining = step_count - first;
+        auto const length = trial == 0 ? k_single_step_count : k_single_step_count + next() % remaining;
+        auto const index = plan.batches.size();
+        std::vector<std::size_t> predecessors;
+        for (std::size_t previous{}; previous < index; ++previous) {
+          if (next() % k_dag_step_count == 0) { predecessors.push_back(previous); }
+        }
+        plan.batches.push_back(
+          { .queue = { .family = next() % k_pair_step_count == 0 ? k_default_family : k_other_family },
+            .first_step = first,
+            .end_step = first + length,
+            .predecessors = std::move(predecessors) });
+        first += length;
+      }
+      REQUIRE(vkexec::detail::validate_execution_batches(plan, step_count));
+      if (trial == 0) {
+        for (std::size_t step = k_single_step_count; step < step_count; ++step) {
+          sync.dependencies.emplace_back(step - k_single_step_count, step);
+        }
+      }
+      auto const edge_count = trial * step_count / k_dag_step_count;
+      for (std::size_t edge{}; edge < edge_count; ++edge) {
+        auto const source = static_cast<std::size_t>(next()) % step_count;
+        auto const destination = source + static_cast<std::size_t>(next()) % (step_count - source);
+        if (source == destination) { continue; }
+        sync.dependencies.emplace_back(source, destination);
+        if (edge % k_dag_step_count == 0) { sync.dependencies.emplace_back(source, destination); }
+      }
+      require_reference_match(plan, sync);
+    }
+  }
+}
 
 TEST_CASE("ownership transfer collapses a reader frontier to one release", "[vkexec][pass]")
 {
