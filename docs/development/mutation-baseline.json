@@ -1,0 +1,277 @@
+{
+  "source_commit": "075aa658318cb90ad206159f7144a3f1d0147e58",
+  "source_state": "PR 1 reporting and compiler-launcher changes; range implementation, tests and mull.yml unchanged",
+  "clang_version": "22.1.8",
+  "mull_version": "0.35.0",
+  "llvm_version": "22.1.8",
+  "test_filter": "[ranges]",
+  "timeout_ms": 10000,
+  "modes": {
+    "ranges": {
+      "runner_elapsed_ms": 244,
+      "schema_version": 1,
+      "total": 4,
+      "killed": 4,
+      "survived": 0,
+      "timed_out": 0,
+      "crashed": 0,
+      "abnormal_exit": 0,
+      "not_covered": 0,
+      "mutation_score": {
+        "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+        "denominator": 4,
+        "percent": 100.0
+      },
+      "per_file": {
+        "include/vkexec/detail/resource_ranges.hpp": {
+          "total": 4,
+          "killed": 4,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 4,
+            "percent": 100.0
+          }
+        }
+      },
+      "per_mutator": {
+        "cxx_le_to_gt": {
+          "total": 2,
+          "killed": 2,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 2,
+            "percent": 100.0
+          }
+        },
+        "cxx_le_to_lt": {
+          "total": 2,
+          "killed": 2,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 2,
+            "percent": 100.0
+          }
+        }
+      }
+    },
+    "ranges_uncovered": {
+      "runner_elapsed_ms": 234,
+      "schema_version": 1,
+      "total": 47,
+      "killed": 4,
+      "survived": 0,
+      "timed_out": 0,
+      "crashed": 0,
+      "abnormal_exit": 0,
+      "not_covered": 43,
+      "mutation_score": {
+        "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+        "denominator": 4,
+        "percent": 100.0
+      },
+      "per_file": {
+        "include/vkexec/detail/resource_ranges.hpp": {
+          "total": 47,
+          "killed": 4,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 43,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 4,
+            "percent": 100.0
+          }
+        }
+      },
+      "per_mutator": {
+        "cxx_add_to_sub": {
+          "total": 2,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 2,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_eq_to_ne": {
+          "total": 11,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 11,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_ge_to_gt": {
+          "total": 1,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 1,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_ge_to_lt": {
+          "total": 1,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 1,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_gt_to_ge": {
+          "total": 3,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 3,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_gt_to_le": {
+          "total": 3,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 3,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_le_to_gt": {
+          "total": 3,
+          "killed": 2,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 1,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 2,
+            "percent": 100.0
+          }
+        },
+        "cxx_le_to_lt": {
+          "total": 3,
+          "killed": 2,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 1,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 2,
+            "percent": 100.0
+          }
+        },
+        "cxx_lt_to_ge": {
+          "total": 4,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 4,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_lt_to_le": {
+          "total": 4,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 4,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_ne_to_eq": {
+          "total": 7,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 7,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        },
+        "cxx_sub_to_add": {
+          "total": 5,
+          "killed": 0,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 5,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 0,
+            "percent": null
+          }
+        }
+      }
+    }
+  },
+  "source_dirty": true,
+  "finalized_source_commit": null
+}

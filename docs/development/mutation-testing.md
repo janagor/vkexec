@@ -19,7 +19,7 @@ The `clang-mut` shell also disables Nix's fortify hardening, which requires opti
 
 The shell exports `MULL_LIBRARY_PATH` for Vulkan and the C/C++ runtimes. CMake uses it to initialize the semicolon-separated `vkexec_MULL_LIBRARY_PATHS` cache variable and passes each directory to Mull with `--ld-search-path`. Mull 0.35's dependency scanner does not follow ELF `RUNPATH`, so it needs these paths even when the test executable runs successfully. After a toolchain change, clear this cache entry with `cmake --preset unixlike-clang-mut -Uvkexec_MULL_LIBRARY_PATHS` to refresh it from the shell.
 
-`MULL_PLUGIN` contains the actual Nix store path to the frontend; `MULL_RUNNER` contains the runner path. The same arguments can be appended to a custom CMake configuration with mutation testing enabled. The shell repackages official Mull Debian binaries, pins their checksums, and patches runtime library paths to the Nix LLVM dependencies; it does not build Mull from source. The LLVM patch version is checked during evaluation so a toolchain update requires reviewing the package pin. Matching versions do not establish binary compatibility; plugin loading still needs verification. Entering `clang-mut` realizes its binary package, which has not been built or executed as part of this change.
+`MULL_PLUGIN` contains the actual Nix store path to the frontend; `MULL_RUNNER` contains the runner path. The same arguments can be appended to a custom CMake configuration with mutation testing enabled. The shell repackages official Mull Debian binaries, pins their checksums, and patches runtime library paths to the Nix LLVM dependencies; it does not build Mull from source. The LLVM patch version is checked during evaluation so a toolchain update requires reviewing the package pin. Matching versions alone do not establish binary compatibility. Instrumented compilation and both audit targets have now been verified with this toolchain; see the [measured baseline](mutation-baseline.md).
 
 Outside this shell, install a Mull frontend and runner matching the Clang toolchain being used. Supply the frontend path explicitly. CMake finds `mull-runner-<Clang major>` on `PATH`, or accepts an explicit `vkexec_MULL_RUNNER` path.
 
@@ -32,9 +32,9 @@ cmake --preset unixlike-clang-mut -Dvkexec_MULL_PLUGIN=/absolute/path/to/mull-ir
 cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges
 ```
 
-Record these versions and confirm that `clang++` is the compiler selected in the CMake cache. A matching major-version suffix and an existing plugin file do not prove LLVM build compatibility. The instrumented compilation must successfully load the supplied plugin; inspect the verbose build (`cmake --build out/build/unixlike-clang-mut --target vkexec_core_tests --verbose`) and Mull's configuration messages before accepting the toolchain. No successful plugin load has been verified here.
+Record these versions and confirm that `clang++` is the compiler selected in the CMake cache. A matching major-version suffix and an existing plugin file do not prove LLVM build compatibility. The instrumented compilation must successfully load the supplied plugin; inspect the verbose build (`cmake --build out/build/unixlike-clang-mut --target vkexec_core_tests --verbose`) and Mull's configuration messages before accepting the toolchain. Plugin loading has been verified by recompiling both selected targets with this frontend and running their generated mutants.
 
-These are instructions for a future run, not evidence of a measured baseline. Building this target compiles the instrumented tests and executes Mull. It is separate from ordinary CTest and is never part of the default build.
+The [baseline record](mutation-baseline.md) contains measured results and their limitations. Building this target compiles the instrumented tests and executes Mull. It is separate from ordinary CTest and is never part of the default build.
 
 The preset disables IPO, hardening, sanitizers, coverage tooling, compiler caching, static analyzers, examples, and optional modules. Mull uses its own LLVM profiling flags for covered-code selection. Instrumentation is private to the two selected targets; third-party targets are not instrumented. CMake copies `mull.yml` to the build root and explicitly sets `MULL_CONFIG` for both instrumented compiler commands and the runner. A configuration digest changes the selected targets' compile definitions when the YAML changes, forcing mutant regeneration after CMake reconfiguration. Verify that both compiler and runner diagnostics name the copied build-directory configuration on the first real run.
 
@@ -44,7 +44,7 @@ Each mutation test run has a default timeout of 10000 milliseconds, adjustable w
 
 Mull prints findings and writes `out/build/unixlike-clang-mut/mutation-reports/vkexec_core_ranges.sqlite`. Each target removes its previous SQLite report, runs the unmodified `[ranges]` tests first, runs Mull, and validates the new report using Python's standard-library SQLite support. Surviving mutants are allowed during baseline collection; build, original-test, runner, or report-validation errors fail the target.
 
-The validator requires a report containing only the expected source path and at least one evaluated mutant. It reports passed, failed, timeout, crash, abnormal-exit, and uncovered counts separately. Missing/empty reports, unknown statuses, dry-run results, and unsupported schemas fail validation. Its schema and status definitions were inspected in [Mull's upstream source](https://github.com/mull-project/mull/blob/dab0b590af1ae1ec34609d993668a9a12a703c30/rust/mull-reporters/src/sqlite_reporter.rs), not in a locally generated report. Check compatibility with the installed version during the first real run. Validator fixture tests do not establish that Mull works with this toolchain.
+The validator requires a report containing only the expected source path and at least one killed or surviving mutant. It reports killed, survived, timed-out, crashed, abnormal-exit, and uncovered counts separately. The mutation score is `100 * killed / (killed + survived)`; timeouts, crashes, abnormal exits and uncovered mutants are excluded from this denominator, never counted as kills. Reports containing only these excluded outcomes fail validation. Missing/empty reports, unknown statuses, dry-run results, and unsupported schemas fail validation. Its schema and status definitions match locally generated Mull 0.35.0 reports and were inspected in [Mull's upstream source](https://github.com/mull-project/mull/blob/dab0b590af1ae1ec34609d993668a9a12a703c30/rust/mull-reporters/src/sqlite_reporter.rs), with killed and uncovered statuses observed in real runs. Other execution statuses remain covered by validator fixtures.
 
 Inspect killed and surviving mutants with the matching reporter:
 
@@ -59,9 +59,19 @@ For a separate audit that also exposes uncovered mutants:
 cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges_uncovered
 ```
 
-This passes `--include-not-covered` and writes `vkexec_core_ranges_uncovered.sqlite`. Keep its results labeled separately from the covered-only audit; do not combine their scores. Both reports must contain evaluated mutants, even if uncovered mutants are present.
+This passes `--include-not-covered` and writes `vkexec_core_ranges_uncovered.sqlite`. Keep its results labeled separately from the covered-only audit; do not combine their scores. Both reports must contain killed or surviving mutants, even if uncovered mutants are present.
 
-Record the source revision, compiler and Mull versions, filters, test selection, killed/surviving/uncovered counts, and equivalent-mutant decisions with each baseline. Review survivors for missing boundary assertions or incorrect dependency expectations, then strengthen the existing tests and rerun with the same scope. Remove tests only after confirming that remaining tests preserve their behavioral coverage and mutation sensitivity. No baseline score has been collected yet.
+Each target removes its previous SQLite, JSON and text reports before execution. Each target also writes a sibling `.json` summary with schema version 1, overall counts, the score definition and denominator, and per-file/per-mutator statistics. File paths are normalized relative to the repository root, independent of checkout location. `--repository-root` overrides the default root inferred from the validator location. Sources outside that root are rejected. Groups without killed or surviving mutants have a `null` score. To regenerate a summary independently:
+
+```sh
+python3 scripts/validate_mull_report.py \
+  out/build/unixlike-clang-mut/mutation-reports/vkexec_core_ranges.sqlite \
+  include/vkexec/detail/resource_ranges.hpp --json-output /tmp/ranges-summary.json
+```
+
+Instrumented targets bypass any cached global compiler launcher, including a launcher retained from an earlier configuration with compiler caching enabled.
+
+Record the source revision, compiler and Mull versions, filters, test selection, killed/surviving/uncovered counts, and equivalent-mutant decisions with each baseline. Review survivors for missing boundary assertions or incorrect dependency expectations, then strengthen the existing tests and rerun with the same scope. Remove tests only after confirming that remaining tests preserve their behavioral coverage and mutation sensitivity. See the [baseline record](mutation-baseline.md) for the initial measured scores.
 
 For later targets, keep separate SQLite report names and aggregate them using the matching `mull-reporter`. Expand to DAG planning and resource-state tracking before GPU execution or concurrency stress tests. Introduce scheduled CI, diff-based PR runs, and score regression thresholds after the toolchain and baseline have been validated; this initial integration does not enable a CI gate.
 
