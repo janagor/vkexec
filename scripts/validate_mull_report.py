@@ -25,8 +25,16 @@ NOT_COVERED = 8
 
 def summarize(counts: Counter) -> dict:
     denominator = counts[1] + counts[2]
+    total = sum(counts.values())
+    evaluated = sum(counts[status] for status in EVALUATED_STATUSES)
     return {
-        "total": sum(counts.values()),
+        "total": total,
+        "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": evaluated,
+            "discovered": total,
+            "percent": 100 * evaluated / total if total else None,
+        },
         **{label: counts[status] for status, label in EVALUATED_STATUSES.items()},
         "not_covered": counts[NOT_COVERED],
         "mutation_score": {
@@ -37,7 +45,8 @@ def summarize(counts: Counter) -> dict:
     }
 
 
-def validate(report: Path, expected_source: Path, repository_root: Path | None = None) -> dict:
+def parse_report(report: Path, expected_source: Path, repository_root: Path | None = None) -> dict:
+    """Read and check report structure without requiring evaluated mutants."""
     if not report.is_file():
         raise ValueError(f"Mull report is missing: {report}")
     expected_source = expected_source.resolve(strict=True)
@@ -48,9 +57,10 @@ def validate(report: Path, expected_source: Path, repository_root: Path | None =
     counts = Counter()
     files = {}
     mutators = {}
+    locations = []
     with closing(sqlite3.connect(report.resolve().as_uri() + "?mode=ro", uri=True)) as connection:
-        rows = connection.execute("SELECT filename, directory, execution_status, mutator FROM mutant")
-        for filename, directory, status, mutator in rows:
+        rows = connection.execute("SELECT filename, directory, execution_status, mutator, line_number, column_number, mutant_id FROM mutant")
+        for filename, directory, status, mutator, line, column, mutant_id in rows:
             source = Path(filename)
             if not source.is_absolute():
                 if not directory or not Path(directory).is_absolute():
@@ -62,17 +72,33 @@ def validate(report: Path, expected_source: Path, repository_root: Path | None =
                 raise ValueError(f"Unsupported or unevaluated Mull status: {status!r}")
             if not isinstance(mutator, str) or not mutator:
                 raise ValueError(f"Invalid Mull mutator: {mutator!r}")
+            if type(line) is not int or type(column) is not int or line < 1 or column < 1:
+                raise ValueError(f"Invalid mutant location: {line!r}:{column!r}")
+            if not isinstance(mutant_id, str) or not mutant_id:
+                raise ValueError(f"Invalid Mull mutant identifier: {mutant_id!r}")
+            locations.append({"mutant_id": mutant_id, "file": source_key, "line": line, "column": column,
+                              "mutator": mutator,
+                              "status": EVALUATED_STATUSES.get(status, "not_covered")})
             counts[status] += 1
             files.setdefault(source_key, Counter())[status] += 1
             mutators.setdefault(mutator, Counter())[status] += 1
-    if not counts[1] + counts[2]:
-        raise ValueError("Mull report contains no meaningfully evaluated resource-range mutants (killed or survived)")
+    if not counts:
+        raise ValueError("Mull report contains no mutants")
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         **summarize(counts),
+        "locations": sorted(locations, key=lambda row: (row["file"], row["line"], row["column"], row["mutator"], row["status"], row["mutant_id"])),
         "per_file": {key: summarize(value) for key, value in sorted(files.items())},
         "per_mutator": {key: summarize(value) for key, value in sorted(mutators.items())},
     }
+
+
+def validate(report: Path, expected_source: Path, repository_root: Path | None = None) -> dict:
+    """Require a meaningful audit in addition to a structurally valid report."""
+    summary = parse_report(report, expected_source, repository_root)
+    if not summary["killed"] + summary["survived"]:
+        raise ValueError("Mull report contains no meaningfully evaluated resource-range mutants (killed or survived)")
+    return summary
 
 
 def main() -> int:
@@ -93,6 +119,8 @@ def main() -> int:
     print("Validated Mull report: " + ", ".join(f"{label}={summary[label]}" for label in labels))
     score = summary["mutation_score"]
     print(f"Mutation score: {score['percent']:.2f}% ({summary['killed']}/{score['denominator']}); {score['definition']}")
+    coverage = summary["evaluation_coverage"]
+    print(f"Evaluated / discovered: {coverage['evaluated']}/{coverage['discovered']} ({coverage['percent']:.2f}%); diagnostic only")
     return 0
 
 

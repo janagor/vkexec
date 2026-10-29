@@ -21,15 +21,20 @@ class ReportTests(unittest.TestCase):
             report = root / "audit.sqlite"
             output = root / "summary.json"
             with closing(sqlite3.connect(report)) as connection, connection:
-                connection.execute("CREATE TABLE mutant (filename TEXT, directory TEXT, execution_status INT, mutator TEXT)")
+                connection.execute("CREATE TABLE mutant (filename TEXT, directory TEXT, execution_status INT, mutator TEXT, line_number INT DEFAULT 1, column_number INT DEFAULT 1, mutant_id TEXT DEFAULT 'fixture-id')")
                 connection.executemany(
-                    "INSERT INTO mutant VALUES (?, ?, ?, ?)",
+                    "INSERT INTO mutant (filename, directory, execution_status, mutator) VALUES (?, ?, ?, ?)",
                     [(str(source), "", status, mutator) for status, mutator in
                      [(1, "comparison"), (1, "comparison"), (2, "boundary"),
                       (3, "boundary"), (4, "boundary"), (5, "boundary"), (8, "uncovered")]],
                 )
             summary = validate_mull_report.validate(report, source, root)
             self.assertEqual(summary["total"], 7)
+            self.assertEqual(summary["schema_version"], 2)
+            self.assertEqual(summary["evaluation_coverage"]["evaluated"], 6)
+            self.assertAlmostEqual(summary["evaluation_coverage"]["percent"], 600 / 7)
+            self.assertEqual(len(summary["locations"]), 7)
+            self.assertEqual(summary["locations"][0]["file"], source.name)
             self.assertEqual([summary[key] for key in
                               ["killed", "survived", "timed_out", "crashed", "abnormal_exit", "not_covered"]],
                              [2, 1, 1, 1, 1, 1])
@@ -72,7 +77,7 @@ class ReportTests(unittest.TestCase):
                 validate_mull_report.validate(report, source, root)
             self.assertFalse(report.exists())
             with closing(sqlite3.connect(report)) as connection, connection:
-                connection.execute("CREATE TABLE mutant (filename TEXT, directory TEXT, execution_status INT, mutator TEXT DEFAULT 'cxx_test')")
+                connection.execute("CREATE TABLE mutant (filename TEXT, directory TEXT, execution_status INT, mutator TEXT DEFAULT 'cxx_test', line_number INT DEFAULT 1, column_number INT DEFAULT 1, mutant_id TEXT DEFAULT 'fixture-id')")
             cases = (
                 ("empty", [], False),
                 ("evaluated", [(str(source), "", 1), (str(source), "", 2)], True),
@@ -96,6 +101,13 @@ class ReportTests(unittest.TestCase):
                     else:
                         with self.assertRaises(ValueError):
                             validate_mull_report.validate(report, source, root)
+                    if name == "empty":
+                        with self.assertRaisesRegex(ValueError, "Mull report contains no mutants"):
+                            validate_mull_report.parse_report(report, source, root)
+                    elif name == "uncovered only":
+                        summary = validate_mull_report.parse_report(report, source, root)
+                        self.assertEqual(summary["not_covered"], 1)
+                        self.assertIsNone(summary["mutation_score"]["percent"])
             with closing(sqlite3.connect(report)) as connection, connection:
                 connection.execute("DROP TABLE mutant")
             with self.assertRaises(sqlite3.Error):
