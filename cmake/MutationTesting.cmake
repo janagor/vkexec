@@ -60,6 +60,20 @@ function(vkexec_setup_mutation_testing)
     message(FATAL_ERROR "vkexec_MULL_TIMEOUT_MS must be a positive integer")
   endif()
   configure_file("${PROJECT_SOURCE_DIR}/mull.yml" "${PROJECT_BINARY_DIR}/mull.yml" COPYONLY)
+  set(vkexec_MULL_WORKERS
+      "1"
+      CACHE STRING "Number of concurrent Mull workers")
+  set(vkexec_MULL_MINIMUM_TIMEOUT_MS
+      "250"
+      CACHE STRING "Minimum mutant timeout in milliseconds")
+  foreach(setting IN ITEMS vkexec_MULL_WORKERS vkexec_MULL_MINIMUM_TIMEOUT_MS)
+    if(NOT
+       "${${setting}}"
+       MATCHES
+       "^[1-9][0-9]*$")
+      message(FATAL_ERROR "${setting} must be a positive integer")
+    endif()
+  endforeach()
 endfunction()
 
 function(vkexec_add_mutation_target)
@@ -126,13 +140,18 @@ function(vkexec_add_mutation_target)
               "${report_dir}/${report_name}.txt" "${profile_raw}" "${profile_data}"
       # Mull 0.35 misattributes multi-TU raw profiles. LLVM's indexed profile
       # restores coverage without changing the executable or bypassing filtering.
+      # Catch2 3.12 defaults to random order. Stop on a detected assertion before
+      # later tests do excessive work on mutated ranges; use the same order in
+      # profile collection and evaluation. Timeouts remain distinct outcomes.
       COMMAND "${CMAKE_COMMAND}" -E env "LLVM_PROFILE_FILE=${profile_raw}" "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
+              --order lex --abort
       COMMAND "${vkexec_MULL_PROFDATA}" merge -sparse "${profile_raw}" -o "${profile_data}"
       COMMAND
         "${CMAKE_COMMAND}" -E env "MULL_CONFIG=${config}" "${vkexec_MULL_RUNNER}" --allow-surviving --timeout
-        "${vkexec_MULL_TIMEOUT_MS}" ${library_args} ${extra_args} --coverage-info "${profile_data}" --reporters IDE
-        --reporters SQLite --report-dir "${report_dir}" --report-name "${report_name}"
-        "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
+        "${vkexec_MULL_TIMEOUT_MS}" --workers "${vkexec_MULL_WORKERS}" --minimum-timeout
+        "${vkexec_MULL_MINIMUM_TIMEOUT_MS}" ${library_args} ${extra_args} --coverage-info "${profile_data}" --reporters
+        IDE --reporters SQLite --report-dir "${report_dir}" --report-name "${report_name}"
+        "$<TARGET_FILE:vkexec_core_tests>" "[ranges]" --order lex --abort
       COMMAND
         "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/validate_mull_report.py"
         "${report_dir}/${report_name}.sqlite" "${PROJECT_SOURCE_DIR}/include/vkexec/detail/resource_ranges.hpp"

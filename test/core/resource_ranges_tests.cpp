@@ -31,6 +31,34 @@ constexpr std::uint32_t k_family = 0;
 
 }// namespace
 
+TEST_CASE("open remainder requires a positive cut", "[vkexec][ranges]")
+{
+  using vkexec::detail::ambiguous_open_remainder;
+  using vkexec::detail::buffer_range;
+
+  buffer_range const open{ .begin = 128, .end = std::nullopt };
+  REQUIRE_FALSE(ambiguous_open_remainder(open, VkDeviceSize{ 128 }));
+  REQUIRE(ambiguous_open_remainder(open, VkDeviceSize{ 129 }));
+
+  buffer_range const finite{ .begin = 128, .end = 256 };
+  REQUIRE_FALSE(ambiguous_open_remainder(finite, VkDeviceSize{ 129 }));
+}
+
+TEST_CASE("subresource normalization accepts exact maximum end", "[vkexec][ranges]")
+{
+  using vkexec::detail::normalize_subresources;
+  constexpr auto max = std::numeric_limits<std::uint32_t>::max();
+
+  auto const valid = normalize_subresources(max - 4u, 4u, VK_REMAINING_MIP_LEVELS);
+  REQUIRE(valid.has_value());
+  REQUIRE(valid->begin == max - 4u);
+  REQUIRE(valid->end.has_value());
+  REQUIRE(*valid->end == max);
+
+  auto const overflow = normalize_subresources(max - 4u, 5u, VK_REMAINING_MIP_LEVELS);
+  REQUIRE_FALSE(overflow.has_value());
+}
+
 TEST_CASE("buffer interval algebra uses half-open bounds", "[vkexec][ranges]")
 {
   using vkexec::detail::adjacent;

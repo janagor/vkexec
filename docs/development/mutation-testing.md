@@ -38,7 +38,7 @@ The [baseline record](mutation-baseline.md) contains measured results and their 
 
 The preset disables IPO, hardening, sanitizers, coverage tooling, compiler caching, static analyzers, examples, and optional modules. Mull uses its own LLVM profiling flags for covered-code selection. Instrumentation is private to the two selected targets; third-party targets are not instrumented. CMake copies `mull.yml` to the build root and explicitly sets `MULL_CONFIG` for both instrumented compiler commands and the runner. A configuration digest changes the selected targets' compile definitions when the YAML changes, forcing mutant regeneration after CMake reconfiguration. Verify that both compiler and runner diagnostics name the copied build-directory configuration on the first real run.
 
-The warmup/baseline timeout defaults to 10000 milliseconds, adjustable with `-Dvkexec_MULL_TIMEOUT_MS=...`. Mull 0.35 derives mutant timeouts from ten times the measured baseline duration, with a default minimum of 30 ms; `--timeout` does not set a fixed per-mutant budget. Keep timeout outcomes separate when comparing scores.
+The warmup/baseline timeout defaults to 10000 milliseconds, adjustable with `-Dvkexec_MULL_TIMEOUT_MS=...`. Mull 0.35 derives mutant timeouts from ten times the measured baseline duration, with an upstream default minimum of 30 ms (this project selects 250 ms); `--timeout` does not set a fixed per-mutant budget. Keep timeout outcomes separate when comparing scores.
 
 ## Review the baseline
 
@@ -82,3 +82,43 @@ See Mull's [setup guide](https://mull-project.com/getting-started/setup/), [runn
 See the [source-coverage investigation](mutation-coverage-investigation.md) for the measured source-region discrepancy and reproduction commands. Do not infer missing assertions from Mull uncovered status alone.
 
 The [coverage-attribution investigation](mutation-coverage-attribution.md) records automatic/raw/indexed comparisons, isolated instrumentation controls, the standalone reproduction, and the corrected baseline. The initial 4/47 audit remains experimental historical evidence. Indexed profiles evaluate all 47 discovered mutants; surviving and timed-out mutants remain visible, with no CI score gate.
+
+## Reproducible range-quality audit
+
+The [PR 4 quality measurements](mutation-range-quality.md) select one worker and
+`vkexec_MULL_MINIMUM_TIMEOUT_MS=250`. Both cache values must be positive integers
+and exist only in mutation-enabled configurations. Override them explicitly when
+investigating another machine:
+
+```sh
+cmake --preset unixlike-clang-mut \
+  -Dvkexec_MULL_WORKERS=1 -Dvkexec_MULL_MINIMUM_TIMEOUT_MS=250
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges_uncovered
+ctest --test-dir out/build/unixlike-clang-mut -R 'vkexec.mull_' --output-on-failure
+```
+
+The adaptive budget remains `max(10 * baseline, minimum timeout)`; the separate
+warmup timeout remains 10000 ms. Catch2 receives `--order lex --abort` during both
+original profile collection and mutation evaluation. Catch2 3.12 defaults to
+randomized order: without an explicit order, a mutated tracker can enter expensive
+region processing before reaching an assertion that detects the same defect.
+Fail-fast exits on that real assertion failure. A mutation that hangs before any
+assertion still times out and is reported separately. No timeout is converted to
+a kill. The indexed-profile generation and coverage filtering are unchanged.
+
+Before rebuilding, preserve the executable, its SHA256, copied `mull.yml`, source
+revision and dirty diff, tool versions, CMake cache, and existing reports. Each
+target overwrites its own reports: copy the entire `mutation-reports` directory
+after **each** invocation into a separately named directory, including SQLite,
+JSON, text, raw profile and indexed profile. Repeat each audit three times. Compare
+all `locations[].mutant_id` values and statuses, checking added/missing IDs before
+interpreting count changes. Historical committed records remove the checkout prefix
+from IDs; remove exactly that known prefix when comparing with local raw IDs.
+
+For the controlled timeout experiment, keep the executable and configuration fixed,
+use `--workers 1`, and run three times each with `--minimum-timeout` omitted, 250,
+and 1000; use 3000 if needed. Preserve the original random-order/no-abort results
+separately from the selected lexical/fail-fast policy. For every changed test
+selection collect a fresh raw profile and merge it before supplying
+`--coverage-info`; never reuse the full-suite profile for an isolated test filter.
