@@ -60,16 +60,14 @@ function(vkexec_add_mutation_target)
   set(config "${PROJECT_BINARY_DIR}/mull.yml")
   file(SHA256 "${config}" config_hash)
   foreach(target IN ITEMS vkexec vkexec_core_tests)
-    get_target_property(launcher ${target} CXX_COMPILER_LAUNCHER)
-    if(NOT launcher)
-      set(launcher)
-    endif()
+    # A cached global launcher can survive vkexec_ENABLE_CACHE=OFF.
+    # Always compile instrumented targets directly so plugin/config changes
+    # cannot reuse objects produced by a compiler cache.
     set(mull_launcher
         "${CMAKE_COMMAND}"
         -E
         env
         "MULL_CONFIG=${config}")
-    list(APPEND mull_launcher ${launcher})
     set_property(TARGET ${target} PROPERTY CXX_COMPILER_LAUNCHER "${mull_launcher}")
     # Regenerate mutants when configure_file detects a YAML change.
     target_compile_definitions(${target} PRIVATE "VKEXEC_MULL_CONFIG_HASH=\"${config_hash}\"")
@@ -111,14 +109,17 @@ function(vkexec_add_mutation_target)
     add_custom_target(
       vkexec_mutation_${audit}
       COMMAND "${CMAKE_COMMAND}" -E make_directory "${report_dir}"
-      COMMAND "${CMAKE_COMMAND}" -E rm -f "${report_dir}/${report_name}.sqlite"
+      COMMAND "${CMAKE_COMMAND}" -E rm -f "${report_dir}/${report_name}.sqlite" "${report_dir}/${report_name}.json"
+              "${report_dir}/${report_name}.txt"
       COMMAND "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
       COMMAND
         "${CMAKE_COMMAND}" -E env "MULL_CONFIG=${config}" "${vkexec_MULL_RUNNER}" --allow-surviving --timeout
         "${vkexec_MULL_TIMEOUT_MS}" ${library_args} ${extra_args} --reporters IDE --reporters SQLite --report-dir
         "${report_dir}" --report-name "${report_name}" "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
-      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/validate_mull_report.py"
-              "${report_dir}/${report_name}.sqlite" "${PROJECT_SOURCE_DIR}/include/vkexec/detail/resource_ranges.hpp"
+      COMMAND
+        "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/validate_mull_report.py"
+        "${report_dir}/${report_name}.sqlite" "${PROJECT_SOURCE_DIR}/include/vkexec/detail/resource_ranges.hpp"
+        --json-output "${report_dir}/${report_name}.json" --repository-root "${PROJECT_SOURCE_DIR}"
       DEPENDS vkexec_core_tests
       WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
       USES_TERMINAL VERBATIM)
