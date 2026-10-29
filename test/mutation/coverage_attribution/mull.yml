@@ -1,0 +1,5 @@
+mutators:
+  - cxx_comparison
+  - cxx_boundary
+includePaths:
+  - '(^|.*/)(ranges\.hpp|out_of_line\.cpp)$'
