@@ -95,6 +95,75 @@
           }
         );
 
+        clangMutShell = pkgs.mkShell.override { stdenv = llvmStdenv; } (
+          shellEnv // {
+            packages = commonPackages pkgs llvm.clang-tools pkgs.vulkan-headers ++ [ mull22 pkgs.python3 ];
+            # Mull uses -O0, while Nix fortify requires optimization.
+            hardeningDisable = [ "fortify" ];
+            MULL_PLUGIN = "${mull22}/lib/mull-ir-frontend-22";
+            MULL_RUNNER = "${mull22}/bin/mull-runner-22";
+            # Mull's scanner does not follow the executable's ELF RUNPATH.
+            MULL_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+              pkgs.vulkan-loader
+              pkgs.glibc
+              pkgs.stdenv.cc.cc
+              pkgs.stdenv.cc.cc.libgcc
+            ];
+          }
+        );
+
+        mullVersion = "0.35.0";
+        mullPlatforms = {
+          x86_64-linux = "amd64";
+          aarch64-linux = "aarch64";
+        };
+        mullSupported = builtins.hasAttr system mullPlatforms;
+        mkMull = { toolchain, major, llvmVersion, distribution, release, distributionVersion, hashes }:
+          assert toolchain.llvm.version == llvmVersion;
+          pkgs.stdenvNoCC.mkDerivation {
+            pname = "mull-${major}-bin";
+            version = mullVersion;
+            src = pkgs.fetchurl {
+              url = "https://dl.cloudsmith.io/public/mull-project/mull-stable/deb/${distribution}/pool/${release}/main/M/Mu/mull-${major}_${mullVersion}/Mull-${major}-${mullVersion}-LLVM-${llvmVersion}-${distribution}-${mullPlatforms.${system}}-${distributionVersion}.deb";
+              sha256 = hashes.${system};
+            };
+            nativeBuildInputs = [ pkgs.dpkg pkgs.autoPatchelfHook ];
+            buildInputs = [
+              (pkgs.lib.getLib toolchain.llvm)
+              (pkgs.lib.getLib toolchain.clang-unwrapped)
+              (pkgs.lib.getLib pkgs.stdenv.cc.cc)
+            ];
+            dontUnpack = true;
+            dontConfigure = true;
+            dontBuild = true;
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out" "$TMPDIR/mull-extracted"
+              dpkg-deb -x "$src" "$TMPDIR/mull-extracted"
+              cp -a "$TMPDIR/mull-extracted/usr/." "$out/"
+              runHook postInstall
+            '';
+            meta = {
+              description = "Mull mutation testing tools and IR frontend for LLVM ${llvmVersion}";
+              homepage = "https://mull-project.com/";
+              license = pkgs.lib.licenses.asl20;
+              platforms = builtins.attrNames mullPlatforms;
+              sourceProvenance = [ pkgs.lib.sourceTypes.binaryNativeCode ];
+            };
+          };
+
+        mull22 = mkMull {
+          toolchain = llvm;
+          major = "22";
+          llvmVersion = "22.1.8";
+          distribution = "debian";
+          release = "trixie";
+          distributionVersion = "13";
+          hashes = {
+            x86_64-linux = "5896b2a33691ddd406054607662d7bfc00b44d0608db2a9d01df549820eec857";
+            aarch64-linux = "5eb8a7faf3d83a0422654f6098db9048d245e21a88c425c0d9b457e3157429d7";
+          };
+        };
         gccShell = pkgs.mkShell.override { stdenv = pkgs.gcc16Stdenv; } (
           shellEnv
           // {
@@ -126,12 +195,18 @@
         );
       in
       {
-        packages.sample-shader-compiler = pkgs.shaderc;
+        packages = {
+          sample-shader-compiler = pkgs.shaderc;
+        } // pkgs.lib.optionalAttrs mullSupported {
+          mull = mull22;
+        };
 
         devShells = {
           default = clangShell;
           gcc = gccShell;
           clang = clangShell;
+        } // pkgs.lib.optionalAttrs mullSupported {
+          clang-mut = clangMutShell;
         } // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           gcc12 = gcc12Shell;
           clang16 = clang16Shell;
