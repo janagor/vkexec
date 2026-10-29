@@ -237,7 +237,21 @@ if(PROJECT_IS_TOP_LEVEL)
   if(BUILD_TESTING)
     add_subdirectory(test)
     if(vkexec_ENABLE_MUTATION_TESTING)
-      vkexec_add_mutation_target()
+      vkexec_register_mutation_scope(
+        NAME
+        ranges
+        CONFIG
+        "${PROJECT_SOURCE_DIR}/mull.yml"
+        TEST_TARGET
+        vkexec_core_tests
+        SOURCES
+        "include/vkexec/detail/resource_ranges.hpp"
+        TEST_ARGS
+        "[ranges]"
+        "--order"
+        "lex"
+        "--abort")
+      vkexec_finalize_mutation_scope()
     endif()
     add_test(NAME vkexec.documentation_consistency
              COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
