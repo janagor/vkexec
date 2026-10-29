@@ -1,6 +1,11 @@
 #include "../test/support/graph_submission_reference.hpp"
 
+#include <vkexec/context.hpp>
+#include <vkexec/detail/graph_submission_sync.hpp>
+#include <vkexec/detail/pass_execution.hpp>
 #include <vkexec/detail/pass_graph_submit.hpp>
+#include <vkexec/result.hpp>
+#include <vkexec/submit_scope.hpp>
 #include <vkexec/sync_wait.hpp>
 #include <vkexec_features/timeline_semaphore.hpp>
 
@@ -8,7 +13,14 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <exception>
+#include <utility>
+#include <vector>
+
+#include <vulkan/vulkan_core.h>
 
 namespace {
 
@@ -46,11 +58,11 @@ struct submission_counters
 
 auto set_counters(benchmark::State &state, submission_counters const &counters) -> void
 {
-  state.counters["batches"] = static_cast<double>(counters.batches);
-  state.counters["dependency_edges"] = static_cast<double>(counters.dependency_edges);
-  state.counters["waits"] = static_cast<double>(counters.waits);
-  state.counters["signals"] = static_cast<double>(counters.signals);
-  state.counters["semaphores"] = static_cast<double>(counters.semaphores);
+  state.counters.insert_or_assign("batches", static_cast<double>(counters.batches));
+  state.counters.insert_or_assign("dependency_edges", static_cast<double>(counters.dependency_edges));
+  state.counters.insert_or_assign("waits", static_cast<double>(counters.waits));
+  state.counters.insert_or_assign("signals", static_cast<double>(counters.signals));
+  state.counters.insert_or_assign("semaphores", static_cast<double>(counters.semaphores));
 }
 
 [[nodiscard]] auto has_distinct_graphics_queue(vkexec::context const &ctx) -> bool
@@ -105,7 +117,7 @@ template<bool Reference> auto prepare_submission(benchmark::State &state) -> voi
     static_cast<vkexec::test::submission_shape>(state.range(k_shape_argument)));
   bool const timeline = state.range(k_mode_argument) == k_timeline_mode;
   std::vector<VkSemaphore> handles(timeline ? plan.batches.size() : vkexec::detail::graph_dependency_count(plan));
-  auto prepare = [&]() {
+  auto prepare = [&]() -> vkexec::detail::prepared_batch_sync {
     if constexpr (Reference) {
       return vkexec::test::reference_batch_sync(plan, handles, timeline);
     } else {
@@ -132,13 +144,19 @@ auto bm_prepare_submission_reference(benchmark::State &state) -> void { prepare_
   return options;
 }
 
+[[nodiscard]] auto expensive_gpu_enabled() -> bool
+{
+  // NOLINTNEXTLINE(concurrency-mt-unsafe) -- benchmark process does not modify the environment
+  return std::getenv("VKEXEC_BENCH_EXPENSIVE_GPU") != nullptr;
+}
+
 // Minimal real command buffers exercise the production graph submission sender.
 // Context creation and one warm-up execution are outside the timed loop.
 auto bm_graph_execution(benchmark::State &state) -> void
 {
   auto const count = static_cast<std::size_t>(state.range(k_node_argument));
   auto const shape = static_cast<vkexec::test::submission_shape>(state.range(k_shape_argument));
-  if (count == static_cast<std::size_t>(k_dense_nodes) && std::getenv("VKEXEC_BENCH_EXPENSIVE_GPU") == nullptr) {
+  if (count == static_cast<std::size_t>(k_dense_nodes) && !expensive_gpu_enabled()) {
     state.SkipWithMessage("set VKEXEC_BENCH_EXPENSIVE_GPU=1 to enable 512-batch GPU cases");
     return;
   }
@@ -153,7 +171,7 @@ auto bm_graph_execution(benchmark::State &state) -> void
     state.SkipWithError("context synchronization mode does not match requested mode");
     return;
   }
-  state.counters["timeline"] = timeline ? 1.0 : 0.0;
+  state.counters.insert_or_assign("timeline", timeline ? 1.0 : 0.0);
   if (shape == vkexec::test::submission_shape::mixed_queue && !has_distinct_graphics_queue(ctx)) {
     state.SkipWithMessage(
       "default compute-only context has no distinct graphics queue; multi-queue GPU coverage unavailable");
@@ -176,8 +194,14 @@ auto bm_graph_execution(benchmark::State &state) -> void
 // The separate execution benchmark measures the asynchronous terminal path.
 struct stage_execution
 {
-  vkexec::context &ctx;
-  vkexec::detail::graph_submit_sender::op_state<int> op{};
+  explicit stage_execution(vkexec::context &context) : ctx(&context) {}
+  stage_execution(stage_execution const &) = delete;
+  auto operator=(stage_execution const &) -> stage_execution & = delete;
+  stage_execution(stage_execution &&) = delete;
+  auto operator=(stage_execution &&) -> stage_execution & = delete;
+
+  vkexec::context *ctx;
+  vkexec::detail::graph_submit_sender::op_state<int> operation{};
   std::size_t submitted{};
 
   ~stage_execution()
@@ -186,8 +210,8 @@ struct stage_execution
       constexpr std::size_t k_retirement_attempts = 3;
       bool retired{};
       for (std::size_t attempt{}; attempt < k_retirement_attempts; ++attempt) {
-        auto const result =
-          vkWaitForFences(ctx.device(), static_cast<std::uint32_t>(submitted), op.fences.data(), VK_TRUE, UINT64_MAX);
+        auto const result = vkWaitForFences(
+          ctx->device(), static_cast<std::uint32_t>(submitted), operation.fences.data(), VK_TRUE, UINT64_MAX);
         if (result == VK_SUCCESS || result == VK_ERROR_DEVICE_LOST) {
           retired = true;
           break;
@@ -195,7 +219,7 @@ struct stage_execution
       }
       if (!retired) { std::terminate(); }
     }
-    op.release(ctx.device());
+    operation.release(ctx->device());
   }
 };
 
@@ -203,7 +227,7 @@ auto bm_submission_stages(benchmark::State &state) -> void
 {
   auto const count = static_cast<std::size_t>(state.range(k_node_argument));
   auto const shape = static_cast<vkexec::test::submission_shape>(state.range(k_shape_argument));
-  if (count == static_cast<std::size_t>(k_dense_nodes) && std::getenv("VKEXEC_BENCH_EXPENSIVE_GPU") == nullptr) {
+  if (count == static_cast<std::size_t>(k_dense_nodes) && !expensive_gpu_enabled()) {
     state.SkipWithMessage("set VKEXEC_BENCH_EXPENSIVE_GPU=1 to enable 512-batch GPU cases");
     return;
   }
@@ -218,7 +242,7 @@ auto bm_submission_stages(benchmark::State &state) -> void
     state.SkipWithError("context synchronization mode does not match requested mode");
     return;
   }
-  state.counters["timeline"] = timeline ? 1.0 : 0.0;
+  state.counters.insert_or_assign("timeline", timeline ? 1.0 : 0.0);
   if (shape == vkexec::test::submission_shape::mixed_queue && !has_distinct_graphics_queue(ctx)) {
     state.SkipWithMessage(
       "default compute-only context has no distinct graphics queue; multi-queue GPU coverage unavailable");
@@ -246,22 +270,23 @@ auto bm_submission_stages(benchmark::State &state) -> void
         state.SkipWithError(fixture.error().message());
         return;
       }
-      stage_execution execution{ .ctx = ctx };
-      auto &op = execution.op;
-      op.plan = std::move(fixture->plan);
-      op.scopes = std::move(fixture->scopes);
+      stage_execution execution{ ctx };
+      auto &operation = execution.operation;
+      operation.plan = std::move(fixture->plan);
+      operation.scopes = std::move(fixture->scopes);
       state.ResumeTiming();
       auto const object_start = clock::now();
-      auto const sync = op.create_sync(ctx);
+      auto const sync = operation.create_sync(ctx);
       auto const prepare_start = clock::now();
       if (!sync) {
         state.SkipWithError(sync.error().message());
         return;
       }
-      op.batch_sync = vkexec::detail::prepare_batch_sync(op.plan, op.semaphores, op.timeline);
+      operation.batch_sync =
+        vkexec::detail::prepare_batch_sync(operation.plan, operation.semaphores, operation.timeline);
       auto const submit_start = clock::now();
-      for (std::size_t batch{}; batch < op.scopes.size(); ++batch) {
-        if (auto submitted = op.submit_batch(ctx, batch); !submitted) {
+      for (std::size_t batch{}; batch < operation.scopes.size(); ++batch) {
+        if (auto submitted = operation.submit_batch(ctx, batch); !submitted) {
           state.SkipWithError(submitted.error().message());
           return;
         }
@@ -272,31 +297,34 @@ auto bm_submission_stages(benchmark::State &state) -> void
       object_seconds += std::chrono::duration<double>(prepare_start - object_start).count();
       prepare_seconds += std::chrono::duration<double>(submit_start - prepare_start).count();
       submit_seconds += std::chrono::duration<double>(submit_end - submit_start).count();
-      counters = collect_counters(op.plan, op.batch_sync, op.timeline);
-      fences_created = op.fences.size();
-      semaphores_created = op.semaphores.size();
+      counters = collect_counters(operation.plan, operation.batch_sync, operation.timeline);
+      fences_created = operation.fences.size();
+      semaphores_created = operation.semaphores.size();
       submit_calls = execution.submitted;
       // Destruction and GPU waits occur while timing is paused.
       // Explicit retirement here leaves the destructor as the failure guard.
-      if (auto const waited = vkWaitForFences(
-            ctx.device(), static_cast<std::uint32_t>(execution.submitted), op.fences.data(), VK_TRUE, UINT64_MAX);
+      if (auto const waited = vkWaitForFences(ctx.device(),
+            static_cast<std::uint32_t>(execution.submitted),
+            operation.fences.data(),
+            VK_TRUE,
+            UINT64_MAX);
         waited != VK_SUCCESS) {
         state.SkipWithError("stage benchmark fence wait failed");
         return;
       }
       execution.submitted = 0;
-      op.release(ctx.device());
+      operation.release(ctx.device());
     }
     state.ResumeTiming();
   }
   set_counters(state, counters);
-  state.counters["fences_created"] = static_cast<double>(fences_created);
-  state.counters["semaphores_created"] = static_cast<double>(semaphores_created);
-  state.counters["submit_calls"] = static_cast<double>(submit_calls);
+  state.counters.insert_or_assign("fences_created", static_cast<double>(fences_created));
+  state.counters.insert_or_assign("semaphores_created", static_cast<double>(semaphores_created));
+  state.counters.insert_or_assign("submit_calls", static_cast<double>(submit_calls));
   auto const iterations = static_cast<double>(state.iterations());
-  state.counters["object_creation_seconds"] = object_seconds / iterations;
-  state.counters["preparation_seconds"] = prepare_seconds / iterations;
-  state.counters["queue_submission_seconds"] = submit_seconds / iterations;
+  state.counters.insert_or_assign("object_creation_seconds", object_seconds / iterations);
+  state.counters.insert_or_assign("preparation_seconds", prepare_seconds / iterations);
+  state.counters.insert_or_assign("queue_submission_seconds", submit_seconds / iterations);
 }
 
 auto register_cases(benchmark::Benchmark *entry) -> void

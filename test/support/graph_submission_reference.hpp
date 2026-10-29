@@ -4,8 +4,31 @@
 #include <vkexec/detail/graph_submission_sync.hpp>
 
 #include <algorithm>
+#include <cstdint>
 
 namespace vkexec::test {
+
+struct reference_submission_edge
+{
+  std::size_t source{};
+  std::size_t destination{};
+  VkSemaphore semaphore{ VK_NULL_HANDLE };
+};
+
+[[nodiscard]] inline auto reference_submission_edges(detail::execution_plan const &plan,
+  std::span<VkSemaphore const> semaphores,
+  bool timeline) -> std::vector<reference_submission_edge>
+{
+  std::vector<reference_submission_edge> edges;
+  for (std::size_t destination{}; destination < plan.batches.size(); ++destination) {
+    for (auto const source : plan.batches.at(destination).predecessors) {
+      edges.push_back(reference_submission_edge{ .source = source,
+        .destination = destination,
+        .semaphore = semaphores.subspan(timeline ? source : edges.size()).front() });
+    }
+  }
+  return edges;
+}
 
 // Edge-scanning algorithm, retained only as a benchmark/test oracle.
 [[nodiscard]] inline auto reference_batch_sync(detail::execution_plan const &plan,
@@ -14,19 +37,7 @@ namespace vkexec::test {
   semaphore_submit const *presentation_wait = nullptr,
   semaphore_submit const *presentation_signal = nullptr) -> detail::prepared_batch_sync
 {
-  struct edge
-  {
-    std::size_t source{};
-    std::size_t destination{};
-    VkSemaphore semaphore{ VK_NULL_HANDLE };
-  };
-  std::vector<edge> edges;
-  for (std::size_t destination{}; destination < plan.batches.size(); ++destination) {
-    for (auto const source : plan.batches.at(destination).predecessors) {
-      auto const semaphore = timeline ? semaphores[source] : semaphores[edges.size()];
-      edges.push_back(edge{ .source = source, .destination = destination, .semaphore = semaphore });
-    }
-  }
+  auto const edges = reference_submission_edges(plan, semaphores, timeline);
   detail::prepared_batch_sync result;
   for (std::size_t batch{}; batch < plan.batches.size(); ++batch) {
     result.wait_offsets.push_back(result.waits.size());
@@ -42,14 +53,15 @@ namespace vkexec::test {
         signals.push_back(semaphore_submit{ .semaphore = dependency.semaphore });
       }
     }
-    if (timeline
-        && std::ranges::any_of(edges, [batch](edge const &dependency) -> bool { return dependency.source == batch; })) {
-      signals.push_back(
-        semaphore_submit{ .semaphore = semaphores[batch], .value = detail::k_graph_timeline_signal_value });
+    if (timeline && std::ranges::any_of(edges, [batch](reference_submission_edge const &dependency) -> bool {
+          return dependency.source == batch;
+        })) {
+      signals.push_back(semaphore_submit{
+        .semaphore = semaphores.subspan(batch).front(), .value = detail::k_graph_timeline_signal_value });
     }
     if (batch + std::size_t{ 1 } == plan.batches.size()) {
-      if (presentation_wait) { waits.push_back(*presentation_wait); }
-      if (presentation_signal) { signals.push_back(*presentation_signal); }
+      if (presentation_wait != nullptr) { waits.push_back(*presentation_wait); }
+      if (presentation_signal != nullptr) { signals.push_back(*presentation_signal); }
     }
     result.waits.insert(result.waits.end(), waits.begin(), waits.end());
     result.signals.insert(result.signals.end(), signals.begin(), signals.end());
@@ -59,7 +71,7 @@ namespace vkexec::test {
   return result;
 }
 
-enum class submission_shape { linear, independent, fork_join, dense, fan_in, mixed_queue };
+enum class submission_shape : std::uint8_t { linear, independent, fork_join, dense, fan_in, mixed_queue };
 
 [[nodiscard]] inline auto submission_plan(std::size_t count, submission_shape shape) -> detail::execution_plan
 {

@@ -10,6 +10,7 @@
 #include "vkexec/pass.hpp"
 #include "vkexec/pipeline.hpp"
 #include "vkexec/queue_submit.hpp"
+#include "vkexec/resource_use.hpp"
 #include "vkexec/scheduler.hpp"
 #include "vkexec/submit_scope.hpp"
 #include <array>

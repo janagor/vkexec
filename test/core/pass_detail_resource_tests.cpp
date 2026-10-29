@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <stdexec/execution.hpp>
@@ -170,7 +171,7 @@ TEST_CASE("resource dependency mapping matches scan reference on valid partition
   constexpr std::array<std::size_t, 6> k_step_counts{ 1, 2, 8, 32, 128, 512 };
   std::uint32_t state = k_seed;
   auto next = [&]() -> std::uint32_t {
-    state = state * k_multiplier + k_increment;
+    state = (state * k_multiplier) + k_increment;
     return state;
   };
   for (auto const step_count : k_step_counts) {
@@ -181,7 +182,7 @@ TEST_CASE("resource dependency mapping matches scan reference on valid partition
       std::size_t first{};
       while (first < step_count) {
         auto const remaining = step_count - first;
-        auto const length = trial == 0 ? k_single_step_count : k_single_step_count + next() % remaining;
+        auto const length = trial == 0 ? k_single_step_count : k_single_step_count + (next() % remaining);
         auto const index = plan.batches.size();
         std::vector<std::size_t> predecessors;
         for (std::size_t previous{}; previous < index; ++previous) {
@@ -203,7 +204,7 @@ TEST_CASE("resource dependency mapping matches scan reference on valid partition
       auto const edge_count = trial * step_count / k_dag_step_count;
       for (std::size_t edge{}; edge < edge_count; ++edge) {
         auto const source = static_cast<std::size_t>(next()) % step_count;
-        auto const destination = source + static_cast<std::size_t>(next()) % (step_count - source);
+        auto const destination = source + (static_cast<std::size_t>(next()) % (step_count - source));
         if (source == destination) { continue; }
         sync.dependencies.emplace_back(source, destination);
         if (edge % k_dag_step_count == 0) { sync.dependencies.emplace_back(source, destination); }

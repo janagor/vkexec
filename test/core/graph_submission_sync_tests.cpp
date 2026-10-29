@@ -1,17 +1,29 @@
 #include "graph_submission_reference.hpp"
 
+#include <vkexec/detail/graph_submission_sync.hpp>
+#include <vkexec/queue_submit.hpp>
+
+#include <algorithm>
 #include <array>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <type_traits>
+#include <vector>
+
+#include <vulkan/vulkan_core.h>
 
 namespace {
 
 template<class Handle> [[nodiscard]] auto fake_handle(std::uintptr_t *storage) -> Handle
 {
   if constexpr (std::is_pointer_v<Handle>) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- opaque test handle; never dereferenced
     return reinterpret_cast<Handle>(storage);
   } else {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) -- unique host address used as an opaque test handle
     return static_cast<Handle>(reinterpret_cast<std::uintptr_t>(storage));
   }
 }
@@ -21,9 +33,9 @@ auto require_entries(std::span<vkexec::semaphore_submit const> actual,
 {
   REQUIRE(actual.size() == expected.size());
   for (std::size_t index{}; index < actual.size(); ++index) {
-    REQUIRE(actual[index].semaphore == expected[index].semaphore);
-    REQUIRE(actual[index].value == expected[index].value);
-    REQUIRE(actual[index].stage == expected[index].stage);
+    REQUIRE(actual.subspan(index).front().semaphore == expected.subspan(index).front().semaphore);
+    REQUIRE(actual.subspan(index).front().value == expected.subspan(index).front().value);
+    REQUIRE(actual.subspan(index).front().stage == expected.subspan(index).front().stage);
   }
 }
 
