@@ -141,6 +141,7 @@ vkexec_add_test_executable(
   core/scheduler_tests.cpp
   core/scheduler_pass_tests.cpp
   core/scheduler_graph_tests.cpp
+  core/graph_submission_sync_tests.cpp
   ${vkexec_gpu_failure_sources}
   core/resource_allocator_tests.cpp
   core/synchronization_tests.cpp)

@@ -10,8 +10,10 @@
 #include "vkexec/pass.hpp"
 #include "vkexec/pipeline.hpp"
 #include "vkexec/queue_submit.hpp"
+#include "vkexec/resource_use.hpp"
 #include "vkexec/scheduler.hpp"
 #include "vkexec/submit_scope.hpp"
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdint>
 #include <future>
@@ -289,5 +291,33 @@ TEST_CASE("dynamic pass recording stops at first failure", "[vkexec][pass][gpu]"
   REQUIRE(skipped_count == 0);
 }
 
+
+TEST_CASE("DAG dependencies complete across distinct queue handles", "[vkexec][pass][gpu][sync]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto const compute = ctx->compute_queue_ref();
+  auto const graphics = ctx->graphics_queue_ref();
+  if (graphics.queue == VK_NULL_HANDLE || graphics.queue == compute.queue) {
+    SKIP("default context has no distinct graphics queue; multi-queue GPU coverage unavailable");
+  }
+
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
+  graph.append_queue(compute);
+  auto const source =
+    graph.append_after({}, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {}));
+  std::array const source_dependency{ source };
+  graph.append_queue(graphics);
+  auto const first_branch =
+    graph.append_after(source_dependency, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {}));
+  auto const second_branch =
+    graph.append_after(source_dependency, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {}));
+  std::array const branch_dependencies{ first_branch, second_branch };
+  graph.append_queue(compute);
+  (void)graph.append_after(
+    branch_dependencies, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer /*cmd*/) -> void {}));
+
+  auto outcome = vkexec::test::sync_wait_sender(std::move(graph));
+  REQUIRE(vkexec::test::sync_wait_completed(outcome));
+}
 
 // NOLINTEND(readability-function-cognitive-complexity)
