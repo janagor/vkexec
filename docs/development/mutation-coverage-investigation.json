@@ -1,0 +1,746 @@
+{
+  "schema_version": 1,
+  "classification_counts": {
+    "source_covered": 4,
+    "source_covered_attribution_discrepancy": 43
+  },
+  "locations": [
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 30,
+      "column": 16,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6496
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 30,
+      "column": 35,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6480
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 31,
+      "column": 20,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6472
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 31,
+      "column": 49,
+      "mutator": "cxx_gt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6336
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 31,
+      "column": 49,
+      "mutator": "cxx_gt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6336
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 31,
+      "column": 92,
+      "mutator": "cxx_sub_to_add",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6336
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 35,
+      "column": 21,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6456
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 35,
+      "column": 81,
+      "mutator": "cxx_add_to_sub",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeERKNS_10buffer_useE",
+          "count": 6320
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 40,
+      "column": 33,
+      "mutator": "cxx_lt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8overlapsIjEEbNS0_17resource_intervalIT_EES4_",
+          "count": 84042
+        },
+        {
+          "function": "_ZN6vkexec6detail8overlapsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 51080
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 40,
+      "column": 33,
+      "mutator": "cxx_lt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8overlapsIjEEbNS0_17resource_intervalIT_EES4_",
+          "count": 84042
+        },
+        {
+          "function": "_ZN6vkexec6detail8overlapsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 51080
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 40,
+      "column": 71,
+      "mutator": "cxx_lt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8overlapsIjEEbNS0_17resource_intervalIT_EES4_",
+          "count": 59472
+        },
+        {
+          "function": "_ZN6vkexec6detail8overlapsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 32072
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 40,
+      "column": 71,
+      "mutator": "cxx_lt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8overlapsIjEEbNS0_17resource_intervalIT_EES4_",
+          "count": 59472
+        },
+        {
+          "function": "_ZN6vkexec6detail8overlapsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 32072
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 61,
+      "column": 22,
+      "mutator": "cxx_le_to_gt",
+      "status": "killed",
+      "classification": "source_covered",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8containsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 61,
+      "column": 22,
+      "mutator": "cxx_le_to_lt",
+      "status": "killed",
+      "classification": "source_covered",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8containsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 61,
+      "column": 80,
+      "mutator": "cxx_le_to_gt",
+      "status": "killed",
+      "classification": "source_covered",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8containsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 61,
+      "column": 80,
+      "mutator": "cxx_le_to_lt",
+      "status": "killed",
+      "classification": "source_covered",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8containsImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 67,
+      "column": 16,
+      "mutator": "cxx_le_to_gt",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5splitImEESt8optionalISt4pairINS0_17resource_intervalIT_EES6_EES6_S5_",
+          "count": 10000
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 67,
+      "column": 16,
+      "mutator": "cxx_le_to_lt",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5splitImEESt8optionalISt4pairINS0_17resource_intervalIT_EES6_EES6_S5_",
+          "count": 10000
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 67,
+      "column": 57,
+      "mutator": "cxx_ge_to_gt",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5splitImEESt8optionalISt4pairINS0_17resource_intervalIT_EES6_EES6_S5_",
+          "count": 6344
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 67,
+      "column": 57,
+      "mutator": "cxx_ge_to_lt",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5splitImEESt8optionalISt4pairINS0_17resource_intervalIT_EES6_EES6_S5_",
+          "count": 6344
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 75,
+      "column": 28,
+      "mutator": "cxx_gt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail24ambiguous_open_remainderIjEEbNS0_17resource_intervalIT_EES3_",
+          "count": 7
+        },
+        {
+          "function": "_ZN6vkexec6detail24ambiguous_open_remainderImEEbNS0_17resource_intervalIT_EES3_",
+          "count": 16
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 75,
+      "column": 28,
+      "mutator": "cxx_gt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail24ambiguous_open_remainderIjEEbNS0_17resource_intervalIT_EES3_",
+          "count": 7
+        },
+        {
+          "function": "_ZN6vkexec6detail24ambiguous_open_remainderImEEbNS0_17resource_intervalIT_EES3_",
+          "count": 16
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 85,
+      "column": 31,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8adjacentIjEEbNS0_17resource_intervalIT_EES4_",
+          "count": 44168
+        },
+        {
+          "function": "_ZN6vkexec6detail8adjacentImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 19064
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 85,
+      "column": 69,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8adjacentIjEEbNS0_17resource_intervalIT_EES4_",
+          "count": 29608
+        },
+        {
+          "function": "_ZN6vkexec6detail8adjacentImEEbNS0_17resource_intervalIT_EES4_",
+          "count": 1312
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 88,
+      "column": 33,
+      "mutator": "cxx_sub_to_add",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail11region_sizeENS0_17resource_intervalImEE",
+          "count": 6416
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 104,
+      "column": 39,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail24ambiguous_open_uncoveredERKNS0_12image_regionES3_",
+          "count": 1596
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 113,
+      "column": 13,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8672
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 113,
+      "column": 27,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8656
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 114,
+      "column": 17,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8648
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 114,
+      "column": 39,
+      "mutator": "cxx_gt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8472
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 114,
+      "column": 39,
+      "mutator": "cxx_gt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8472
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 114,
+      "column": 83,
+      "mutator": "cxx_sub_to_add",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8472
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 118,
+      "column": 18,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8640
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 118,
+      "column": 69,
+      "mutator": "cxx_add_to_sub",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail22normalize_subresourcesEjjj",
+          "count": 8464
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 124,
+      "column": 24,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeE23VkImageSubresourceRange",
+          "count": 4352
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 125,
+      "column": 24,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeE23VkImageSubresourceRange",
+          "count": 4352
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 125,
+      "column": 94,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail9normalizeE23VkImageSubresourceRange",
+          "count": 3792
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 135,
+      "column": 38,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8overlapsERKNS0_12image_regionES3_",
+          "count": 41335
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 142,
+      "column": 35,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail12intersectionERKNS0_12image_regionES3_",
+          "count": 24997
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 150,
+      "column": 54,
+      "mutator": "cxx_sub_to_add",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail17subresource_rangeERKNS0_12image_regionE",
+          "count": 3880
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 152,
+      "column": 58,
+      "mutator": "cxx_sub_to_add",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail17subresource_rangeERKNS0_12image_regionE",
+          "count": 3848
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 161,
+      "column": 71,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8subtractERKNS0_12image_regionES3_",
+          "count": 5222
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 167,
+      "column": 25,
+      "mutator": "cxx_lt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8subtractERKNS0_12image_regionES3_",
+          "count": 5222
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 167,
+      "column": 25,
+      "mutator": "cxx_lt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8subtractERKNS0_12image_regionES3_",
+          "count": 5222
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 173,
+      "column": 27,
+      "mutator": "cxx_lt_to_ge",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8subtractERKNS0_12image_regionES3_",
+          "count": 5222
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 173,
+      "column": 27,
+      "mutator": "cxx_lt_to_le",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail8subtractERKNS0_12image_regionES3_",
+          "count": 5222
+        }
+      ]
+    },
+    {
+      "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+      "file": "include/vkexec/detail/resource_ranges.hpp",
+      "line": 194,
+      "column": 19,
+      "mutator": "cxx_ne_to_eq",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail16merge_compatibleERKNS0_12image_regionES3_",
+          "count": 311856
+        }
+      ]
+    }
+  ]
+}

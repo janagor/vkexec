@@ -61,7 +61,7 @@ cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges_uncov
 
 This passes `--include-not-covered` and writes `vkexec_core_ranges_uncovered.sqlite`. Keep its results labeled separately from the covered-only audit; do not combine their scores. Both reports must contain killed or surviving mutants, even if uncovered mutants are present.
 
-Each target removes its previous SQLite, JSON and text reports before execution. Each target also writes a sibling `.json` summary with schema version 1, overall counts, the score definition and denominator, and per-file/per-mutator statistics. File paths are normalized relative to the repository root, independent of checkout location. `--repository-root` overrides the default root inferred from the validator location. Sources outside that root are rejected. Groups without killed or surviving mutants have a `null` score. To regenerate a summary independently:
+Each target removes its previous SQLite, JSON and text reports before execution. Each target also writes a sibling `.json` summary with schema version 2, overall counts, the score definition and denominator, per-file/per-mutator statistics, sorted per-location records (`mutant_id`, `file`, `line`, `column`, `mutator`, `status`), and evaluated/discovered diagnostic percentages. Evaluated includes killed, survived, timed-out, crashed and abnormal-exit outcomes; uncovered is excluded. This percentage is separate from the mutation score. The `file` fields are normalized relative to the repository root, independent of checkout location. The opaque `mutant_id` is preserved verbatim for correlation with SQLite; it may embed absolute paths and is therefore checkout-specific. It is not guaranteed to distinguish binary instances or translation units. `--repository-root` overrides the default root inferred from the validator location. Sources outside that root are rejected. Groups without killed or surviving mutants have a `null` score. To regenerate a summary independently:
 
 ```sh
 python3 scripts/validate_mull_report.py \
@@ -76,3 +76,7 @@ Record the source revision, compiler and Mull versions, filters, test selection,
 For later targets, keep separate SQLite report names and aggregate them using the matching `mull-reporter`. Expand to DAG planning and resource-state tracking before GPU execution or concurrency stress tests. Introduce scheduled CI, diff-based PR runs, and score regression thresholds after the toolchain and baseline have been validated; this initial integration does not enable a CI gate.
 
 See Mull's [setup guide](https://mull-project.com/getting-started/setup/), [runner reference](https://mull-project.com/reference/mull-runner/), and [filters](https://mull-project.com/reference/filters/) for tool behavior and reporting options.
+
+## Investigating uncovered locations
+
+See the [PR 2 investigation](mutation-coverage-investigation.md) for the measured source-region discrepancy and reproduction commands. Do not infer missing assertions from Mull uncovered status alone.
