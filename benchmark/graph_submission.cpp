@@ -2,6 +2,7 @@
 
 #include <vkexec/detail/pass_graph_submit.hpp>
 #include <vkexec/sync_wait.hpp>
+#include <vkexec_features/timeline_semaphore.hpp>
 
 #include <benchmark/benchmark.h>
 
@@ -98,20 +99,37 @@ auto set_counters(benchmark::State &state, submission_counters const &counters) 
   return {};
 }
 
-auto bm_prepare_submission(benchmark::State &state) -> void
+template<bool Reference> auto prepare_submission(benchmark::State &state) -> void
 {
   auto const plan = vkexec::test::submission_plan(static_cast<std::size_t>(state.range(k_node_argument)),
     static_cast<vkexec::test::submission_shape>(state.range(k_shape_argument)));
   bool const timeline = state.range(k_mode_argument) == k_timeline_mode;
   std::vector<VkSemaphore> handles(timeline ? plan.batches.size() : vkexec::detail::graph_dependency_count(plan));
-  auto const prepared = vkexec::detail::prepare_batch_sync(plan, handles, timeline);
+  auto prepare = [&]() {
+    if constexpr (Reference) {
+      return vkexec::test::reference_batch_sync(plan, handles, timeline);
+    } else {
+      return vkexec::detail::prepare_batch_sync(plan, handles, timeline);
+    }
+  };
+  auto const prepared = prepare();
   // NOLINTNEXTLINE(readability-identifier-length) -- Google Benchmark keep-running idiom
   for ([[maybe_unused]] auto _ : state) {
-    auto result = vkexec::detail::prepare_batch_sync(plan, handles, timeline);
+    auto result = prepare();
     benchmark::DoNotOptimize(result);
     benchmark::ClobberMemory();
   }
   set_counters(state, collect_counters(plan, prepared, timeline));
+}
+
+auto bm_prepare_submission(benchmark::State &state) -> void { prepare_submission<false>(state); }
+auto bm_prepare_submission_reference(benchmark::State &state) -> void { prepare_submission<true>(state); }
+
+[[nodiscard]] auto benchmark_options(bool timeline) -> vkexec::scheduler_options
+{
+  vkexec::scheduler_options options;
+  if (timeline) { vkexec::feat::feature_traits<vkexec::feat::timeline_semaphore>::configure(options.requirements); }
+  return options;
 }
 
 // Minimal real command buffers exercise the production graph submission sender.
@@ -124,12 +142,18 @@ auto bm_graph_execution(benchmark::State &state) -> void
     state.SkipWithMessage("set VKEXEC_BENCH_EXPENSIVE_GPU=1 to enable 512-batch GPU cases");
     return;
   }
-  auto created = vkexec::try_sync_wait_value(vkexec::factory::make_context({}));
+  bool const timeline = state.range(k_mode_argument) == k_timeline_mode;
+  auto created = vkexec::try_sync_wait_value(vkexec::factory::make_context(benchmark_options(timeline)));
   if (!created) {
     state.SkipWithError(created.error().message());
     return;
   }
   auto &ctx = **created;
+  if (ctx.capabilities().timeline_semaphore != timeline) {
+    state.SkipWithError("context synchronization mode does not match requested mode");
+    return;
+  }
+  state.counters["timeline"] = timeline ? 1.0 : 0.0;
   if (shape == vkexec::test::submission_shape::mixed_queue && !has_distinct_graphics_queue(ctx)) {
     state.SkipWithMessage(
       "default compute-only context has no distinct graphics queue; multi-queue GPU coverage unavailable");
@@ -183,12 +207,18 @@ auto bm_submission_stages(benchmark::State &state) -> void
     state.SkipWithMessage("set VKEXEC_BENCH_EXPENSIVE_GPU=1 to enable 512-batch GPU cases");
     return;
   }
-  auto created = vkexec::try_sync_wait_value(vkexec::factory::make_context({}));
+  bool const timeline = state.range(k_mode_argument) == k_timeline_mode;
+  auto created = vkexec::try_sync_wait_value(vkexec::factory::make_context(benchmark_options(timeline)));
   if (!created) {
     state.SkipWithError(created.error().message());
     return;
   }
   auto &ctx = **created;
+  if (ctx.capabilities().timeline_semaphore != timeline) {
+    state.SkipWithError("context synchronization mode does not match requested mode");
+    return;
+  }
+  state.counters["timeline"] = timeline ? 1.0 : 0.0;
   if (shape == vkexec::test::submission_shape::mixed_queue && !has_distinct_graphics_queue(ctx)) {
     state.SkipWithMessage(
       "default compute-only context has no distinct graphics queue; multi-queue GPU coverage unavailable");
@@ -269,7 +299,7 @@ auto bm_submission_stages(benchmark::State &state) -> void
   state.counters["queue_submission_seconds"] = submit_seconds / iterations;
 }
 
-auto register_cases(benchmark::Benchmark *entry, bool gpu) -> void
+auto register_cases(benchmark::Benchmark *entry) -> void
 {
   constexpr std::array k_sizes{ k_small_nodes, k_medium_nodes, k_large_nodes, k_dense_nodes };
   constexpr std::array k_shapes{ vkexec::test::submission_shape::linear,
@@ -281,19 +311,17 @@ auto register_cases(benchmark::Benchmark *entry, bool gpu) -> void
   for (auto const count : k_sizes) {
     for (auto const shape : k_shapes) {
       for (auto const mode : { k_binary_mode, k_timeline_mode }) {
-        if (gpu && mode == k_binary_mode) { continue; }
         entry->Args({ count, static_cast<std::int64_t>(shape), mode });
       }
     }
   }
+  entry->ArgNames({ "batches", "shape", "timeline" });
   entry->Unit(benchmark::kMicrosecond);
 }
 
-auto register_cpu(benchmark::Benchmark *entry) -> void { register_cases(entry, false); }
-auto register_gpu(benchmark::Benchmark *entry) -> void { register_cases(entry, true); }
-
-BENCHMARK(bm_prepare_submission)->Apply(register_cpu);
-BENCHMARK(bm_submission_stages)->Apply(register_gpu)->UseRealTime();
-BENCHMARK(bm_graph_execution)->Apply(register_gpu)->UseRealTime();
+BENCHMARK(bm_prepare_submission_reference)->Apply(register_cases);
+BENCHMARK(bm_prepare_submission)->Apply(register_cases);
+BENCHMARK(bm_submission_stages)->Apply(register_cases)->UseRealTime();
+BENCHMARK(bm_graph_execution)->Apply(register_cases)->UseRealTime();
 
 }// namespace

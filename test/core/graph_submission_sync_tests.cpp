@@ -29,7 +29,7 @@ auto require_entries(std::span<vkexec::semaphore_submit const> actual,
 
 }// namespace
 
-TEST_CASE("prepared graph synchronization matches PR2 edge scans", "[vkexec][pass][sync]")
+TEST_CASE("prepared graph synchronization matches edge-scanning reference", "[vkexec][pass][sync]")
 {
   constexpr std::array k_sizes{ std::size_t{}, std::size_t{ 1 }, std::size_t{ 8 }, std::size_t{ 32 } };
   constexpr std::array k_shapes{ vkexec::test::submission_shape::linear,

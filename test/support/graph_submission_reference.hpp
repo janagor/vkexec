@@ -7,7 +7,7 @@
 
 namespace vkexec::test {
 
-// PR2 edge-scanning algorithm, retained only as a benchmark/test oracle.
+// Edge-scanning algorithm, retained only as a benchmark/test oracle.
 [[nodiscard]] inline auto reference_batch_sync(detail::execution_plan const &plan,
   std::span<VkSemaphore const> semaphores,
   bool timeline,

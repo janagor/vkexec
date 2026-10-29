@@ -22,6 +22,7 @@ add_executable(vkexec_graph_submission_benchmark graph_submission.cpp)
 target_link_libraries(
   vkexec_graph_submission_benchmark
   PRIVATE vkexec::vkexec
+          vkexec::features
           vkexec::vkexec_options
           vkexec::vkexec_warnings
           benchmark::benchmark
