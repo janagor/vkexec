@@ -67,6 +67,37 @@ class ReportTests(unittest.TestCase):
             self.assertIn("killed=2", result.stdout)
             self.assertIn("66.67% (2/3)", result.stdout)
 
+    def test_multiple_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sources = [root / name for name in ("a.hpp", "b.cpp", "c.cpp")]
+            for source in sources:
+                source.touch()
+            report = root / "audit.sqlite"
+            with closing(sqlite3.connect(report)) as db, db:
+                db.execute("CREATE TABLE mutant (filename TEXT, directory TEXT, execution_status INT, mutator TEXT, line_number INT, column_number INT, mutant_id TEXT)")
+                db.executemany("INSERT INTO mutant VALUES (?, '', 1, 'comparison', 1, 1, 'id')", [(str(p),) for p in sources[:2]])
+            summary = validate_mull_report.validate(report, sources[:2], root)
+            self.assertEqual(summary["killed"], 2)
+            for status in (2, 8):
+                with closing(sqlite3.connect(report)) as db, db:
+                    db.execute("UPDATE mutant SET execution_status=? WHERE filename=?", (status, str(sources[1])))
+                summary = validate_mull_report.validate(report, sources[:2], root)
+                self.assertEqual(summary["per_file"]["b.cpp"]["total"], 1)
+                self.assertEqual(summary["mutation_score"]["percent"], 50 if status == 2 else 100)
+            (root / "sub").mkdir()
+            for expected in ([], sources, [sources[0]], [sources[0], root / "sub" / ".." / "a.hpp"]):
+                with self.subTest(expected=expected), self.assertRaises(ValueError):
+                    validate_mull_report.validate(report, expected, root)
+            result = subprocess.run([sys.executable, validate_mull_report.__file__, str(report),
+                                     *map(str, sources[:2]), "--repository-root", str(root)], capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for invalid in ("", "   ", None, b"invalid"):
+                with closing(sqlite3.connect(report)) as db, db:
+                    db.execute("UPDATE mutant SET mutant_id=?", (invalid,))
+                with self.assertRaises(ValueError):
+                    validate_mull_report.parse_report(report, sources[:2], root)
+
     def test_report_validation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
