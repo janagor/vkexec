@@ -41,9 +41,18 @@ function(vkexec_setup_mutation_testing)
           clang_major
           "${CMAKE_CXX_COMPILER_VERSION}")
   find_program(vkexec_MULL_RUNNER NAMES mull-runner-${clang_major} REQUIRED)
+  find_program(vkexec_MULL_PROFDATA NAMES llvm-profdata-${clang_major} llvm-profdata REQUIRED)
+  execute_process(COMMAND "${vkexec_MULL_PROFDATA}" --version OUTPUT_VARIABLE profdata_version COMMAND_ERROR_IS_FATAL
+                                                                              ANY)
+  if(NOT
+     profdata_version
+     MATCHES
+     "LLVM version ${CMAKE_CXX_COMPILER_VERSION}([^0-9.]|$)")
+    message(FATAL_ERROR "Mull requires llvm-profdata matching Clang ${CMAKE_CXX_COMPILER_VERSION}")
+  endif()
   set(vkexec_MULL_TIMEOUT_MS
       "10000"
-      CACHE STRING "Maximum duration of each Mull test run in milliseconds")
+      CACHE STRING "Mull warmup/baseline timeout in milliseconds (mutant timeout is adaptive)")
   if(NOT
      vkexec_MULL_TIMEOUT_MS
      MATCHES
@@ -108,16 +117,22 @@ function(vkexec_add_mutation_target)
       list(APPEND extra_args --include-not-covered)
     endif()
     set(report_name "vkexec_core_${audit}")
+    set(profile_raw "${report_dir}/${report_name}.profraw")
+    set(profile_data "${report_dir}/${report_name}.profdata")
     add_custom_target(
       vkexec_mutation_${audit}
       COMMAND "${CMAKE_COMMAND}" -E make_directory "${report_dir}"
       COMMAND "${CMAKE_COMMAND}" -E rm -f "${report_dir}/${report_name}.sqlite" "${report_dir}/${report_name}.json"
-              "${report_dir}/${report_name}.txt"
-      COMMAND "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
+              "${report_dir}/${report_name}.txt" "${profile_raw}" "${profile_data}"
+      # Mull 0.35 misattributes multi-TU raw profiles. LLVM's indexed profile
+      # restores coverage without changing the executable or bypassing filtering.
+      COMMAND "${CMAKE_COMMAND}" -E env "LLVM_PROFILE_FILE=${profile_raw}" "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
+      COMMAND "${vkexec_MULL_PROFDATA}" merge -sparse "${profile_raw}" -o "${profile_data}"
       COMMAND
         "${CMAKE_COMMAND}" -E env "MULL_CONFIG=${config}" "${vkexec_MULL_RUNNER}" --allow-surviving --timeout
-        "${vkexec_MULL_TIMEOUT_MS}" ${library_args} ${extra_args} --reporters IDE --reporters SQLite --report-dir
-        "${report_dir}" --report-name "${report_name}" "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
+        "${vkexec_MULL_TIMEOUT_MS}" ${library_args} ${extra_args} --coverage-info "${profile_data}" --reporters IDE
+        --reporters SQLite --report-dir "${report_dir}" --report-name "${report_name}"
+        "$<TARGET_FILE:vkexec_core_tests>" "[ranges]"
       COMMAND
         "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/validate_mull_report.py"
         "${report_dir}/${report_name}.sqlite" "${PROJECT_SOURCE_DIR}/include/vkexec/detail/resource_ranges.hpp"
