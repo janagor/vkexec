@@ -13,6 +13,7 @@ environments
 static-analysis
 sanitizers
 coverage
+mutation-testing
 documentation
 contributing
 ```
