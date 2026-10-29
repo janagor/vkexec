@@ -173,6 +173,38 @@
         "CMAKE_CXX_COMPILER_RANLIB": "llvm-ranlib",
         "vkexec_USER_LINKER_OPTION": "LLD"
       }
+    },
+    {
+      "name": "unixlike-clang-mut",
+      "displayName": "Clang Mull resource-range audit",
+      "description": "Dedicated debug build for opt-in mutation testing",
+      "inherits": "unixlike-clang-debug",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "vkexec_MULL_PLUGIN": "$env{MULL_PLUGIN}",
+        "vkexec_MULL_RUNNER": "$env{MULL_RUNNER}",
+        "vkexec_ENABLE_MUTATION_TESTING": "ON",
+        "vkexec_ENABLE_IPO": "OFF",
+        "vkexec_ENABLE_HARDENING": "OFF",
+        "vkexec_ENABLE_COVERAGE": "OFF",
+        "vkexec_ENABLE_SANITIZER_ADDRESS": "OFF",
+        "vkexec_ENABLE_SANITIZER_LEAK": "OFF",
+        "vkexec_ENABLE_SANITIZER_UNDEFINED": "OFF",
+        "vkexec_ENABLE_SANITIZER_THREAD": "OFF",
+        "vkexec_ENABLE_SANITIZER_MEMORY": "OFF",
+        "vkexec_ENABLE_CLANG_TIDY": "OFF",
+        "vkexec_ENABLE_CPPCHECK": "OFF",
+        "vkexec_ENABLE_CACHE": "OFF",
+        "vkexec_ENABLE_PCH": "OFF",
+        "vkexec_ENABLE_UNITY_BUILD": "OFF",
+        "vkexec_ENABLE_FAULT_TESTING": "OFF",
+        "vkexec_ENABLE_INSTALL_CONSUMER_TEST": "OFF",
+        "vkexec_BUILD_EXAMPLES": "OFF",
+        "vkexec_BUILD_TOOLS": "OFF",
+        "vkexec_BUILD_VMA": "OFF",
+        "vkexec_BUILD_PROFILING": "OFF",
+        "vkexec_BUILD_BENCHMARKS": "OFF"
+      }
     }
   ],
   "testPresets": [

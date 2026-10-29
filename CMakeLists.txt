@@ -35,6 +35,11 @@ if(PROJECT_IS_TOP_LEVEL)
   include(CTest)
 endif()
 option(vkexec_ENABLE_FAULT_TESTING "Build the private Vulkan fault-injection tests" OFF)
+option(vkexec_ENABLE_MUTATION_TESTING "Enable the opt-in Mull resource-range audit" OFF)
+if(vkexec_ENABLE_MUTATION_TESTING)
+  include(cmake/MutationTesting.cmake)
+  vkexec_setup_mutation_testing()
+endif()
 
 # configure files based on CMake configuration options
 add_subdirectory(configured_files)
@@ -231,6 +236,9 @@ if(PROJECT_IS_TOP_LEVEL)
 
   if(BUILD_TESTING)
     add_subdirectory(test)
+    if(vkexec_ENABLE_MUTATION_TESTING)
+      vkexec_add_mutation_target()
+    endif()
     add_test(NAME vkexec.documentation_consistency
              COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P
                      "${PROJECT_SOURCE_DIR}/cmake/CheckDocumentation.cmake")

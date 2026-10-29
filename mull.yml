@@ -1,0 +1,12 @@
+# Keep the first audit small; broaden this after reviewing the baseline.
+mutators:
+  - cxx_comparison
+  - cxx_boundary
+  - cxx_arithmetic
+
+includePaths:
+  - '(^|.*/)include/vkexec/detail/resource_ranges\.hpp$'
+
+excludePaths:
+  - '(^|.*/)test/.*'
+  - '(^|.*/)_deps/.*'
