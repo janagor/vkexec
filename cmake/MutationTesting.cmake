@@ -57,6 +57,8 @@ function(vkexec_add_mutation_target)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME vkexec.mull_report_validator COMMAND "${Python3_EXECUTABLE}"
                                                      "${PROJECT_SOURCE_DIR}/scripts/test_validate_mull_report.py")
+  add_test(NAME vkexec.mull_coverage_diagnostics COMMAND "${Python3_EXECUTABLE}"
+                                                         "${PROJECT_SOURCE_DIR}/scripts/test_diagnose_mull_coverage.py")
   set(config "${PROJECT_BINARY_DIR}/mull.yml")
   file(SHA256 "${config}" config_hash)
   foreach(target IN ITEMS vkexec vkexec_core_tests)
