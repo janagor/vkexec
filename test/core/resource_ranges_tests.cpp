@@ -49,6 +49,9 @@ TEST_CASE("buffer interval algebra uses half-open bounds", "[vkexec][ranges]")
   REQUIRE(adjacent(first, tail));
   REQUIRE(intersection(first, partial) == buffer_range{ .begin = k_quarter, .end = k_middle });
   REQUIRE_FALSE(intersection(first, tail));
+  REQUIRE(contains(first, first));
+  REQUIRE(contains(first, buffer_range{ .begin = k_begin, .end = k_quarter }));
+  REQUIRE(contains(tail, tail));
   REQUIRE(contains(tail, buffer_range{ .begin = k_three_quarters, .end = k_end }));
   REQUIRE_FALSE(contains(first, tail));
   REQUIRE(region_size(tail) == VK_WHOLE_SIZE);
