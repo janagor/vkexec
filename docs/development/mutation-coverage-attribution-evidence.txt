@@ -1,0 +1,161 @@
+Build and report paths below are normalized to the descriptive reproduction
+directories used in the documentation. Commands and measurements are otherwise
+preserved from the historical runs.
+
+Commands: out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/commands.txt
+out/build/unixlike-clang-mut/test/vkexec_core_tests '[ranges]'
+llvm-profdata merge -sparse out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/manual.profraw -o out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/manual.profdata
+llvm-profdata show --all-functions --counts out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/manual.profraw
+llvm-profdata show --all-functions --counts out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/manual.profdata
+/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/bin/mull-runner-22 --allow-surviving --include-not-covered --timeout 10000 --debug --debug-coverage --ld-search-path /nix/store/iahmf8kl215rjcvb3zz3l7i9w2sf9x5v-vulkan-loader-1.4.357.0/lib --ld-search-path /nix/store/lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84/lib --ld-search-path /nix/store/604gsr59rj7dzd0nrhp143rpvf7gyiaz-gcc-15.3.0-lib/lib --ld-search-path /nix/store/wkiqjb44n5k0fwhmc523dvflspd47q3b-gcc-15.3.0-libgcc/lib --reporters SQLite --report-dir out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison --report-name automatic out/build/unixlike-clang-mut/test/vkexec_core_tests '[ranges]'
+/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/bin/mull-runner-22 --allow-surviving --include-not-covered --timeout 10000 --debug --debug-coverage --ld-search-path /nix/store/iahmf8kl215rjcvb3zz3l7i9w2sf9x5v-vulkan-loader-1.4.357.0/lib --ld-search-path /nix/store/lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84/lib --ld-search-path /nix/store/604gsr59rj7dzd0nrhp143rpvf7gyiaz-gcc-15.3.0-lib/lib --ld-search-path /nix/store/wkiqjb44n5k0fwhmc523dvflspd47q3b-gcc-15.3.0-libgcc/lib --reporters SQLite --report-dir out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison --report-name raw --coverage-info out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/manual.profraw out/build/unixlike-clang-mut/test/vkexec_core_tests '[ranges]'
+/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/bin/mull-runner-22 --allow-surviving --include-not-covered --timeout 10000 --debug --debug-coverage --ld-search-path /nix/store/iahmf8kl215rjcvb3zz3l7i9w2sf9x5v-vulkan-loader-1.4.357.0/lib --ld-search-path /nix/store/lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84/lib --ld-search-path /nix/store/604gsr59rj7dzd0nrhp143rpvf7gyiaz-gcc-15.3.0-lib/lib --ld-search-path /nix/store/wkiqjb44n5k0fwhmc523dvflspd47q3b-gcc-15.3.0-libgcc/lib --reporters SQLite --report-dir out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison --report-name indexed --coverage-info out/build/unixlike-clang-mut/mutation-reports/coverage-attribution/comparison/manual.profdata out/build/unixlike-clang-mut/test/vkexec_core_tests '[ranges]'
+
+Commands: out/build/mull-coverage-fixture/reports/multi/commands.txt
+out/build/mull-coverage-fixture/multi
+llvm-profdata merge -sparse out/build/mull-coverage-fixture/reports/multi/manual.profraw -o out/build/mull-coverage-fixture/reports/multi/manual.profdata
+llvm-profdata show --all-functions --counts out/build/mull-coverage-fixture/reports/multi/manual.profraw
+llvm-profdata show --all-functions --counts out/build/mull-coverage-fixture/reports/multi/manual.profdata
+/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/bin/mull-runner-22 --allow-surviving --include-not-covered --timeout 10000 --debug --debug-coverage --ld-search-path /nix/store/iahmf8kl215rjcvb3zz3l7i9w2sf9x5v-vulkan-loader-1.4.357.0/lib --ld-search-path /nix/store/lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84/lib --ld-search-path /nix/store/604gsr59rj7dzd0nrhp143rpvf7gyiaz-gcc-15.3.0-lib/lib --ld-search-path /nix/store/wkiqjb44n5k0fwhmc523dvflspd47q3b-gcc-15.3.0-libgcc/lib --reporters SQLite --report-dir out/build/mull-coverage-fixture/reports/multi --report-name automatic out/build/mull-coverage-fixture/multi
+/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/bin/mull-runner-22 --allow-surviving --include-not-covered --timeout 10000 --debug --debug-coverage --ld-search-path /nix/store/iahmf8kl215rjcvb3zz3l7i9w2sf9x5v-vulkan-loader-1.4.357.0/lib --ld-search-path /nix/store/lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84/lib --ld-search-path /nix/store/604gsr59rj7dzd0nrhp143rpvf7gyiaz-gcc-15.3.0-lib/lib --ld-search-path /nix/store/wkiqjb44n5k0fwhmc523dvflspd47q3b-gcc-15.3.0-libgcc/lib --reporters SQLite --report-dir out/build/mull-coverage-fixture/reports/multi --report-name raw --coverage-info out/build/mull-coverage-fixture/reports/multi/manual.profraw out/build/mull-coverage-fixture/multi
+/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/bin/mull-runner-22 --allow-surviving --include-not-covered --timeout 10000 --debug --debug-coverage --ld-search-path /nix/store/iahmf8kl215rjcvb3zz3l7i9w2sf9x5v-vulkan-loader-1.4.357.0/lib --ld-search-path /nix/store/lm3pknxi0ipypy3lxh1wmm8wvvavdwrn-glibc-2.42-84/lib --ld-search-path /nix/store/604gsr59rj7dzd0nrhp143rpvf7gyiaz-gcc-15.3.0-lib/lib --ld-search-path /nix/store/wkiqjb44n5k0fwhmc523dvflspd47q3b-gcc-15.3.0-libgcc/lib --reporters SQLite --report-dir out/build/mull-coverage-fixture/reports/multi --report-name indexed --coverage-info out/build/mull-coverage-fixture/reports/multi/manual.profdata out/build/mull-coverage-fixture/multi
+
+Multi-TU raw debug excerpt:
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:4:58:4:75
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:9:54:9:84
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:9:63:9:70
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:9:70:9:2147483722
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:9:74:9:81
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:12:69:12:99
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:12:78:12:85
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:12:85:12:2147483737
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:12:89:12:96
+Multi-TU indexed debug excerpt:
+[debug] mull-coverage: test/mutation/coverage_attribution/ranges.hpp:4:58:4:75
+
+Symbols (all objects/archive inspected; only matching definitions shown):
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/scheduler_graph_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/scheduler_pass_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/resource_ranges_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W bool vkexec::detail::contains<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/image_region_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/pass_detail_resource_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/buffer_region_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/pass_detail_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/CMakeFiles/vkexec_core_tests.dir/core/scheduler_tests.cpp.o
+0000000000000000 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000000000 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+0000000000000000 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+0000000000000000 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000000000 W vkexec::detail::normalize(VkImageSubresourceRange)
+0000000000000000 W vkexec::detail::normalize(vkexec::buffer_use const&)
+out/build/mull-coverage-control/test/vkexec_core_tests
+0000000000249f70 W vkexec::detail::normalize_subresources(unsigned int, unsigned int, unsigned int)
+0000000000262f30 W std::optional<std::pair<vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>>> vkexec::detail::split<unsigned long>(vkexec::detail::resource_interval<unsigned long>, unsigned long)
+00000000002aa830 W bool vkexec::detail::contains<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+00000000002500e0 W vkexec::detail::overlaps(vkexec::detail::image_region const&, vkexec::detail::image_region const&)
+000000000024c8c0 W bool vkexec::detail::overlaps<unsigned int>(vkexec::detail::resource_interval<unsigned int>, vkexec::detail::resource_interval<unsigned int>)
+00000000002608a0 W bool vkexec::detail::overlaps<unsigned long>(vkexec::detail::resource_interval<unsigned long>, vkexec::detail::resource_interval<unsigned long>)
+0000000000246ee0 W vkexec::detail::normalize(VkImageSubresourceRange)
+000000000025ac90 W vkexec::detail::normalize(vkexec::buffer_use const&)
+
+Linked normalize wrapper excerpt:
+
+out/build/mull-coverage-control/test/vkexec_core_tests:	file format elf64-x86-64
+
+Disassembly of section .text:
+
+000000000025ac90 <vkexec::detail::normalize(vkexec::buffer_use const&)>:
+  25ac90: 55                           	pushq	%rbp
+  25ac91: 48 89 e5                     	movq	%rsp, %rbp
+  25ac94: 48 83 ec 20                  	subq	$0x20, %rsp
+  25ac98: 48 89 75 e0                  	movq	%rsi, -0x20(%rbp)
+  25ac9c: 48 89 7d e8                  	movq	%rdi, -0x18(%rbp)
+  25aca0: 48 89 7d f0                  	movq	%rdi, -0x10(%rbp)
+  25aca4: e9 09 01 00 00               	jmp	0x25adb2 <vkexec::detail::normalize(vkexec::buffer_use const&)+0x122>
+  25aca9: 48 8d 05 e0 55 fd ff         	leaq	-0x2aa20(%rip), %rax    # 0x230290 <mull__ZN6vkexec6detail9normalizeERKNS_10buffer_useE_original>
+  25acb0: 48 89 45 f8                  	movq	%rax, -0x8(%rbp)
+  25acb4: 48 8b 75 e0                  	movq	-0x20(%rbp), %rsi
+  25acb8: 48 8b 7d e8                  	movq	-0x18(%rbp), %rdi
+  25acbc: ff 55 f8                     	callq	*-0x8(%rbp)
+  25acbf: 48 8b 45 f0                  	movq	-0x10(%rbp), %rax
+  25acc3: 48 83 c4 20                  	addq	$0x20, %rsp
+  25acc7: 5d                           	popq	%rbp
+  25acc8: 31 ff                        	xorl	%edi, %edi
+  25acca: 31 f6                        	xorl	%esi, %esi
+  25accc: c3                           	retq
+  25accd: 48 8d 3d 5c 23 e1 ff         	leaq	-0x1edca4(%rip), %rdi   # 0x6d030 <vkexec_pass_detail_test_support::k_fourth_step+0xe50>
+  25acd4: e8 f7 47 3f 00               	callq	0x64f4d0 <getenv@plt>
+  25acd9: 48 83 f8 00                  	cmpq	$0x0, %rax
+  25acdd: 74 ca                        	je	0x25aca9 <vkexec::detail::normalize(vkexec::buffer_use const&)+0x19>
+  25acdf: 48 8d 05 4a 11 fd ff         	leaq	-0x2eeb6(%rip), %rax    # 0x22be30 <cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82>
+  25ace6: 48 89 45 f8                  	movq	%rax, -0x8(%rbp)
+  25acea: eb c8                        	jmp	0x25acb4 <vkexec::detail::normalize(vkexec::buffer_use const&)+0x24>
+  25acec: 48 8d 3d ad 23 e1 ff         	leaq	-0x1edc53(%rip), %rdi   # 0x6d0a0 <vkexec_pass_detail_test_support::k_fourth_step+0xec0>
+  25acf3: e8 d8 47 3f 00               	callq	0x64f4d0 <getenv@plt>
+  25acf8: 48 83 f8 00                  	cmpq	$0x0, %rax
+  25acfc: 74 cf                        	je	0x25accd <vkexec::detail::normalize(vkexec::buffer_use const&)+0x3d>
+  25acfe: 48 8d 05 1b 14 fd ff         	leaq	-0x2ebe5(%rip), %rax    # 0x22c120 <cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18>
+  25ad05: 48 89 45 f8                  	movq	%rax, -0x8(%rbp)
+
+Sequential fixed ranges target:
+All tests passed (72918 assertions in 53 test cases)
+[info] Total execution time: 796ms
+Validated Mull report: killed=40, survived=2, timed_out=5, crashed=0, abnormal_exit=0, not_covered=0
+Mutation score: 95.24% (40/42); killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants
+Evaluated / discovered: 47/47 (100.00%); diagnostic only
+
+Sequential fixed uncovered target:
+All tests passed (72918 assertions in 53 test cases)
+[info] Total execution time: 718ms
+Validated Mull report: killed=37, survived=2, timed_out=8, crashed=0, abnormal_exit=0, not_covered=0
+Mutation score: 94.87% (37/39); killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants
+Evaluated / discovered: 47/47 (100.00%); diagnostic only

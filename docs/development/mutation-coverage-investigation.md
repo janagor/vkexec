@@ -1,10 +1,10 @@
-# Resource-range uncovered mutation investigation (PR 2)
+# Resource-range uncovered mutation investigation
 
-Measured 2026-10-29 against the existing PR 1 SQLite reports, using the same
+Measured 2026-10-29 against the existing initial-audit SQLite reports, using the same
 instrumented executable and `[ranges]` filter. LLVM coverage tools are 22.1.8.
 The source implementation and tests match revision
 `3b181e016055f99a012ede9330629a86073bf21c`; this investigation changes only
-reporting, diagnostic fixtures and documentation. The PR 1 baseline remains a
+reporting, diagnostic fixtures and documentation. The initial baseline remains a
 historical measurement and is not relabeled as a new clean baseline.
 
 All **43 uncovered mutants** map to executed LLVM code regions. Four other
@@ -46,7 +46,7 @@ Mull defect. No genuinely unexecuted mutation location was identified by this
 source-region comparison. No range assertions, production code, mutant exclusions,
 DAG scope or score gates were added.
 
-Before relying on uncovered status for PR 3, reduce this discrepancy to a small
+Before relying on uncovered status for subsequent audits, reduce this discrepancy to a small
 multi-translation-unit inline example and inspect Mull's binary-instance coverage
 selection. Source coverage validation is complete here; binary-instance root cause
 and a toolchain fix remain unresolved. Do not interpret these 43 classifications

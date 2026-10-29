@@ -1,0 +1,3055 @@
+{
+  "measurement_dates": "2026-10-29/30 Asia/Seoul",
+  "source_revision": "e058c7b8cff193617ba413afbf4d6ad140c5b2d4",
+  "source_dirty": true,
+  "finalized_source_commit": "b4863691213738ddd251ea8a01c97b05678e605e",
+  "toolchain": {
+    "clang": "22.1.8",
+    "llvm": "22.1.8",
+    "mull": "0.35.0"
+  },
+  "status_codes": {
+    "1": "killed",
+    "2": "survived",
+    "3": "timed_out",
+    "8": "not_covered"
+  },
+  "ids": "Checkout prefix removed in this committed artifact only. Local reports retain raw IDs.",
+  "same_executable_comparison": {
+    "binary_sha256": "082bab42971629b262e8514aee276f2c0cde7db48b10bb7c6c1504f46eb3428e",
+    "modes": {
+      "automatic": {
+        "counts": {
+          "8": 43,
+          "1": 4
+        },
+        "mutants": [
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+            8
+          ],
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+            8
+          ],
+          [
+            "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+            8
+          ]
+        ]
+      },
+      "raw": {
+        "counts": {
+          "8": 43,
+          "1": 4
+        },
+        "mutants": [
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+            8
+          ],
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+            8
+          ],
+          [
+            "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+            8
+          ]
+        ]
+      },
+      "indexed": {
+        "counts": {
+          "1": 37,
+          "3": 8,
+          "2": 2
+        },
+        "mutants": [
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+            1
+          ],
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+            3
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+            3
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+            1
+          ],
+          [
+            "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            1
+          ],
+          [
+            "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            1
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            2
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            1
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            2
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            1
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            1
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            1
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            3
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            3
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            3
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            1
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            3
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            3
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            1
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+            3
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+            1
+          ]
+        ]
+      }
+    }
+  },
+  "matrix": {
+    "A": {
+      "8": 43,
+      "1": 4
+    },
+    "B": {
+      "8": 43,
+      "1": 4
+    },
+    "C": {
+      "discovered": 0,
+      "report_created": false,
+      "audit_validation": "fails: missing report"
+    }
+  },
+  "matrix_AB_raw_ids_identical": true,
+  "tests_only_comparison": {
+    "binary_sha256": "e1fbd6446511cdbf04e515b60b9c336edd822afc254f4fa602169cf93c3fe67e",
+    "modes": {
+      "automatic": {
+        "counts": {
+          "8": 43,
+          "1": 4
+        },
+        "mutants": [
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+            8
+          ],
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+            8
+          ],
+          [
+            "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+            8
+          ]
+        ]
+      },
+      "raw": {
+        "counts": {
+          "8": 43,
+          "1": 4
+        },
+        "mutants": [
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+            8
+          ],
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+            8
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+            8
+          ],
+          [
+            "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            8
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            8
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            8
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+            8
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+            8
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+            8
+          ]
+        ]
+      },
+      "indexed": {
+        "counts": {
+          "3": 6,
+          "1": 39,
+          "2": 2
+        },
+        "mutants": [
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+            3
+          ],
+          [
+            "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+            3
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+            3
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+            1
+          ],
+          [
+            "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+            1
+          ],
+          [
+            "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            1
+          ],
+          [
+            "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+            1
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            2
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            1
+          ],
+          [
+            "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            2
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+            1
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+            1
+          ],
+          [
+            "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+            1
+          ],
+          [
+            "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+            1
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            1
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            1
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            1
+          ],
+          [
+            "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            1
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+            3
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+            3
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+            1
+          ],
+          [
+            "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+            3
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+            1
+          ],
+          [
+            "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+            1
+          ],
+          [
+            "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+            1
+          ]
+        ]
+      }
+    }
+  },
+  "fixtures": {
+    "single": {
+      "binary_sha256": "6f2255c8609558bec4c56a03569c4eddc105bb44f66802dc901e7aa7d3fdf7cf",
+      "modes": {
+        "automatic": {
+          "counts": {
+            "1": 6,
+            "8": 2,
+            "2": 2
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ]
+          ]
+        },
+        "raw": {
+          "counts": {
+            "1": 6,
+            "8": 2,
+            "2": 2
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ]
+          ]
+        },
+        "indexed": {
+          "counts": {
+            "1": 6,
+            "8": 2,
+            "2": 2
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ]
+          ]
+        }
+      }
+    },
+    "multi": {
+      "binary_sha256": "0d0323744b7a440e5a94a8c5d7b0eb8737cdca83f7cca6af471559e9bb20a670",
+      "modes": {
+        "automatic": {
+          "counts": {
+            "8": 10
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              8
+            ]
+          ]
+        },
+        "raw": {
+          "counts": {
+            "8": 10
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              8
+            ]
+          ]
+        },
+        "indexed": {
+          "counts": {
+            "1": 6,
+            "8": 2,
+            "2": 2
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:66:9:67",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:9:77:9:78",
+              1
+            ]
+          ]
+        }
+      }
+    },
+    "out_of_line": {
+      "binary_sha256": "f56046334a59c091b94a65a8d2527a079c36160248f2f512a3be2073b19b2a17",
+      "modes": {
+        "automatic": {
+          "counts": {
+            "1": 3,
+            "8": 6,
+            "2": 1
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/out_of_line.cpp:2:59:2:60",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/out_of_line.cpp:2:70:2:71",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/out_of_line.cpp:2:59:2:60",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/out_of_line.cpp:2:70:2:71",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ]
+          ]
+        },
+        "raw": {
+          "counts": {
+            "1": 3,
+            "8": 6,
+            "2": 1
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/out_of_line.cpp:2:59:2:60",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/out_of_line.cpp:2:70:2:71",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/out_of_line.cpp:2:59:2:60",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/out_of_line.cpp:2:70:2:71",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ]
+          ]
+        },
+        "indexed": {
+          "counts": {
+            "1": 6,
+            "8": 2,
+            "2": 2
+          },
+          "mutants": [
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/out_of_line.cpp:2:59:2:60",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/out_of_line.cpp:2:70:2:71",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_ge:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/out_of_line.cpp:2:59:2:60",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/out_of_line.cpp:2:70:2:71",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:81:12:82",
+              2
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:12:92:12:93",
+              1
+            ],
+            [
+              "cxx_lt_to_le:test/mutation/coverage_attribution/ranges.hpp:4:69:4:70",
+              8
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "corrected_baselines": {
+    "ranges": {
+      "schema_version": 2,
+      "total": 47,
+      "evaluation_coverage": {
+        "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+        "evaluated": 47,
+        "discovered": 47,
+        "percent": 100.0
+      },
+      "killed": 40,
+      "survived": 2,
+      "timed_out": 5,
+      "crashed": 0,
+      "abnormal_exit": 0,
+      "not_covered": 0,
+      "mutation_score": {
+        "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+        "denominator": 42,
+        "percent": 95.23809523809524
+      },
+      "locations": [
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 30,
+          "column": 16,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 30,
+          "column": 35,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 20,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 49,
+          "mutator": "cxx_gt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 49,
+          "mutator": "cxx_gt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 92,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 35,
+          "column": 21,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 35,
+          "column": 81,
+          "mutator": "cxx_add_to_sub",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 33,
+          "mutator": "cxx_lt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 33,
+          "mutator": "cxx_lt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 71,
+          "mutator": "cxx_lt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 71,
+          "mutator": "cxx_lt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 22,
+          "mutator": "cxx_le_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 22,
+          "mutator": "cxx_le_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 80,
+          "mutator": "cxx_le_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 80,
+          "mutator": "cxx_le_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 16,
+          "mutator": "cxx_le_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 16,
+          "mutator": "cxx_le_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 57,
+          "mutator": "cxx_ge_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 57,
+          "mutator": "cxx_ge_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 75,
+          "column": 28,
+          "mutator": "cxx_gt_to_ge",
+          "status": "survived"
+        },
+        {
+          "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 75,
+          "column": 28,
+          "mutator": "cxx_gt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 85,
+          "column": 31,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 85,
+          "column": 69,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 88,
+          "column": 33,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 104,
+          "column": 39,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 113,
+          "column": 13,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 113,
+          "column": 27,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 17,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 39,
+          "mutator": "cxx_gt_to_ge",
+          "status": "survived"
+        },
+        {
+          "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 39,
+          "mutator": "cxx_gt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 83,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 118,
+          "column": 18,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 118,
+          "column": 69,
+          "mutator": "cxx_add_to_sub",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 124,
+          "column": 24,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 125,
+          "column": 24,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 125,
+          "column": 94,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 135,
+          "column": 38,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 142,
+          "column": 35,
+          "mutator": "cxx_eq_to_ne",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 150,
+          "column": 54,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 152,
+          "column": 58,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 161,
+          "column": 71,
+          "mutator": "cxx_ne_to_eq",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 167,
+          "column": 25,
+          "mutator": "cxx_lt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 167,
+          "column": 25,
+          "mutator": "cxx_lt_to_le",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 173,
+          "column": 27,
+          "mutator": "cxx_lt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 173,
+          "column": 27,
+          "mutator": "cxx_lt_to_le",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 194,
+          "column": 19,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        }
+      ],
+      "per_file": {
+        "include/vkexec/detail/resource_ranges.hpp": {
+          "total": 47,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 47,
+            "discovered": 47,
+            "percent": 100.0
+          },
+          "killed": 40,
+          "survived": 2,
+          "timed_out": 5,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 42,
+            "percent": 95.23809523809524
+          }
+        }
+      },
+      "per_mutator": {
+        "cxx_add_to_sub": {
+          "total": 2,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 2,
+            "discovered": 2,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 1,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_eq_to_ne": {
+          "total": 11,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 11,
+            "discovered": 11,
+            "percent": 100.0
+          },
+          "killed": 10,
+          "survived": 0,
+          "timed_out": 1,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 10,
+            "percent": 100.0
+          }
+        },
+        "cxx_ge_to_gt": {
+          "total": 1,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 1,
+            "discovered": 1,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_ge_to_lt": {
+          "total": 1,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 1,
+            "discovered": 1,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_gt_to_ge": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 2,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 33.333333333333336
+          }
+        },
+        "cxx_gt_to_le": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 3,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 100.0
+          }
+        },
+        "cxx_le_to_gt": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 3,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 100.0
+          }
+        },
+        "cxx_le_to_lt": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 3,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 100.0
+          }
+        },
+        "cxx_lt_to_ge": {
+          "total": 4,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 4,
+            "discovered": 4,
+            "percent": 100.0
+          },
+          "killed": 4,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 4,
+            "percent": 100.0
+          }
+        },
+        "cxx_lt_to_le": {
+          "total": 4,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 4,
+            "discovered": 4,
+            "percent": 100.0
+          },
+          "killed": 2,
+          "survived": 0,
+          "timed_out": 2,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 2,
+            "percent": 100.0
+          }
+        },
+        "cxx_ne_to_eq": {
+          "total": 7,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 7,
+            "discovered": 7,
+            "percent": 100.0
+          },
+          "killed": 6,
+          "survived": 0,
+          "timed_out": 1,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 6,
+            "percent": 100.0
+          }
+        },
+        "cxx_sub_to_add": {
+          "total": 5,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 5,
+            "discovered": 5,
+            "percent": 100.0
+          },
+          "killed": 5,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 5,
+            "percent": 100.0
+          }
+        }
+      }
+    },
+    "ranges_uncovered": {
+      "schema_version": 2,
+      "total": 47,
+      "evaluation_coverage": {
+        "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+        "evaluated": 47,
+        "discovered": 47,
+        "percent": 100.0
+      },
+      "killed": 37,
+      "survived": 2,
+      "timed_out": 8,
+      "crashed": 0,
+      "abnormal_exit": 0,
+      "not_covered": 0,
+      "mutation_score": {
+        "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+        "denominator": 39,
+        "percent": 94.87179487179488
+      },
+      "locations": [
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:16:30:18",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 30,
+          "column": 16,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:30:35:30:37",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 30,
+          "column": 35,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:31:20:31:22",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 20,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 49,
+          "mutator": "cxx_gt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:31:49:31:50",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 49,
+          "mutator": "cxx_gt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:31:92:31:93",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 31,
+          "column": 92,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:35:21:35:23",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 35,
+          "column": 21,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:35:81:35:82",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 35,
+          "column": 81,
+          "mutator": "cxx_add_to_sub",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 33,
+          "mutator": "cxx_lt_to_ge",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:33:40:34",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 33,
+          "mutator": "cxx_lt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 71,
+          "mutator": "cxx_lt_to_ge",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:40:71:40:72",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 40,
+          "column": 71,
+          "mutator": "cxx_lt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 22,
+          "mutator": "cxx_le_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:22:61:24",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 22,
+          "mutator": "cxx_le_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 80,
+          "mutator": "cxx_le_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:61:80:61:82",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 61,
+          "column": 80,
+          "mutator": "cxx_le_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_gt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 16,
+          "mutator": "cxx_le_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_le_to_lt:include/vkexec/detail/resource_ranges.hpp:67:16:67:18",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 16,
+          "mutator": "cxx_le_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ge_to_gt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 57,
+          "mutator": "cxx_ge_to_gt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ge_to_lt:include/vkexec/detail/resource_ranges.hpp:67:57:67:59",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 67,
+          "column": 57,
+          "mutator": "cxx_ge_to_lt",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 75,
+          "column": 28,
+          "mutator": "cxx_gt_to_ge",
+          "status": "survived"
+        },
+        {
+          "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:75:28:75:29",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 75,
+          "column": 28,
+          "mutator": "cxx_gt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:31:85:33",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 85,
+          "column": 31,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:85:69:85:71",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 85,
+          "column": 69,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:88:33:88:34",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 88,
+          "column": 33,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:104:39:104:41",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 104,
+          "column": 39,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:13:113:15",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 113,
+          "column": 13,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:113:27:113:29",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 113,
+          "column": 27,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:114:17:114:19",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 17,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_gt_to_ge:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 39,
+          "mutator": "cxx_gt_to_ge",
+          "status": "survived"
+        },
+        {
+          "mutant_id": "cxx_gt_to_le:include/vkexec/detail/resource_ranges.hpp:114:39:114:40",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 39,
+          "mutator": "cxx_gt_to_le",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:114:83:114:84",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 114,
+          "column": 83,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:118:18:118:20",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 118,
+          "column": 18,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_add_to_sub:include/vkexec/detail/resource_ranges.hpp:118:69:118:70",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 118,
+          "column": 69,
+          "mutator": "cxx_add_to_sub",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:124:24:124:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 124,
+          "column": 24,
+          "mutator": "cxx_eq_to_ne",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:24:125:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 125,
+          "column": 24,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:125:94:125:96",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 125,
+          "column": 94,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:135:38:135:40",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 135,
+          "column": 38,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_ranges.hpp:142:35:142:37",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 142,
+          "column": 35,
+          "mutator": "cxx_eq_to_ne",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:150:54:150:55",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 150,
+          "column": 54,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_sub_to_add:include/vkexec/detail/resource_ranges.hpp:152:58:152:59",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 152,
+          "column": 58,
+          "mutator": "cxx_sub_to_add",
+          "status": "killed"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:161:71:161:73",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 161,
+          "column": 71,
+          "mutator": "cxx_ne_to_eq",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 167,
+          "column": 25,
+          "mutator": "cxx_lt_to_ge",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:167:25:167:26",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 167,
+          "column": 25,
+          "mutator": "cxx_lt_to_le",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_ge:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 173,
+          "column": 27,
+          "mutator": "cxx_lt_to_ge",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_lt_to_le:include/vkexec/detail/resource_ranges.hpp:173:27:173:28",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 173,
+          "column": 27,
+          "mutator": "cxx_lt_to_le",
+          "status": "timed_out"
+        },
+        {
+          "mutant_id": "cxx_ne_to_eq:include/vkexec/detail/resource_ranges.hpp:194:19:194:21",
+          "file": "include/vkexec/detail/resource_ranges.hpp",
+          "line": 194,
+          "column": 19,
+          "mutator": "cxx_ne_to_eq",
+          "status": "killed"
+        }
+      ],
+      "per_file": {
+        "include/vkexec/detail/resource_ranges.hpp": {
+          "total": 47,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 47,
+            "discovered": 47,
+            "percent": 100.0
+          },
+          "killed": 37,
+          "survived": 2,
+          "timed_out": 8,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 39,
+            "percent": 94.87179487179488
+          }
+        }
+      },
+      "per_mutator": {
+        "cxx_add_to_sub": {
+          "total": 2,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 2,
+            "discovered": 2,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 1,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_eq_to_ne": {
+          "total": 11,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 11,
+            "discovered": 11,
+            "percent": 100.0
+          },
+          "killed": 10,
+          "survived": 0,
+          "timed_out": 1,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 10,
+            "percent": 100.0
+          }
+        },
+        "cxx_ge_to_gt": {
+          "total": 1,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 1,
+            "discovered": 1,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_ge_to_lt": {
+          "total": 1,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 1,
+            "discovered": 1,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_gt_to_ge": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 2,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 33.333333333333336
+          }
+        },
+        "cxx_gt_to_le": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 3,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 100.0
+          }
+        },
+        "cxx_le_to_gt": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 3,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 100.0
+          }
+        },
+        "cxx_le_to_lt": {
+          "total": 3,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 3,
+            "discovered": 3,
+            "percent": 100.0
+          },
+          "killed": 3,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 3,
+            "percent": 100.0
+          }
+        },
+        "cxx_lt_to_ge": {
+          "total": 4,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 4,
+            "discovered": 4,
+            "percent": 100.0
+          },
+          "killed": 1,
+          "survived": 0,
+          "timed_out": 3,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 1,
+            "percent": 100.0
+          }
+        },
+        "cxx_lt_to_le": {
+          "total": 4,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 4,
+            "discovered": 4,
+            "percent": 100.0
+          },
+          "killed": 2,
+          "survived": 0,
+          "timed_out": 2,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 2,
+            "percent": 100.0
+          }
+        },
+        "cxx_ne_to_eq": {
+          "total": 7,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 7,
+            "discovered": 7,
+            "percent": 100.0
+          },
+          "killed": 6,
+          "survived": 0,
+          "timed_out": 1,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 6,
+            "percent": 100.0
+          }
+        },
+        "cxx_sub_to_add": {
+          "total": 5,
+          "evaluation_coverage": {
+            "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+            "evaluated": 5,
+            "discovered": 5,
+            "percent": 100.0
+          },
+          "killed": 5,
+          "survived": 0,
+          "timed_out": 0,
+          "crashed": 0,
+          "abnormal_exit": 0,
+          "not_covered": 0,
+          "mutation_score": {
+            "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+            "denominator": 5,
+            "percent": 100.0
+          }
+        }
+      }
+    }
+  },
+  "corrected_binary_sha256": "34a404ebf976eed7b8b0a46d02902571da93357b45e41acafd5ecef53911ee9f",
+  "measurement_source_revision": "e058c7b8cff193617ba413afbf4d6ad140c5b2d4",
+  "finalization_status": "implementation_committed",
+  "review_cleanup_validation": {
+    "ranges": {
+      "total": 47,
+      "killed": 39,
+      "survived": 2,
+      "timed_out": 6,
+      "not_covered": 0,
+      "evaluation_coverage": {
+        "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+        "evaluated": 47,
+        "discovered": 47,
+        "percent": 100.0
+      },
+      "mutation_score": {
+        "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+        "denominator": 41,
+        "percent": 95.1219512195122
+      }
+    },
+    "ranges_uncovered": {
+      "total": 47,
+      "killed": 37,
+      "survived": 2,
+      "timed_out": 8,
+      "not_covered": 0,
+      "evaluation_coverage": {
+        "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+        "evaluated": 47,
+        "discovered": 47,
+        "percent": 100.0
+      },
+      "mutation_score": {
+        "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+        "denominator": 39,
+        "percent": 94.87179487179488
+      }
+    },
+    "fixture_indexed_checks": {
+      "single": "passed: 8 called evaluated, 2 uncalled uncovered",
+      "multi": "passed: 8 called evaluated, 2 uncalled uncovered",
+      "out_of_line": "passed: 8 called evaluated, 2 uncalled uncovered"
+    },
+    "python_diagnostics": "both CTest suites passed",
+    "negative_verifier_checks": [
+      "called mutant marked uncovered: rejected",
+      "uncalled mutant marked killed: rejected"
+    ]
+  }
+}

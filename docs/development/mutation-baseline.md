@@ -1,11 +1,16 @@
 # Resource-range mutation baseline
 
+This is the historical, **experimental 4/47 audit**, not a comprehensive range
+audit. The coverage-attribution investigation identified a raw-profile attribution limitation and measured a
+[corrected indexed-profile baseline](mutation-coverage-attribution.md#corrected-baseline-and-limits).
+The original measurements below are preserved.
+
 Measured on 2026-10-29, x86_64-linux, using `nix develop .#clang-mut`.
-Source commit: `075aa658318cb90ad206159f7144a3f1d0147e58`, plus the PR 1
+Source commit: `075aa658318cb90ad206159f7144a3f1d0147e58`, plus the initial integration’s
 validator, reporting and compiler-launcher changes. The range implementation,
 selected tests, flake lock and `mull.yml` were unchanged. This is a working-tree
 measurement, not an exact committed baseline (`source_dirty: true`,
-`finalized_source_commit: null` in JSON). After committing PR 1, rerun both audits
+`finalized_source_commit: null` in JSON). After committing the initial integration, rerun both audits
 from that clean revision and record its full hash and new timings in a follow-up
 baseline record. Do not substitute a later commit hash for this measurement. Machine-readable counts
 and per-file/per-mutator statistics are in [mutation-baseline.json](mutation-baseline.json).
@@ -40,7 +45,7 @@ scores. The 43 uncovered mutants are 91.5% of the include-uncovered population;
 Mull reports uncovered locations even in helpers called by the range tests, so
 classify those locations and inspect coverage attribution before assuming that
 all 43 represent missing test inputs. No equivalent-mutant exclusions or survivor
-classifications were made in PR 1; there were no reported survivors.
+classifications were made in the initial audit; there were no reported survivors.
 
 Scope remains only `include/vkexec/detail/resource_ranges.hpp`, using
 `cxx_comparison`, `cxx_boundary` and `cxx_arithmetic`. Tests and fetched dependencies
