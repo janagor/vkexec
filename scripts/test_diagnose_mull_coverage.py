@@ -44,6 +44,21 @@ class CoverageTests(unittest.TestCase):
             self.assertEqual(diagnosis['classification_counts'], {'source_covered_attribution_discrepancy': 2})
             self.assertEqual([row['mutant_id'] for row in diagnosis['locations']], ['instance-a', 'instance-b'])
 
+    def test_gap_veto_and_mull_log(self):
+        source = '/tmp/helper.hpp'
+        gap = [2, 20, 8, 4, 0, 0, 0, 3]
+        result = diagnose({'locations': [{'file': 'helper.hpp', 'line': 4, 'column': 12,
+                                        'status': 'not_covered'}]}, {
+            'type': 'llvm.coverage.json.export', 'data': [{'functions': [{
+                'name': 'valid', 'count': 9, 'filenames': [source],
+                'regions': [gap, [4, 5, 4, 30, 3, 0, 0, 0]]}]}]}, Path('/tmp'),
+            '[debug] mull-coverage: /tmp/helper.hpp:2:20:8:2147483652\n'
+            '[debug] mull-coverage: /tmp/other.hpp:2:20:8:4\n')['locations'][0]
+        self.assertEqual(result['classification'], 'source_covered_attribution_discrepancy')
+        self.assertEqual(result['instances'][0]['containing_gap_regions'], [gap])
+        self.assertEqual(result['instances'][0]['function_count'], 9)
+        self.assertEqual(result['mull_uncovered_ranges'], [(2, 20, 8, 2147483652)])
+
     def test_regions_and_instantiations(self):
         root = Path('/tmp')
         location = {"file": "range.hpp", "line": 10, "column": 20,
@@ -64,7 +79,8 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(compare([function('a', 0)])["classification"], 'source_region_not_executed')
         result = compare([function('a', 0), function('b', 7)])
         self.assertEqual(result['classification'], 'source_covered_attribution_discrepancy')
-        self.assertEqual(result['instances'], [{'function': 'a', 'count': 0}, {'function': 'b', 'count': 7}])
+        self.assertEqual([(r['function'], r['count']) for r in result['instances']], [('a', 0), ('b', 7)])
+        self.assertEqual(result['instances'][1]['region'], [10, 10, 10, 30, 7, 0, 0, 0])
         self.assertEqual(compare([function('a', 7)], {**location, 'status': 'killed'})['classification'], 'source_covered')
         self.assertEqual(compare([])['classification'], 'no_source_region')
         # End positions are exclusive.
