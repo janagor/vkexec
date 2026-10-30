@@ -156,3 +156,45 @@ and private `mutation-builds/resource_helpers/` and
 separate `_uncovered` variant. Their scores are independent of the three earlier
 audits. See [helper evidence](mutation-resource-helpers-baseline.md) and
 [coalescing evidence](mutation-barrier-coalescing-baseline.md).
+
+## CI baseline review
+
+Portable snapshots in `mutation-ci-baselines/` use CI schema 1, distinct from
+the validator's schema 2 reports. They retain the complete inclusive population
+and normalized IDs with source locations. Historical evidence remains unchanged;
+a historical dirty measurement must never be labeled as a clean commit result.
+
+Baseline creation is an explicit operation, separate from ordinary CI. Use a
+clean checkout of the revision being reviewed, including committed test changes.
+The baseline writer and audit runner may be invoked by absolute path from an
+external checkout when reproducing an older revision. Do not copy scripts into
+the measured checkout, which would change its clean state. Run:
+
+```sh
+nix develop .#clang-mut --command bash scripts/ci/run_mutation_audits.sh all \
+  --measure-only --artifacts out/mutation-baseline-evidence
+python3 scripts/create_mutation_baseline.py --scope dag --repository-root . \
+  --covered out/mutation-baseline-evidence/dag/covered.json \
+  --inclusive out/mutation-baseline-evidence/dag/inclusive.json \
+  --manifest out/mutation-baseline-evidence/manifest.json \
+  --output /tmp/reviewed-dag-baseline.json
+```
+
+Repeat the writer for each measured scope, then review and commit snapshots.
+The writer requires a clean current revision, clean-run manifest, successful
+covered and inclusive targets, matching report hashes, matching measurement
+fingerprint, and consistent per-mutant outcomes. It never accepts historical
+wrapper documents as report inputs. Save the run artifacts with the review.
+
+Review exact IDs, status transitions and separate fingerprints. Explain source
+or operator population changes and any timeout/classification changes. An
+improvement elsewhere cannot offset a scope regression. Never regenerate a
+baseline automatically to make CI pass. CI starts in report mode; switch the
+workflow's explicit policy to `regression` only after repeated clean hosted runs
+reproduce the committed baseline. Hosting a workflow and recording a successful
+manual GitHub dispatch remain separate from local verification.
+
+The CI runner uses a 1000 ms minimum mutant timeout and a 10000 ms warmup timeout
+for all scopes, with one worker. The original range experiment used 250 ms;
+review the clean CI reproduction evidence before accepting that timeout change.
+No CMake timeout extension is needed when classifications agree.

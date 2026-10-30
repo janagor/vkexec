@@ -211,3 +211,66 @@ range, DAG and resource-state filters remain unchanged. See the
 initial/final classifications, repeated-run comparisons and source-emission limits.
 Evaluation coverage describes emitted mutants; it does not establish that every
 function or expression generated a mutant. No score threshold or CI gate is added.
+
+## Automated CI audits
+
+The dedicated `.github/workflows/mutation.yml` runs all five scopes weekly on
+Sunday at 03:30 UTC. Manual dispatch accepts `all` or one scope. Pull requests
+changing comparison infrastructure run Python tests without installing Mull.
+Full audits use Ubuntu 24.04, the locked `clang-mut` Nix shell, one public preset,
+two build jobs and one Mull worker. No production sources are changed by CI.
+
+From the repository root:
+
+```sh
+python3 -m unittest discover -s test/mutation/baseline_comparison -v
+nix develop .#clang-mut --command bash scripts/ci/run_mutation_audits.sh all
+# Explicit local gating; CI initially uses report mode.
+nix develop .#clang-mut --command bash scripts/ci/run_mutation_audits.sh dag \
+  --policy regression --artifacts out/mutation-dag-regression
+```
+
+Each invocation requires a fresh artifact destination (default
+`out/mutation-ci-artifacts`). Original reports remain in
+`out/build/unixlike-clang-mut/mutation-reports`. Staged artifacts contain each
+scope's `covered` and `inclusive` JSON, SQLite, text, raw/indexed profiles,
+separate target logs, and comparison. The manifest records target return codes,
+report hashes, revision, clean state and fingerprints; diagnostics retain the
+CMake cache, CTest log, versions and Nix lock. The job summary lists scope counts,
+comparability, regressions and exact changed IDs. Artifact upload runs even on
+failure, with 14-day retention. A runner terminated by the job timeout may leave
+partial logs; the workflow also uploads original reports and configure evidence.
+
+`report` mode records regressions and review requirements without failing solely
+on outcomes or comparability. `regression` mode blocks comparable previously
+killed mutants becoming surviving/uncovered, surviving mutants becoming uncovered,
+and new timeout/crash/abnormal exit
+outcomes. Population changes and execution fingerprint differences require
+review (exit 3). Invalid or absent evidence fails both policies (exit 1).
+Comparable regressions return exit 2. Known survivors and known uncovered mutants
+remain visible and do not fail unchanged comparisons. There is no score gate and
+no combined score. Test-source hash changes are reported but do not disable
+regression checking. Test registration hashes are tracked separately and likewise
+do not disable comparison when the mutant population is unchanged. Existing
+snapshots with test registration under infrastructure are read compatibly without
+rewriting their provenance. Source, operators, test selection, toolchain, Nix lock,
+build options, execution infrastructure and timeout differences prevent a claim
+of comparable results.
+
+To inspect one scope separately, use its staged execution metadata:
+
+```sh
+python3 -c 'import json; m=json.load(open("out/mutation-ci-artifacts/manifest.json")); json.dump(m["execution"],open("out/execution.json","w"))'
+python3 scripts/compare_mutation_baselines.py --scope dag \
+  --baseline docs/development/mutation-ci-baselines/dag.json \
+  --covered out/mutation-ci-artifacts/dag/covered.json \
+  --inclusive out/mutation-ci-artifacts/dag/inclusive.json \
+  --repository-root . --execution-metadata out/execution.json \
+  --policy regression --output out/dag-comparison.json
+```
+
+A `review` result must be investigated before explicitly updating a baseline.
+Do not infer kills from missing mutants. For invalid pairs, check target logs
+first, then source allowlists, the selected Catch2 arguments and profile paths.
+For execution mismatches compare the manifest's separate fingerprint fields.
+See [baseline review procedure](mutation-audit-scopes.md#ci-baseline-review).
