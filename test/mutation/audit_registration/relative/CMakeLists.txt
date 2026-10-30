@@ -9,4 +9,4 @@ vkexec_register_mutation_scope(
   SOURCES
   dummy.cpp
   TEST_ARGS
-  "inactive-argument")
+  "other-argument")

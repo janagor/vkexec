@@ -176,8 +176,8 @@
     },
     {
       "name": "unixlike-clang-mut",
-      "displayName": "Clang Mull resource-range audit",
-      "description": "Dedicated debug build for opt-in mutation testing",
+      "displayName": "Clang Mull mutation audits",
+      "description": "One entry point for independent opt-in mutation audits",
       "inherits": "unixlike-clang-debug",
       "cacheVariables": {
         "BUILD_TESTING": "ON",

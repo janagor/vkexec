@@ -8,7 +8,7 @@ import sys
 
 stage = "merge" if sys.argv[1] == "merge" else "runner"
 with open(os.environ["AUDIT_LOG"], "a") as log:
-    log.write(json.dumps([stage, sys.argv[1:]]) + "\n")
+    log.write(json.dumps([stage, sys.argv[1:], os.environ.get("MULL_CONFIG")]) + "\n")
 if os.environ.get("FAIL_STAGE") == stage:
     sys.exit(1)
 if stage == "merge":

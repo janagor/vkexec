@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 project(audit_registration LANGUAGES CXX)
 include("${MUTATION_MODULE}")
+if(vkexec_MULL_INTERNAL_SCOPE AND "$ENV{FAIL_STAGE}" STREQUAL "configure")
+  message(FATAL_ERROR "Injected internal configure failure")
+endif()
 add_library(vkexec STATIC dummy.cpp)
 add_executable(dummy dummy.cpp)
 set(config "${CMAKE_CURRENT_SOURCE_DIR}/scope.yml")
@@ -46,7 +49,7 @@ if(CASE STREQUAL "duplicate")
 endif()
 if(CASE STREQUAL "relative_config")
   add_subdirectory(relative)
-elseif(CASE STREQUAL "inactive" OR CASE STREQUAL "active_other")
+else()
   vkexec_register_mutation_scope(
     NAME
     other
@@ -57,7 +60,7 @@ elseif(CASE STREQUAL "inactive" OR CASE STREQUAL "active_other")
     SOURCES
     dummy.cpp
     TEST_ARGS
-    "inactive-argument")
+    "other-argument")
 endif()
 if(CASE STREQUAL "integration")
   set(vkexec_MULL_PROFDATA "${CMAKE_CURRENT_SOURCE_DIR}/stub.py")
@@ -66,7 +69,8 @@ if(CASE STREQUAL "integration")
   set(vkexec_MULL_WORKERS 1)
   set(vkexec_MULL_MINIMUM_TIMEOUT_MS 250)
 endif()
-vkexec_finalize_mutation_scope()
+vkexec_finalize_mutation_scopes()
+file(WRITE "${CMAKE_BINARY_DIR}/inherited-value.txt" "${vkexec_AUDIT_TEST_VALUE}")
 foreach(target IN ITEMS vkexec dummy)
   get_target_property(options ${target} COMPILE_OPTIONS)
   file(WRITE "${CMAKE_BINARY_DIR}/${target}-options.txt" "${options}")
@@ -79,4 +83,12 @@ if(CASE STREQUAL "integration")
     set_property(TARGET ${target} PROPERTY INTERFACE_LINK_OPTIONS "")
     set_property(TARGET ${target} PROPERTY CXX_COMPILER_LAUNCHER "")
   endforeach()
+endif()
+
+if(NOT vkexec_MULL_INTERNAL_SCOPE)
+  file(APPEND "${CMAKE_BINARY_DIR}/mutation-configs/cache.cmake"
+       "set(MUTATION_MODULE [==[${MUTATION_MODULE}]==] CACHE FILEPATH \"Fixture module\" FORCE)\n")
+  # Preserve this fixture's mode in the generated private-build cache seed.
+  file(APPEND "${CMAKE_BINARY_DIR}/mutation-configs/cache.cmake"
+       "set(CASE [==[${CASE}]==] CACHE STRING \"Fixture mode\" FORCE)\n")
 endif()

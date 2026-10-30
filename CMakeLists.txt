@@ -251,7 +251,21 @@ if(PROJECT_IS_TOP_LEVEL)
         "--order"
         "lex"
         "--abort")
-      vkexec_finalize_mutation_scope()
+      vkexec_register_mutation_scope(
+        NAME
+        dag
+        CONFIG
+        "${PROJECT_SOURCE_DIR}/cmake/mull/dag.yml"
+        TEST_TARGET
+        vkexec_core_tests
+        SOURCES
+        "include/vkexec/detail/pass_execution.hpp"
+        TEST_ARGS
+        "[dag-plan]"
+        "--order"
+        "lex"
+        "--abort")
+      vkexec_finalize_mutation_scopes()
     endif()
     add_test(NAME vkexec.documentation_consistency
              COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_SOURCE_DIR=${PROJECT_SOURCE_DIR}" -P

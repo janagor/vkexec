@@ -83,7 +83,7 @@ function(vkexec_setup_mutation_testing)
       CACHE STRING "Additional library directories for Mull's dependency scanner")
 endfunction()
 
-# Registrations are collected before finalizing the selected build-directory scope.
+# Registrations are collected before creating all public audit targets.
 function(vkexec_register_mutation_scope)
   cmake_parse_arguments(
     PARSE_ARGV
@@ -199,9 +199,9 @@ function(_vkexec_add_mutation_audit)
     0
     audit
     "INCLUDE_NOT_COVERED"
-    "NAME;TEST_TARGET"
+    "NAME;CONFIG;TEST_TARGET"
     "SOURCES;TEST_ARGS")
-  set(config "${PROJECT_BINARY_DIR}/mull.yml")
+  set(config "${audit_CONFIG}")
   set(extra_args)
   if(audit_INCLUDE_NOT_COVERED)
     list(APPEND extra_args --include-not-covered)
@@ -218,7 +218,7 @@ function(_vkexec_add_mutation_audit)
   foreach(source IN LISTS audit_SOURCES)
     list(APPEND expected_sources "${PROJECT_SOURCE_DIR}/${source}")
   endforeach()
-  set(report_dir "${PROJECT_BINARY_DIR}/mutation-reports")
+  set(report_dir "${vkexec_MULL_REPORT_DIR}")
   set(report_name "vkexec_core_${audit_NAME}")
   set(profile_raw "${report_dir}/${report_name}.profraw")
   set(profile_data "${report_dir}/${report_name}.profdata")
@@ -250,35 +250,84 @@ function(_vkexec_add_mutation_audit)
     USES_TERMINAL VERBATIM)
 endfunction()
 
-function(vkexec_finalize_mutation_scope)
-  set(vkexec_MULL_SCOPE
-      "ranges"
-      CACHE STRING "Active Mull mutation scope")
-  get_property(names GLOBAL PROPERTY VKEXEC_MUTATION_SCOPES)
-  set_property(CACHE vkexec_MULL_SCOPE PROPERTY STRINGS ${names})
-  if(NOT
-     vkexec_MULL_SCOPE
-     IN_LIST
-     names)
-    message(FATAL_ERROR "Unknown Mull scope '${vkexec_MULL_SCOPE}'; registered scopes: ${names}")
+# Seed internal builds with the parent's toolchain/options, without sharing objects
+# or dependency binary directories between scopes.
+function(_vkexec_write_mutation_cache path)
+  get_cmake_property(variables CACHE_VARIABLES)
+  list(
+    APPEND
+    variables
+    vkexec_MULL_PLUGIN
+    vkexec_MULL_RUNNER
+    vkexec_MULL_PROFDATA
+    vkexec_MULL_TIMEOUT_MS
+    vkexec_MULL_WORKERS
+    vkexec_MULL_MINIMUM_TIMEOUT_MS)
+  list(REMOVE_DUPLICATES variables)
+  set(content "# Generated mutation build settings.\n")
+  foreach(variable IN LISTS variables)
+    if(variable MATCHES "^vkexec_"
+       AND NOT
+           variable
+           MATCHES
+           "(_SOURCE_DIR|_BINARY_DIR|MULL_INTERNAL_SCOPE|MULL_SCOPE|MULL_REPORT_DIR)$"
+       OR variable
+          MATCHES
+          "^CMAKE_(C_COMPILER|CXX_COMPILER|AR|RANLIB|CXX_COMPILER_AR|CXX_COMPILER_RANLIB|MAKE_PROGRAM|BUILD_TYPE|TOOLCHAIN_FILE|SYSROOT|PREFIX_PATH|FIND_ROOT_PATH|C_FLAGS.*|CXX_FLAGS.*|EXE_LINKER_FLAGS.*|SHARED_LINKER_FLAGS.*|SKIP_INSTALL_RULES)$"
+       OR variable MATCHES
+          "^(BUILD_TESTING|BUILD_SHARED_LIBS|VKEXEC_STDEXEC_GIT_TAG|CPM_SOURCE_CACHE|FETCHCONTENT_SOURCE_DIR_.*)$")
+      set(value "${${variable}}")
+      set(delimiter "==")
+      string(FIND "${value}" "]${delimiter}]" closing)
+      while(
+        NOT
+        closing
+        EQUAL
+        -1)
+        string(APPEND delimiter "=")
+        string(FIND "${value}" "]${delimiter}]" closing)
+      endwhile()
+      string(
+        APPEND content
+        "set(${variable} [${delimiter}[${value}]${delimiter}] CACHE STRING \"Inherited mutation setting\" FORCE)\n")
+    endif()
+  endforeach()
+  # Reuse downloaded dependency sources, never their build trees.
+  foreach(package IN LISTS CPM_PACKAGES)
+    string(TOUPPER "${package}" upper)
+    set(source "${CPM_PACKAGE_${package}_SOURCE_DIR}")
+    if(IS_DIRECTORY "${source}")
+      string(APPEND content
+             "set(FETCHCONTENT_SOURCE_DIR_${upper} [==[${source}]==] CACHE PATH \"Shared dependency source\" FORCE)\n")
+    endif()
+  endforeach()
+  file(WRITE "${path}" "${content}")
+endfunction()
+
+function(vkexec_finalize_mutation_scopes)
+  get_property(finalized GLOBAL PROPERTY VKEXEC_MUTATION_FINALIZED)
+  if(finalized)
+    message(FATAL_ERROR "Mutation scopes already finalized")
   endif()
-  foreach(
-    field IN
-    ITEMS CONFIG
-          TEST_TARGET
-          SOURCES
-          TEST_ARGS)
-    get_property(scope_${field} GLOBAL PROPERTY "VKEXEC_MUTATION_${vkexec_MULL_SCOPE}_${field}")
-  endforeach()
-  configure_file("${scope_CONFIG}" "${PROJECT_BINARY_DIR}/mull.yml" COPYONLY)
-  foreach(target IN ITEMS vkexec ${scope_TEST_TARGET})
-    _vkexec_instrument_mutation_target(
-      TARGET
-      ${target}
-      CONFIG
-      "${PROJECT_BINARY_DIR}/mull.yml")
-  endforeach()
-  target_link_options(vkexec INTERFACE "$<BUILD_LOCAL_INTERFACE:-fprofile-instr-generate>")
+  set_property(GLOBAL PROPERTY VKEXEC_MUTATION_FINALIZED TRUE)
+  get_property(names GLOBAL PROPERTY VKEXEC_MUTATION_SCOPES)
+  if(NOT names)
+    message(FATAL_ERROR "No mutation scopes registered")
+  endif()
+  if(DEFINED vkexec_MULL_SCOPE)
+    message(STATUS "vkexec_MULL_SCOPE is obsolete; all registered mutation targets are available")
+    unset(vkexec_MULL_SCOPE CACHE)
+  endif()
+  if(vkexec_MULL_INTERNAL_SCOPE
+     AND NOT
+         vkexec_MULL_INTERNAL_SCOPE
+         IN_LIST
+         names)
+    message(FATAL_ERROR "Unknown internal Mull scope '${vkexec_MULL_INTERNAL_SCOPE}'")
+  endif()
+  if(NOT vkexec_MULL_REPORT_DIR)
+    set(vkexec_MULL_REPORT_DIR "${PROJECT_BINARY_DIR}/mutation-reports")
+  endif()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   foreach(script IN ITEMS report_validator coverage_diagnostics)
     if(script STREQUAL "report_validator")
@@ -291,20 +340,66 @@ function(vkexec_finalize_mutation_scope)
   add_test(NAME vkexec.mull_audit_registration
            COMMAND "${Python3_EXECUTABLE}"
                    "${PROJECT_SOURCE_DIR}/test/mutation/audit_registration/test_registration.py")
-  foreach(variant IN ITEMS "" "_uncovered")
-    set(extra)
-    if(variant)
-      set(extra INCLUDE_NOT_COVERED)
+  file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/mutation-configs")
+  if(NOT vkexec_MULL_INTERNAL_SCOPE)
+    _vkexec_write_mutation_cache("${PROJECT_BINARY_DIR}/mutation-configs/cache.cmake")
+  endif()
+  foreach(name IN LISTS names)
+    foreach(
+      field IN
+      ITEMS CONFIG
+            TEST_TARGET
+            SOURCES
+            TEST_ARGS)
+      get_property(scope_${field} GLOBAL PROPERTY "VKEXEC_MUTATION_${name}_${field}")
+    endforeach()
+    set(config "${PROJECT_BINARY_DIR}/mutation-configs/${name}.yml")
+    configure_file("${scope_CONFIG}" "${config}" COPYONLY)
+    if(vkexec_MULL_INTERNAL_SCOPE)
+      if(NOT
+         name
+         STREQUAL
+         vkexec_MULL_INTERNAL_SCOPE)
+        continue()
+      endif()
+      configure_file("${config}" "${PROJECT_BINARY_DIR}/mull.yml" COPYONLY)
+      foreach(target IN ITEMS vkexec ${scope_TEST_TARGET})
+        _vkexec_instrument_mutation_target(
+          TARGET
+          ${target}
+          CONFIG
+          "${PROJECT_BINARY_DIR}/mull.yml")
+      endforeach()
+      target_link_options(vkexec INTERFACE "$<BUILD_LOCAL_INTERFACE:-fprofile-instr-generate>")
     endif()
-    _vkexec_add_mutation_audit(
-      NAME
-      "${vkexec_MULL_SCOPE}${variant}"
-      TEST_TARGET
-      "${scope_TEST_TARGET}"
-      SOURCES
-      ${scope_SOURCES}
-      TEST_ARGS
-      ${scope_TEST_ARGS}
-      ${extra})
+    foreach(variant IN ITEMS "" "_uncovered")
+      if(vkexec_MULL_INTERNAL_SCOPE)
+        set(extra)
+        if(variant)
+          set(extra INCLUDE_NOT_COVERED)
+        endif()
+        _vkexec_add_mutation_audit(
+          NAME
+          "${name}${variant}"
+          CONFIG
+          "${config}"
+          TEST_TARGET
+          "${scope_TEST_TARGET}"
+          SOURCES
+          ${scope_SOURCES}
+          TEST_ARGS
+          ${scope_TEST_ARGS}
+          ${extra})
+      else()
+        add_custom_target(
+          vkexec_mutation_${name}${variant}
+          COMMAND
+            "${CMAKE_COMMAND}" "-DSOURCE_DIR=${PROJECT_SOURCE_DIR}" "-DBUILD_ROOT=${PROJECT_BINARY_DIR}"
+            "-DSCOPE=${name}" "-DAUDIT=${name}${variant}" "-DGENERATOR=${CMAKE_GENERATOR}"
+            "-DGENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}" "-DGENERATOR_TOOLSET=${CMAKE_GENERATOR_TOOLSET}"
+            "-DCONFIG=$<CONFIG>" -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/RunMutationScope.cmake"
+          USES_TERMINAL VERBATIM)
+      endif()
+    endforeach()
   endforeach()
 endfunction()
