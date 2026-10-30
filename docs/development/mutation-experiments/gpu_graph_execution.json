@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "kind": "noncanonical GPU experiment readiness snapshot",
+  "state": "hardware_inconclusive",
+  "date": "2026-10-30",
+  "source": {
+    "base_revision": "0049ac2f38eeab0ba749fa601e1294a0a7b0ec20",
+    "implementation_committed": false,
+    "validation_mode": "Standalone compile/link using existing debug build libraries; not an isolated Mull experiment",
+    "sha256": {
+      "test/mutation/gpu/gpu_preflight.cpp": "bd5a3aa92b0a324e20c775f2b90174798e1ca1cdf906738269f34253552807eb",
+      "test/mutation/gpu/graph_execution_tests.cpp": "c00dca1b0b103549041c8395b0e01237ab899f16bade6ffaa128802121f3029e",
+      "test/mutation/gpu/strict_gpu.hpp": "97c22116b38d5f27415c9b6a937001243d8a6b127ba385ff0b49cd4cf4a651e0"
+    }
+  },
+  "versions": {
+    "clang": "clang version 22.1.8\nTarget: x86_64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /nix/store/qhlmk9q9vma1xb24d2abazvdqsrp73w3-clang-22.1.8/bin\n",
+    "llvm": "LLVM (http://llvm.org/):\n  LLVM version 22.1.8\n  Optimized build.\n",
+    "mull": "mull-runner 0.35.0\n\nMull: Practical mutation testing and fault injection for C and C++\nHome: https://mull-project.com\nLLVM: 22.1.8\n"
+  },
+  "device": {
+    "device_name": "llvmpipe (LLVM 21.1.8, 256 bits)",
+    "vendor_id": 65541,
+    "device_id": 0,
+    "device_type": "cpu",
+    "api_version": "1.4.354",
+    "driver_version": "109060101",
+    "queue_family": 0,
+    "software_device": true,
+    "identity": "65541:0:4211042:109060101:6d65736132362e322e35000000000000:6c6c766d706970655555494400000000"
+  },
+  "environment": {
+    "VK_LAYER_PATH": "/nix/store/2p3ff6vbl8i2gyf2zvickc48k7hm9x0k-vulkan-validation-layers-1.4.357.0/share/vulkan/explicit_layer.d"
+  },
+  "hardware_preflight": {
+    "exit_code": 86,
+    "eligible_hardware": false,
+    "dev_dri_exists": false,
+    "message": "GPU_INFRASTRUCTURE_FAILURE: software device rejected; hardware measurement inconclusive"
+  },
+  "software_diagnostic": {
+    "explicit_override": true,
+    "context_allocator_and_both_memory_domains": true,
+    "unmutated_runs": [
+      {
+        "run": 1,
+        "test_cases": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reported_assertions": 320,
+        "seconds": 0.169,
+        "junit_sha256": "417341cbed79ff84647eb9ffff1c516f22cd215de79f563f9afb14bb471c1877"
+      },
+      {
+        "run": 2,
+        "test_cases": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reported_assertions": 320,
+        "seconds": 0.169,
+        "junit_sha256": "cf082e793e494cb5646140ecdfdb9737002da8adac3206b154bd8a54bcb74008"
+      },
+      {
+        "run": 3,
+        "test_cases": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "reported_assertions": 320,
+        "seconds": 0.169,
+        "junit_sha256": "08f607148f8e36f689bdb995c2d37c6a804074c5d7ad11c0e07342ce4746c231"
+      }
+    ],
+    "instrumented": false
+  },
+  "gpu_mutation_audits": {
+    "state": "not_run",
+    "reason": "No eligible physical Vulkan GPU",
+    "complete_experiments": 0,
+    "mutant_count": null,
+    "mutants": [],
+    "covered_inclusive_consistency": null,
+    "three_run_stability": null,
+    "cpu_intersection": null,
+    "confirmed_incremental_detections": null,
+    "mutation_score": null
+  },
+  "planned_measurement": {
+    "scope": "gpu_graph_execution",
+    "configuration_sha256": "b79791e26ed593d25852a76a9cafd46eafb5a7fb5302c1f7d9bd20effab34eb4",
+    "options": {
+      "vkexec_BUILD_VMA": "ON",
+      "vkexec_BUILD_TOOLS": "OFF",
+      "vkexec_MULL_WORKERS": "1",
+      "vkexec_MULL_TIMEOUT_MS": "60000",
+      "vkexec_MULL_MINIMUM_TIMEOUT_MS": "5000"
+    },
+    "test_args": [
+      "[mutation-gpu]",
+      "--order",
+      "lex",
+      "--abort"
+    ],
+    "outer_timeout_seconds": 1800
+  },
+  "canonical_cpu_scopes_changed": false,
+  "recommendation": "Keep GPU mutation testing opt-in; no permanent GPU audit infrastructure is justified by the available evidence. Hardware mutation measurements and assertion attribution remain required.",
+  "evidence_directory": "out/pr12-evidence/gpu-initial",
+  "evidence_sha256": {
+    "compile-gpu_preflight.cpp.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile-gpu_preflight.cpp.log.command.json": "ed5f63ef0d6bcb2329d5707a8df523be48a356454843e145df8286ce70c31666",
+    "compile-graph_execution_tests.cpp.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile-graph_execution_tests.cpp.log.command.json": "29dba91a36d1da4b75d0f3ace376cc8869fbf32c8fdbe3aefb84a52e863e8ddd",
+    "device-access.txt": "09a03668d82145efee27c3bf07cb8f5ce29e0d7c038d654b5124c31ece3cec82",
+    "device.json": "6c1542c5b82b44f05e509d0a8f2bedd0d1a61a36c694eea76757c9c66ca8f51a",
+    "diagnostic-baseline/run-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostic-baseline/run-1.log.command.json": "2b151d90277bd36cbec46682b51a7a1b6a5550436fe3e04c4a17fd3e7b58a805",
+    "diagnostic-baseline/run-1.xml": "417341cbed79ff84647eb9ffff1c516f22cd215de79f563f9afb14bb471c1877",
+    "diagnostic-baseline/run-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostic-baseline/run-2.log.command.json": "26b6389ea1afdee376a566b1271539d4061f7729aa44697e7af09427048aa118",
+    "diagnostic-baseline/run-2.xml": "cf082e793e494cb5646140ecdfdb9737002da8adac3206b154bd8a54bcb74008",
+    "diagnostic-baseline/run-3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostic-baseline/run-3.log.command.json": "5410564d27f37510681076069c6911bcba97b606726e16475c5c77b7dd18b8ee",
+    "diagnostic-baseline/run-3.xml": "08f607148f8e36f689bdb995c2d37c6a804074c5d7ad11c0e07342ce4746c231",
+    "link-gpu_preflight.cpp.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "link-gpu_preflight.cpp.log.command.json": "4f36263d07d971224fd24e52076788b4fdec8135c0cdc5d9d13559ca7a5b3df4",
+    "link-graph_execution_tests.cpp.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "link-graph_execution_tests.cpp.log.command.json": "ba96d166c137ca50d785146dd66b1b25b67bcee051a7f50a1ac2440926da27aa",
+    "preflight.log": "441b53b3c92f03a08bac97b1f8d5582cd06fa54fb87c23007843044dde4bf2a2",
+    "preflight.log.command.json": "51944b521f209825c57c95c831e2413120217799d581db745162e31088c987f2",
+    "software-device.json": "6c1542c5b82b44f05e509d0a8f2bedd0d1a61a36c694eea76757c9c66ca8f51a",
+    "software-preflight.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "software-preflight.log.command.json": "4baed5d2e57e9ac96dd3ab15ee53919bb2b758e5594e2ec9571f3a9320e856ad",
+    "versions.json": "de363d184afb764e0238fda89faece7b992eadbe9ac2daf77ce605b8b8ef6484"
+  },
+  "implementation_sha256": {
+    "scripts/gpu_mutation_experiment.py": "f7022417ff7838197d8f6e1743bdf2b741e93c21687d853056cfbeb02ee6ee86",
+    "cmake/mull/experiments/gpu_graph_execution.yml": "b79791e26ed593d25852a76a9cafd46eafb5a7fb5302c1f7d9bd20effab34eb4"
+  },
+  "diagnostic_binary_sha256": {
+    "gpu_preflight.cpp": "5e0a5102f868b9fa35fdbeb01cbe5ee1425116b623110bab0ef7c6ba2e717603",
+    "graph_execution_tests.cpp": "6e0c3ba4cc75aed25f158e5431085bbcb5e7c931e6f091545c6ffbed19cc809e"
+  },
+  "lightweight_tests": {
+    "new_gpu_experiment_tests": 26,
+    "result": "passed",
+    "existing_regression_suites": {
+      "operator_expansion": 16,
+      "baseline_comparison": 23,
+      "audit_registration": 2,
+      "report_validation": 3,
+      "coverage_attribution": 3
+    }
+  }
+}
