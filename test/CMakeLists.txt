@@ -131,6 +131,9 @@ vkexec_add_test_executable(
   core/descriptor_schema_tests.cpp
   core/pass_detail_tests.cpp
   core/resource_state_mutation_tests.cpp
+  core/resource_helpers_mutation_tests.cpp
+  core/resource_validation_mutation_tests.cpp
+  core/barrier_coalescing_mutation_tests.cpp
   core/dag_planning_tests.cpp
   core/pass_detail_resource_tests.cpp
   core/resource_ranges_tests.cpp
