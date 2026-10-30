@@ -404,7 +404,7 @@ TEST_CASE("registered buffer extent eliminates empty whole-size tails", "[vkexec
 }
 
 TEST_CASE("buffer extent registration rejects late registration and out of bounds uses",
-  "[vkexec][resource-state][pass][ranges]")
+  "[vkexec][resource-state][pass][ranges][resource-helpers]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);

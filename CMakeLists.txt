@@ -279,6 +279,35 @@ if(PROJECT_IS_TOP_LEVEL)
         "--order"
         "lex"
         "--abort")
+      vkexec_register_mutation_scope(
+        NAME
+        resource_helpers
+        CONFIG
+        "${PROJECT_SOURCE_DIR}/cmake/mull/resource_helpers.yml"
+        TEST_TARGET
+        vkexec_core_tests
+        SOURCES
+        "include/vkexec/detail/resource_state_tracker_helpers.hpp"
+        "include/vkexec/detail/resource_state_tracker_validation.hpp"
+        TEST_ARGS
+        "[resource-helpers]"
+        "--order"
+        "lex"
+        "--abort")
+      vkexec_register_mutation_scope(
+        NAME
+        barrier_coalescing
+        CONFIG
+        "${PROJECT_SOURCE_DIR}/cmake/mull/barrier_coalescing.yml"
+        TEST_TARGET
+        vkexec_core_tests
+        SOURCES
+        "include/vkexec/detail/resource_barrier_coalescing.hpp"
+        TEST_ARGS
+        "[barrier-coalescing]"
+        "--order"
+        "lex"
+        "--abort")
       vkexec_finalize_mutation_scopes()
     endif()
     add_test(NAME vkexec.documentation_consistency

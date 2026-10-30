@@ -117,7 +117,7 @@ TEST_CASE("buffer normalization validates finite ranges without adding whole siz
   REQUIRE_FALSE(normalize(use));
 }
 
-TEST_CASE("partitioning clones complete frontiers and merging preserves them", "[vkexec][ranges]")
+TEST_CASE("partitioning clones complete frontiers and merging preserves them", "[vkexec][ranges][resource-helpers]")
 {
   using vkexec::detail::buffer_region_state;
   using vkexec::detail::merge_buffer_regions;
@@ -152,7 +152,7 @@ TEST_CASE("partitioning clones complete frontiers and merging preserves them", "
   REQUIRE(pieces->front().range == original.front().range);
 }
 
-TEST_CASE("partitioning fills finite holes and rejects open uncovered tails", "[vkexec][ranges]")
+TEST_CASE("partitioning fills finite holes and rejects open uncovered tails", "[vkexec][ranges][resource-helpers]")
 {
   using vkexec::detail::buffer_range;
   using vkexec::detail::buffer_region_state;
@@ -176,7 +176,7 @@ TEST_CASE("partitioning fills finite holes and rejects open uncovered tails", "[
   REQUIRE(first_open->front().range == buffer_range{ .begin = k_begin, .end = std::nullopt });
 }
 
-TEST_CASE("partitioning rejects finite cuts of open tracked buffer ranges", "[vkexec][ranges]")
+TEST_CASE("partitioning rejects finite cuts of open tracked buffer ranges", "[vkexec][ranges][resource-helpers]")
 {
   using vkexec::detail::buffer_region_state;
   using vkexec::detail::partition_buffer_regions;
@@ -187,7 +187,8 @@ TEST_CASE("partitioning rejects finite cuts of open tracked buffer ranges", "[vk
   REQUIRE_FALSE(pieces.has_value());
 }
 
-TEST_CASE("barrier coalescing preserves synchronization scopes and transfer pairs", "[vkexec][ranges]")
+TEST_CASE("barrier coalescing preserves synchronization scopes and transfer pairs",
+  "[vkexec][ranges][barrier-coalescing]")
 {
   using vkexec::detail::merge_barriers;
 
@@ -212,7 +213,8 @@ TEST_CASE("barrier coalescing preserves synchronization scopes and transfer pair
   REQUIRE_FALSE(merge_barriers(first, second));
 }
 
-TEST_CASE("image barrier coalescing requires a rectangular union and equal old layouts", "[vkexec][ranges]")
+TEST_CASE("image barrier coalescing requires a rectangular union and equal old layouts",
+  "[vkexec][ranges][barrier-coalescing]")
 {
   using vkexec::detail::merge_barriers;
 

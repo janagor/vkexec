@@ -79,7 +79,7 @@ auto require_range(VkImageSubresourceRange actual, VkImageSubresourceRange expec
 
 }// namespace
 
-TEST_CASE("image rectangle subtraction preserves four surrounding regions", "[vkexec][ranges]")
+TEST_CASE("image rectangle subtraction preserves four surrounding regions", "[vkexec][ranges][resource-helpers]")
 {
   using vkexec::detail::image_region_state;
   using vkexec::detail::merge_image_regions;
@@ -110,7 +110,8 @@ TEST_CASE("image rectangle subtraction preserves four surrounding regions", "[vk
   REQUIRE(subtract(*whole, *whole).empty());
 }
 
-TEST_CASE("image partitioning accepts disjoint finite mips that share remaining layers", "[vkexec][ranges]")
+TEST_CASE("image partitioning accepts disjoint finite mips that share remaining layers",
+  "[vkexec][ranges][resource-helpers]")
 {
   using vkexec::detail::image_region_state;
   using vkexec::detail::normalize;
@@ -446,7 +447,7 @@ TEST_CASE("depth stencil declarations preserve coupled barriers or separate aspe
 }
 
 TEST_CASE("overlapping conflicting image declarations in one pass are rejected atomically",
-  "[vkexec][resource-state][pass][ranges]")
+  "[vkexec][resource-state][pass][ranges][resource-helpers]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -617,7 +618,7 @@ TEST_CASE("image rectangles match a deterministic subresource cell reference", "
   }
 }
 
-TEST_CASE("image region merging keeps distinct reader frontiers and owners", "[vkexec][pass][ranges]")
+TEST_CASE("image region merging keeps distinct reader frontiers and owners", "[vkexec][pass][ranges][resource-helpers]")
 {
   using vkexec::detail::image_region_state;
   using vkexec::detail::merge_image_regions;

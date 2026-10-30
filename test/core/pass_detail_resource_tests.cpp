@@ -325,7 +325,8 @@ TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][
   REQUIRE(release.new_layout == acquire.new_layout);
 }
 
-TEST_CASE("resource tracking requires an initial layout for first reads", "[vkexec][resource-state][pass]")
+TEST_CASE("resource tracking requires an initial layout for first reads",
+  "[vkexec][resource-state][pass][resource-helpers]")
 {
   char storage{};
   vkexec::detail::resource_state_tracker tracker{ k_single_step_count };

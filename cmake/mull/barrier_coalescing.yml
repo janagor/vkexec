@@ -1,0 +1,6 @@
+mutators:
+  - cxx_comparison
+  - cxx_boundary
+
+includePaths:
+  - '(^|.*/)include/vkexec/detail/resource_barrier_coalescing\.hpp$'
