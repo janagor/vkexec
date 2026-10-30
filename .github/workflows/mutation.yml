@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/mutation.yml'
+      - 'scripts/mutation_operator_experiment.py'
+      - 'test/mutation/operator_expansion/**'
       - 'scripts/compare_mutation_baselines.py'
       - 'scripts/create_mutation_baseline.py'
       - 'scripts/ci/**'
@@ -45,6 +47,7 @@ jobs:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s test/mutation/baseline_comparison -v
       - run: python3 scripts/test_diagnose_mull_coverage.py
+      - run: python3 -m unittest discover -s test/mutation/operator_expansion -v
   audits:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
