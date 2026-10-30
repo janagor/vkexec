@@ -76,7 +76,7 @@ TEST_CASE("storage_bindings_equal compares buffer bindings", "[vkexec][pass]")
 TEST_CASE("write_storage_descriptors returns when no buffers are bound", "[vkexec][pass]")
 { vkexec::write_storage_descriptors(VK_NULL_HANDLE, VK_NULL_HANDLE, std::span<vkexec::storage_binding const>{}); }
 
-TEST_CASE("pass batches group adjacent steps by resolved queue", "[vkexec][pass]")
+TEST_CASE("pass batches group adjacent steps by resolved queue", "[vkexec][pass][dag-plan]")
 {
   char graphics_storage{};
   char compute_storage{};
@@ -141,7 +141,7 @@ TEST_CASE("pass batches group adjacent steps by resolved queue", "[vkexec][pass]
   REQUIRE_FALSE(vkexec::detail::plan_execution(mixed.size() - 1, mixed, graphics).has_value());
 }
 
-TEST_CASE("DAG planner keeps independent branches separate", "[vkexec][pass]")
+TEST_CASE("DAG planner keeps independent branches separate", "[vkexec][pass][dag-plan]")
 {
   char first_storage{};
   char second_storage{};

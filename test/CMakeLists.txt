@@ -130,6 +130,7 @@ vkexec_add_test_executable(
   core/resource_table_tests.cpp
   core/descriptor_schema_tests.cpp
   core/pass_detail_tests.cpp
+  core/dag_planning_tests.cpp
   core/pass_detail_resource_tests.cpp
   core/resource_ranges_tests.cpp
   core/buffer_region_tests.cpp
