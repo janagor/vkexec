@@ -12,6 +12,10 @@ on:
   pull_request:
     paths:
       - '.github/workflows/mutation.yml'
+      - 'scripts/gpu_mutation_experiment.py'
+      - 'cmake/mull/experiments/gpu_graph_execution.yml'
+      - 'test/mutation/gpu/**'
+      - 'test/mutation/gpu_experiment/**'
       - 'scripts/mutation_operator_experiment.py'
       - 'test/mutation/operator_expansion/**'
       - 'scripts/compare_mutation_baselines.py'
@@ -48,6 +52,7 @@ jobs:
       - run: python3 -m unittest discover -s test/mutation/baseline_comparison -v
       - run: python3 scripts/test_diagnose_mull_coverage.py
       - run: python3 -m unittest discover -s test/mutation/operator_expansion -v
+      - run: python3 -m unittest discover -s test/mutation/gpu_experiment -v
   audits:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
