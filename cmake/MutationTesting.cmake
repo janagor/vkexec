@@ -40,7 +40,16 @@ function(vkexec_setup_mutation_testing)
           "^[0-9]+"
           clang_major
           "${CMAKE_CXX_COMPILER_VERSION}")
-  find_program(vkexec_MULL_RUNNER NAMES mull-runner-${clang_major} REQUIRED)
+  # Presets may expand an unset MULL_RUNNER to an empty cache entry.
+  # find_program treats that entry as a result and otherwise skips discovery.
+  if("${vkexec_MULL_RUNNER}" STREQUAL "")
+    unset(vkexec_MULL_RUNNER CACHE)
+    unset(vkexec_MULL_RUNNER)
+  endif()
+  find_program(vkexec_MULL_RUNNER NAMES mull-runner-${clang_major} mull-runner REQUIRED)
+  if(NOT EXISTS "${vkexec_MULL_RUNNER}" OR IS_DIRECTORY "${vkexec_MULL_RUNNER}")
+    message(FATAL_ERROR "vkexec_MULL_RUNNER must point to an existing Mull runner executable")
+  endif()
   find_program(vkexec_MULL_PROFDATA NAMES llvm-profdata-${clang_major} llvm-profdata REQUIRED)
   execute_process(COMMAND "${vkexec_MULL_PROFDATA}" --version OUTPUT_VARIABLE profdata_version COMMAND_ERROR_IS_FATAL
                                                                               ANY)

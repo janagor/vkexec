@@ -21,7 +21,7 @@ The shell exports `MULL_LIBRARY_PATH` for Vulkan and the C/C++ runtimes. CMake u
 
 `MULL_PLUGIN` contains the actual Nix store path to the frontend; `MULL_RUNNER` contains the runner path. The same arguments can be appended to a custom CMake configuration with mutation testing enabled. The shell repackages official Mull Debian binaries, pins their checksums, and patches runtime library paths to the Nix LLVM dependencies; it does not build Mull from source. The LLVM patch version is checked during evaluation so a toolchain update requires reviewing the package pin. Matching versions alone do not establish binary compatibility. Instrumented compilation and both audit targets have now been verified with this toolchain; see the [measured baseline](mutation-baseline.md).
 
-Outside this shell, install a Mull frontend and runner matching the Clang toolchain being used. Supply the frontend path explicitly. CMake finds `mull-runner-<Clang major>` on `PATH`, or accepts an explicit `vkexec_MULL_RUNNER` path.
+Outside this shell, install a Mull frontend and runner matching the Clang toolchain being used. Supply the frontend path explicitly. CMake finds `mull-runner-<Clang major>` or `mull-runner` on `PATH`, or accepts an explicit `vkexec_MULL_RUNNER` path. An empty runner setting falls back to discovery; a supplied path must exist and must not be a directory.
 
 From the repository root, configure and run in a separate build directory:
 

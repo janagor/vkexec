@@ -23,6 +23,16 @@ env:
 
 
 jobs:
+  mutation-tooling:
+    name: Mutation tooling tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test Mull report validation and runner discovery
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_validate_mull_report.py'
+          python3 -m unittest discover -s scripts -p 'test_mull_runner_discovery.py'
+
   loc-limits:
     name: C++ file length limits
     runs-on: ubuntu-24.04
