@@ -19,6 +19,9 @@ on:
       - 'cmake/RunMutationScope.cmake'
       - 'scripts/validate_mull_report.py'
       - 'scripts/test_validate_mull_report.py'
+      - 'scripts/diagnose_mull_coverage.py'
+      - 'scripts/test_diagnose_mull_coverage.py'
+      - 'test/mutation/helper_attribution/**'
       - 'flake.nix'
       - 'flake.lock'
       - 'mull.yml'
@@ -41,6 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: python3 -m unittest discover -s test/mutation/baseline_comparison -v
+      - run: python3 scripts/test_diagnose_mull_coverage.py
   audits:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
