@@ -1,0 +1,68 @@
+name: Mutation audits
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Mutation scope
+        type: choice
+        default: all
+        options: [all, ranges, dag, resource_state, resource_helpers, barrier_coalescing]
+  schedule:
+    - cron: '30 3 * * 0'
+  pull_request:
+    paths:
+      - '.github/workflows/mutation.yml'
+      - 'scripts/compare_mutation_baselines.py'
+      - 'scripts/create_mutation_baseline.py'
+      - 'scripts/ci/**'
+      - 'cmake/MutationTesting.cmake'
+      - 'cmake/RunMutationScope.cmake'
+      - 'scripts/validate_mull_report.py'
+      - 'scripts/test_validate_mull_report.py'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'mull.yml'
+      - 'cmake/mull/**'
+      - 'CMakeLists.txt'
+      - 'test/CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'Dependencies.cmake'
+      - 'ProjectOptions.cmake'
+      - 'test/mutation/baseline_comparison/**'
+      - 'docs/development/mutation-ci-baselines/**'
+permissions:
+  contents: read
+concurrency:
+  group: mutation-${{ github.event_name }}-${{ github.ref }}-${{ inputs.scope || 'all' }}
+  cancel-in-progress: true
+jobs:
+  comparison-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest discover -s test/mutation/baseline_comparison -v
+  audits:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      MUTATION_SCOPE: ${{ inputs.scope || 'all' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/nix-installer-action@v21
+      - name: Run mutation audits (report policy during rollout)
+        run: nix develop .#clang-mut --command bash scripts/ci/run_mutation_audits.sh "$MUTATION_SCOPE" --policy report
+      - name: Retain mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-${{ inputs.scope || 'all' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            out/mutation-ci-artifacts/
+            out/build/unixlike-clang-mut/mutation-reports/
+            out/build/unixlike-clang-mut/CMakeCache.txt
+            out/build/unixlike-clang-mut/Testing/Temporary/
+            out/build/unixlike-clang-mut/mutation-configs/
