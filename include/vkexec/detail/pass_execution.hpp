@@ -302,14 +302,18 @@ template<class StepStorage>
 
 inline auto add_resource_dependencies(execution_plan &plan, resource_sync_plan const &sync) -> void
 {
+  if (sync.dependencies.empty()) { return; }
+
+  // Execution batches form a contiguous partition of the synchronization steps.
+  std::vector<std::size_t> step_to_batch(sync.steps.size());
+  for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {
+    auto const &batch = plan.batches.at(batch_index);
+    for (std::size_t step = batch.first_step; step < batch.end_step; ++step) { step_to_batch.at(step) = batch_index; }
+  }
+
   for (auto const &[source, destination] : sync.dependencies) {
-    std::size_t source_batch{};
-    std::size_t destination_batch{};
-    for (std::size_t index{}; index < plan.batches.size(); ++index) {
-      auto const &batch = plan.batches.at(index);
-      if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }
-      if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }
-    }
+    auto const source_batch = step_to_batch.at(source);
+    auto const destination_batch = step_to_batch.at(destination);
     if (source_batch == destination_batch) { continue; }
     auto &incoming = plan.batches.at(destination_batch).predecessors;
     if (std::ranges::find(incoming, source_batch) == incoming.end()) { incoming.push_back(source_batch); }
