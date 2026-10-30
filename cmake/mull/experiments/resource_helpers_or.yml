@@ -1,0 +1,7 @@
+mutators:
+  - cxx_or_to_and
+  - cxx_or_assign_to_and_assign
+
+includePaths:
+  - '(^|.*/)include/vkexec/detail/resource_state_tracker_helpers\.hpp$'
+  - '(^|.*/)include/vkexec/detail/resource_state_tracker_validation\.hpp$'
