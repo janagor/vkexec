@@ -1,0 +1,4 @@
+mutators:
+  - cxx_eq_to_ne
+includePaths:
+  - '(^|.*/)(validity\.hpp|out_of_line\.cpp)$'
