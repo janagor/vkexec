@@ -144,7 +144,7 @@ TEST_CASE("image range normalization preserves symbolic remaining counts", "[vke
   REQUIRE_FALSE(normalize(range(k_base, k_one, k_base, k_one, VK_IMAGE_ASPECT_PLANE_0_BIT)));
 }
 
-TEST_CASE("disjoint mips and layers stay independent within a pass", "[vkexec][pass][ranges]")
+TEST_CASE("disjoint mips and layers stay independent within a pass", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -166,7 +166,8 @@ TEST_CASE("disjoint mips and layers stay independent within a pass", "[vkexec][p
   require_range(plan.image_uses.at(k_second_step).range, range(k_next));
 }
 
-TEST_CASE("partial image layers synchronize only their intersection and initialize gaps", "[vkexec][pass][ranges]")
+TEST_CASE("partial image layers synchronize only their intersection and initialize gaps",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -196,7 +197,7 @@ TEST_CASE("partial image layers synchronize only their intersection and initiali
   }
 }
 
-TEST_CASE("spanning image use retains different old layouts and predecessors", "[vkexec][pass][ranges]")
+TEST_CASE("spanning image use retains different old layouts and predecessors", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -220,7 +221,8 @@ TEST_CASE("spanning image use retains different old layouts and predecessors", "
   }
 }
 
-TEST_CASE("invalid image gap reads do not mutate tracked layouts or plan records", "[vkexec][pass][ranges]")
+TEST_CASE("invalid image gap reads do not mutate tracked layouts or plan records",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -237,7 +239,7 @@ TEST_CASE("invalid image gap reads do not mutate tracked layouts or plan records
   REQUIRE(plan.steps.at(k_third_step).images_before.front().old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 }
 
-TEST_CASE("partial image transfer uses matching releases and acquires", "[vkexec][pass][ranges]")
+TEST_CASE("partial image transfer uses matching releases and acquires", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -266,7 +268,7 @@ TEST_CASE("partial image transfer uses matching releases and acquires", "[vkexec
   REQUIRE_FALSE(has_edge(plan, k_second_step, k_third_step));
 }
 
-TEST_CASE("render-pass final layouts affect only the declared image region", "[vkexec][pass][ranges]")
+TEST_CASE("render-pass final layouts affect only the declared image region", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -290,7 +292,8 @@ TEST_CASE("render-pass final layouts affect only the declared image region", "[v
   }
 }
 
-TEST_CASE("unregistered remaining image ranges reject finite splits of open tails", "[vkexec][pass][ranges]")
+TEST_CASE("unregistered remaining image ranges reject finite splits of open tails",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -304,7 +307,8 @@ TEST_CASE("unregistered remaining image ranges reject finite splits of open tail
   REQUIRE(tracker.region_counts().images == k_one_barrier);
 }
 
-TEST_CASE("unregistered finite image uses reject later remaining-count extensions", "[vkexec][pass][ranges]")
+TEST_CASE("unregistered finite image uses reject later remaining-count extensions",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -325,7 +329,7 @@ TEST_CASE("unregistered finite image uses reject later remaining-count extension
 }
 
 TEST_CASE("disjoint finite image mips with remaining layers are accepted without registration",
-  "[vkexec][pass][ranges]")
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -344,7 +348,7 @@ TEST_CASE("disjoint finite image mips with remaining layers are accepted without
 }
 
 TEST_CASE("independent depth and stencil remaining-layer ranges are accepted without registration",
-  "[vkexec][pass][ranges]")
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -358,7 +362,8 @@ TEST_CASE("independent depth and stencil remaining-layer ranges are accepted wit
   REQUIRE(plan.dependencies.empty());
 }
 
-TEST_CASE("registered finite image uses accept later remaining-count extensions", "[vkexec][pass][ranges]")
+TEST_CASE("registered finite image uses accept later remaining-count extensions",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -379,7 +384,7 @@ TEST_CASE("registered finite image uses accept later remaining-count extensions"
   REQUIRE(plan.steps.at(k_second_step).images_before.front().range.layerCount != VK_REMAINING_ARRAY_LAYERS);
 }
 
-TEST_CASE("registered remaining image ranges clamp away empty open tails", "[vkexec][pass][ranges]")
+TEST_CASE("registered remaining image ranges clamp away empty open tails", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -401,7 +406,8 @@ TEST_CASE("registered remaining image ranges clamp away empty open tails", "[vke
   require_range(plan.steps.at(k_third_step).images_before.front().range, range(k_last, k_one, k_last, k_one));
 }
 
-TEST_CASE("depth stencil declarations preserve coupled barriers or separate aspects", "[vkexec][pass][ranges]")
+TEST_CASE("depth stencil declarations preserve coupled barriers or separate aspects",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -439,7 +445,8 @@ TEST_CASE("depth stencil declarations preserve coupled barriers or separate aspe
   }
 }
 
-TEST_CASE("overlapping conflicting image declarations in one pass are rejected atomically", "[vkexec][pass][ranges]")
+TEST_CASE("overlapping conflicting image declarations in one pass are rejected atomically",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -458,7 +465,7 @@ TEST_CASE("overlapping conflicting image declarations in one pass are rejected a
   REQUIRE(plan.steps.at(k_first_step).images_before.size() == k_one_barrier);
 }
 
-TEST_CASE("image rectangles match a deterministic subresource cell reference", "[vkexec][pass][ranges]")
+TEST_CASE("image rectangles match a deterministic subresource cell reference", "[vkexec][resource-state][pass][ranges]")
 {
   constexpr std::size_t k_operation_count = 160;
   constexpr std::uint32_t k_seed = 0x1A6E5U;
@@ -647,7 +654,7 @@ TEST_CASE("image region merging keeps distinct reader frontiers and owners", "[v
   REQUIRE(regions.size() == k_two_barriers);
 }
 
-TEST_CASE("registered image extent eliminates empty remaining-range tails", "[vkexec][pass][ranges]")
+TEST_CASE("registered image extent eliminates empty remaining-range tails", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -675,7 +682,8 @@ TEST_CASE("registered image extent eliminates empty remaining-range tails", "[vk
   REQUIRE(plan.steps.at(k_fourth_step).images_before.empty());
 }
 
-TEST_CASE("concurrent images retain layout dependencies without ownership transfers", "[vkexec][pass][ranges]")
+TEST_CASE("concurrent images retain layout dependencies without ownership transfers",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const image = fake_image(&storage);
@@ -704,7 +712,8 @@ TEST_CASE("concurrent images retain layout dependencies without ownership transf
 
 #if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION) && VKEXEC_HAS_EXCEPTIONS
 // VKEXEC_HAS_EXCEPTIONS comes from <vkexec/config.hpp> (compiler unwind / __cpp_exceptions).
-TEST_CASE("uses batch rolls back when image barrier generation throws before insert", "[vkexec][pass][ranges]")
+TEST_CASE("uses batch rolls back when image barrier generation throws before insert",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char existing_storage{};
   char created_storage{};
@@ -713,6 +722,10 @@ TEST_CASE("uses batch rolls back when image barrier generation throws before ins
   vkexec::detail::resource_state_tracker tracker{ k_step_count };
   REQUIRE(
     tracker.use(vkexec::write(existing, range(k_base), vkexec::image_usage::storage_compute), k_first_step, k_family));
+  struct fault_cleanup
+  {
+    ~fault_cleanup() { vkexec::detail::resource_allocation_fault::disarm(); }
+  } const cleanup;
   vkexec::detail::resource_allocation_fault::arm(1);
   REQUIRE_THROWS_AS(
     tracker.use(vkexec::uses(vkexec::write(created, range(k_base), vkexec::image_usage::storage_compute)),
@@ -729,7 +742,7 @@ TEST_CASE("uses batch rolls back when image barrier generation throws before ins
   REQUIRE(plan.dependencies.empty());
 }
 
-TEST_CASE("uses batch rolls back when image insertion throws after barriers", "[vkexec][pass][ranges]")
+TEST_CASE("uses batch rolls back when image insertion throws after barriers", "[vkexec][resource-state][pass][ranges]")
 {
   char existing_storage{};
   char created_storage{};
@@ -740,6 +753,10 @@ TEST_CASE("uses batch rolls back when image insertion throws after barriers", "[
     tracker.use(vkexec::write(existing, range(k_base), vkexec::image_usage::storage_compute), k_first_step, k_family));
   // First checkpoint allows barrier generation.
   // Second checkpoint throws before tracked-image insertion.
+  struct fault_cleanup
+  {
+    ~fault_cleanup() { vkexec::detail::resource_allocation_fault::disarm(); }
+  } const cleanup;
   vkexec::detail::resource_allocation_fault::arm(2);
   REQUIRE_THROWS_AS(
     tracker.use(vkexec::uses(vkexec::write(created, range(k_base), vkexec::image_usage::storage_compute)),

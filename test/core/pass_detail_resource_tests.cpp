@@ -32,7 +32,7 @@ namespace vkexec {
 class context;
 }// namespace vkexec
 
-TEST_CASE("ownership transfer collapses a reader frontier to one release", "[vkexec][pass]")
+TEST_CASE("ownership transfer collapses a reader frontier to one release", "[vkexec][resource-state][pass]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -49,7 +49,7 @@ TEST_CASE("ownership transfer collapses a reader frontier to one release", "[vke
   REQUIRE(plan.steps.at(k_fourth_step).buffers_before.size() == 1);
 }
 
-TEST_CASE("compute binding preserves a sampled descriptor's GENERAL layout", "[vkexec][pass]")
+TEST_CASE("compute binding preserves a sampled descriptor's GENERAL layout", "[vkexec][resource-state][pass]")
 {
   char image_storage{};
   auto *const image = fake_image(&image_storage);
@@ -84,7 +84,7 @@ TEST_CASE("compute binding rejects missing storage buffer metadata", "[vkexec][p
   REQUIRE(bind.metadata == vkexec::resource_metadata_state::partial);
 }
 
-TEST_CASE("opaque compute binding requires complete declarations before planning", "[vkexec][pass]")
+TEST_CASE("opaque compute binding requires complete declarations before planning", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::handles::compute_pipeline pipe{};
@@ -103,7 +103,7 @@ TEST_CASE("opaque compute binding requires complete declarations before planning
   REQUIRE(vkexec::detail::declare_step_resources(declared, tracker, k_first_step, queue, false));
 }
 
-TEST_CASE("descriptor-free compute binding remains complete", "[vkexec][pass]")
+TEST_CASE("descriptor-free compute binding remains complete", "[vkexec][resource-state][pass]")
 {
   vkexec::handles::compute_pipeline const pipe{};
   auto const bind = vkexec::bind_compute(pipe);
@@ -144,7 +144,7 @@ TEST_CASE("no-push classic overload accepts explicit opaque resources", "[vkexec
   REQUIRE(vkexec::detail::plan_resource_sync(*execution, chain.steps));
 }
 
-TEST_CASE("indirect dispatch tracks its buffer with explicit opaque declarations", "[vkexec][pass]")
+TEST_CASE("indirect dispatch tracks its buffer with explicit opaque declarations", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::handles::compute_pipeline pipe{};
@@ -165,7 +165,7 @@ TEST_CASE("indirect dispatch tracks its buffer with explicit opaque declarations
   REQUIRE(std::ranges::find(plan.dependencies, std::pair{ k_first_step, k_second_step }) != plan.dependencies.end());
 }
 
-TEST_CASE("missing opaque metadata does not mutate indirect resource tracking", "[vkexec][pass]")
+TEST_CASE("missing opaque metadata does not mutate indirect resource tracking", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::handles::compute_pipeline pipe{};
@@ -236,7 +236,7 @@ TEST_CASE("when_all opaque branches require declarations and order conflicts", "
   REQUIRE_FALSE(vkexec::detail::plan_resource_sync(*missing_execution, missing_chain.steps));
 }
 
-TEST_CASE("explicit opaque accesses generate cross-queue dependencies and ownership", "[vkexec][pass]")
+TEST_CASE("explicit opaque accesses generate cross-queue dependencies and ownership", "[vkexec][resource-state][pass]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -270,7 +270,7 @@ TEST_CASE("explicit opaque accesses generate cross-queue dependencies and owners
   REQUIRE_FALSE(plan.steps.at(k_second_step).buffers_before.empty());
 }
 
-TEST_CASE("explicit opaque accesses order different queues in one family", "[vkexec][pass]")
+TEST_CASE("explicit opaque accesses order different queues in one family", "[vkexec][resource-state][pass]")
 {
   char storage{};
   char first_queue_storage{};
@@ -299,7 +299,7 @@ TEST_CASE("explicit opaque accesses order different queues in one family", "[vke
   REQUIRE(std::ranges::find(plan.dependencies, std::pair{ k_first_step, k_second_step }) != plan.dependencies.end());
 }
 
-TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][pass]")
+TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][resource-state][pass]")
 {
   char storage{};
   constexpr std::uint32_t k_graphics_family = 2;
@@ -325,7 +325,7 @@ TEST_CASE("resource tracking plans cross family release and acquire", "[vkexec][
   REQUIRE(release.new_layout == acquire.new_layout);
 }
 
-TEST_CASE("resource tracking requires an initial layout for first reads", "[vkexec][pass]")
+TEST_CASE("resource tracking requires an initial layout for first reads", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
@@ -340,7 +340,7 @@ TEST_CASE("resource tracking requires an initial layout for first reads", "[vkex
     k_default_family));
 }
 
-TEST_CASE("resource tracking uses semaphore ordering across queues in one family", "[vkexec][pass]")
+TEST_CASE("resource tracking uses semaphore ordering across queues in one family", "[vkexec][resource-state][pass]")
 {
   char image_storage{};
   char first_queue_storage{};
@@ -367,7 +367,7 @@ TEST_CASE("resource tracking uses semaphore ordering across queues in one family
   REQUIRE(barrier.src_queue_family == VK_QUEUE_FAMILY_IGNORED);
 }
 
-TEST_CASE("resource tracking rejects access incompatible with image usage", "[vkexec][pass]")
+TEST_CASE("resource tracking rejects access incompatible with image usage", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
@@ -378,7 +378,7 @@ TEST_CASE("resource tracking rejects access incompatible with image usage", "[vk
     vkexec::read(image, k_color_range, vkexec::image_usage::transfer_destination), k_first_step, k_default_family));
 }
 
-TEST_CASE("resource tracking rejects access incompatible with buffer usage", "[vkexec][pass]")
+TEST_CASE("resource tracking rejects access incompatible with buffer usage", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::detail::resource_state_tracker tracker{ k_single_step_count };
@@ -398,7 +398,7 @@ TEST_CASE("uniform buffer usage selects one shader stage", "[vkexec][pass]")
   REQUIRE(vkexec::detail::buffer_scope(vertex).stage == VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT);
 }
 
-TEST_CASE("resource tracking rejects two declarations in one pass", "[vkexec][pass]")
+TEST_CASE("resource tracking rejects two declarations in one pass", "[vkexec][resource-state][pass]")
 {
   char image_storage{};
   char buffer_storage{};
@@ -414,7 +414,7 @@ TEST_CASE("resource tracking rejects two declarations in one pass", "[vkexec][pa
     tracker.use(vkexec::read(buffer, vkexec::buffer_usage::storage_compute), k_first_step, k_default_family));
 }
 
-TEST_CASE("presentation validation checks the declared image subresources", "[vkexec][pass]")
+TEST_CASE("presentation validation checks the declared image subresources", "[vkexec][resource-state][pass]")
 {
   char storage{};
   auto *const image = fake_image(&storage);

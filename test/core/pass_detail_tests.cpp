@@ -294,7 +294,7 @@ TEST_CASE("typed branch lowering materializes a static graph with terminal sinks
   REQUIRE(graph.step_predecessors.at(k_left) == graph.step_predecessors.at(k_right));
 }
 
-TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass]")
+TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][resource-state][pass]")
 {
   char storage{};
   vkexec::detail::resource_state_tracker tracker{ k_pair_step_count };
@@ -320,7 +320,7 @@ TEST_CASE("resource tracking plans same queue image transitions", "[vkexec][pass
   REQUIRE(barrier.src_queue_family == VK_QUEUE_FAMILY_IGNORED);
 }
 
-TEST_CASE("buffer readers fan out and a writer joins their frontier", "[vkexec][pass]")
+TEST_CASE("buffer readers fan out and a writer joins their frontier", "[vkexec][resource-state][pass]")
 {
   char storage{};
   char first_queue_storage{};
@@ -349,7 +349,7 @@ TEST_CASE("buffer readers fan out and a writer joins their frontier", "[vkexec][
   REQUIRE(barrier.src_access == (VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT));
 }
 
-TEST_CASE("first buffer reads form a frontier", "[vkexec][pass]")
+TEST_CASE("first buffer reads form a frontier", "[vkexec][resource-state][pass]")
 {
   char storage{};
   char first_queue_storage{};
@@ -372,7 +372,7 @@ TEST_CASE("first buffer reads form a frontier", "[vkexec][pass]")
             { k_first_step, k_third_step }, { k_second_step, k_third_step } });
 }
 
-TEST_CASE("imported image reads in an existing layout form a frontier", "[vkexec][pass]")
+TEST_CASE("imported image reads in an existing layout form a frontier", "[vkexec][resource-state][pass]")
 {
   char storage{};
   char first_queue_storage{};
@@ -401,7 +401,7 @@ TEST_CASE("imported image reads in an existing layout form a frontier", "[vkexec
             { k_first_step, k_third_step }, { k_second_step, k_third_step } });
 }
 
-TEST_CASE("image layout change anchors a new read frontier", "[vkexec][pass]")
+TEST_CASE("image layout change anchors a new read frontier", "[vkexec][resource-state][pass]")
 {
   char storage{};
   auto *const image = fake_image(&storage);

@@ -61,7 +61,7 @@ auto require_range(vkexec::buffer_barrier_params const &barrier, VkDeviceSize of
 
 }// namespace
 
-TEST_CASE("disjoint buffer uses remain independent including within one pass", "[vkexec][pass][ranges]")
+TEST_CASE("disjoint buffer uses remain independent including within one pass", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -86,7 +86,7 @@ TEST_CASE("disjoint buffer uses remain independent including within one pass", "
   }
 }
 
-TEST_CASE("partial buffer read synchronizes only previously written bytes", "[vkexec][pass][ranges]")
+TEST_CASE("partial buffer read synchronizes only previously written bytes", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -114,7 +114,7 @@ TEST_CASE("partial buffer read synchronizes only previously written bytes", "[vk
   require_range(plan.steps.at(k_fourth_step).buffers_before.front(), k_middle, k_quarter);
 }
 
-TEST_CASE("a contained write preserves both outer buffer frontiers", "[vkexec][pass][ranges]")
+TEST_CASE("a contained write preserves both outer buffer frontiers", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -135,7 +135,7 @@ TEST_CASE("a contained write preserves both outer buffer frontiers", "[vkexec][p
   require_range(plan.steps.at(k_second_step).buffers_before.front(), k_quarter, k_middle);
 }
 
-TEST_CASE("a spanning write joins every overlapping buffer reader", "[vkexec][pass][ranges]")
+TEST_CASE("a spanning write joins every overlapping buffer reader", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -160,7 +160,8 @@ TEST_CASE("a spanning write joins every overlapping buffer reader", "[vkexec][pa
   REQUIRE(barriers.at(k_third_step).src_access == (VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_UNIFORM_READ_BIT));
 }
 
-TEST_CASE("partial ownership transfer leaves disjoint buffer ownership intact", "[vkexec][pass][ranges]")
+TEST_CASE("partial ownership transfer leaves disjoint buffer ownership intact",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   vkexec::detail::resource_state_tracker tracker{ k_step_count };
@@ -192,7 +193,8 @@ TEST_CASE("partial ownership transfer leaves disjoint buffer ownership intact", 
   REQUIRE_FALSE(has_edge(plan, k_second_step, k_fourth_step));
 }
 
-TEST_CASE("partial ownership release joins and includes all relevant reader scopes", "[vkexec][pass][ranges]")
+TEST_CASE("partial ownership release joins and includes all relevant reader scopes",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -216,7 +218,7 @@ TEST_CASE("partial ownership release joins and includes all relevant reader scop
   REQUIRE(release.src_access == (VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT));
 }
 
-TEST_CASE("invalid buffer declarations leave all earlier regions intact", "[vkexec][pass][ranges]")
+TEST_CASE("invalid buffer declarations leave all earlier regions intact", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -245,7 +247,7 @@ TEST_CASE("invalid buffer declarations leave all earlier regions intact", "[vkex
   REQUIRE(has_edge(plan, k_second_step, k_third_step));
 }
 
-TEST_CASE("compatible same-pass buffer reads retain every usage scope", "[vkexec][pass][ranges]")
+TEST_CASE("compatible same-pass buffer reads retain every usage scope", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -263,7 +265,7 @@ TEST_CASE("compatible same-pass buffer reads retain every usage scope", "[vkexec
   REQUIRE(barrier.src_access == (VK_ACCESS_2_UNIFORM_READ_BIT | VK_ACCESS_2_TRANSFER_READ_BIT));
 }
 
-TEST_CASE("identical adjacent buffer states merge before subsequent use", "[vkexec][pass][ranges]")
+TEST_CASE("identical adjacent buffer states merge before subsequent use", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -279,7 +281,7 @@ TEST_CASE("identical adjacent buffer states merge before subsequent use", "[vkex
   require_range(plan.steps.at(k_second_step).buffers_before.front(), k_begin, k_middle);
 }
 
-TEST_CASE("buffer interval plans match a deterministic per-byte reference", "[vkexec][pass][ranges]")
+TEST_CASE("buffer interval plans match a deterministic per-byte reference", "[vkexec][resource-state][pass][ranges]")
 {
   constexpr std::size_t k_address_space = 64;
   constexpr std::size_t k_operation_count = 192;
@@ -378,7 +380,7 @@ TEST_CASE("buffer interval plans match a deterministic per-byte reference", "[vk
   }
 }
 
-TEST_CASE("registered buffer extent eliminates empty whole-size tails", "[vkexec][pass][ranges]")
+TEST_CASE("registered buffer extent eliminates empty whole-size tails", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -401,7 +403,8 @@ TEST_CASE("registered buffer extent eliminates empty whole-size tails", "[vkexec
   REQUIRE(plan.steps.at(k_fourth_step).buffers_before.empty());
 }
 
-TEST_CASE("buffer extent registration rejects late registration and out of bounds uses", "[vkexec][pass][ranges]")
+TEST_CASE("buffer extent registration rejects late registration and out of bounds uses",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -423,7 +426,8 @@ TEST_CASE("buffer extent registration rejects late registration and out of bound
   }
 }
 
-TEST_CASE("concurrent buffers synchronize data without queue ownership transfers", "[vkexec][pass][ranges]")
+TEST_CASE("concurrent buffers synchronize data without queue ownership transfers",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -452,7 +456,7 @@ TEST_CASE("concurrent buffers synchronize data without queue ownership transfers
   }
 }
 
-TEST_CASE("buffer splits preserve queue-specific source scopes", "[vkexec][pass][ranges]")
+TEST_CASE("buffer splits preserve queue-specific source scopes", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   char first_queue_storage{};
@@ -485,7 +489,7 @@ TEST_CASE("buffer splits preserve queue-specific source scopes", "[vkexec][pass]
   REQUIRE(plan.steps.at(k_fourth_step).buffers_before.front().src_stage == VK_PIPELINE_STAGE_2_NONE);
 }
 
-TEST_CASE("unregistered whole buffer uses reject finite splits of open tails", "[vkexec][pass][ranges]")
+TEST_CASE("unregistered whole buffer uses reject finite splits of open tails", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -501,7 +505,7 @@ TEST_CASE("unregistered whole buffer uses reject finite splits of open tails", "
   REQUIRE_FALSE(has_edge(plan, k_second_step, k_third_step));
 }
 
-TEST_CASE("registered whole buffer uses clamp away empty open tails", "[vkexec][pass][ranges]")
+TEST_CASE("registered whole buffer uses clamp away empty open tails", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -518,7 +522,7 @@ TEST_CASE("registered whole buffer uses clamp away empty open tails", "[vkexec][
   REQUIRE(plan.steps.at(k_third_step).buffers_before.front().size != VK_WHOLE_SIZE);
 }
 
-TEST_CASE("uses batch rolls back earlier declarations after a later conflict", "[vkexec][pass][ranges]")
+TEST_CASE("uses batch rolls back earlier declarations after a later conflict", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -536,7 +540,8 @@ TEST_CASE("uses batch rolls back earlier declarations after a later conflict", "
   REQUIRE(plan.steps.at(k_first_step).buffers_before.empty());
 }
 
-TEST_CASE("unregistered finite buffer uses reject later whole-size extensions", "[vkexec][pass][ranges]")
+TEST_CASE("unregistered finite buffer uses reject later whole-size extensions",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -550,7 +555,7 @@ TEST_CASE("unregistered finite buffer uses reject later whole-size extensions", 
   REQUIRE_FALSE(has_edge(plan, k_first_step, k_second_step));
 }
 
-TEST_CASE("registered finite buffer uses accept later whole-size extensions", "[vkexec][pass][ranges]")
+TEST_CASE("registered finite buffer uses accept later whole-size extensions", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -568,7 +573,7 @@ TEST_CASE("registered finite buffer uses accept later whole-size extensions", "[
   REQUIRE(plan.steps.at(k_second_step).buffers_before.front().size != VK_WHOLE_SIZE);
 }
 
-TEST_CASE("uses batch rolls back extent registration after a later conflict", "[vkexec][pass][ranges]")
+TEST_CASE("uses batch rolls back extent registration after a later conflict", "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -584,7 +589,8 @@ TEST_CASE("uses batch rolls back extent registration after a later conflict", "[
   REQUIRE_FALSE(tracker.use(vkexec::read(buffer, vkexec::buffer_usage::uniform_compute), k_second_step, k_family));
 }
 
-TEST_CASE("uses batch rolls back ownership-release barriers after a later conflict", "[vkexec][pass][ranges]")
+TEST_CASE("uses batch rolls back ownership-release barriers after a later conflict",
+  "[vkexec][resource-state][pass][ranges]")
 {
   char storage{};
   auto *const buffer = fake_buffer(&storage);
@@ -605,7 +611,7 @@ TEST_CASE("uses batch rolls back ownership-release barriers after a later confli
 
 #if defined(VKEXEC_ENABLE_ALLOCATION_FAULT_INJECTION) && VKEXEC_HAS_EXCEPTIONS
 // VKEXEC_HAS_EXCEPTIONS comes from <vkexec/config.hpp> (compiler unwind / __cpp_exceptions).
-TEST_CASE("uses batch rolls back when new buffer insertion throws", "[vkexec][pass][ranges]")
+TEST_CASE("uses batch rolls back when new buffer insertion throws", "[vkexec][resource-state][pass][ranges]")
 {
   char existing_storage{};
   char created_storage{};
@@ -614,6 +620,10 @@ TEST_CASE("uses batch rolls back when new buffer insertion throws", "[vkexec][pa
   vkexec::detail::resource_state_tracker tracker{ k_step_count };
   REQUIRE(tracker.use(
     vkexec::write(existing, k_begin, k_end, vkexec::buffer_usage::storage_compute), k_first_step, k_family));
+  struct fault_cleanup
+  {
+    ~fault_cleanup() { vkexec::detail::resource_allocation_fault::disarm(); }
+  } const cleanup;
   vkexec::detail::resource_allocation_fault::arm(1);
   REQUIRE_THROWS_AS(tracker.use(vkexec::uses(vkexec::buffer_extent{ .buffer = created, .size = k_end },
                                   vkexec::write(created, k_begin, k_quarter, vkexec::buffer_usage::storage_compute)),
