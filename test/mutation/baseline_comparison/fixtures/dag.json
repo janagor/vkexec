@@ -1,0 +1,26 @@
+[
+  {
+    "file": "include/vkexec/detail/pass_execution.hpp",
+    "mutator": "cxx_eq_to_ne",
+    "line": 22,
+    "column": 20,
+    "status": "killed",
+    "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/pass_execution.hpp:22:20:22:22"
+  },
+  {
+    "file": "include/vkexec/detail/pass_execution.hpp",
+    "mutator": "cxx_eq_to_ne",
+    "line": 23,
+    "column": 20,
+    "status": "survived",
+    "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/pass_execution.hpp:23:20:23:22"
+  },
+  {
+    "file": "include/vkexec/detail/pass_execution.hpp",
+    "mutator": "cxx_eq_to_ne",
+    "line": 24,
+    "column": 20,
+    "status": "not_covered",
+    "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/pass_execution.hpp:24:20:24:22"
+  }
+]
