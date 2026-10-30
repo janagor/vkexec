@@ -265,6 +265,20 @@ if(PROJECT_IS_TOP_LEVEL)
         "--order"
         "lex"
         "--abort")
+      vkexec_register_mutation_scope(
+        NAME
+        resource_state
+        CONFIG
+        "${PROJECT_SOURCE_DIR}/cmake/mull/resource_state.yml"
+        TEST_TARGET
+        vkexec_core_tests
+        SOURCES
+        "include/vkexec/detail/resource_state_tracker.hpp"
+        TEST_ARGS
+        "[resource-state]"
+        "--order"
+        "lex"
+        "--abort")
       vkexec_finalize_mutation_scopes()
     endif()
     add_test(NAME vkexec.documentation_consistency
