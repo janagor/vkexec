@@ -188,3 +188,26 @@ rollback tests when exceptions are enabled. Tests additionally tagged
 uses one worker, a 1000 ms minimum mutant timeout and a 10000 ms warmup timeout;
 configure `-Dvkexec_MULL_MINIMUM_TIMEOUT_MS=1000` to reproduce that policy in a
 fresh cache. See [the baseline](mutation-resource-state-baseline.md).
+
+## Resource helpers, validation and barrier coalescing
+
+PR 8 adds two independent scopes under the existing preset. Use one worker and
+a 1000 ms minimum timeout when reproducing their baselines:
+
+```sh
+nix develop .#clang-mut
+cmake --preset unixlike-clang-mut -Dvkexec_MULL_WORKERS=1 -Dvkexec_MULL_MINIMUM_TIMEOUT_MS=1000
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_resource_helpers
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_resource_helpers_uncovered
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_barrier_coalescing
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_barrier_coalescing_uncovered
+```
+
+The helper scope expects both helper and validation headers in each report.
+Coalescing has its own instrumented executable, profiles and reports. Existing
+range, DAG and resource-state filters remain unchanged. See the
+[helper baseline](mutation-resource-helpers-baseline.md) and
+[coalescing baseline](mutation-barrier-coalescing-baseline.md) for exact populations,
+initial/final classifications, repeated-run comparisons and source-emission limits.
+Evaluation coverage describes emitted mutants; it does not establish that every
+function or expression generated a mutant. No score threshold or CI gate is added.

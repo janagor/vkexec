@@ -129,3 +129,30 @@ but are not mutation sources. The private build is
 `vkexec_core_resource_state` and `vkexec_core_resource_state_uncovered` prefixes.
 See [the tracker baseline](mutation-resource-state-baseline.md) for evidence and
 remaining limitations. This scope adds neither a preset nor a score gate.
+
+## Resource helpers and validation
+
+The `resource_helpers` scope selects `[resource-helpers] --order lex --abort`
+and uses `cmake/mull/resource_helpers.yml`. Its two expected mutation sources are
+`include/vkexec/detail/resource_state_tracker_helpers.hpp` and
+`include/vkexec/detail/resource_state_tracker_validation.hpp`. Both must appear in
+the SQLite report; the existing multi-source validator enforces this requirement.
+The focused CPU tests exercise usage mapping, region/frontier preservation,
+extent bounds, declaration conflicts and queue-filtered source scopes.
+
+## Barrier coalescing
+
+The independent `barrier_coalescing` scope selects
+`[barrier-coalescing] --order lex --abort`, uses
+`cmake/mull/barrier_coalescing.yml` and mutates only
+`include/vkexec/detail/resource_barrier_coalescing.hpp`. Exact merge assertions
+and bounded byte/subresource reference models check synchronization metadata,
+coverage, ownership-transfer preservation and fixed-point behavior.
+
+Both scopes use `cxx_comparison` and `cxx_boundary`, the same single public preset,
+and private `mutation-builds/resource_helpers/` and
+`mutation-builds/barrier_coalescing/` directories. Report prefixes are
+`vkexec_core_resource_helpers` and `vkexec_core_barrier_coalescing`, each with a
+separate `_uncovered` variant. Their scores are independent of the three earlier
+audits. See [helper evidence](mutation-resource-helpers-baseline.md) and
+[coalescing evidence](mutation-barrier-coalescing-baseline.md).
