@@ -2,7 +2,7 @@
 
 Mull audits whether the existing Catch2 tests detect deliberate implementation changes. Keep unit tests, coverage, sanitizer runs, and Vulkan integration tests alongside this audit.
 
-The opt-in `unixlike-clang-mut` preset instruments the compiled core library and the core test executable, including header-defined implementation code. The initial `mull.yml` selects only `include/vkexec/detail/resource_ranges.hpp`; tests and fetched dependencies are excluded. The `vkexec_mutation_ranges` target selects the device-independent `[ranges]` tests in `vkexec_core_tests`.
+The opt-in `unixlike-clang-mut` preset exposes all registered mutation audits. Each target orchestrates a persistent private build that instruments the core library and the selected test executable, including header-defined implementation code. The range YAML `mull.yml` selects only `include/vkexec/detail/resource_ranges.hpp`; the DAG YAML selects `include/vkexec/detail/pass_execution.hpp`. Tests and fetched dependencies are excluded by these source scopes. The targets select the device-independent `[ranges]` and `[dag-plan]` cases respectively.
 
 ## Toolchain and execution
 
@@ -13,7 +13,7 @@ nix develop .#clang-mut
 cmake --preset unixlike-clang-mut
 ```
 
-The `unixlike-clang-mut` preset inherits the normal Clang debug toolchain, reads `MULL_PLUGIN` and `MULL_RUNNER` from the environment, and enables mutation testing. It disables hardening, IPO, coverage tooling, sanitizers, static analyzers, optional modules, and compiler caching for this narrow audit. Ordinary debug and release presets retain their original settings and do not enable Mull. If an existing build directory has mutation testing cached as enabled, configure it once with `-Dvkexec_ENABLE_MUTATION_TESTING=OFF` to clear that setting.
+The `unixlike-clang-mut` preset is the only public mutation preset. It inherits the normal Clang debug toolchain, reads `MULL_PLUGIN` and `MULL_RUNNER` from the environment, and enables mutation testing. It disables hardening, IPO, coverage tooling, sanitizers, static analyzers, optional modules, and compiler caching for this narrow audit. Ordinary debug and release presets retain their original settings and do not enable Mull. If an existing build directory has mutation testing cached as enabled, configure it once with `-Dvkexec_ENABLE_MUTATION_TESTING=OFF` to clear that setting.
 
 The `clang-mut` shell also disables Nix's fortify hardening, which requires optimization and conflicts with Mull's `-O0` instrumentation. After changing this shell setting, exit the old Nix shell and enter `clang-mut` again before configuring or building.
 
@@ -32,11 +32,11 @@ cmake --preset unixlike-clang-mut -Dvkexec_MULL_PLUGIN=/absolute/path/to/mull-ir
 cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges
 ```
 
-Record these versions and confirm that `clang++` is the compiler selected in the CMake cache. A matching major-version suffix and an existing plugin file do not prove LLVM build compatibility. The instrumented compilation must successfully load the supplied plugin; inspect the verbose build (`cmake --build out/build/unixlike-clang-mut --target vkexec_core_tests --verbose`) and Mull's configuration messages before accepting the toolchain. Plugin loading has been verified by recompiling both selected targets with this frontend and running their generated mutants.
+Record these versions and confirm that `clang++` is the compiler selected in the CMake cache. A matching major-version suffix and an existing plugin file do not prove LLVM build compatibility. The instrumented compilation must successfully load the supplied plugin; inspect the verbose build (`cmake --build out/build/unixlike-clang-mut/mutation-builds/ranges --target vkexec_core_tests --verbose`) and Mull's configuration messages before accepting the toolchain. Plugin loading has been verified by recompiling both selected targets with this frontend and running their generated mutants.
 
 The [baseline record](mutation-baseline.md) contains measured results and their limitations. Building this target compiles the instrumented tests and executes Mull. It is separate from ordinary CTest and is never part of the default build.
 
-The preset disables IPO, hardening, sanitizers, coverage tooling, compiler caching, static analyzers, examples, and optional modules. Mull uses its own LLVM profiling flags for covered-code selection. Instrumentation is private to the two selected targets; third-party targets are not instrumented. CMake copies `mull.yml` to the build root and explicitly sets `MULL_CONFIG` for both instrumented compiler commands and the runner. A configuration digest changes the selected targets' compile definitions when the YAML changes, forcing mutant regeneration after CMake reconfiguration. Verify that both compiler and runner diagnostics name the copied build-directory configuration on the first real run.
+The preset disables IPO, hardening, sanitizers, coverage tooling, compiler caching, static analyzers, examples, and optional modules. Mull uses its own LLVM profiling flags for covered-code selection. Instrumentation is private to the two selected targets; third-party targets are not instrumented. CMake copies the scope YAML to the private build's `mull.yml` for compilation and `mutation-configs/<scope>.yml` for the runner, and explicitly sets `MULL_CONFIG` for both. The two copies have identical contents. A configuration digest changes the selected targets' compile definitions when the YAML changes, forcing mutant regeneration after CMake reconfiguration. Verify the two copied configurations match on the first real run.
 
 The warmup/baseline timeout defaults to 10000 milliseconds, adjustable with `-Dvkexec_MULL_TIMEOUT_MS=...`. Mull 0.35 derives mutant timeouts from ten times the measured baseline duration, with an upstream default minimum of 30 ms (this project selects 250 ms); `--timeout` does not set a fixed per-mutant budget. Keep timeout outcomes separate when comparing scores.
 
@@ -49,7 +49,7 @@ The validator requires every explicitly expected source file to contain mutants 
 Inspect killed and surviving mutants with the matching reporter:
 
 ```sh
-MULL_CONFIG="$PWD/out/build/unixlike-clang-mut/mull.yml" mull-reporter-22 \
+MULL_CONFIG="$PWD/out/build/unixlike-clang-mut/mutation-configs/ranges.yml" mull-reporter-22 \
   out/build/unixlike-clang-mut/mutation-reports/vkexec_core_ranges.sqlite --ide-reporter-show-killed
 ```
 
@@ -73,7 +73,14 @@ Instrumented targets bypass any cached global compiler launcher, including a lau
 
 Record the source revision, compiler and Mull versions, filters, test selection, killed/surviving/uncovered counts, and equivalent-mutant decisions with each baseline. Review survivors for missing boundary assertions or incorrect dependency expectations, then strengthen the existing tests and rerun with the same scope. Remove tests only after confirming that remaining tests preserve their behavioral coverage and mutation sensitivity. See the [baseline record](mutation-baseline.md) for the initial measured scores.
 
-For future scopes, use the [scope registration API](mutation-audit-scopes.md) and separately configured build directories. `vkexec_MULL_SCOPE` defaults to `ranges`; `cmake --preset unixlike-clang-mut -Dvkexec_MULL_SCOPE=ranges` explicitly selects it. Mull source filtering happens during compilation. Multiple runtime test selections cannot isolate different source scopes in the same executable. Keep independent reports separate; this integration does not enable a CI gate.
+For future scopes, use the [scope registration API](mutation-audit-scopes.md).
+All registered targets are available from the same public build directory without
+changing a scope cache variable. Internal builds are necessary for Mull 0.35.0:
+its coverage filter can retain out-of-scope uncovered mutants before runtime path
+filtering, and runtime operator settings do not remove already-compiled arithmetic
+mutants. The [small real experiment](mutation-dag-baseline.md#single-preset-fallback)
+records why sharing one instrumented binary was rejected. Keep independent reports
+separate; this integration does not enable a CI gate.
 
 See Mull's [setup guide](https://mull-project.com/getting-started/setup/), [runner reference](https://mull-project.com/reference/mull-runner/), and [filters](https://mull-project.com/reference/filters/) for tool behavior and reporting options.
 
@@ -122,3 +129,44 @@ and 1000; use 3000 if needed. Preserve the original random-order/no-abort result
 separately from the selected lexical/fail-fast policy. For every changed test
 selection collect a fresh raw profile and merge it before supplying
 `--coverage-info`; never reuse the full-suite profile for an isolated test filter.
+
+## CPU DAG planning audit
+
+The public `unixlike-clang-mut` preset exposes both scopes. The DAG YAML filters
+only `include/vkexec/detail/pass_execution.hpp`, with `cxx_comparison` and
+`cxx_boundary`. The runtime selection is exclusively `[dag-plan]`, which constructs
+no Vulkan context. Resource recording and presentation helpers in that header
+remain visible as uncovered in the inclusive report. Internally, each scope uses
+its own persistent instrumented executable to preserve exact source/operator
+boundaries with Mull 0.35.0.
+
+```sh
+nix develop .#clang-mut
+cmake --preset unixlike-clang-mut \
+  -Dvkexec_MULL_WORKERS=1 -Dvkexec_MULL_MINIMUM_TIMEOUT_MS=1000
+for run in 1 2 3; do
+  cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_dag || exit 1
+  cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_dag_uncovered || exit 1
+  mkdir -p "out/dag-audit-run-$run"
+  cp out/build/unixlike-clang-mut/mutation-reports/* "out/dag-audit-run-$run/"
+done
+ctest --test-dir out/build/unixlike-clang-mut -R 'vkexec\.mull_' --output-on-failure
+```
+
+The targets overwrite standard report names; preserve each pair before repeating.
+Both variants write `vkexec_core_dag` / `vkexec_core_dag_uncovered` profiles, SQLite
+and JSON under the public build's `mutation-reports/`. Keep SQLite and profiles as local
+build artifacts. The [DAG baseline](mutation-dag-baseline.md) and its
+[per-mutant JSON](mutation-dag-baseline.json) record initial/final results,
+equivalent survivors and explicitly deferred uncovered functions.
+
+Verify the separate range scope after changes:
+
+```sh
+cmake --preset unixlike-clang-mut
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges_uncovered
+```
+
+The DAG scope does not change range operators or its existing 47/47 classification.
+Neither audit enforces a CI mutation-score threshold.

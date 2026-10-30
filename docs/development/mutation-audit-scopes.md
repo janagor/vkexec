@@ -1,11 +1,15 @@
 # Mutation audit scopes
 
-Mull generates mutations during compilation. Each build directory selects exactly
-one source scope through `vkexec_MULL_SCOPE` (default: `ranges`). Runtime Catch2
-filters select tests; they cannot isolate compiled mutation source scopes.
+The single public `unixlike-clang-mut` preset exposes every registered audit.
+Mull generates mutations during compilation. A real Mull 0.35.0 probe showed that
+runtime path filtering does not isolate uncovered-inclusive reports, and runtime
+operator lists do not narrow the emitted operators. Consequently, audit targets
+orchestrate persistent, isolated internal builds rather than sharing an
+instrumented executable. See the [runtime-filter experiment and preserved
+baselines](mutation-dag-baseline.md#single-preset-fallback).
 
 Register scopes after their executable targets exist and before the single
-`vkexec_finalize_mutation_scope()` finalization call:
+`vkexec_finalize_mutation_scopes()` finalization call:
 
 ```cmake
 vkexec_register_mutation_scope(
@@ -23,51 +27,74 @@ exact repository-relative files, without duplicates or paths outside the root.
 TEST_ARGS is a nonempty CMake argument list, passed identically to baseline
 profiling and Mull. Keep arguments separate; do not pass a shell command.
 
-Finalization validates the selected name, copies its configuration to the build
-root's `mull.yml`, and instruments only `vkexec` and the selected executable,
-once per target. Inactive registrations create no targets or instrumentation.
-The YAML remains responsible for compile-time source filtering; validation rejects
-reports containing unexpected files or missing any registered source.
+Finalization copies each normalized scope YAML to `mutation-configs/<name>.yml`
+and creates both `vkexec_mutation_<name>` and `vkexec_mutation_<name>_uncovered`.
+There is no public active-scope setting. An old cached `vkexec_MULL_SCOPE` is
+removed on reconfiguration. The public build does not instrument its own targets.
 
-Each selected scope creates `vkexec_mutation_<name>` and
-`vkexec_mutation_<name>_uncovered`. They have separate raw/indexed profiles,
-SQLite, JSON and text report paths under `mutation-reports/vkexec_core_<name>*`.
-Both remove stale output, collect a baseline, merge indexed coverage, execute
-Mull, and validate the report. Failures stop the build target. Uncovered mutants
-remain separate outcomes. Global worker and timeout settings remain unchanged.
+`cmake/RunMutationScope.cmake` configures the selected private tree under
+`mutation-builds/<name>/` using a generated initial-cache file. Toolchain settings,
+project options, worker/timeout values and downloaded dependency sources are
+forwarded; object files and dependency build directories stay isolated. Changes to
+these settings are applied on the next audit invocation. Internal build parallelism
+uses `CMAKE_BUILD_PARALLEL_LEVEL`, defaulting to two jobs to bound memory use.
+`vkexec_MULL_INTERNAL_SCOPE` and `vkexec_MULL_REPORT_DIR` are private orchestration
+settings, not switches users need to set.
 
-The migration preserves `vkexec_mutation_ranges`,
-`vkexec_mutation_ranges_uncovered`, their report names, the original YAML,
-indexed coverage, cache bypass and lexical/fail-fast Catch2 arguments. Existing
-single-source Python validator callers remain compatible; positional CLI sources
-now accept multiple files. Summary schema 2 and score definitions are unchanged.
-Every expected file must have discovered mutants. Strict validation requires a
-killed or surviving mutant somewhere in the complete report, while `parse_report`
-also accepts an entirely uncovered report.
+Within each private tree, `vkexec` and the selected test executable are instrumented
+once. The scope YAML is copied to its `mull.yml` for compilation and
+`mutation-configs/<name>.yml` for the runner; the contents are identical. Changes to
+the compile configuration invalidate instrumented objects. Compiler launchers
+bypass caching. Running a different public audit uses its existing private tree,
+without replacing or rebuilding the first scope's executable.
 
-For PR 6, a registration could look like this (illustrative only):
+Both variants remove stale reports/profiles, collect fresh matching-filter LLVM
+coverage, merge the indexed profile, execute Mull and validate expected source
+paths. All reports retain their existing names in the public build's
+`mutation-reports/vkexec_core_<name>*`, including separate covered/uncovered raw
+profiles, indexed profiles, SQLite, JSON and text output. Missing or unexpected
+source files fail validation. Strict validation requires killed or surviving
+mutants; entirely uncovered reports remain parseable for diagnostics.
 
-```cmake
-vkexec_register_mutation_scope(
-  NAME dag
-  CONFIG "${PROJECT_SOURCE_DIR}/cmake/mull/dag.yml"
-  TEST_TARGET vkexec_core_tests
-  SOURCES "include/vkexec/pass.hpp"
-  TEST_ARGS "[dag]" "--order" "lex" "--abort")
-```
+A process lock serializes the public audit commands, including commands from
+separate build processes, to avoid concurrent mutation timing and shared-tree
+build races. Configure, compilation, baseline, merge, runner and validator failures
+propagate to the public target. There is no aggregate target or CI score gate.
 
-Inspect the actual DAG source locations and Catch2 tags before implementing it.
-Configure and compile a dedicated build directory or preset with
-`-Dvkexec_MULL_SCOPE=dag`; keep the existing ranges directory independent.
-This would generate `vkexec_mutation_dag` and
-`vkexec_mutation_dag_uncovered`. PR 5 does not register or execute this scope,
-introduce thresholds, or combine independent audit scores.
+The DAG registration uses `cmake/mull/dag.yml`,
+`include/vkexec/detail/pass_execution.hpp` and `[dag-plan]`. Its two equivalent
+survivors and intentionally uncovered helpers remain visible. Range operators,
+report names and 47/47 classification are preserved. Independent scores are never
+combined.
 
 Run the focused configure checks without Mull or Vulkan:
 
 ```sh
 python3 test/mutation/audit_registration/test_registration.py
 ```
+
+## Recovering persistent internal builds
+
+After a generator or toolchain change, a private CMake cache may no longer match
+the public build. Stop audit processes and preserve any reports you need before
+cleaning generated build trees. For an affected private scope, remove its tree
+and rerun the public target; the target configures and rebuilds it automatically:
+
+```sh
+cmake -E rm -rf out/build/unixlike-clang-mut/mutation-builds/dag
+cmake --preset unixlike-clang-mut
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_dag
+```
+
+Use the corresponding `ranges` directory for the range audit, or remove both
+private scope directories when changing toolchains. If the public build's
+generator changes, recreate the public build directory too, after copying reports
+outside it. Re-enter the matching development shell before configuring.
+
+Cache forwarding deliberately covers project options, the supported toolchain
+settings and dependency source hints. When adding options that affect audit
+builds, review `_vkexec_write_mutation_cache()` and extend its focused tests as
+needed; do not forward every parent cache entry, including build-directory state.
 
 ## PR 5 verification
 

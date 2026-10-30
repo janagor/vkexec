@@ -1,0 +1,3676 @@
+{
+  "schema_version": 1,
+  "toolchain": {
+    "clang": "22.1.8",
+    "llvm": "22.1.8",
+    "mull": "0.35.0",
+    "catch2": "3.12.0"
+  },
+  "environment": "Existing clang-mut shell; Linux; no toolchain changes. Mull requires process tracing outside the workspace sandbox.",
+  "scope": {
+    "source": "include/vkexec/detail/pass_execution.hpp",
+    "config": "cmake/mull/dag.yml",
+    "mutators": [
+      "cxx_comparison",
+      "cxx_boundary"
+    ],
+    "test_filter": "[dag-plan]",
+    "id_policy": "Opaque mutant IDs are preserved verbatim including the checkout prefix. Compare exact IDs within this checkout; normalize only the checkout prefix when reproducing elsewhere.",
+    "discovery_limit": "File filtering includes only mutations emitted by this compiled binary; absence of a mutation is not a proof of coverage."
+  },
+  "initial": {
+    "metadata": {
+      "source_revision": "555a02dcbae7e3e8153de6c122743b25acdd3d95",
+      "source_dirty": true,
+      "sha256": {
+        "include/vkexec/detail/pass_execution.hpp": "a36fc2723b9aab384dc90ece76c874f446bad058318ea22f6471a4efd7925593",
+        "cmake/mull/dag.yml": "b79791e26ed593d25852a76a9cafd46eafb5a7fb5302c1f7d9bd20effab34eb4",
+        "test/core/pass_detail_tests.cpp": "326753eba7f8ec18f970f3461911d4aa1a717b6fd07341a27ab7fe5ab32219e9",
+        "CMakeLists.txt": "0339127e0bc810ec9c1ceb5d166add203230111e01b4dc6629a4c1417136ca00",
+        "CMakePresets.json": "2778290906876ae340d4abcfde60b36f08fd4c28a7b2bad28d55139159efa949",
+        "test/CMakeLists.txt": "686660b2986fbfc8c6a5674290ee9d547e37d9774836bf35361e4e7acbf4f8c0"
+      },
+      "binary_sha256": "f97b892a6ded1174ebc918c7cb50a0ce36c4ed0c2f02a384c9c28ab4cfb66817",
+      "test_args": [
+        "[dag-plan]",
+        "--order",
+        "lex",
+        "--abort"
+      ],
+      "workers": 1,
+      "minimum_timeout_ms": 1000,
+      "tests": "Matching test cases:\n  pass batches group adjacent steps by resolved queue\n      [dag-plan][pass][vkexec]\n  DAG planner keeps independent branches separate\n      [dag-plan][pass][vkexec]\n2 matching test cases\n\n"
+    },
+    "reports": {
+      "dag": {
+        "schema_version": 2,
+        "total": 13,
+        "evaluation_coverage": {
+          "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+          "evaluated": 13,
+          "discovered": 13,
+          "percent": 100.0
+        },
+        "killed": 11,
+        "survived": 2,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0,
+        "not_covered": 0,
+        "mutation_score": {
+          "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+          "denominator": 13,
+          "percent": 84.61538461538461
+        },
+        "locations": [
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:20:22:22",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 20,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:47:22:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 47,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_ge",
+            "status": "survived",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_le",
+            "status": "survived",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:51:21:51:23",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 51,
+            "column": 21,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (queues.size() != predecessors.size()) { return fail(errc::invalid_argument, \"DAG queue count mismatch\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:58:53:58:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 58,
+            "column": 53,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (std::ranges::count(incoming, predecessor) != std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:74:40:74:42",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 74,
+            "column": 40,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_execution",
+            "source_line": "if (!queues.empty() && queues.size() != step_count) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          }
+        ],
+        "per_file": {
+          "include/vkexec/detail/pass_execution.hpp": {
+            "total": 13,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 13,
+              "discovered": 13,
+              "percent": 100.0
+            },
+            "killed": 11,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 13,
+              "percent": 84.61538461538461
+            }
+          }
+        },
+        "per_mutator": {
+          "cxx_eq_to_ne": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_gt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_lt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_gt_to_ge": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 0,
+            "survived": 1,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 0.0
+            }
+          },
+          "cxx_gt_to_le": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 0,
+            "survived": 1,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 0.0
+            }
+          },
+          "cxx_lt_to_ge": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_lt_to_le": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_ne_to_eq": {
+            "total": 3,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 3,
+              "discovered": 3,
+              "percent": 100.0
+            },
+            "killed": 3,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 3,
+              "percent": 100.0
+            }
+          }
+        },
+        "per_function": {
+          "plan_batches": {
+            "survived": 2
+          },
+          "plan_dag": {
+            "killed": 6
+          },
+          "plan_execution": {
+            "killed": 1
+          },
+          "same_queue": {
+            "killed": 2
+          },
+          "terminal_batches": {
+            "killed": 2
+          }
+        }
+      },
+      "dag_uncovered": {
+        "schema_version": 2,
+        "total": 57,
+        "evaluation_coverage": {
+          "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+          "evaluated": 13,
+          "discovered": 57,
+          "percent": 22.80701754385965
+        },
+        "killed": 11,
+        "survived": 2,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0,
+        "not_covered": 44,
+        "mutation_score": {
+          "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+          "denominator": 13,
+          "percent": 84.61538461538461
+        },
+        "locations": [
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:20:22:22",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 20,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:47:22:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 47,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_ge",
+            "status": "survived",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_le",
+            "status": "survived",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:51:21:51:23",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 51,
+            "column": 21,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (queues.size() != predecessors.size()) { return fail(errc::invalid_argument, \"DAG queue count mismatch\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:58:53:58:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 58,
+            "column": 53,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (std::ranges::count(incoming, predecessor) != std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:74:40:74:42",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 74,
+            "column": 40,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_execution",
+            "source_line": "if (!queues.empty() && queues.size() != step_count) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:120:42:120:44",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 120,
+            "column": 42,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (plan.batches.empty() && step_count != 0) { return fail(errc::invalid_argument, \"invalid empty execution plan\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:122:47:122:48",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 122,
+            "column": 47,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:122:47:122:48",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 122,
+            "column": 47,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:26:124:28",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 26,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_le_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:62:124:64",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 62,
+            "mutator": "cxx_le_to_gt",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_le_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:62:124:64",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 62,
+            "mutator": "cxx_le_to_lt",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:100:124:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 100,
+            "mutator": "cxx_gt_to_ge",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:100:124:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 100,
+            "mutator": "cxx_gt_to_le",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:129:99:129:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 129,
+            "column": 99,
+            "mutator": "cxx_ge_to_gt",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "batch.predecessors, [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:129:99:129:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 129,
+            "column": 99,
+            "mutator": "cxx_ge_to_lt",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "batch.predecessors, [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:133:22:133:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 133,
+            "column": 22,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_execution_batches",
+            "source_line": "if (validated_step != step_count) { return fail(errc::invalid_argument, \"incomplete execution plan\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:139:37:139:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 139,
+            "column": 37,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "crosses_queue_families",
+            "source_line": "for (std::size_t index = 1; index < execution.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:139:37:139:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 139,
+            "column": 37,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "crosses_queue_families",
+            "source_line": "for (std::size_t index = 1; index < execution.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:140:54:140:56",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 140,
+            "column": 54,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "crosses_queue_families",
+            "source_line": "if (execution.batches.at(index - 1).queue.family != execution.batches.at(index).queue.family) { return true; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:212:22:212:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 212,
+            "column": 22,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "declare_indexed_step",
+            "source_line": "if (position == index) { declared = declare_step_resources(current, tracker, index, queue, crosses_families); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:227:54:227:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 227,
+            "column": 54,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "plan_resource_sync",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:227:54:227:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 227,
+            "column": 54,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "plan_resource_sync",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:253:52:253:53",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 253,
+            "column": 52,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "record_sync_batch",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:253:52:253:53",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 253,
+            "column": 52,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "record_sync_batch",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:264:26:264:28",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 264,
+            "column": 26,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "record_sync_batch",
+            "source_line": "if (position == index) { recorded = record_step(current, facade, scope.cmd, scope.cleanup, info); }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:280:13:280:15",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 280,
+            "column": 13,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (image == VK_NULL_HANDLE) { return {}; }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:284:19:284:21",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 284,
+            "column": 19,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.image != image) { continue; }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:287:30:287:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 287,
+            "column": 30,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.range.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT || use.range.baseMipLevel != 0"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:287:85:287:87",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 287,
+            "column": 85,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.range.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT || use.range.baseMipLevel != 0"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:288:34:288:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 288,
+            "column": 34,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.levelCount != k_single_subresource && use.range.levelCount != VK_REMAINING_MIP_LEVELS)"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:288:82:288:84",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 288,
+            "column": 82,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.levelCount != k_single_subresource && use.range.levelCount != VK_REMAINING_MIP_LEVELS)"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:289:37:289:39",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 289,
+            "column": 37,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| use.range.baseArrayLayer != 0"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:290:34:290:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 290,
+            "column": 34,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.layerCount != k_single_subresource && use.range.layerCount != VK_REMAINING_ARRAY_LAYERS)) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:290:82:290:84",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 290,
+            "column": 82,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.layerCount != k_single_subresource && use.range.layerCount != VK_REMAINING_ARRAY_LAYERS)) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:293:18:293:19",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 293,
+            "column": 18,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:293:18:293:19",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 293,
+            "column": 18,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:293:64:293:66",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 293,
+            "column": 64,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:294:29:294:31",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 294,
+            "column": 29,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| use.final_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:308:37:308:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 308,
+            "column": 37,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "for (std::size_t index{}; index < plan.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:308:37:308:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 308,
+            "column": 37,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "for (std::size_t index{}; index < plan.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:18:310:20",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 18,
+            "mutator": "cxx_ge_to_gt",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:18:310:20",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 18,
+            "mutator": "cxx_ge_to_lt",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 48,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 48,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:23:311:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:23:311:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 58,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 58,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:313:22:313:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 313,
+            "column": 22,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source_batch == destination_batch) { continue; }"
+          }
+        ],
+        "per_file": {
+          "include/vkexec/detail/pass_execution.hpp": {
+            "total": 57,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 13,
+              "discovered": 57,
+              "percent": 22.80701754385965
+            },
+            "killed": 11,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 44,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 13,
+              "percent": 84.61538461538461
+            }
+          }
+        },
+        "per_mutator": {
+          "cxx_eq_to_ne": {
+            "total": 6,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 6,
+              "percent": 33.333333333333336
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 4,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_gt": {
+            "total": 4,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 4,
+              "percent": 25.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 3,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_lt": {
+            "total": 4,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 4,
+              "percent": 25.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 3,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_gt_to_ge": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 2,
+              "percent": 50.0
+            },
+            "killed": 0,
+            "survived": 1,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 1,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 0.0
+            }
+          },
+          "cxx_gt_to_le": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 2,
+              "percent": 50.0
+            },
+            "killed": 0,
+            "survived": 1,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 1,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 0.0
+            }
+          },
+          "cxx_le_to_gt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 0,
+              "discovered": 1,
+              "percent": 0.0
+            },
+            "killed": 0,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 1,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 0,
+              "percent": null
+            }
+          },
+          "cxx_le_to_lt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 0,
+              "discovered": 1,
+              "percent": 0.0
+            },
+            "killed": 0,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 1,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 0,
+              "percent": null
+            }
+          },
+          "cxx_lt_to_ge": {
+            "total": 10,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 10,
+              "percent": 20.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 8,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_lt_to_le": {
+            "total": 10,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 10,
+              "percent": 20.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 8,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_ne_to_eq": {
+            "total": 17,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 3,
+              "discovered": 17,
+              "percent": 17.647058823529413
+            },
+            "killed": 3,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 14,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 3,
+              "percent": 100.0
+            }
+          }
+        },
+        "per_function": {
+          "add_resource_dependencies": {
+            "not_covered": 11
+          },
+          "crosses_queue_families": {
+            "not_covered": 3
+          },
+          "declare_indexed_step": {
+            "not_covered": 1
+          },
+          "plan_batches": {
+            "survived": 2
+          },
+          "plan_dag": {
+            "killed": 6
+          },
+          "plan_execution": {
+            "killed": 1
+          },
+          "plan_resource_sync": {
+            "not_covered": 2
+          },
+          "record_sync_batch": {
+            "not_covered": 3
+          },
+          "same_queue": {
+            "killed": 2
+          },
+          "terminal_batches": {
+            "killed": 2
+          },
+          "validate_execution_batches": {
+            "not_covered": 11
+          },
+          "validate_presentation_image": {
+            "not_covered": 13
+          }
+        }
+      }
+    }
+  },
+  "final": {
+    "metadata": {
+      "source_revision": "555a02dcbae7e3e8153de6c122743b25acdd3d95",
+      "source_dirty": true,
+      "sha256": {
+        "include/vkexec/detail/pass_execution.hpp": "a36fc2723b9aab384dc90ece76c874f446bad058318ea22f6471a4efd7925593",
+        "cmake/mull/dag.yml": "b79791e26ed593d25852a76a9cafd46eafb5a7fb5302c1f7d9bd20effab34eb4",
+        "test/core/pass_detail_tests.cpp": "326753eba7f8ec18f970f3461911d4aa1a717b6fd07341a27ab7fe5ab32219e9",
+        "test/core/dag_planning_tests.cpp": "3ab896cf9db0b888327022a66c0600826579fee9679b44629dacfbf7b4a61117",
+        "CMakeLists.txt": "0339127e0bc810ec9c1ceb5d166add203230111e01b4dc6629a4c1417136ca00",
+        "CMakePresets.json": "2778290906876ae340d4abcfde60b36f08fd4c28a7b2bad28d55139159efa949",
+        "test/CMakeLists.txt": "99d3b538ef83cbe9f034a784615934ea146abba7ae201d98afa0b9b08abde49b"
+      },
+      "binary_sha256": "22563e665ff90905210adac9327f5d2627d3fd2832e691206b3fc1108b648b03",
+      "test_args": [
+        "[dag-plan]",
+        "--order",
+        "lex",
+        "--abort"
+      ],
+      "workers": 1,
+      "minimum_timeout_ms": 1000,
+      "tests": "Matching test cases:\n  terminal batches include every disconnected sink in index order\n      [dag-plan][pass][vkexec]\n  resource hazards map steps to distinct batch predecessors in insertion order\n      [dag-plan][pass][vkexec]\n  DAG planner keeps independent branches separate\n      [dag-plan][pass][vkexec]\n  pass batches group adjacent steps by resolved queue\n      [dag-plan][pass][vkexec]\n  DAG planning preserves exact nodes queues and edges\n      [dag-plan][pass][vkexec]\n  sequential planning resolves absent affinities and compares both queue fields\n      [dag-plan][pass][vkexec]\n  queue family crossing depends on families rather than queue handles\n      [dag-plan][pass][vkexec]\n  execution batch validation rejects malformed partitions and edges\n      [dag-plan][pass][vkexec]\n8 matching test cases\n\n"
+    },
+    "reports": {
+      "dag": {
+        "schema_version": 2,
+        "total": 38,
+        "evaluation_coverage": {
+          "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+          "evaluated": 38,
+          "discovered": 38,
+          "percent": 100.0
+        },
+        "killed": 36,
+        "survived": 2,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0,
+        "not_covered": 0,
+        "mutation_score": {
+          "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+          "denominator": 38,
+          "percent": 94.73684210526316
+        },
+        "locations": [
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:20:22:22",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 20,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:47:22:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 47,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_ge",
+            "status": "killed",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_le",
+            "status": "killed",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:51:21:51:23",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 51,
+            "column": 21,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (queues.size() != predecessors.size()) { return fail(errc::invalid_argument, \"DAG queue count mismatch\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:58:53:58:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 58,
+            "column": 53,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (std::ranges::count(incoming, predecessor) != std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:74:40:74:42",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 74,
+            "column": 40,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_execution",
+            "source_line": "if (!queues.empty() && queues.size() != step_count) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:120:42:120:44",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 120,
+            "column": 42,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (plan.batches.empty() && step_count != 0) { return fail(errc::invalid_argument, \"invalid empty execution plan\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:122:47:122:48",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 122,
+            "column": 47,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:122:47:122:48",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 122,
+            "column": 47,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:26:124:28",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 26,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_le_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:62:124:64",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 62,
+            "mutator": "cxx_le_to_gt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_le_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:62:124:64",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 62,
+            "mutator": "cxx_le_to_lt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:100:124:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 100,
+            "mutator": "cxx_gt_to_ge",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:100:124:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 100,
+            "mutator": "cxx_gt_to_le",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:129:99:129:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 129,
+            "column": 99,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "batch.predecessors, [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:129:99:129:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 129,
+            "column": 99,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "batch.predecessors, [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:133:22:133:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 133,
+            "column": 22,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (validated_step != step_count) { return fail(errc::invalid_argument, \"incomplete execution plan\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:139:37:139:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 139,
+            "column": 37,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "crosses_queue_families",
+            "source_line": "for (std::size_t index = 1; index < execution.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:139:37:139:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 139,
+            "column": 37,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "crosses_queue_families",
+            "source_line": "for (std::size_t index = 1; index < execution.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:140:54:140:56",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 140,
+            "column": 54,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "crosses_queue_families",
+            "source_line": "if (execution.batches.at(index - 1).queue.family != execution.batches.at(index).queue.family) { return true; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:308:37:308:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 308,
+            "column": 37,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "for (std::size_t index{}; index < plan.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:308:37:308:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 308,
+            "column": 37,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "for (std::size_t index{}; index < plan.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:18:310:20",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 18,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:18:310:20",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 18,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 48,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 48,
+            "mutator": "cxx_lt_to_le",
+            "status": "survived",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:23:311:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:23:311:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 58,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 58,
+            "mutator": "cxx_lt_to_le",
+            "status": "survived",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:313:22:313:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 313,
+            "column": 22,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source_batch == destination_batch) { continue; }"
+          }
+        ],
+        "per_file": {
+          "include/vkexec/detail/pass_execution.hpp": {
+            "total": 38,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 38,
+              "discovered": 38,
+              "percent": 100.0
+            },
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 38,
+              "percent": 94.73684210526316
+            }
+          }
+        },
+        "per_mutator": {
+          "cxx_eq_to_ne": {
+            "total": 3,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 3,
+              "discovered": 3,
+              "percent": 100.0
+            },
+            "killed": 3,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 3,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_gt": {
+            "total": 4,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 4,
+              "discovered": 4,
+              "percent": 100.0
+            },
+            "killed": 4,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 4,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_lt": {
+            "total": 4,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 4,
+              "discovered": 4,
+              "percent": 100.0
+            },
+            "killed": 4,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 4,
+              "percent": 100.0
+            }
+          },
+          "cxx_gt_to_ge": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_gt_to_le": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_le_to_gt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_le_to_lt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_lt_to_ge": {
+            "total": 7,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 7,
+              "discovered": 7,
+              "percent": 100.0
+            },
+            "killed": 7,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 7,
+              "percent": 100.0
+            }
+          },
+          "cxx_lt_to_le": {
+            "total": 7,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 7,
+              "discovered": 7,
+              "percent": 100.0
+            },
+            "killed": 5,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 7,
+              "percent": 71.42857142857143
+            }
+          },
+          "cxx_ne_to_eq": {
+            "total": 7,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 7,
+              "discovered": 7,
+              "percent": 100.0
+            },
+            "killed": 7,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 7,
+              "percent": 100.0
+            }
+          }
+        },
+        "per_function": {
+          "add_resource_dependencies": {
+            "killed": 9,
+            "survived": 2
+          },
+          "crosses_queue_families": {
+            "killed": 3
+          },
+          "plan_batches": {
+            "killed": 2
+          },
+          "plan_dag": {
+            "killed": 6
+          },
+          "plan_execution": {
+            "killed": 1
+          },
+          "same_queue": {
+            "killed": 2
+          },
+          "terminal_batches": {
+            "killed": 2
+          },
+          "validate_execution_batches": {
+            "killed": 11
+          }
+        }
+      },
+      "dag_uncovered": {
+        "schema_version": 2,
+        "total": 57,
+        "evaluation_coverage": {
+          "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+          "evaluated": 38,
+          "discovered": 57,
+          "percent": 66.66666666666667
+        },
+        "killed": 36,
+        "survived": 2,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0,
+        "not_covered": 19,
+        "mutation_score": {
+          "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+          "denominator": 38,
+          "percent": 94.73684210526316
+        },
+        "locations": [
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:20:22:22",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 20,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:22:47:22:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 22,
+            "column": 47,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "same_queue",
+            "source_line": "{ return lhs.queue == rhs.queue && lhs.family == rhs.family; }"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_ge",
+            "status": "killed",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 34,
+            "column": 31,
+            "mutator": "cxx_gt_to_le",
+            "status": "killed",
+            "function": "plan_batches",
+            "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:51:21:51:23",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 51,
+            "column": 21,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (queues.size() != predecessors.size()) { return fail(errc::invalid_argument, \"DAG queue count mismatch\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:54:35:54:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 54,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "for (std::size_t index{}; index < queues.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:57:23:57:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 57,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (predecessor >= index) { return fail(errc::invalid_argument, \"DAG predecessor must precede its node\"); }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:58:53:58:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 58,
+            "column": 53,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_dag",
+            "source_line": "if (std::ranges::count(incoming, predecessor) != std::size_t{ 1 }) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:74:40:74:42",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 74,
+            "column": 40,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "plan_execution",
+            "source_line": "if (!queues.empty() && queues.size() != step_count) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:120:42:120:44",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 120,
+            "column": 42,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (plan.batches.empty() && step_count != 0) { return fail(errc::invalid_argument, \"invalid empty execution plan\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:122:47:122:48",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 122,
+            "column": 47,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:122:47:122:48",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 122,
+            "column": 47,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "for (std::size_t batch_index{}; batch_index < plan.batches.size(); ++batch_index) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:26:124:28",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 26,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_le_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:62:124:64",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 62,
+            "mutator": "cxx_le_to_gt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_le_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:62:124:64",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 62,
+            "mutator": "cxx_le_to_lt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:100:124:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 100,
+            "mutator": "cxx_gt_to_ge",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:124:100:124:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 124,
+            "column": 100,
+            "mutator": "cxx_gt_to_le",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (batch.first_step != validated_step || batch.end_step <= batch.first_step || batch.end_step > step_count) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:129:99:129:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 129,
+            "column": 99,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "batch.predecessors, [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:129:99:129:101",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 129,
+            "column": 99,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "batch.predecessors, [batch_index](std::size_t predecessor) -> bool { return predecessor >= batch_index; })) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:133:22:133:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 133,
+            "column": 22,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "validate_execution_batches",
+            "source_line": "if (validated_step != step_count) { return fail(errc::invalid_argument, \"incomplete execution plan\"); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:139:37:139:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 139,
+            "column": 37,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "crosses_queue_families",
+            "source_line": "for (std::size_t index = 1; index < execution.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:139:37:139:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 139,
+            "column": 37,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "crosses_queue_families",
+            "source_line": "for (std::size_t index = 1; index < execution.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:140:54:140:56",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 140,
+            "column": 54,
+            "mutator": "cxx_ne_to_eq",
+            "status": "killed",
+            "function": "crosses_queue_families",
+            "source_line": "if (execution.batches.at(index - 1).queue.family != execution.batches.at(index).queue.family) { return true; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:152:35:152:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 152,
+            "column": 35,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "terminal_batches",
+            "source_line": "for (std::size_t index{}; index < has_successor.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:212:22:212:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 212,
+            "column": 22,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "declare_indexed_step",
+            "source_line": "if (position == index) { declared = declare_step_resources(current, tracker, index, queue, crosses_families); }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:227:54:227:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 227,
+            "column": 54,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "plan_resource_sync",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:227:54:227:55",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 227,
+            "column": 54,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "plan_resource_sync",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:253:52:253:53",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 253,
+            "column": 52,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "record_sync_batch",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:253:52:253:53",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 253,
+            "column": 52,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "record_sync_batch",
+            "source_line": "for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:264:26:264:28",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 264,
+            "column": 26,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "record_sync_batch",
+            "source_line": "if (position == index) { recorded = record_step(current, facade, scope.cmd, scope.cleanup, info); }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:280:13:280:15",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 280,
+            "column": 13,
+            "mutator": "cxx_eq_to_ne",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (image == VK_NULL_HANDLE) { return {}; }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:284:19:284:21",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 284,
+            "column": 19,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.image != image) { continue; }"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:287:30:287:32",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 287,
+            "column": 30,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.range.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT || use.range.baseMipLevel != 0"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:287:85:287:87",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 287,
+            "column": 85,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.range.aspectMask != VK_IMAGE_ASPECT_COLOR_BIT || use.range.baseMipLevel != 0"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:288:34:288:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 288,
+            "column": 34,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.levelCount != k_single_subresource && use.range.levelCount != VK_REMAINING_MIP_LEVELS)"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:288:82:288:84",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 288,
+            "column": 82,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.levelCount != k_single_subresource && use.range.levelCount != VK_REMAINING_MIP_LEVELS)"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:289:37:289:39",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 289,
+            "column": 37,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| use.range.baseArrayLayer != 0"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:290:34:290:36",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 290,
+            "column": 34,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.layerCount != k_single_subresource && use.range.layerCount != VK_REMAINING_ARRAY_LAYERS)) {"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:290:82:290:84",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 290,
+            "column": 82,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| (use.range.layerCount != k_single_subresource && use.range.layerCount != VK_REMAINING_ARRAY_LAYERS)) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:293:18:293:19",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 293,
+            "column": 18,
+            "mutator": "cxx_lt_to_ge",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:293:18:293:19",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 293,
+            "column": 18,
+            "mutator": "cxx_lt_to_le",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:293:64:293:66",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 293,
+            "column": 64,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "if (use.step < plan.batches.back().first_step || use.usage != image_usage::color_attachment"
+          },
+          {
+            "mutant_id": "cxx_ne_to_eq:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:294:29:294:31",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 294,
+            "column": 29,
+            "mutator": "cxx_ne_to_eq",
+            "status": "not_covered",
+            "function": "validate_presentation_image",
+            "source_line": "|| use.final_layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:308:37:308:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 308,
+            "column": 37,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "for (std::size_t index{}; index < plan.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:308:37:308:38",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 308,
+            "column": 37,
+            "mutator": "cxx_lt_to_le",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "for (std::size_t index{}; index < plan.batches.size(); ++index) {"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:18:310:20",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 18,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:18:310:20",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 18,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 48,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 310,
+            "column": 48,
+            "mutator": "cxx_lt_to_le",
+            "status": "survived",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_gt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:23:311:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 23,
+            "mutator": "cxx_ge_to_gt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_ge_to_lt:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:23:311:25",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 23,
+            "mutator": "cxx_ge_to_lt",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 58,
+            "mutator": "cxx_lt_to_ge",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 311,
+            "column": 58,
+            "mutator": "cxx_lt_to_le",
+            "status": "survived",
+            "function": "add_resource_dependencies",
+            "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }"
+          },
+          {
+            "mutant_id": "cxx_eq_to_ne:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:313:22:313:24",
+            "file": "include/vkexec/detail/pass_execution.hpp",
+            "line": 313,
+            "column": 22,
+            "mutator": "cxx_eq_to_ne",
+            "status": "killed",
+            "function": "add_resource_dependencies",
+            "source_line": "if (source_batch == destination_batch) { continue; }"
+          }
+        ],
+        "per_file": {
+          "include/vkexec/detail/pass_execution.hpp": {
+            "total": 57,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 38,
+              "discovered": 57,
+              "percent": 66.66666666666667
+            },
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 19,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 38,
+              "percent": 94.73684210526316
+            }
+          }
+        },
+        "per_mutator": {
+          "cxx_eq_to_ne": {
+            "total": 6,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 3,
+              "discovered": 6,
+              "percent": 50.0
+            },
+            "killed": 3,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 3,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 3,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_gt": {
+            "total": 4,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 4,
+              "discovered": 4,
+              "percent": 100.0
+            },
+            "killed": 4,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 4,
+              "percent": 100.0
+            }
+          },
+          "cxx_ge_to_lt": {
+            "total": 4,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 4,
+              "discovered": 4,
+              "percent": 100.0
+            },
+            "killed": 4,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 4,
+              "percent": 100.0
+            }
+          },
+          "cxx_gt_to_ge": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_gt_to_le": {
+            "total": 2,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 2,
+              "discovered": 2,
+              "percent": 100.0
+            },
+            "killed": 2,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 2,
+              "percent": 100.0
+            }
+          },
+          "cxx_le_to_gt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_le_to_lt": {
+            "total": 1,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 1,
+              "discovered": 1,
+              "percent": 100.0
+            },
+            "killed": 1,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 1,
+              "percent": 100.0
+            }
+          },
+          "cxx_lt_to_ge": {
+            "total": 10,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 7,
+              "discovered": 10,
+              "percent": 70.0
+            },
+            "killed": 7,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 3,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 7,
+              "percent": 100.0
+            }
+          },
+          "cxx_lt_to_le": {
+            "total": 10,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 7,
+              "discovered": 10,
+              "percent": 70.0
+            },
+            "killed": 5,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 3,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 7,
+              "percent": 71.42857142857143
+            }
+          },
+          "cxx_ne_to_eq": {
+            "total": 17,
+            "evaluation_coverage": {
+              "definition": "evaluated / discovered; diagnostic only, not a mutation score",
+              "evaluated": 7,
+              "discovered": 17,
+              "percent": 41.1764705882353
+            },
+            "killed": 7,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 10,
+            "mutation_score": {
+              "definition": "killed / (killed + survived); excludes timeouts, crashes, abnormal exits and uncovered mutants",
+              "denominator": 7,
+              "percent": 100.0
+            }
+          }
+        },
+        "per_function": {
+          "add_resource_dependencies": {
+            "killed": 9,
+            "survived": 2
+          },
+          "crosses_queue_families": {
+            "killed": 3
+          },
+          "declare_indexed_step": {
+            "not_covered": 1
+          },
+          "plan_batches": {
+            "killed": 2
+          },
+          "plan_dag": {
+            "killed": 6
+          },
+          "plan_execution": {
+            "killed": 1
+          },
+          "plan_resource_sync": {
+            "not_covered": 2
+          },
+          "record_sync_batch": {
+            "not_covered": 3
+          },
+          "same_queue": {
+            "killed": 2
+          },
+          "terminal_batches": {
+            "killed": 2
+          },
+          "validate_execution_batches": {
+            "killed": 11
+          },
+          "validate_presentation_image": {
+            "not_covered": 13
+          }
+        }
+      }
+    }
+  },
+  "initial_survivors_resolved": [
+    {
+      "mutant_id": "cxx_gt_to_ge:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+      "file": "include/vkexec/detail/pass_execution.hpp",
+      "line": 34,
+      "column": 31,
+      "mutator": "cxx_gt_to_ge",
+      "status": "survived",
+      "function": "plan_batches",
+      "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {",
+      "analysis": "Existing tests assert sequential batch ranges and queues but omit exact predecessor vectors. The new sequential planning test asserts [], [0], [1], detecting both an erroneous predecessor on the first batch and a missing predecessor on later batches."
+    },
+    {
+      "mutant_id": "cxx_gt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:34:31:34:32",
+      "file": "include/vkexec/detail/pass_execution.hpp",
+      "line": 34,
+      "column": 31,
+      "mutator": "cxx_gt_to_le",
+      "status": "survived",
+      "function": "plan_batches",
+      "source_line": "if (plan.batches.size() > std::size_t{ 1 }) {",
+      "analysis": "Existing tests assert sequential batch ranges and queues but omit exact predecessor vectors. The new sequential planning test asserts [], [0], [1], detecting both an erroneous predecessor on the first batch and a missing predecessor on later batches."
+    }
+  ],
+  "final_survivor_classification": [
+    {
+      "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:310:48:310:49",
+      "file": "include/vkexec/detail/pass_execution.hpp",
+      "line": 310,
+      "column": 48,
+      "mutator": "cxx_lt_to_le",
+      "status": "survived",
+      "function": "add_resource_dependencies",
+      "source_line": "if (source >= batch.first_step && source < batch.end_step) { source_batch = index; }",
+      "classification": "equivalent_on_valid_input",
+      "mutated_expression": "source <= batch.end_step (was <)",
+      "argument": "For contiguous nonempty batches covering all valid step indexes, a step equal to end_step belongs to the next batch. The mutation also matches the previous batch, but the ascending scan subsequently overwrites the mapping with the correct next batch. The final end_step equals step_count and cannot be a valid dependency index. All other step indexes are unaffected."
+    },
+    {
+      "mutant_id": "cxx_lt_to_le:/home/janagorski/Projects/currently/vkexec/include/vkexec/detail/pass_execution.hpp:311:58:311:59",
+      "file": "include/vkexec/detail/pass_execution.hpp",
+      "line": 311,
+      "column": 58,
+      "mutator": "cxx_lt_to_le",
+      "status": "survived",
+      "function": "add_resource_dependencies",
+      "source_line": "if (destination >= batch.first_step && destination < batch.end_step) { destination_batch = index; }",
+      "classification": "equivalent_on_valid_input",
+      "mutated_expression": "destination <= batch.end_step (was <)",
+      "argument": "For contiguous nonempty batches covering all valid step indexes, a step equal to end_step belongs to the next batch. The mutation also matches the previous batch, but the ascending scan subsequently overwrites the mapping with the correct next batch. The final end_step equals step_count and cannot be a valid dependency index. All other step indexes are unaffected."
+    }
+  ],
+  "reproducibility": {
+    "all_57_discovered_ids_equal_initial": true,
+    "final_runs": [
+      {
+        "run": 1,
+        "exact_locations_and_statuses_equal_final": {
+          "dag": true,
+          "dag_uncovered": true
+        },
+        "binary_sha256": "22563e665ff90905210adac9327f5d2627d3fd2832e691206b3fc1108b648b03",
+        "runner_total_execution_ms": [
+          343,
+          333
+        ],
+        "artifacts_sha256": {
+          "metadata.json": "a1a7349f2b2dc6d61d86ea5a1b47751ab52428311cb513702a75979b2c8defdf",
+          "vkexec_core_dag.json": "f28835c5caf0e69a275f1847da5ca4918d5f99bd1552ed13e26fc06b974396a0",
+          "vkexec_core_dag.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+          "vkexec_core_dag.profraw": "d1feab1a6fbbcd01d103377c32a0a10a56504eb23e6997f115881ec57a669b68",
+          "vkexec_core_dag.sqlite": "e1513c64bfd0282b26da3dd16ea198f001086b661cd2fc826add771524e7f9cc",
+          "vkexec_core_dag.txt": "79d6497d1121a0a751e8229c5f36a369e8a610e5790ece548993b3c4279784a0",
+          "vkexec_core_dag_uncovered.json": "f76bf18deb1cfde3cbeb437249e7acbd7d358eaf714e62d548e81ccc218cad59",
+          "vkexec_core_dag_uncovered.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+          "vkexec_core_dag_uncovered.profraw": "d1feab1a6fbbcd01d103377c32a0a10a56504eb23e6997f115881ec57a669b68",
+          "vkexec_core_dag_uncovered.sqlite": "17d00d716e9e0eb6c8a8c6a5d93e535c486f2a4b9b2ec9d50274d8747873994a",
+          "vkexec_core_dag_uncovered.txt": "b858d1c62ec055813c041f18ed9b1e118635f43e0b0e9ab9cf9e64586e0b6502"
+        }
+      },
+      {
+        "run": 2,
+        "exact_locations_and_statuses_equal_final": {
+          "dag": true,
+          "dag_uncovered": true
+        },
+        "binary_sha256": "22563e665ff90905210adac9327f5d2627d3fd2832e691206b3fc1108b648b03",
+        "runner_total_execution_ms": [
+          328,
+          338
+        ],
+        "artifacts_sha256": {
+          "metadata.json": "c643fdbd7fbdedbaf6dd9b7ec87922b8f79a920cf798ca5fc655159294b0fc85",
+          "vkexec_core_dag.json": "f28835c5caf0e69a275f1847da5ca4918d5f99bd1552ed13e26fc06b974396a0",
+          "vkexec_core_dag.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+          "vkexec_core_dag.profraw": "d1feab1a6fbbcd01d103377c32a0a10a56504eb23e6997f115881ec57a669b68",
+          "vkexec_core_dag.sqlite": "ac89e92cc72a3624ac734bba74e575ffa72d71af5e562b23c30393e6011473e0",
+          "vkexec_core_dag.txt": "79d6497d1121a0a751e8229c5f36a369e8a610e5790ece548993b3c4279784a0",
+          "vkexec_core_dag_uncovered.json": "f76bf18deb1cfde3cbeb437249e7acbd7d358eaf714e62d548e81ccc218cad59",
+          "vkexec_core_dag_uncovered.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+          "vkexec_core_dag_uncovered.profraw": "d1feab1a6fbbcd01d103377c32a0a10a56504eb23e6997f115881ec57a669b68",
+          "vkexec_core_dag_uncovered.sqlite": "9a29a5a8ffe097a684c3e70a9b73bc1f39c471fe019fc08a4b83009bdb7ebada",
+          "vkexec_core_dag_uncovered.txt": "b858d1c62ec055813c041f18ed9b1e118635f43e0b0e9ab9cf9e64586e0b6502"
+        }
+      },
+      {
+        "run": 3,
+        "exact_locations_and_statuses_equal_final": {
+          "dag": true,
+          "dag_uncovered": true
+        },
+        "binary_sha256": "22563e665ff90905210adac9327f5d2627d3fd2832e691206b3fc1108b648b03",
+        "runner_total_execution_ms": [
+          324,
+          327
+        ],
+        "artifacts_sha256": {
+          "metadata.json": "ed1e9d08444d9dd3ac974164004a4b0e5389147e54740f915a7f4e29e8e62efd",
+          "vkexec_core_dag.json": "f28835c5caf0e69a275f1847da5ca4918d5f99bd1552ed13e26fc06b974396a0",
+          "vkexec_core_dag.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+          "vkexec_core_dag.profraw": "d1feab1a6fbbcd01d103377c32a0a10a56504eb23e6997f115881ec57a669b68",
+          "vkexec_core_dag.sqlite": "8a8493569863673d1f61f7e998147bee3a6daec4909dc7ec2df318473c66eb0e",
+          "vkexec_core_dag.txt": "79d6497d1121a0a751e8229c5f36a369e8a610e5790ece548993b3c4279784a0",
+          "vkexec_core_dag_uncovered.json": "f76bf18deb1cfde3cbeb437249e7acbd7d358eaf714e62d548e81ccc218cad59",
+          "vkexec_core_dag_uncovered.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+          "vkexec_core_dag_uncovered.profraw": "d1feab1a6fbbcd01d103377c32a0a10a56504eb23e6997f115881ec57a669b68",
+          "vkexec_core_dag_uncovered.sqlite": "0fb70268b456e19796223a3a4e18fa0b5481168edf6fb58d0c6256078c68f42e",
+          "vkexec_core_dag_uncovered.txt": "b858d1c62ec055813c041f18ed9b1e118635f43e0b0e9ab9cf9e64586e0b6502"
+        }
+      }
+    ]
+  },
+  "validation": {
+    "cpu_debug_filter": {
+      "cases": 8,
+      "assertions": 298,
+      "passed": true
+    },
+    "mutation_diagnostics": {
+      "passed": 3
+    },
+    "debug_ctest": {
+      "total": 357,
+      "passed": 354,
+      "skipped": 3,
+      "failed": 0
+    },
+    "range_regression": {
+      "ranges": {
+        "total": 47,
+        "killed": 47,
+        "survived": 0,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0,
+        "not_covered": 0,
+        "exact_id_status_set_equals_pr5_before": true,
+        "json_sha256": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119"
+      },
+      "ranges_uncovered": {
+        "total": 47,
+        "killed": 47,
+        "survived": 0,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0,
+        "not_covered": 0,
+        "exact_id_status_set_equals_pr5_before": true,
+        "json_sha256": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119"
+      }
+    }
+  },
+  "local_evidence": "out/pr6-evidence/{initial,strengthened,final-1,final-2,final-3}/ (uncommitted SQLite, profiles, summaries and metadata)",
+  "reviewed_workspace_sha256": {
+    "CMakeLists.txt": "6a3efa4076af94e50c92d44a885f902f87bb921b506e9556d22f17238efa8fde",
+    "CMakePresets.json": "2778290906876ae340d4abcfde60b36f08fd4c28a7b2bad28d55139159efa949",
+    "test/CMakeLists.txt": "99d3b538ef83cbe9f034a784615934ea146abba7ae201d98afa0b9b08abde49b",
+    "test/core/pass_detail_tests.cpp": "326753eba7f8ec18f970f3461911d4aa1a717b6fd07341a27ab7fe5ab32219e9",
+    "test/core/dag_planning_tests.cpp": "3ab896cf9db0b888327022a66c0600826579fee9679b44629dacfbf7b4a61117",
+    "cmake/mull/dag.yml": "b79791e26ed593d25852a76a9cafd46eafb5a7fb5302c1f7d9bd20effab34eb4",
+    "include/vkexec/detail/pass_execution.hpp": "a36fc2723b9aab384dc90ece76c874f446bad058318ea22f6471a4efd7925593"
+  },
+  "reviewed_workspace_note": "Historical snapshot before the single-preset orchestration refactor. Audit metadata hashes describe the files when each run was measured. The final CMakeLists.txt differs only by cmake-format whitespace in the added registration.",
+  "single_preset_refactor": {
+    "runtime_filter_probe": {
+      "mull_version": "mull-runner 0.35.0\n\nMull: Practical mutation testing and fault injection for C and C++\nHome: https://mull-project.com\nLLVM: 22.1.8\n",
+      "compile_args": [
+        "clang++",
+        "-g",
+        "-O0",
+        "-grecord-command-line",
+        "-fpass-plugin=/nix/store/ihllfilw5q9cggz95i760g1kvg8l23r0-mull-22-bin-0.35.0/lib/mull-ir-frontend-22",
+        "-fprofile-instr-generate",
+        "-fcoverage-mapping",
+        "/tmp/pr6-runtime/main.cpp",
+        "-o",
+        "/tmp/pr6-runtime/probe"
+      ],
+      "binary_sha256": "74492d19f81869ee233a06aa058c6edd5b3b12823d7f6d57f48f4610dd951dbf",
+      "reports": {
+        "ranges_covered": [
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_add_to_sub",
+            "execution_status": 1,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/ranges.hpp:1:50:1:51"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "execution_status": 1,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/ranges.hpp:1:42:1:43"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_lt_to_le",
+            "execution_status": 2,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/ranges.hpp:1:42:1:43"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_sub_to_add",
+            "execution_status": 1,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/ranges.hpp:1:58:1:59"
+          }
+        ],
+        "ranges_uncovered": [
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_add_to_sub",
+            "execution_status": 8,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/dag.hpp:1:48:1:49"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_add_to_sub",
+            "execution_status": 1,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/ranges.hpp:1:50:1:51"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "execution_status": 8,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "execution_status": 1,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/ranges.hpp:1:42:1:43"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_le",
+            "execution_status": 8,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_lt_to_le",
+            "execution_status": 2,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/ranges.hpp:1:42:1:43"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_sub_to_add",
+            "execution_status": 8,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/dag.hpp:1:56:1:57"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_sub_to_add",
+            "execution_status": 1,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/ranges.hpp:1:58:1:59"
+          }
+        ],
+        "dag_covered": [
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_add_to_sub",
+            "execution_status": 1,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/dag.hpp:1:48:1:49"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "execution_status": 1,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_le",
+            "execution_status": 2,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_sub_to_add",
+            "execution_status": 1,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/dag.hpp:1:56:1:57"
+          }
+        ],
+        "dag_uncovered": [
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_add_to_sub",
+            "execution_status": 1,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/dag.hpp:1:48:1:49"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_add_to_sub",
+            "execution_status": 8,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/ranges.hpp:1:50:1:51"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "execution_status": 1,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "execution_status": 8,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/ranges.hpp:1:42:1:43"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_le",
+            "execution_status": 2,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_lt_to_le",
+            "execution_status": 8,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/ranges.hpp:1:42:1:43"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_sub_to_add",
+            "execution_status": 1,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/dag.hpp:1:56:1:57"
+          },
+          {
+            "file": "/tmp/pr6-runtime/ranges.hpp",
+            "mutator": "cxx_sub_to_add",
+            "execution_status": 8,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/ranges.hpp:1:58:1:59"
+          }
+        ]
+      },
+      "fixture_sources": {
+        "main.cpp": "#include \"ranges.hpp\"\n#include \"dag.hpp\"\n#include <string_view>\nint main(int argc, char **argv) {\n if (argc != 2) return 2;\n if (std::string_view(argv[1]) == \"ranges\") return range_value(2) == 3 && range_value(4) == 3 ? 0 : 1;\n return dag_value(2) == 4 && dag_value(4) == 2 ? 0 : 1;\n}\n",
+        "ranges.hpp": "inline int range_value(int x) { return x < 3 ? x + 1 : x - 1; }\n",
+        "dag.hpp": "inline int dag_value(int x) { return x < 3 ? x + 2 : x - 2; }\n",
+        "all.yml": "mutators: [cxx_comparison, cxx_boundary, cxx_arithmetic]\nincludePaths: ['.*/ranges\\.hpp$', '.*/dag\\.hpp$']\n",
+        "ranges.yml": "mutators: [cxx_comparison, cxx_boundary, cxx_arithmetic]\nincludePaths: ['.*/ranges\\.hpp$']\ndebugEnabled: true\ndebug:\n  filters: true\n",
+        "dag.yml": "mutators: [cxx_comparison, cxx_boundary]\nincludePaths: ['.*/dag\\.hpp$']\ndebugEnabled: true\ndebug:\n  filters: true\n",
+        "reproduce.py": "\"\"\"Real Mull probe: one union binary, two narrower YAMLs, matching indexed profiles.\"\"\"\nfrom pathlib import Path\nimport os, subprocess, hashlib, json, sqlite3\nhere=Path(__file__).resolve().parent\n# YAMLs and sources next to this script are the complete fixture.\nenv=dict(os.environ, MULL_CONFIG=str(here/'all.yml'))\ncompile_args=['clang++','-g','-O0','-grecord-command-line','-fpass-plugin='+os.environ['MULL_PLUGIN'],\n              '-fprofile-instr-generate','-fcoverage-mapping',str(here/'main.cpp'),'-o',str(here/'probe')]\nsubprocess.run(compile_args,env=env,check=True,stdout=(here/'compile.log').open('w'),stderr=subprocess.STDOUT)\nresult={'mull_version':subprocess.check_output(['mull-runner-22','--version'],text=True),\n        'compile_args':compile_args,'binary_sha256':hashlib.sha256((here/'probe').read_bytes()).hexdigest(),'reports':{}}\nfor scope in ('ranges','dag'):\n    env=dict(os.environ,LLVM_PROFILE_FILE=str(here/f'{scope}.profraw'))\n    subprocess.run([str(here/'probe'),scope],env=env,check=True)\n    subprocess.run(['llvm-profdata','merge','-sparse',str(here/f'{scope}.profraw'),'-o',str(here/f'{scope}.profdata')],check=True)\n    for inclusive in (False,True):\n        name=scope+('_uncovered' if inclusive else '_covered')\n        args=['mull-runner-22','--allow-surviving','--workers','1','--minimum-timeout','1000',\n              '--coverage-info',str(here/f'{scope}.profdata'),'--reporters','SQLite','--report-dir',str(here),'--report-name',name]\n        for path in os.environ.get('MULL_LIBRARY_PATH','').split(':'):\n            if path:args+=['--ld-search-path',path]\n        if inclusive:args+=['--include-not-covered']\n        args+=[str(here/'probe'),scope]\n        subprocess.run(args,env=dict(os.environ,MULL_CONFIG=str(here/f'{scope}.yml')),check=True,stdout=(here/f'{name}.log').open('w'),stderr=subprocess.STDOUT)\n        with sqlite3.connect(here/f'{name}.sqlite') as db:\n            rows=db.execute('SELECT filename,mutator,execution_status,mutant_id FROM mutant ORDER BY mutant_id').fetchall()\n        result['reports'][name]=[dict(zip(['file','mutator','execution_status','mutant_id'],row)) for row in rows]\n(here/'experiment.json').write_text(json.dumps(result,indent=2)+'\\n')\nprint(json.dumps({k:len(v) for k,v in result['reports'].items()}))\n"
+      },
+      "reproduction": "Restore fixture_sources into a writable directory, enter the existing clang-mut shell, then run python3 reproduce.py there. IDs retain that directory prefix.",
+      "interpretation": "Covered path filters work. Coverage ReportAs outcomes bypass later path filters in uncovered-inclusive reports. The DAG runner mutator list does not remove compiled arithmetic mutants.",
+      "artifact_sha256": {
+        "all.yml": "797346d6355dd28d12cefeb784f823961b51f77319d69bf4e8734ba79932c5b9",
+        "compile.log": "89f3a012b9a0d8ee29bbb12430dfa239b5678ab17ac957753c267169927599c6",
+        "dag-debug.log": "1519b44c1d96f7685daeb735c126490414913100ec79261672d268454e6e6658",
+        "dag-debug.sqlite": "d6e5e237e2c5b970a2b9fcc994da9eb5c9fb65d5aea77ab2eb7bc76a7e31860e",
+        "dag.hpp": "c0dec07dea6c044b87c3e520d5ef262ecabd15dbd79b709f64e3a537ed955d47",
+        "dag.log": "960148a73aa75ed29dfa86187b102ca6f98b20a0b8d1e9aebfd369f9e52a35c4",
+        "dag.profdata": "f8611e4dabc623c27deedd3a83d37cf24cd61932ea36a957120bfd572aa2d678",
+        "dag.profraw": "d22f4f13a1d39be0b4993224dda5d879a0975cebb8b21a999cba7bafe7b07e54",
+        "dag.sqlite": "90688d3e0eba54838695b3b5765e765fa1c874f4ac14fe5901475a472572c6e8",
+        "dag.yml": "61e953f38d5a97473cde8c79737b115071a7692bda11c0a7357a3ca809b53690",
+        "dag_covered.log": "d8d124959d2be50b1d031bc67f4d4905280cf55936a7749c22dd654952f715b5",
+        "dag_covered.sqlite": "6e3705fdbdc61196010327875c242f94373d36e6e8167aaa864c2f10ba660c18",
+        "dag_uncovered.log": "d1c09336499ba47cb5c91e2941327440078a06588c21f08405b134aa2b92e83a",
+        "dag_uncovered.sqlite": "5b6de22aa98ae4e04ecba912b5ff84556b29cfd4858ebadebf1afb64b92d2850",
+        "experiment.json": "e493bbe26a3f556e66027ee89c95e4dd01e68650ee1ac9c16548d635f7f777c2",
+        "main.cpp": "96886529263090dec6ea6f05eca9e0c30f9ee7614af3677aa812a2eff8f1a4fa",
+        "manual-warmup.profraw": "b60c45334e05f49c560af5a0e76b2715ee1327816eefd52cd454d993e64ec9bc",
+        "none.log": "a14aa15d49919a3c83c22ecc41013d038b8e533416d127113ecd36be9876120b",
+        "none.sqlite": "2d826d7fc6e605393e4e7696be4423b1f9686bbe5445a032b7510f148dc81230",
+        "none.yml": "42961a9ede2ce5740cb99d084487f46d15b3f450393c3127385ab5b3bd769670",
+        "probe": "74492d19f81869ee233a06aa058c6edd5b3b12823d7f6d57f48f4610dd951dbf",
+        "ranges-debug.log": "01195c04445c3dd37388dbdf34bce0bb1f06d88513f032c2329e96fa70b18719",
+        "ranges-debug.sqlite": "0c68cb6fe612c0a57a7ea6e9cd095f54bd9a0277b8b50a5c51c252ed6c5527a0",
+        "ranges.hpp": "31bf7521238322756648e02507b4c9d52d38891fc47d5fdebaea75a571014a2b",
+        "ranges.log": "ee4bdbf3d716998aabc7efef381c7fb3615b1bf3a1c40468c5d5b856405a243e",
+        "ranges.profdata": "8890007ad2d71396fc29f676a0a89370ef96b487d83e125a925e236d403d6d34",
+        "ranges.profraw": "589e149737e77c1a7c78bef065de6dc0508c351f435183cc94a93d200cf0b6c8",
+        "ranges.sqlite": "2150831c853ea82ce0b9b5ebe0ec59c2059e3518c78ec28c93c8fa01c57e1a83",
+        "ranges.yml": "bff9e230a25be6c0866b2150326c43deac3d81beed52a1164368a82d38343cdf",
+        "ranges_covered.log": "5e82b3d30b67cf207e1735b7c6386f09fa4476acd7dd43b1835e83d6a008dc52",
+        "ranges_covered.sqlite": "e33a429e04d91fc7606d060f2f2adf53d04d666bb548de55bd2a91cca6d70a36",
+        "ranges_uncovered.log": "2b34e4781d6fa13bace00e5cd035da8ebada38035ea53d2617e39525e095e1d9",
+        "ranges_uncovered.sqlite": "0bc7321fb5da8b8e4f0feb4881ab22f3e9ffdd0147db25f5d4c58bc0a1a0e5ae",
+        "reproduce.log": "6588e4e91e01e69efa831e3a9c7ed97ca05422ad2eacc826964a5d9b3e6014af",
+        "reproduce.py": "1d7b9a21326bc0e9a13f316c55a967ea5ede451d4591152702278d82ca3d55f4"
+      },
+      "nonmatching_path_diagnostic": {
+        "yaml": "mutators: [cxx_comparison, cxx_boundary, cxx_arithmetic]\nincludePaths: ['THIS_CANNOT_MATCH']\ndebugEnabled: true\ndebug:\n  filters: true\n",
+        "mutants": [
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_add_to_sub",
+            "status": 6,
+            "mutant_id": "cxx_add_to_sub:/tmp/pr6-runtime/dag.hpp:1:48:1:49"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_ge",
+            "status": 6,
+            "mutant_id": "cxx_lt_to_ge:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_lt_to_le",
+            "status": 6,
+            "mutant_id": "cxx_lt_to_le:/tmp/pr6-runtime/dag.hpp:1:40:1:41"
+          },
+          {
+            "file": "/tmp/pr6-runtime/dag.hpp",
+            "mutator": "cxx_sub_to_add",
+            "status": 6,
+            "mutant_id": "cxx_sub_to_add:/tmp/pr6-runtime/dag.hpp:1:56:1:57"
+          }
+        ]
+      }
+    },
+    "regression": {
+      "layout": "one public preset; persistent private builds per scope (Mull 0.35.0 fallback)",
+      "source_revision": "555a02dcbae7e3e8153de6c122743b25acdd3d95",
+      "source_dirty": true,
+      "binaries": {
+        "ranges": {
+          "sha256": "7b9e0484849f35a16edd8b4b32666921191e00f2c93b4d4345a52753e4f03a3d",
+          "mtime_ns": 1793317039459160915
+        },
+        "dag": {
+          "sha256": "300fbb69c1f4febc8918a615f880a9df8d1e7d5fba29dd1755f38ff61fc65301",
+          "mtime_ns": 1793317766979132434
+        }
+      },
+      "runs": [
+        {
+          "run": 1,
+          "audit": "ranges",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_ranges"
+          ],
+          "counts": {
+            "total": 47,
+            "killed": 47,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[ranges]",
+          "artifacts_sha256": {
+            "audit.log": "a70b650958c2aa79c9cd5614c7d09e0e07efab657978c61d7477b9ecb52a71cd",
+            "vkexec_core_ranges.json": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119",
+            "vkexec_core_ranges.profdata": "63fc84e06b1606f1aa9332f8a9880653031dc2d13c2e5ec2c65eaef2e070463f",
+            "vkexec_core_ranges.profraw": "f159d2c43a1b2e77bbebae2fbc6aad26c8ed10153e2ec1c733de64e7fa6f7783",
+            "vkexec_core_ranges.sqlite": "19e44e3e92da895bfb3927cd309120c2aa2478b64b4a79c3605ec81e47f6cc15",
+            "vkexec_core_ranges.txt": "1d238b827a4ea4d386a3d0f800ad5df09705bacc267133ab46e931e290591ad5"
+          }
+        },
+        {
+          "run": 1,
+          "audit": "dag",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_dag"
+          ],
+          "counts": {
+            "total": 38,
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[dag-plan]",
+          "artifacts_sha256": {
+            "audit.log": "402e529e2346fd20d25b367797f4f804c3ca47045d934107f280647ab3df542a",
+            "vkexec_core_dag.json": "f28835c5caf0e69a275f1847da5ca4918d5f99bd1552ed13e26fc06b974396a0",
+            "vkexec_core_dag.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+            "vkexec_core_dag.profraw": "486f2a8ced1f0449717cce562f6d376eecdc7604ed20b59451c2d24900635719",
+            "vkexec_core_dag.sqlite": "3a44f0b3954dcc8b0b1f2fd35afc0bc21f4b655a462290a89063959412617912",
+            "vkexec_core_dag.txt": "79d6497d1121a0a751e8229c5f36a369e8a610e5790ece548993b3c4279784a0"
+          }
+        },
+        {
+          "run": 1,
+          "audit": "ranges_uncovered",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_ranges_uncovered"
+          ],
+          "counts": {
+            "total": 47,
+            "killed": 47,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[ranges]",
+          "artifacts_sha256": {
+            "audit.log": "0461b1a591919c3e12373ad91e86a58ad580e135de241b99b2319cd72115d850",
+            "vkexec_core_ranges_uncovered.json": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119",
+            "vkexec_core_ranges_uncovered.profdata": "63fc84e06b1606f1aa9332f8a9880653031dc2d13c2e5ec2c65eaef2e070463f",
+            "vkexec_core_ranges_uncovered.profraw": "f159d2c43a1b2e77bbebae2fbc6aad26c8ed10153e2ec1c733de64e7fa6f7783",
+            "vkexec_core_ranges_uncovered.sqlite": "f5dbbfb3f76b467015ddad45d9283c799cc8bc4ac77f019f33fb4dc025ba3c74",
+            "vkexec_core_ranges_uncovered.txt": "1d238b827a4ea4d386a3d0f800ad5df09705bacc267133ab46e931e290591ad5"
+          }
+        },
+        {
+          "run": 1,
+          "audit": "dag_uncovered",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_dag_uncovered"
+          ],
+          "counts": {
+            "total": 57,
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 19
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[dag-plan]",
+          "artifacts_sha256": {
+            "audit.log": "058e62018a2df5f9db1f03d10036dd4322968994d08b6c620259e7fa547078f8",
+            "vkexec_core_dag_uncovered.json": "f76bf18deb1cfde3cbeb437249e7acbd7d358eaf714e62d548e81ccc218cad59",
+            "vkexec_core_dag_uncovered.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+            "vkexec_core_dag_uncovered.profraw": "486f2a8ced1f0449717cce562f6d376eecdc7604ed20b59451c2d24900635719",
+            "vkexec_core_dag_uncovered.sqlite": "75acf63467664b9a95689f31007bfd6f42f9bf8b29c3af0918d7ad01e2a97b89",
+            "vkexec_core_dag_uncovered.txt": "b858d1c62ec055813c041f18ed9b1e118635f43e0b0e9ab9cf9e64586e0b6502"
+          }
+        },
+        {
+          "run": 2,
+          "audit": "ranges",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_ranges"
+          ],
+          "counts": {
+            "total": 47,
+            "killed": 47,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[ranges]",
+          "artifacts_sha256": {
+            "audit.log": "c87c02cff5d74c96c0d65c93178d0eead6f6ac20a8efd081696b73e070777448",
+            "vkexec_core_ranges.json": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119",
+            "vkexec_core_ranges.profdata": "63fc84e06b1606f1aa9332f8a9880653031dc2d13c2e5ec2c65eaef2e070463f",
+            "vkexec_core_ranges.profraw": "f159d2c43a1b2e77bbebae2fbc6aad26c8ed10153e2ec1c733de64e7fa6f7783",
+            "vkexec_core_ranges.sqlite": "b72f3095ce57b359bad2fda7ae90350f6ed5222a9045b38a39f9549d3488d257",
+            "vkexec_core_ranges.txt": "1d238b827a4ea4d386a3d0f800ad5df09705bacc267133ab46e931e290591ad5"
+          }
+        },
+        {
+          "run": 2,
+          "audit": "dag",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_dag"
+          ],
+          "counts": {
+            "total": 38,
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[dag-plan]",
+          "artifacts_sha256": {
+            "audit.log": "f2bc53fab09fbc7b8040df9f653fd40d4f102326dcafab3a7affafc0b541bac8",
+            "vkexec_core_dag.json": "f28835c5caf0e69a275f1847da5ca4918d5f99bd1552ed13e26fc06b974396a0",
+            "vkexec_core_dag.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+            "vkexec_core_dag.profraw": "486f2a8ced1f0449717cce562f6d376eecdc7604ed20b59451c2d24900635719",
+            "vkexec_core_dag.sqlite": "18d609a57b83604435aadff75a7866dc92a973356dcba2d288e21cf0de8e525c",
+            "vkexec_core_dag.txt": "79d6497d1121a0a751e8229c5f36a369e8a610e5790ece548993b3c4279784a0"
+          }
+        },
+        {
+          "run": 2,
+          "audit": "ranges_uncovered",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_ranges_uncovered"
+          ],
+          "counts": {
+            "total": 47,
+            "killed": 47,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[ranges]",
+          "artifacts_sha256": {
+            "audit.log": "1872ab7c05ec5cefa15523b57757d68ed1851b8a5197b0f69664e9565cad6c90",
+            "vkexec_core_ranges_uncovered.json": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119",
+            "vkexec_core_ranges_uncovered.profdata": "63fc84e06b1606f1aa9332f8a9880653031dc2d13c2e5ec2c65eaef2e070463f",
+            "vkexec_core_ranges_uncovered.profraw": "f159d2c43a1b2e77bbebae2fbc6aad26c8ed10153e2ec1c733de64e7fa6f7783",
+            "vkexec_core_ranges_uncovered.sqlite": "c347bd1253dc7b2c4b1a1dc2ccb30356ba1938e1fd8e7ffa0a8428bf43a786d1",
+            "vkexec_core_ranges_uncovered.txt": "1d238b827a4ea4d386a3d0f800ad5df09705bacc267133ab46e931e290591ad5"
+          }
+        },
+        {
+          "run": 2,
+          "audit": "dag_uncovered",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_dag_uncovered"
+          ],
+          "counts": {
+            "total": 57,
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 19
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[dag-plan]",
+          "artifacts_sha256": {
+            "audit.log": "d1daa37b8ca0dd984065486e19dc7b8ed59db26fe7a6353c559d403086451a02",
+            "vkexec_core_dag_uncovered.json": "f76bf18deb1cfde3cbeb437249e7acbd7d358eaf714e62d548e81ccc218cad59",
+            "vkexec_core_dag_uncovered.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+            "vkexec_core_dag_uncovered.profraw": "486f2a8ced1f0449717cce562f6d376eecdc7604ed20b59451c2d24900635719",
+            "vkexec_core_dag_uncovered.sqlite": "37aabf216546f44273dd4d1aec0cb700609fcab7e915c5dac187454b2baf82b1",
+            "vkexec_core_dag_uncovered.txt": "b858d1c62ec055813c041f18ed9b1e118635f43e0b0e9ab9cf9e64586e0b6502"
+          }
+        },
+        {
+          "run": 3,
+          "audit": "ranges",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_ranges"
+          ],
+          "counts": {
+            "total": 47,
+            "killed": 47,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[ranges]",
+          "artifacts_sha256": {
+            "audit.log": "16ce647b1451df6b521343fe484df1a8f33729b62e63826fbe4a4f3177a5b4fa",
+            "vkexec_core_ranges.json": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119",
+            "vkexec_core_ranges.profdata": "63fc84e06b1606f1aa9332f8a9880653031dc2d13c2e5ec2c65eaef2e070463f",
+            "vkexec_core_ranges.profraw": "f159d2c43a1b2e77bbebae2fbc6aad26c8ed10153e2ec1c733de64e7fa6f7783",
+            "vkexec_core_ranges.sqlite": "7272117bfb035179df5b6a35cfaba373bd3182be38c05da172c1d044dacf48a3",
+            "vkexec_core_ranges.txt": "1d238b827a4ea4d386a3d0f800ad5df09705bacc267133ab46e931e290591ad5"
+          }
+        },
+        {
+          "run": 3,
+          "audit": "dag",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_dag"
+          ],
+          "counts": {
+            "total": 38,
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[dag-plan]",
+          "artifacts_sha256": {
+            "audit.log": "5806298457be444f871283e3b47decc131eaafb5bbcbf38acd4f35e359e662ce",
+            "vkexec_core_dag.json": "f28835c5caf0e69a275f1847da5ca4918d5f99bd1552ed13e26fc06b974396a0",
+            "vkexec_core_dag.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+            "vkexec_core_dag.profraw": "486f2a8ced1f0449717cce562f6d376eecdc7604ed20b59451c2d24900635719",
+            "vkexec_core_dag.sqlite": "0192db4dd9679530a0edbfd054d5656a418096e74c03d5cb080ee09af058d717",
+            "vkexec_core_dag.txt": "79d6497d1121a0a751e8229c5f36a369e8a610e5790ece548993b3c4279784a0"
+          }
+        },
+        {
+          "run": 3,
+          "audit": "ranges_uncovered",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_ranges_uncovered"
+          ],
+          "counts": {
+            "total": 47,
+            "killed": 47,
+            "survived": 0,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 0
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[ranges]",
+          "artifacts_sha256": {
+            "audit.log": "1c3c78b9548c50d5c3d5db965a764fb824ccadc252a9ce99c95b4c0f345ec13a",
+            "vkexec_core_ranges_uncovered.json": "a0d71125d8fcb89e1edb705065c1f810f2446ec9c41550bdf547e3231e81b119",
+            "vkexec_core_ranges_uncovered.profdata": "63fc84e06b1606f1aa9332f8a9880653031dc2d13c2e5ec2c65eaef2e070463f",
+            "vkexec_core_ranges_uncovered.profraw": "f159d2c43a1b2e77bbebae2fbc6aad26c8ed10153e2ec1c733de64e7fa6f7783",
+            "vkexec_core_ranges_uncovered.sqlite": "c3a09fdd1550e0a363a60d6caaf65fa9f540ab08a44d102a1705b2ad02be0562",
+            "vkexec_core_ranges_uncovered.txt": "1d238b827a4ea4d386a3d0f800ad5df09705bacc267133ab46e931e290591ad5"
+          }
+        },
+        {
+          "run": 3,
+          "audit": "dag_uncovered",
+          "command": [
+            "cmake",
+            "--build",
+            "/home/janagorski/Projects/currently/vkexec/out/build/unixlike-clang-mut",
+            "--target",
+            "vkexec_mutation_dag_uncovered"
+          ],
+          "counts": {
+            "total": 57,
+            "killed": 36,
+            "survived": 2,
+            "timed_out": 0,
+            "crashed": 0,
+            "abnormal_exit": 0,
+            "not_covered": 19
+          },
+          "exact_locations_and_statuses_match_previous_baseline": true,
+          "binary_hashes_and_mtimes_unchanged": true,
+          "no_compile_or_link_commands": true,
+          "fresh_raw_and_indexed_profile": true,
+          "test_filter": "[dag-plan]",
+          "artifacts_sha256": {
+            "audit.log": "1c51ba5ed0444e08231b0cd3efa40fe0c980e5dde70d5aa9df9f2e2cf7ce5a8d",
+            "vkexec_core_dag_uncovered.json": "f76bf18deb1cfde3cbeb437249e7acbd7d358eaf714e62d548e81ccc218cad59",
+            "vkexec_core_dag_uncovered.profdata": "c4baf7b4b982e0507c6a82d344d37b91ba4b7126f0cff7a6d6aab56ec810e00b",
+            "vkexec_core_dag_uncovered.profraw": "486f2a8ced1f0449717cce562f6d376eecdc7604ed20b59451c2d24900635719",
+            "vkexec_core_dag_uncovered.sqlite": "1805ccb7a44ad50f9e569b8a2b40d1f09bd0a264248766bb1abd84fab7e2c0c6",
+            "vkexec_core_dag_uncovered.txt": "b858d1c62ec055813c041f18ed9b1e118635f43e0b0e9ab9cf9e64586e0b6502"
+          }
+        }
+      ]
+    },
+    "validation": {
+      "mutation_diagnostics": {
+        "passed": 3,
+        "failed": 0
+      },
+      "normal_debug_ctest": {
+        "total": 357,
+        "passed": 354,
+        "skipped": 3,
+        "failed": 0
+      },
+      "registration_contracts": [
+        "all scopes have public covered and uncovered targets",
+        "private compiler/runner configs match",
+        "per-scope arguments and report names remain independent",
+        "instrumentation applied once per selected private target",
+        "relative YAML paths normalize before parent finalization",
+        "paths with spaces and cache values with quotes, semicolons, bracket terminators and dollar expressions round-trip",
+        "configure, baseline, profile merge, runner and validator failures propagate"
+      ]
+    },
+    "source_sha256": {
+      "CMakeLists.txt": "12308f352a969248ffb9b8561a04a71a72e45662bf5dd1b7c53752d24b96695a",
+      "CMakePresets.json": "85ed9cdf23214f57aa5608c4217b9df24ec870fc16c3762853436013f72c68a8",
+      "cmake/MutationTesting.cmake": "310948dd4188584aacb5befce786166288eec054f79145d2897564722aba1192",
+      "cmake/RunMutationScope.cmake": "4c58060ae89c027790831a5a30b14c7730e51b2e3426fd868b4db0e04396484a",
+      "cmake/mull/dag.yml": "b79791e26ed593d25852a76a9cafd46eafb5a7fb5302c1f7d9bd20effab34eb4",
+      "mull.yml": "325959a66d394652f763dcc0b714c5b74c37373360cdedeff255b95c2aaddd7c",
+      "test/mutation/audit_registration/CMakeLists.txt": "01fa521575916bc4f251ce8c2868c68d15e2994480aa861689ab4e665ce9670e",
+      "test/mutation/audit_registration/test_registration.py": "d776ce12db26109dc9f7c204b8c8902ffe660afc6803874529d1110d1c9e9edb",
+      "test/mutation/audit_registration/stub.py": "3f641fe82b7134a8ab6a465f283772c3b8535ee3c580050a31ae2e86e84eb496",
+      "test/mutation/audit_registration/relative/CMakeLists.txt": "42392b84ca860c7a0ad7f850fd145aaaab8afd107a12818fe0d00e1f8a7bfba4"
+    }
+  },
+  "finalized_implementation": {
+    "revision": "fe00606e30b60c05b10e60ecca7213d3672c7531",
+    "dag_tests_revision": "5097de87d9c753cab71f90a6e51659b95b5a4df6",
+    "verification": "All single_preset_refactor.source_sha256 entries match the files committed at this implementation revision. Historical measurements and their original source revisions remain unchanged; no audit is relabeled as having been run from this committed revision."
+  }
+}
