@@ -1,0 +1,812 @@
+{
+  "schema_version": 1,
+  "revision": "09e4b5a6fc5b91c223439c29f8062bda1da0ae3a",
+  "toolchain": {
+    "clang": "22.1.8",
+    "llvm": "22.1.8",
+    "mull": "0.35.0"
+  },
+  "test_args": [
+    "[resource-helpers]",
+    "--order",
+    "lex",
+    "--abort"
+  ],
+  "binary": {
+    "path": "out/build/unixlike-clang-mut/mutation-builds/resource_helpers/test/vkexec_core_tests",
+    "sha256": "1e7704b58ec24308c5a7d419d4ec85ee1e14fa8b8be55acfd1813e1c0158fc2c"
+  },
+  "fingerprint": {
+    "source_sha256": {
+      "include/vkexec/detail/resource_state_tracker_helpers.hpp": "d2877d212ee224e8dd3b1fb337322240fa75d755f8a7ee98f52f7f729c76c887",
+      "include/vkexec/detail/resource_state_tracker_validation.hpp": "93179d492084e6d075e318381f0be246db5fedf507667cfd535393649f9d025a"
+    },
+    "config_sha256": "ea84e93ae98c31fb5b6650b9956da2ffc11467e33d374c60139d5049e3119886",
+    "operators": [
+      "cxx_comparison",
+      "cxx_boundary"
+    ],
+    "toolchain": {
+      "clang": "22.1.8",
+      "llvm": "22.1.8",
+      "mull": "0.35.0"
+    },
+    "nix_lock_sha256": "38369105c566306be874a7b39c53146524b942a83520566227504bc4de26fb13",
+    "test_args": [
+      "[resource-helpers]",
+      "--order",
+      "lex",
+      "--abort"
+    ],
+    "test_source_sha256": {
+      "test/core/barrier_coalescing_mutation_tests.cpp": "672eba32f05f844045425bab59f395bd6b8cffa106ed0e379d3ae930150249d2",
+      "test/core/barrier_header_tests.cpp": "d20a9cecf82b3414e8bc7c99539c582a5a9dc241275f051a67be14a8d434cfd2",
+      "test/core/buffer_region_tests.cpp": "3594c5b3dd9ac1f5a6ac11fc93337e35576d98e84dee1cc657beda4ee5d91276",
+      "test/core/concurrency_tests.cpp": "c7a94422428a6c199f6e405bc2e1bde29bfa6fb9da0ad4cbc6bb52e0e79f0275",
+      "test/core/dag_planning_tests.cpp": "3ab896cf9db0b888327022a66c0600826579fee9679b44629dacfbf7b4a61117",
+      "test/core/descriptor_schema_tests.cpp": "9a99d8a198780be11251a2f5ac888ecacf1ee438ba00eb7698a01fb572440ff7",
+      "test/core/dispatch_tests.cpp": "82cbfa6214ea1891f0f161bebc3f5ff9cb76da8bc1a4e68f47b082b329f021fd",
+      "test/core/error_tests.cpp": "c445aaa81b9daea487f7c8a5b84ee36dac7c26bd60ef8c4641ca43218461b35d",
+      "test/core/gpu_failure_completion_tests.cpp": "81ce7656e568d4639ab3679c0d89895bfbb04d88f2abf3fee7b35fbe225c4ee7",
+      "test/core/gpu_failure_test_support.hpp": "66bc3a00f0ca05760c710da683b491fd607ad7545fa670833f56180d47066d85",
+      "test/core/gpu_failure_tests.cpp": "e5c1a60234518157711880ae26142841e49607cc542982a71ae0ad1ee099f187",
+      "test/core/image_region_tests.cpp": "e763d7cd0851531cdcebf50854976e664eced3940696597c324089d3b0488201",
+      "test/core/move_only_function_tests.cpp": "06ac085a080fce6f234d65167314f3e083936ba16bee774b8001770a73e55ecf",
+      "test/core/pass_detail_resource_tests.cpp": "dae4169e526a99edcf57bcb705ce3ee23951e2f7adc0590566d33e2073388690",
+      "test/core/pass_detail_test_support.hpp": "3958e030b302397c635b641f6c8958fe0a2d491eaf8814c5753629c9b37b79ae",
+      "test/core/pass_detail_tests.cpp": "1076069e7c22bcd0858816b8c0101b8798e53cf5164af72f7796101f37a4839b",
+      "test/core/resource_allocator_tests.cpp": "13837f177332861c8fd72a6e9aea52275ae47fd123b799ece2a38fb459d37b98",
+      "test/core/resource_helpers_mutation_tests.cpp": "57018a9496110c593363618b964a513449e4ef74d2bef5d801a7d89291d2bbab",
+      "test/core/resource_ranges_tests.cpp": "f28da82351e996979df47a558bafc4231710ad56b4b1613b4f5d648297e60367",
+      "test/core/resource_state_mutation_tests.cpp": "0e17fa06f46a749e2854315e247a9e108437ddeaa645d14f3692b3bfb6113e3c",
+      "test/core/resource_table_tests.cpp": "2e350e6c07f5fd717928a7c17efc934dce4f988932f815e1f820ae57d30de9f2",
+      "test/core/resource_validation_mutation_tests.cpp": "07d61e714a41c8a8346ab01b5e47829679ca7077411266fa60ce2c5325bd87b4",
+      "test/core/retirement_fatal_helper.cpp": "8468bd72a52cb4d4d86cbbb1bde67e0bd73feab36e96c9846f7fb9049ba9f091",
+      "test/core/sampler_tests.cpp": "d7e29772d4ccb21f1060bccb0eeb99db7b048dcd0f136cc4801401b7a5ad7147",
+      "test/core/scheduler_graph_tests.cpp": "f6988cf571d48d5362187d2f2dac52f8e8a5e8c9cb66c3cd140ad57b34ff492e",
+      "test/core/scheduler_pass_tests.cpp": "180726e5a269e95d6a000da255cef966dfeec76797b34d6c4812ee1058d1a56b",
+      "test/core/scheduler_test_support.hpp": "466f47df87b3e6a6253c72d1ff739c7595ccd9f14479d022a2489e07348cddfd",
+      "test/core/scheduler_tests.cpp": "99ce78c419bd4efb602cb4cf72c7adc9f32432827a0294642f28723d35289bdd",
+      "test/core/sender_tests.cpp": "fef755514e0688439e8a51738aafda58f64fa07f1d8ba12a098af0b337f04b89",
+      "test/core/synchronization_tests.cpp": "195a907cedabace8a1a7cbf301f28a3b61be56cddfd2deb85611b076764dca7d",
+      "test/core/tests.cpp": "9e0e1bf742cd5b1494ef10a70056141f40bf2fe7d09fadfac3b939fa542828ba",
+      "test/extensions/descriptor_heap/extension_tests.cpp": "d12f59ad35d18aaf28408b50b7c1054b06757ca00243b19dcfd78dbc3bb1ed17",
+      "test/extensions/descriptor_heap/push_data_tests.cpp": "517cdb80a0132b83169113e9eaa714dd1eb89f339a69c2b9224474208a6ac970",
+      "test/extensions/descriptor_heap/resource_allocator_tests.cpp": "dcc41d929316955f53d0aed3e671af16e1969d35156b78cf03c4197b291adc91",
+      "test/extensions/descriptor_heap/vulkan_requirements_tests.cpp": "2de5c35bbfe824ebaf716f99bc39db2d8a4c1a10e5274f9bc727afa62b7fd991",
+      "test/extensions/dynamic_rendering/rendering_tests.cpp": "aa1fe157c5ec91fdb722e2eb913e3506f9e453e48348ffd59ec0de13f3a87c5b",
+      "test/extensions/timeline_semaphore/frame_ring_tests.cpp": "b3dc06b116a7b7609d0e07372b37d20d1f69f0c31bfa9177524f88b26a746b82",
+      "test/extensions/timeline_semaphore/timeline_semaphore_tests.cpp": "fdd8b24c1c899f9b0199978cf444ea396ed1368266972eeb35c4fb7da3cbcbd9",
+      "test/features/context_capabilities_tests.cpp": "b14348432b6dd1d0270eeb73634c1aaa7b9f1dd86bb0f305b6139e76ae0a0904",
+      "test/features/feature_tests.cpp": "72a670a604d7f627d7ccf5b163e7b76eda86c117d81b71aca42cfd00cf722bf7",
+      "test/features/synchronization2_feature_tests.cpp": "b9982b8ff96b3759b5f07da15fe6be33655e555d3f4db25645a83cbf9719416e",
+      "test/fixtures/install_consumer/core.cpp": "1a438f59aff559a1532a0757e8a8c458b90ea61269c2059f3066bce2e4301027",
+      "test/fixtures/install_consumer/ext_descriptor_heap.cpp": "89f90efaa9010533513fb092b3a615a91681fa97f68568747ea5f2cd2f5f70ba",
+      "test/fixtures/install_consumer/ext_dynamic_rendering.cpp": "dc5c1881160dbf6d0a9d05495bb5d10f1f9f9df436d3c85c68778b5f86e84861",
+      "test/fixtures/install_consumer/ext_timeline_semaphore.cpp": "8a20a4a4c4a35fd8892be41a77172cd7431dc229198572e22e0cb61344b4a9b3",
+      "test/fixtures/install_consumer/features.cpp": "74c5c7101bef15a8d30d07c4d43a88f3ed462453aecf719541fd8e7e2607906e",
+      "test/fixtures/install_consumer/graphics.cpp": "d41e9cf4f3f9365bc74e4a28e84382f29f93c56f123641846fd57f314ffe98a0",
+      "test/fixtures/install_consumer/main.cpp": "50225e92a11e81c85632b85ac2463b16f445b204bcc2c722a5a74769a55051e5",
+      "test/fixtures/install_consumer/profiling.cpp": "23178bbe580d3e5e869d6b5b6c89c55e74b5c22b89f890873a6fa53a3758fc8a",
+      "test/fixtures/install_consumer/runtime_smoke.cpp": "ff218a02dd38359ae29a286e984eb6957d40f7e3ba182e44ada87ab17f2900db",
+      "test/fixtures/install_consumer/tools.cpp": "173cfc567e21b93343e2443836e35f891807e781faf5b3d444376d968cf7316d",
+      "test/fixtures/install_consumer/vma.cpp": "e4161d981da3a4d13d586e44adc42e98afd2fa458cd1333d59773ebf840b1507",
+      "test/fixtures/subdirectory_consumer/main.cpp": "b77e7c50e042c0b1c4c25ddc0eca9ba4b9e690a3d799987f6abc20db5be49bbb",
+      "test/fixtures/subdirectory_consumer/unrelated.cpp": "2dc932e1a1af50d64f84b0dd33bb2929a5b5dc1573725441197a529ca9f15c6e",
+      "test/graphics/graphics_tests.cpp": "9bc63be854f8d172742c6de755fa575baad3ea181e5c7c320ef7e0e793d098f8",
+      "test/integration/descriptor_heap_pipeline_tests.cpp": "a2bbf8993aa16b041ac762ab9a48dca7752ac935c9ade048b634dbb050922a54",
+      "test/integration/descriptor_heap_tests.cpp": "5c4fa05edd97fb326bec7585909e2f5c97cd0de57dda46599e22fc06dbca18cb",
+      "test/integration/draw_stop_tests.cpp": "057cc4d9475ba9f51e7b495dc03c52374dc50c4978c7392401b3faaf80a2a36a",
+      "test/integration/gpu_tests.cpp": "1b5b5342be235a084405464c4f0abf23118a76c4141da007c7b7b42b512f2733",
+      "test/integration/rendering_tests.cpp": "56d23a44d717b2e91ea00697e7e71d417358fd193c84d2e15c76d6bcbb1181bb",
+      "test/integration/resource_region_tests.cpp": "39221ddf2799fb3d82c29dfcb3d1dc49778a21e05b2c16a519b86f2e00429970",
+      "test/integration/tensor_pipeline_tests.cpp": "cd02a244ca635324f14bdc2ab6acb3b855479e5b6baf237fd91012e98b88fd13",
+      "test/mutation/audit_registration/dummy.cpp": "37383d93ee91c18304662ac94d23f0f80b531269df1742f3ac22d4d821ab07d3",
+      "test/mutation/coverage_attribution/a.cpp": "73c50ece2d9628d60c7761e28817fa52c8afb4037228776483397c80194d6b39",
+      "test/mutation/coverage_attribution/b.cpp": "7dc7e7c86b680b6dd9bbc68d5e009e759e14d8d60947c050379eb46a041c0842",
+      "test/mutation/coverage_attribution/main.cpp": "5042e627d9c2458209adaa4d9a95ce831579652bb63427bfa58ddb2a8de7dc34",
+      "test/mutation/coverage_attribution/out_of_line.cpp": "51deace50974da95141442caf8f876d07acd3ac5f77c4e8a9fda55df7abe29e8",
+      "test/mutation/coverage_attribution/ranges.hpp": "f2e87dc0a8382916d5807a23664df9f873f57bc788a01f870eee1a8663c9ce42",
+      "test/profiling/chrome_trace_tests.cpp": "bc6f6e7abaa7ece646707d994602206ae5853a1ff4664b679cdfbec3b987758a",
+      "test/profiling/compute_dispatch_tests.cpp": "4b045ffd8d1ff2c81087202893b19830a56e8dfa33f47a4ea6b4533b203751d8",
+      "test/profiling/manual_capture_tests.cpp": "ea53aa3e6e6e54a93003957a6bb1d87decbc2cab3e2a2e8b731db1b05686e75d",
+      "test/profiling/profiled_pass_tests.cpp": "be803532eef15594520c9791d719daecda680cee6f86126e9df4872fb414f67e",
+      "test/profiling/query_pool_tests.cpp": "59fa67b9237f82d413f1e1ba61896c2fb3417100e61d66e1c4c9181597796092",
+      "test/profiling/timestamp_math_tests.cpp": "3ef675221b8ecb8b928e1853e4ef366f4c9e1d2879f2666fef135bbf9a506d7c",
+      "test/support/test_helpers.hpp": "bdf0b44b0916d19313dcb73cc86d7386d71dcde504e777f7d956b1e3dc609033",
+      "test/support/vma_test_helpers.hpp": "fb1e282c7084eb4a2392e65e294024dd3f75282a1b7f4d5d0b1c71437cc401b5",
+      "test/tools/spirv_compile_tests.cpp": "779e4dbeb2835ec0474dbcd096b602ea0b577490fec349e1c5f0c3e7f0b67ca5",
+      "test/vk_bootstrap_feature_tests.cpp": "57b63721023858375b748a3261b594eddb8268fb32af3b412225c502f760c1ce",
+      "test/vma/buffer_tests.cpp": "52478229aadac494cf1f0130840082155f02a864f60b8c0f7aebfd6882a3f4da",
+      "test/vma/features/gpu_buffer_device_address_tests.cpp": "7070c50bfcb0cba2355b640029c8878892397d26e00438bbb1b0f1d6b477cbb1",
+      "test/vma/features/tensor_tests.cpp": "2b5e961bba9e1e9527e23872de86762bd24882c3eebe7ef1f80062358df8f15b",
+      "test/vma/gpu_buffer_tests.cpp": "0ee639d5242e9108e9ee64ec838c3c6ebf4c8691fd8531ae4769438b01a0e5bf",
+      "test/vma/image_barrier_tests.cpp": "aec52eb2becbfbd971e83b4df09d77eefa944380ccf366f9033525465bcc3772",
+      "test/vma/image_tests.cpp": "6681a262c2bf38f4c24947921cbdf378420155f5be9a6a08f91e7871c0de02a5"
+    },
+    "test_registration_sha256": {
+      "test/CMakeLists.txt": "8329c1132dc123392dd8f759371215bdbbffdce0c924db5396870bda01a1eca7"
+    },
+    "build_options": {
+      "BUILD_TESTING": "ON",
+      "CMAKE_BUILD_TYPE": "Debug",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_DEBUG": "-g",
+      "CMAKE_CXX_FLAGS_MINSIZEREL": "-Os -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O2 -g -DNDEBUG",
+      "CMAKE_EXE_LINKER_FLAGS": "",
+      "CMAKE_EXE_LINKER_FLAGS_DEBUG": "",
+      "CMAKE_EXE_LINKER_FLAGS_MINSIZEREL": "",
+      "CMAKE_EXE_LINKER_FLAGS_RELEASE": "",
+      "CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO": "",
+      "vkexec_BUILD_BENCHMARKS": "OFF",
+      "vkexec_BUILD_EXAMPLES": "OFF",
+      "vkexec_BUILD_PROFILING": "OFF",
+      "vkexec_BUILD_TOOLS": "OFF",
+      "vkexec_BUILD_VMA": "OFF",
+      "vkexec_ENABLE_CACHE": "OFF",
+      "vkexec_ENABLE_CLANG_TIDY": "OFF",
+      "vkexec_ENABLE_COVERAGE": "OFF",
+      "vkexec_ENABLE_CPPCHECK": "OFF",
+      "vkexec_ENABLE_FAULT_TESTING": "OFF",
+      "vkexec_ENABLE_HARDENING": "OFF",
+      "vkexec_ENABLE_INSTALL_CONSUMER_TEST": "OFF",
+      "vkexec_ENABLE_IPO": "OFF",
+      "vkexec_ENABLE_MUTATION_TESTING": "ON",
+      "vkexec_ENABLE_PCH": "OFF",
+      "vkexec_ENABLE_SANITIZER_ADDRESS": "OFF",
+      "vkexec_ENABLE_SANITIZER_LEAK": "OFF",
+      "vkexec_ENABLE_SANITIZER_MEMORY": "OFF",
+      "vkexec_ENABLE_SANITIZER_THREAD": "OFF",
+      "vkexec_ENABLE_SANITIZER_UNDEFINED": "OFF",
+      "vkexec_ENABLE_UNITY_BUILD": "OFF",
+      "vkexec_TEST_VALIDATION": "OFF",
+      "vkexec_USER_LINKER_OPTION": "LLD",
+      "vkexec_WARNINGS_AS_ERRORS": "ON"
+    },
+    "timeout_policy": {
+      "warmup_ms": 10000,
+      "minimum_ms": 1000,
+      "workers": 1
+    },
+    "infrastructure_sha256": {
+      "CMakeLists.txt": "1bfba58d97aea89704ad5e9002ff33f104bef9ebeea45373a33ef288f201a495",
+      "Dependencies.cmake": "00a4ba0eafc6edd056c2217bd5418d61b5a27aa1e55a85e2436f21cd59818566",
+      "ProjectOptions.cmake": "38f5eadf6a85b176d0abc8a84178a0c9fd557cf63fe00273b4849e23681d4b96",
+      "CMakePresets.json": "85ed9cdf23214f57aa5608c4217b9df24ec870fc16c3762853436013f72c68a8",
+      "cmake/MutationTesting.cmake": "310948dd4188584aacb5befce786166288eec054f79145d2897564722aba1192",
+      "cmake/RunMutationScope.cmake": "4c58060ae89c027790831a5a30b14c7730e51b2e3426fd868b4db0e04396484a",
+      "flake.nix": "25c0c19fa10bf3bdc25d2edef129389e8867352fca5274f926f73eee955848ec"
+    }
+  },
+  "anomalies": [
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:83:23:83:25",
+      "file": "include/vkexec/detail/resource_state_tracker_helpers.hpp",
+      "line": 83,
+      "column": 23,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5validERKNS_9image_useE",
+          "count": 144,
+          "region": [
+            82,
+            3,
+            83,
+            47,
+            144,
+            0,
+            0,
+            0
+          ],
+          "function_count": 288,
+          "containing_gap_regions": [
+            [
+              78,
+              22,
+              90,
+              16,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      ],
+      "mull_uncovered_ranges": [
+        [
+          78,
+          22,
+          90,
+          2147483664
+        ]
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:85:23:85:25",
+      "file": "include/vkexec/detail/resource_state_tracker_helpers.hpp",
+      "line": 85,
+      "column": 23,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5validERKNS_9image_useE",
+          "count": 27,
+          "region": [
+            84,
+            3,
+            85,
+            48,
+            27,
+            0,
+            0,
+            0
+          ],
+          "function_count": 288,
+          "containing_gap_regions": [
+            [
+              78,
+              22,
+              90,
+              16,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      ],
+      "mull_uncovered_ranges": [
+        [
+          78,
+          22,
+          90,
+          2147483664
+        ]
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:105:23:105:25",
+      "file": "include/vkexec/detail/resource_state_tracker_helpers.hpp",
+      "line": 105,
+      "column": 23,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5validERKNS_10buffer_useE",
+          "count": 189,
+          "region": [
+            104,
+            3,
+            105,
+            47,
+            189,
+            0,
+            0,
+            0
+          ],
+          "function_count": 297,
+          "containing_gap_regions": [
+            [
+              97,
+              22,
+              110,
+              16,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      ],
+      "mull_uncovered_ranges": [
+        [
+          97,
+          22,
+          110,
+          2147483664
+        ]
+      ]
+    },
+    {
+      "mutant_id": "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:107:23:107:25",
+      "file": "include/vkexec/detail/resource_state_tracker_helpers.hpp",
+      "line": 107,
+      "column": 23,
+      "mutator": "cxx_eq_to_ne",
+      "status": "not_covered",
+      "classification": "source_covered_attribution_discrepancy",
+      "instances": [
+        {
+          "function": "_ZN6vkexec6detail5validERKNS_10buffer_useE",
+          "count": 27,
+          "region": [
+            106,
+            3,
+            107,
+            48,
+            27,
+            0,
+            0,
+            0
+          ],
+          "function_count": 297,
+          "containing_gap_regions": [
+            [
+              97,
+              22,
+              110,
+              16,
+              0,
+              0,
+              0,
+              3
+            ]
+          ]
+        }
+      ],
+      "mull_uncovered_ranges": [
+        [
+          97,
+          22,
+          110,
+          2147483664
+        ]
+      ]
+    }
+  ],
+  "real_modes": {
+    "automatic": {
+      "counts": {
+        "8": 56
+      },
+      "anomalies": [
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:105:23:105:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:107:23:107:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:83:23:83:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:85:23:85:25",
+          8
+        ]
+      ]
+    },
+    "raw": {
+      "counts": {
+        "8": 56
+      },
+      "anomalies": [
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:105:23:105:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:107:23:107:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:83:23:83:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:85:23:85:25",
+          8
+        ]
+      ]
+    },
+    "indexed": {
+      "counts": {
+        "8": 4,
+        "1": 51,
+        "2": 1
+      },
+      "anomalies": [
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:105:23:105:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:107:23:107:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:83:23:83:25",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:include/vkexec/detail/resource_state_tracker_helpers.hpp:85:23:85:25",
+          8
+        ]
+      ]
+    }
+  },
+  "fixture": {
+    "single": {
+      "binary_sha256": "12dd7a618222682f3986f997311f67f7995e98bb4ee3d9a33cfd79d23434c3b7",
+      "modes": {
+        "automatic": {
+          "8": 3,
+          "1": 2
+        },
+        "raw": {
+          "8": 3,
+          "1": 2
+        },
+        "indexed": {
+          "8": 3,
+          "1": 2
+        }
+      },
+      "indexed_mutants": [
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:29:21:29:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:31:21:31:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:41:73:41:75",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:48:50:48:52",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:49:63:49:65",
+          1
+        ]
+      ]
+    },
+    "multi": {
+      "binary_sha256": "0d60cbce1383d8bdf338d1278e6cc01b6b01eaf49dece582bcbc34e7500778e9",
+      "modes": {
+        "automatic": {
+          "8": 5
+        },
+        "raw": {
+          "8": 5
+        },
+        "indexed": {
+          "8": 3,
+          "1": 2
+        }
+      },
+      "indexed_mutants": [
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:29:21:29:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:31:21:31:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:41:73:41:75",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:48:50:48:52",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:49:63:49:65",
+          1
+        ]
+      ]
+    },
+    "single_ordinary": {
+      "binary_sha256": "50d2f26b87ec8455a4d027b2e68698af491a7a0b25437fce43d3bef160b62c07",
+      "modes": {
+        "automatic": {
+          "8": 3,
+          "1": 2
+        },
+        "raw": {
+          "8": 3,
+          "1": 2
+        },
+        "indexed": {
+          "8": 3,
+          "1": 2
+        }
+      },
+      "indexed_mutants": [
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:29:21:29:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:31:21:31:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:41:73:41:75",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:48:50:48:52",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:49:63:49:65",
+          1
+        ]
+      ]
+    },
+    "multi_ordinary": {
+      "binary_sha256": "7514d0a4a73ff3da4fbbff7104c0600aa7be8f615562e72d7ea08713c6623f40",
+      "modes": {
+        "automatic": {
+          "8": 5
+        },
+        "raw": {
+          "8": 5
+        },
+        "indexed": {
+          "8": 3,
+          "1": 2
+        }
+      },
+      "indexed_mutants": [
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:29:21:29:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:31:21:31:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:41:73:41:75",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:48:50:48:52",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:49:63:49:65",
+          1
+        ]
+      ]
+    },
+    "out_of_line": {
+      "binary_sha256": "53566bea4615fd8a718d2bc19b79d9242a13c4bb7755f85b9779b55d1ce4ead6",
+      "modes": {
+        "automatic": {
+          "8": 3,
+          "1": 2
+        },
+        "raw": {
+          "8": 3,
+          "1": 2
+        },
+        "indexed": {
+          "8": 3,
+          "1": 2
+        }
+      },
+      "indexed_mutants": [
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/out_of_line.cpp:6:21:6:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/out_of_line.cpp:8:21:8:23",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:41:73:41:75",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:48:50:48:52",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:49:63:49:65",
+          1
+        ]
+      ]
+    },
+    "single_if": {
+      "binary_sha256": "5ae84d6939609fde038636ec94221980a1221b1dcba5dded90209100d6b23a9d",
+      "modes": {
+        "automatic": {
+          "1": 6,
+          "8": 1
+        },
+        "raw": {
+          "1": 6,
+          "8": 1
+        },
+        "indexed": {
+          "1": 6,
+          "8": 1
+        }
+      },
+      "indexed_mutants": [
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:23:16:23:18",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:23:51:23:53",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:24:16:24:18",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:24:64:24:66",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:41:73:41:75",
+          8
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:48:50:48:52",
+          1
+        ],
+        [
+          "cxx_eq_to_ne:test/mutation/helper_attribution/validity.hpp:49:63:49:65",
+          1
+        ]
+      ]
+    }
+  },
+  "repeated_audits": [
+    {
+      "artifacts": "out/pr10-evidence/baseline/resource_helpers",
+      "covered": {
+        "total": 52,
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 0,
+        "normalized_outcomes_sha256": "66b7c0c4055b3d80c97cefd2e13610901d033eab0f0783afe9ae45a231751d22"
+      },
+      "inclusive": {
+        "total": 56,
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 4,
+        "normalized_outcomes_sha256": "386344f646e007f9db911f4356b24c8e2f61f7771ad171f73ff9c18a1587d990"
+      }
+    },
+    {
+      "artifacts": "out/pr10-evidence/validation/resource_helpers",
+      "covered": {
+        "total": 52,
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 0,
+        "normalized_outcomes_sha256": "66b7c0c4055b3d80c97cefd2e13610901d033eab0f0783afe9ae45a231751d22"
+      },
+      "inclusive": {
+        "total": 56,
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 4,
+        "normalized_outcomes_sha256": "386344f646e007f9db911f4356b24c8e2f61f7771ad171f73ff9c18a1587d990"
+      }
+    },
+    {
+      "artifacts": "out/pr10-evidence/repeat-3/resource_helpers",
+      "covered": {
+        "total": 52,
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 0,
+        "normalized_outcomes_sha256": "66b7c0c4055b3d80c97cefd2e13610901d033eab0f0783afe9ae45a231751d22"
+      },
+      "inclusive": {
+        "total": 56,
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 4,
+        "normalized_outcomes_sha256": "386344f646e007f9db911f4356b24c8e2f61f7771ad171f73ff9c18a1587d990"
+      }
+    }
+  ],
+  "scope_validation": {
+    "ranges": {
+      "status": "passed",
+      "comparable": true,
+      "fingerprint_mismatches": [],
+      "population_changed": false,
+      "regressions": 0,
+      "counts": {
+        "killed": 47,
+        "survived": 0,
+        "not_covered": 0,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0
+      }
+    },
+    "dag": {
+      "status": "passed",
+      "comparable": true,
+      "fingerprint_mismatches": [],
+      "population_changed": false,
+      "regressions": 0,
+      "counts": {
+        "killed": 36,
+        "survived": 2,
+        "not_covered": 19,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0
+      }
+    },
+    "resource_state": {
+      "status": "passed",
+      "comparable": true,
+      "fingerprint_mismatches": [],
+      "population_changed": false,
+      "regressions": 0,
+      "counts": {
+        "killed": 54,
+        "survived": 2,
+        "not_covered": 0,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0
+      }
+    },
+    "resource_helpers": {
+      "status": "passed",
+      "comparable": true,
+      "fingerprint_mismatches": [],
+      "population_changed": false,
+      "regressions": 0,
+      "counts": {
+        "killed": 51,
+        "survived": 1,
+        "not_covered": 4,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0
+      }
+    },
+    "barrier_coalescing": {
+      "status": "passed",
+      "comparable": true,
+      "fingerprint_mismatches": [],
+      "population_changed": false,
+      "regressions": 0,
+      "counts": {
+        "killed": 15,
+        "survived": 1,
+        "not_covered": 0,
+        "timed_out": 0,
+        "crashed": 0,
+        "abnormal_exit": 0
+      }
+    }
+  }
+}
