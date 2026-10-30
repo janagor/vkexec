@@ -170,3 +170,21 @@ cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_ranges_uncov
 
 The DAG scope does not change range operators or its existing 47/47 classification.
 Neither audit enforces a CI mutation-score threshold.
+
+### Resource-state audit
+
+Use the same public preset as the ranges and DAG scopes:
+
+```sh
+nix develop .#clang-mut
+cmake --preset unixlike-clang-mut
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_resource_state
+cmake --build out/build/unixlike-clang-mut --target vkexec_mutation_resource_state_uncovered
+```
+
+The CPU-only `[resource-state]` selection includes deterministic allocation-fault
+rollback tests when exceptions are enabled. Tests additionally tagged
+`[resource-state-fault]` remain included in this selection. The tracker baseline
+uses one worker, a 1000 ms minimum mutant timeout and a 10000 ms warmup timeout;
+configure `-Dvkexec_MULL_MINIMUM_TIMEOUT_MS=1000` to reproduce that policy in a
+fresh cache. See [the baseline](mutation-resource-state-baseline.md).

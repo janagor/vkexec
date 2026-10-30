@@ -117,3 +117,15 @@ The mutation CTest checks pass, including focused configure and stub execution
 checks for argument forwarding and failures in baseline execution, profile merge,
 Mull execution and validation. The normal debug CTest suite completed without
 failures: 348 passed and three skipped on this machine.
+
+## Resource-state tracker
+
+The `resource_state` scope uses `cmake/mull/resource_state.yml`, mutates only
+`include/vkexec/detail/resource_state_tracker.hpp`, and selects CPU-only
+`[resource-state]` tests with lexicographic ordering and fail-fast execution.
+Helpers, validation, checkpoint types and barrier coalescing support those tests
+but are not mutation sources. The private build is
+`mutation-builds/resource_state/`; covered and inclusive reports use the distinct
+`vkexec_core_resource_state` and `vkexec_core_resource_state_uncovered` prefixes.
+See [the tracker baseline](mutation-resource-state-baseline.md) for evidence and
+remaining limitations. This scope adds neither a preset nor a score gate.
