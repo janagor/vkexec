@@ -46,6 +46,29 @@
 
 inline namespace vkexec_gpu_failure_test_support {
 
+template<class Value> [[nodiscard]] auto environment_number(char const *name, Value fallback) -> Value
+{
+#ifdef _MSC_VER
+  char *input = nullptr;
+  std::size_t input_size = 0;
+  if (_dupenv_s(&input, &input_size, name) != 0) { return fallback; }
+  std::unique_ptr<char, decltype(&std::free)> owned_input{ input, &std::free };
+  if (!owned_input) { return fallback; }
+  std::string_view const value{ owned_input.get() };
+#else
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  char const *const input = std::getenv(name);
+  if (input == nullptr) { return fallback; }
+  std::string_view const value{ input };
+#endif
+  Value parsed{};
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  auto const result = std::from_chars(value.data(), value.data() + value.size(), parsed);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  return result.ec == std::errc{} && result.ptr == value.data() + value.size() && parsed > 0 ? parsed : fallback;
+}
+
+
 constexpr auto k_completion_timeout = std::chrono::seconds(5);
 constexpr int k_one_completion = 1;
 constexpr int k_max_terminal_signals = 16;

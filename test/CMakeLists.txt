@@ -141,6 +141,7 @@ vkexec_add_test_executable(
   core/scheduler_tests.cpp
   core/scheduler_pass_tests.cpp
   core/scheduler_graph_tests.cpp
+  core/record_into_tests.cpp
   core/graph_submission_sync_tests.cpp
   ${vkexec_gpu_failure_sources}
   core/resource_allocator_tests.cpp
@@ -159,6 +160,30 @@ if(vkexec_ENABLE_FAULT_TESTING)
     add_dependencies(vkexec_core_tests vkexec_retirement_fatal_helper)
   endif()
 endif()
+
+add_executable(vkexec_sync_validation_probe core/sync_validation_probe.cpp)
+target_include_directories(vkexec_sync_validation_probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/support")
+target_link_libraries(vkexec_sync_validation_probe PRIVATE vkexec::vkexec vkexec_exception_options)
+set_target_properties(vkexec_sync_validation_probe PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+if(vkexec_TEST_VALIDATION)
+  add_test(
+    NAME vkexec.record_into.sync_validation_active
+    COMMAND "${CMAKE_COMMAND}" -E env VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation VK_VALIDATION_VALIDATE_SYNC=1
+            VK_VALIDATION_SYNCVAL_RECORD_TIME_VALIDATION=1 $<TARGET_FILE:vkexec_sync_validation_probe>)
+endif()
+
+add_executable(vkexec_recorded_graph_retirement_helper core/recorded_graph_retirement_helper.cpp)
+target_link_libraries(vkexec_recorded_graph_retirement_helper PRIVATE vkexec::vkexec vkexec_exception_options)
+set_target_properties(vkexec_recorded_graph_retirement_helper PROPERTIES CXX_SCAN_FOR_MODULES OFF)
+add_test(NAME vkexec.recorded_graph.unretired_destruction
+         COMMAND "${CMAKE_COMMAND}" "-DVKEXEC_RETIREMENT_HELPER=$<TARGET_FILE:vkexec_recorded_graph_retirement_helper>"
+                 -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_recorded_graph_retirement.cmake")
+set_tests_properties(
+  vkexec.recorded_graph.unretired_destruction
+  PROPERTIES SKIP_REGULAR_EXPRESSION
+             "SKIP:"
+             TIMEOUT
+             15)
 
 vkexec_add_test_executable(
   vkexec_features_tests

@@ -12,6 +12,7 @@
 #include <vkexec/error.hpp>
 #include <vkexec/pass.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/record_into.hpp>
 #include <vkexec/resource_use.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/submit_scope.hpp>
@@ -537,3 +538,31 @@ TEST_CASE("later after-GPU callback failure suppresses completed samples", "[vke
   REQUIRE(profiler->take_completed().empty());
 }
 #endif
+
+
+TEST_CASE("external graph profiling publishes only after explicit completion", "[vkexec][profiling][record_into][gpu]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto profiler = vkexec::profiling::profiler::create(*ctx);
+  REQUIRE(profiler);
+  if (!profiler->supported(ctx->compute_queue_ref())) { SKIP("compute queue has no timestamp support"); }
+  auto opened = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(opened);
+  auto scope = vkexec::expected_take(opened);
+  auto pass = [] { return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer) {}); };
+  auto graph = stdexec::schedule(ctx->get_scheduler())
+               | vkexec::profiling::profiled(*profiler, "external first", pass())
+               | vkexec::profiling::profiled(*profiler, "external second", pass());
+  auto recorded = vkexec::record_into(*ctx, scope.cmd, std::move(graph), { scope.queue });
+  REQUIRE(recorded);
+  CHECK(profiler->take_completed().empty());
+  REQUIRE(scope.end_recording());
+  REQUIRE(ctx->submit_and_wait(scope.cmd, scope.queue));
+  CHECK(profiler->take_completed().empty());
+  REQUIRE(recorded->mark_submitted());
+  REQUIRE(recorded->complete());
+  auto events = profiler->take_completed();
+  REQUIRE(events.size() == 2);
+  CHECK(events.at(0).submission_id == events.at(1).submission_id);
+  CHECK(events.at(0).region_index != events.at(1).region_index);
+}

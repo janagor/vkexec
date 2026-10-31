@@ -1,6 +1,7 @@
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 
 #include "gpu_failure_test_support.hpp"
+#include <vkexec/record_into.hpp>
 
 TEST_CASE("retirement wait retries ordinary errors and preserves the first error", "[vkexec][gpu][failure]")
 {
@@ -49,27 +50,6 @@ TEST_CASE("persistent retirement wait errors invoke the fatal policy", "[vkexec]
 }
 #endif
 
-template<class Value> [[nodiscard]] auto environment_number(char const *name, Value fallback) -> Value
-{
-#ifdef _MSC_VER
-  char *input = nullptr;
-  std::size_t input_size = 0;
-  if (_dupenv_s(&input, &input_size, name) != 0) { return fallback; }
-  std::unique_ptr<char, decltype(&std::free)> owned_input{ input, &std::free };
-  if (!owned_input) { return fallback; }
-  std::string_view const value{ owned_input.get() };
-#else
-  // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  char const *const input = std::getenv(name);
-  if (input == nullptr) { return fallback; }
-  std::string_view const value{ input };
-#endif
-  Value parsed{};
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  auto const result = std::from_chars(value.data(), value.data() + value.size(), parsed);
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  return result.ec == std::errc{} && result.ptr == value.data() + value.size() && parsed > 0 ? parsed : fallback;
-}
 
 TEST_CASE("submit_fence observes pre-requested cancellation before Vulkan submission", "[vkexec][gpu][failure]")
 {
@@ -389,3 +369,73 @@ TEST_CASE("pending GPU submissions outlive the public context and retire once", 
 
 
 // NOLINTEND(readability-function-cognitive-complexity)
+
+
+namespace {
+std::atomic<int> recording_wait_calls{};
+}
+
+TEST_CASE("external graph recording performs no submissions or waits", "[vkexec][gpu][record_into]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto opened = vkexec::detail::submit_scope::open(*ctx);
+  REQUIRE(opened);
+  auto scope = vkexec::expected_take(opened);
+  int submit_calls{};
+  auto *submit2 = ctx->procs().queue_submit2;
+  normal_submit2.store(submit2, std::memory_order_release);
+  vkexec::detail::test_vulkan_dispatch dispatch;
+  dispatch.queue_submit = checkpoint_submit;
+  dispatch.queue_submit2 = submit2 ? checkpoint_submit2 : nullptr;
+  recording_wait_calls.store(0);
+  dispatch.wait_for_fences = [](VkDevice, std::uint32_t, VkFence const *, VkBool32, std::uint64_t) -> VkResult {
+    ++recording_wait_calls;
+    return VK_SUCCESS;
+  };
+  dispatch.queue_wait_idle = [](VkQueue) -> VkResult {
+    ++recording_wait_calls;
+    return VK_SUCCESS;
+  };
+  {
+    dispatch_reset const installed{ dispatch, *ctx };
+    thread_submit_calls = &submit_calls;
+    auto graph = stdexec::schedule(ctx->get_scheduler()) | vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer) {});
+    auto recorded = vkexec::record_into(*ctx, scope.cmd, std::move(graph), { scope.queue });
+    thread_submit_calls = nullptr;
+    REQUIRE(recorded);
+    CHECK(submit_calls == 0);
+    CHECK(recording_wait_calls.load() == 0);
+    REQUIRE(vkResetCommandBuffer(scope.cmd, 0) == VK_SUCCESS);
+    REQUIRE(recorded->abandon());
+    CHECK(submit_calls == 0);
+    CHECK(recording_wait_calls.load() == 0);
+  }
+}
+
+TEST_CASE("single queue owned DAG submits one scope per prepared batch", "[vkexec][gpu][record_into]")
+{
+  auto ctx = vkexec::test::require_context();
+  auto graph = vkexec::make_dynamic_pass_graph(stdexec::schedule(ctx->get_scheduler()));
+  std::vector<std::size_t> incoming;
+  for (std::size_t index{}; index < 3; ++index) {
+    auto node = graph.append_after(incoming, vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer) {}));
+    incoming = { node };
+  }
+  auto prepared = vkexec::detail::prepare_graph(
+    *ctx, graph.steps, graph.step_queues, graph.step_predecessors, ctx->compute_queue_ref());
+  REQUIRE(prepared);
+  REQUIRE(vkexec::detail::terminal_batches(prepared->execution).size() == 1);
+  auto *submit2 = ctx->procs().queue_submit2;
+  normal_submit2.store(submit2, std::memory_order_release);
+  vkexec::detail::test_vulkan_dispatch dispatch;
+  dispatch.queue_submit = checkpoint_submit;
+  dispatch.queue_submit2 = submit2 ? checkpoint_submit2 : nullptr;
+  dispatch_reset const installed{ dispatch, *ctx };
+  int submissions{};
+  thread_submit_calls = &submissions;
+  auto completed = vkexec::test::sync_wait_sender(std::move(graph));
+  thread_submit_calls = nullptr;
+  REQUIRE(vkexec::test::sync_wait_completed(completed));
+  CHECK(submissions == static_cast<int>(prepared->execution.batches.size()));
+  CHECK(submissions == 3);
+}
