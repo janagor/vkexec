@@ -1,43 +1,91 @@
 // Allocation instrumentation for this benchmark executable only. Tracks C++
 // allocations on the recording thread; Vulkan driver mallocs are excluded.
+#include "recording_allocations.hpp"
+
 #include <cstddef>
 #include <cstdlib>
 #include <new>
+#include <vkexec/config.hpp>
+
 #ifdef _MSC_VER
 #include <malloc.h>
 #endif
-#include <vkexec/config.hpp>
+
+namespace {
+constexpr std::size_t k_zero_size = 0;
+constexpr std::size_t k_no_alignment = 0;
+constexpr std::size_t k_nonzero_allocation_size = 1;
+constexpr std::size_t k_no_padding = 1;
+struct allocation_tracking
+{
+  bool enabled{};
+  std::size_t count{};
+};
+
+auto tracking_state() noexcept -> allocation_tracking &
+{
+  thread_local allocation_tracking state;
+  return state;
+}
+}// namespace
+
 namespace recording_allocations {
-thread_local bool enabled{};
-thread_local std::size_t count{};
 auto begin() noexcept -> void
 {
-  count = 0;
-  enabled = true;
+  auto &state = tracking_state();
+  state.count = 0;
+  state.enabled = true;
 }
 auto end() noexcept -> std::size_t
 {
-  enabled = false;
-  return count;
+  auto &state = tracking_state();
+  state.enabled = false;
+  return state.count;
 }
 }// namespace recording_allocations
 namespace {
-auto allocate(std::size_t size, std::size_t alignment = 0) -> void *
+auto allocate(std::size_t size, std::size_t alignment = k_no_alignment) -> void *
 {
-  if (recording_allocations::enabled) { ++recording_allocations::count; }
-  size = size == 0 ? 1 : size;
+  auto &state = tracking_state();
+  if (state.enabled) { ++state.count; }
+  size = size == k_zero_size ? k_nonzero_allocation_size : size;
 #ifdef _MSC_VER
-  void *ptr = alignment ? _aligned_malloc(size, alignment) : std::malloc(size);
+  // Global allocation replacements must use the C runtime allocation API.
+  // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,hicpp-no-malloc,cppcoreguidelines-owning-memory)
+  void *ptr = alignment != k_no_alignment ? _aligned_malloc(size, alignment) : std::malloc(size);
 #else
-  void *ptr =
-    alignment ? std::aligned_alloc(alignment, ((size + alignment - 1) / alignment) * alignment) : std::malloc(size);
+  void *ptr{};
+  if (alignment != k_no_alignment) {
+    // Global allocation replacements must use the C runtime allocation API.
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,hicpp-no-malloc,cppcoreguidelines-owning-memory)
+    ptr = std::aligned_alloc(alignment, ((size + alignment - k_no_padding) / alignment) * alignment);
+  } else {
+    // Global allocation replacements must use the C runtime allocation API.
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,hicpp-no-malloc,cppcoreguidelines-owning-memory)
+    ptr = std::malloc(size);
+  }
 #endif
-  if (ptr) { return ptr; }
+  if (ptr != nullptr) { return ptr; }
 #if VKEXEC_HAS_EXCEPTIONS
   throw std::bad_alloc{};
 #else
   std::abort();
 #endif
+}
+
+auto deallocate(void *ptr, std::size_t alignment = k_no_alignment) noexcept -> void
+{
+#ifdef _MSC_VER
+  if (alignment != k_no_alignment) {
+    _aligned_free(ptr);
+    return;
+  }
+#else
+  (void)alignment;
+#endif
+  // This is the release boundary for memory obtained by the global new replacements.
+  // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,hicpp-no-malloc,cppcoreguidelines-owning-memory)
+  std::free(ptr);
 }
 }// namespace
 auto operator new(std::size_t size) -> void * { return allocate(size); }
@@ -46,20 +94,29 @@ auto operator new(std::size_t size, std::align_val_t alignment) -> void *
 { return allocate(size, static_cast<std::size_t>(alignment)); }
 auto operator new[](std::size_t size, std::align_val_t alignment) -> void *
 { return allocate(size, static_cast<std::size_t>(alignment)); }
-auto operator delete(void *ptr) noexcept -> void { std::free(ptr); }
-auto operator delete[](void *ptr) noexcept -> void { std::free(ptr); }
-auto operator delete(void *ptr, std::size_t) noexcept -> void { std::free(ptr); }
-auto operator delete[](void *ptr, std::size_t) noexcept -> void { std::free(ptr); }
-auto operator delete(void *ptr, std::align_val_t) noexcept -> void
+auto operator delete(void *ptr) noexcept -> void { deallocate(ptr); }
+auto operator delete[](void *ptr) noexcept -> void { deallocate(ptr); }
+auto operator delete(void *ptr, std::size_t size) noexcept -> void
 {
-#ifdef _MSC_VER
-  _aligned_free(ptr);
-#else
-  std::free(ptr);
-#endif
+  (void)size;
+  deallocate(ptr);
 }
-auto operator delete[](void *ptr, std::align_val_t alignment) noexcept -> void { ::operator delete(ptr, alignment); }
-auto operator delete(void *ptr, std::size_t, std::align_val_t alignment) noexcept -> void
-{ ::operator delete(ptr, alignment); }
-auto operator delete[](void *ptr, std::size_t, std::align_val_t alignment) noexcept -> void
-{ ::operator delete(ptr, alignment); }
+auto operator delete[](void *ptr, std::size_t size) noexcept -> void
+{
+  (void)size;
+  deallocate(ptr);
+}
+auto operator delete(void *ptr, std::align_val_t alignment) noexcept -> void
+{ deallocate(ptr, static_cast<std::size_t>(alignment)); }
+auto operator delete[](void *ptr, std::align_val_t alignment) noexcept -> void
+{ deallocate(ptr, static_cast<std::size_t>(alignment)); }
+auto operator delete(void *ptr, std::size_t size, std::align_val_t alignment) noexcept -> void
+{
+  (void)size;
+  deallocate(ptr, static_cast<std::size_t>(alignment));
+}
+auto operator delete[](void *ptr, std::size_t size, std::align_val_t alignment) noexcept -> void
+{
+  (void)size;
+  deallocate(ptr, static_cast<std::size_t>(alignment));
+}
