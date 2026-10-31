@@ -301,14 +301,6 @@ namespace detail {
       stdexec::set_error(std::move(receiver), std::move(failure));
     }
 
-    [[nodiscard]] auto plan_graph(context &facade) const -> result<execution_plan>
-    {
-      if (step_predecessors.empty()) {
-        return detail::plan_execution(detail::pass_step_count(steps), step_queues, facade.compute_queue_ref());
-      }
-      return detail::plan_dag(step_queues, step_predecessors, facade.compute_queue_ref());
-    }
-
     [[nodiscard]] auto prepare_presentation(execution_plan const &plan) -> status
     {
       if (!presentation) { return {}; }
@@ -371,12 +363,12 @@ namespace detail {
           return;
         }
         auto facade = context_access::facade(state);
-        auto planned = plan_graph(facade);
+        auto planned = detail::prepare_graph(facade, steps, step_queues, step_predecessors, facade.compute_queue_ref());
         if (!planned) {
           fail_before_submit(std::move(planned.error()));
           return;
         }
-        if (auto ready = prepare_presentation(*planned); !ready) {
+        if (auto ready = prepare_presentation(planned->execution); !ready) {
           fail_before_submit(std::move(ready.error()));
           return;
         }
@@ -387,13 +379,13 @@ namespace detail {
           return;
         }
         auto scopes = expected_take(prepared);
-        if (auto terminal = prepare_terminal(facade, *planned, scopes); !terminal) {
+        if (auto terminal = prepare_terminal(facade, planned->execution, scopes); !terminal) {
           fail_before_submit(std::move(terminal.error()));
           return;
         }
-        auto &child = submit_op.emplace(
-          detail::graph_submit_sender{
-            .scopes = std::move(scopes), .plan = std::move(*planned), .presentation = std::move(presentation) },
+        auto &child = submit_op.emplace(detail::graph_submit_sender{ .scopes = std::move(scopes),
+                                          .plan = std::move(planned->execution),
+                                          .presentation = std::move(presentation) },
           scheduler_access::make(state),
           child_receiver_t{ .rcvr = &receiver, .steps = &steps });
         stdexec::start(child.op);

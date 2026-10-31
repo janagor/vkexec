@@ -244,24 +244,25 @@ template<class StepStorage>
 
 template<class StepStorage>
 [[nodiscard]] auto record_sync_batch(context &facade,
-  submit_scope &scope,
+  VkCommandBuffer cmd,
+  pass_cleanup &cleanup,
+  pass_recording_info const &info,
   execution_batch const &batch,
   resource_sync_plan const &sync,
   StepStorage &steps) -> status
 {
-  auto const info = recording_info(scope.queue);
   for (std::size_t index = batch.first_step; index < batch.end_step; ++index) {
     auto const &point = sync.steps.at(index);
-    VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_before, point.buffers_before));
+    VKEXEC_TRY(record_sync(facade, cmd, point.images_before, point.buffers_before));
     if constexpr (requires { steps.size(); }) {
-      VKEXEC_TRY(record_step(steps.at(index), facade, scope.cmd, scope.cleanup, info));
+      VKEXEC_TRY(record_step(steps.at(index), facade, cmd, cleanup, info));
     } else {
       status recorded{};
       std::size_t position{};
       std::apply(
         [&](auto &...step) -> void {
           [[maybe_unused]] auto record_one = [&](auto &current) -> void {
-            if (position == index) { recorded = record_step(current, facade, scope.cmd, scope.cleanup, info); }
+            if (position == index) { recorded = record_step(current, facade, cmd, cleanup, info); }
             ++position;
           };
           (record_one(step), ...);
@@ -269,7 +270,7 @@ template<class StepStorage>
         steps);
       if (!recorded) { return unexpected(std::move(recorded.error())); }
     }
-    VKEXEC_TRY(record_sync(facade, scope.cmd, point.images_after, point.buffers_after));
+    VKEXEC_TRY(record_sync(facade, cmd, point.images_after, point.buffers_after));
   }
   return {};
 }
@@ -320,19 +321,70 @@ inline auto add_resource_dependencies(execution_plan &plan, resource_sync_plan c
   }
 }
 
+struct prepared_graph
+{
+  execution_plan execution;
+  resource_sync_plan synchronization;
+};
+
+template<class Steps> [[nodiscard]] auto prepare_graph(execution_plan execution, Steps &steps) -> result<prepared_graph>
+{
+  VKEXEC_TRY(validate_execution_batches(execution, pass_step_count(steps)));
+  auto sync = plan_resource_sync(execution, steps);
+  if (!sync) { return fail(sync); }
+  add_resource_dependencies(execution, *sync);
+  return prepared_graph{ std::move(execution), expected_take(sync) };
+}
+
+template<class Steps>
+[[nodiscard]] auto prepare_graph(context &ctx,
+  Steps &steps,
+  std::span<queue_affinity const> queues,
+  std::span<std::vector<std::size_t> const> predecessors,
+  queue_ref default_queue) -> result<prepared_graph>
+{
+  if (!context_access::state(ctx)) { return fail(errc::invalid_argument, "graph requires a context"); }
+  auto execution = predecessors.empty() ? plan_execution(pass_step_count(steps), queues, default_queue)
+                                        : plan_dag(queues, predecessors, default_queue);
+  if (!execution) { return fail(execution); }
+  return prepare_graph(expected_take(execution), steps);
+}
+
+template<class Steps>
+[[nodiscard]] auto record_external(context &ctx,
+  VkCommandBuffer cmd,
+  queue_ref queue,
+  prepared_graph const &plan,
+  Steps &steps,
+  pass_cleanup &cleanup) -> status
+{
+  VKEXEC_TRY(validate_execution_batches(plan.execution, pass_step_count(steps)));
+  if (cmd == VK_NULL_HANDLE || queue.queue == VK_NULL_HANDLE || queue.family == VK_QUEUE_FAMILY_IGNORED) {
+    return fail(errc::invalid_argument, "external recording requires a command buffer and queue");
+  }
+  if (plan.synchronization.steps.size() != pass_step_count(steps)) {
+    return fail(errc::invalid_argument, "invalid synchronization plan");
+  }
+  for (auto const &batch : plan.execution.batches) {
+    if (!same_queue(batch.queue, queue)) { return fail(errc::unsupported, "external recording requires one queue"); }
+  }
+  auto const info = recording_info(queue);
+  for (auto const &batch : plan.execution.batches) {
+    VKEXEC_TRY(record_sync_batch(ctx, cmd, cleanup, info, batch, plan.synchronization, steps));
+  }
+  return {};
+}
+
 template<class StepStorage>
 [[nodiscard]] auto record_execution(context_handle const &state,
-  execution_plan &plan,
+  prepared_graph const &prepared,
   StepStorage &steps,
   VkImage presentation_image = VK_NULL_HANDLE) -> result<std::vector<submit_scope>>
 {
   if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
-  auto const step_count = pass_step_count(steps);
-  if (auto validated = validate_execution_batches(plan, step_count); !validated) { return fail(validated); }
-  auto synchronization = plan_resource_sync(plan, steps);
-  if (!synchronization) { return fail(synchronization); }
-  add_resource_dependencies(plan, *synchronization);
-  VKEXEC_TRY(validate_presentation_image(*synchronization, plan, presentation_image));
+  auto const &plan = prepared.execution;
+  auto const &synchronization = prepared.synchronization;
+  VKEXEC_TRY(validate_presentation_image(synchronization, plan, presentation_image));
   auto facade = context_access::facade(state);
   std::vector<submit_scope> scopes;
   scopes.reserve(plan.batches.empty() ? std::size_t{ 1 } : plan.batches.size());
@@ -341,7 +393,8 @@ template<class StepStorage>
     if (!opened) { return fail(opened); }
     scopes.push_back(expected_take(opened));
     auto &scope = scopes.back();
-    auto recorded = record_sync_batch(facade, scope, batch, *synchronization, steps);
+    auto recorded =
+      record_sync_batch(facade, scope.cmd, scope.cleanup, recording_info(scope.queue), batch, synchronization, steps);
     if (!recorded) { return fail(recorded); }
     if (auto ended = scope.end_recording(); !ended) { return fail(ended); }
   }
@@ -352,6 +405,20 @@ template<class StepStorage>
     if (auto ended = scopes.back().end_recording(); !ended) { return fail(ended); }
   }
   return scopes;
+}
+
+// Compatibility entry point for internal callers with an existing execution plan.
+template<class Steps>
+[[nodiscard]] auto record_execution(context_handle const &state,
+  execution_plan &plan,
+  Steps &steps,
+  VkImage presentation_image = VK_NULL_HANDLE) -> result<std::vector<submit_scope>>
+{
+  if (!state) { return fail(errc::invalid_argument, "pass graph requires a context"); }
+  auto prepared = prepare_graph(plan, steps);
+  if (!prepared) { return fail(prepared); }
+  plan = prepared->execution;
+  return record_execution(state, *prepared, steps, presentation_image);
 }
 
 template<class... Steps> auto run_after_gpu(std::tuple<Steps...> &steps) -> void

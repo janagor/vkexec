@@ -21,6 +21,7 @@
 #include <vkexec/pipeline.hpp>
 #include <vkexec/push.hpp>
 #include <vkexec/queue_submit.hpp>
+#include <vkexec/record_into.hpp>
 #include <vkexec/resource_table.hpp>
 #include <vkexec/result.hpp>
 #include <vkexec/scheduler.hpp>
