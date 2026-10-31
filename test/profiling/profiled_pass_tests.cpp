@@ -549,7 +549,11 @@ TEST_CASE("external graph profiling publishes only after explicit completion", "
   auto opened = vkexec::detail::submit_scope::open(*ctx);
   REQUIRE(opened);
   auto scope = vkexec::expected_take(opened);
-  auto pass = [] { return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer) {}); };
+  auto pass = []() -> auto {
+    return vkexec::custom_pass(vkexec::uses(), [](VkCommandBuffer command_buffer) -> void {
+      (void)command_buffer;
+    });
+  };
   auto graph = stdexec::schedule(ctx->get_scheduler())
                | vkexec::profiling::profiled(*profiler, "external first", pass())
                | vkexec::profiling::profiled(*profiler, "external second", pass());

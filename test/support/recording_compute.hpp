@@ -1,12 +1,17 @@
 #ifndef VKEXEC_TEST_RECORDING_COMPUTE_HPP
 #define VKEXEC_TEST_RECORDING_COMPUTE_HPP
 #include <memory>
+#include <array>
+#include <cstdint>
+#include <vkexec/context.hpp>
+#include <vkexec/result.hpp>
+#include <vulkan/vulkan_core.h>
 #include <vkexec/pass.hpp>
 #include <vkexec/pipeline.hpp>
 
 namespace vkexec::test {
 // Generated from recording.comp with glslangValidator -V.
-inline constexpr std::array<std::uint32_t, 200> recording_spirv{
+inline constexpr std::array<std::uint32_t, 200> k_recording_spirv{
   0x07230203U,
   0x00010000U,
   0x0008000bU,
@@ -214,10 +219,15 @@ struct recording_compute
   handles::compute_pipeline pipeline;
   VkDescriptorSet set{};
   compute_bind bind;
+  recording_compute() = default;
+  recording_compute(recording_compute const &) = delete;
+  auto operator=(recording_compute const &) -> recording_compute & = delete;
+  recording_compute(recording_compute &&) = delete;
+  auto operator=(recording_compute &&) -> recording_compute & = delete;
   ~recording_compute()
   {
-    if (set) { free_compute_set(*ctx, pipeline, set); }
-    if (ctx) { destroy(*ctx, pipeline); }
+    if (set != VK_NULL_HANDLE) { free_compute_set(*ctx, pipeline, set); }
+    if (ctx != nullptr) { destroy(*ctx, pipeline); }
   }
   [[nodiscard]] static auto make(context &ctx, VkBuffer buffer, VkDeviceSize size)
     -> result<std::unique_ptr<recording_compute>>
@@ -227,7 +237,7 @@ struct recording_compute
     layout_desc layout{};
     layout.bindings = { buffer_access::readwrite };
     layout.local_size = { 1, 1, 1 };
-    auto pipeline = create(ctx, recording_spirv, layout);
+    auto pipeline = create(ctx, k_recording_spirv, layout);
     if (!pipeline) { return fail(pipeline); }
     fixture->pipeline = expected_take(pipeline);
     std::array const bindings{ storage_binding{ .buffer = buffer, .byte_size = size, .binding = 0 } };
