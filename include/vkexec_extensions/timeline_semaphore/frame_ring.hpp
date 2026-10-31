@@ -72,7 +72,7 @@ namespace factory {
      * @param info Slot count and initial image count.
      */
     [[nodiscard]] auto operator()(context &ctx, frame_ring_create_info info) const
-    { return make_sender(detail::make_frame_ring_factory{ .ctx = &ctx, .info = info }); }
+    { return make_sender(::vkexec::detail::make_frame_ring_factory{ .ctx = &ctx, .info = info }); }
   };
 
   // NOLINTNEXTLINE(readability-identifier-naming)

@@ -108,7 +108,7 @@ namespace factory {
      */
     [[nodiscard]] auto operator()(context &ctx, std::span<std::uint32_t const> spirv, layout_desc const &desc) const
     {
-      return make_sender(detail::make_compute_pipeline_spirv_factory{
+      return make_sender(::vkexec::detail::make_compute_pipeline_spirv_factory{
         .ctx = &ctx, .spirv = std::vector<std::uint32_t>(spirv.begin(), spirv.end()), .desc = desc });
     }
 
@@ -125,7 +125,7 @@ namespace factory {
       layout_desc const &desc,
       std::string_view name = "vkexec.comp") const
     {
-      return make_sender(detail::make_compute_pipeline_glsl_factory{
+      return make_sender(::vkexec::detail::make_compute_pipeline_glsl_factory{
         .ctx = &ctx, .glsl = std::string{ glsl }, .desc = desc, .name = std::string{ name } });
     }
 

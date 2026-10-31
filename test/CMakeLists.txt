@@ -379,3 +379,11 @@ get_property(vkexec_test_executables GLOBAL PROPERTY VKEXEC_TEST_EXECUTABLES)
 get_property(vkexec_header_check_targets GLOBAL PROPERTY VKEXEC_HEADER_CHECK_TARGETS)
 add_custom_target(vkexec_tests DEPENDS ${vkexec_test_executables} ${vkexec_header_check_targets}
                                        vk_bootstrap_feature_tests)
+
+# Compile-only regression: tensor.hpp declares factory::detail before the factories.
+if(vkexec_BUILD_VMA)
+  add_library(vkexec_public_factory_compile OBJECT public_factory_compile.cpp)
+  target_link_libraries(vkexec_public_factory_compile PRIVATE vkexec::vma vkexec::ext_timeline_semaphore)
+  target_compile_features(vkexec_public_factory_compile PRIVATE cxx_std_23)
+  add_dependencies(vkexec_tests vkexec_public_factory_compile)
+endif()
