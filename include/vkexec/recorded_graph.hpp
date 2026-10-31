@@ -3,6 +3,8 @@
 
 #include <vkexec/detail/pass_execution.hpp>
 
+#include <cstdint>
+
 namespace vkexec {
 
 //! Owns recording resources until explicit retirement. Does not own Vulkan commands.
@@ -13,6 +15,10 @@ class recorded_graph
     detail::context_handle state;
     detail::pass_cleanup cleanup;
     explicit storage(detail::context_handle value) : state(std::move(value)) {}
+    storage(storage const &) = delete;
+    auto operator=(storage const &) -> storage & = delete;
+    storage(storage &&) = delete;
+    auto operator=(storage &&) -> storage & = delete;
     virtual ~storage() = default;
     virtual auto finish() -> void = 0;
     auto release() noexcept -> void
@@ -40,7 +46,7 @@ class recorded_graph
     }
   };
   std::unique_ptr<storage> storage_;
-  enum class lifecycle { retired, recorded, submitted };
+  enum class lifecycle : std::uint8_t { retired, recorded, submitted };
   lifecycle lifecycle_{ lifecycle::retired };
 
 public:

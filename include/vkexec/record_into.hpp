@@ -31,7 +31,7 @@ template<class Graph>
         && !detail::same_queue(options.queue, ctx.present_queue_ref())) {
       return fail(errc::invalid_argument, "queue does not belong to context");
     }
-    auto graph = [&] {
+    auto graph = [&]() -> auto {
       if constexpr (!detail::is_pass_graph_sender_v<Graph>) {
         auto env = scheduler_env{ .state = state };
         return detail::materialize_pass_chain(
