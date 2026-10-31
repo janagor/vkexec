@@ -24,6 +24,7 @@ Start with [Getting Started](getting-started/index.md) for a compiled tutorial. 
 getting-started/index
 concepts/index
 guides/index
+record_into
 examples/index
 api/index
 architecture/index

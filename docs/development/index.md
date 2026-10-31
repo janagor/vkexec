@@ -8,6 +8,7 @@ Build, test, and maintain vkexec and its documentation.
 building
 dependencies
 testing
+graph-recording-benchmark
 compiler-support
 environments
 static-analysis

@@ -87,3 +87,6 @@ Compiled programs live in [`examples/`](examples/). The [examples guide](docs/ex
 ## License
 
 [Apache License 2.0](LICENSE).
+
+Caller-owned command buffers can record static or dynamic graphs with
+[`vkexec::record_into()`](docs/record_into.md), retaining temporary resources until explicit completion.
